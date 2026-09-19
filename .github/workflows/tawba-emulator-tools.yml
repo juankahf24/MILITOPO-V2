@@ -1,0 +1,74 @@
+name: Tawba Emulator Tools
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-emulator-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-api26-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Install Android 8 system image
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "system-images;android-26;default;x86"
+      - name: Package and split image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/sdk/system-images/android-26/default out
+          cp -a "$ANDROID_SDK_ROOT/system-images/android-26/default/x86" work/sdk/system-images/android-26/default/
+          tar --zstd -cf work/android-api26-x86-image.tar.zst -C work sdk
+          split -b 180M -d -a 2 work/android-api26-x86-image.tar.zst out/part-
+          sha256sum work/android-api26-x86-image.tar.zst > out/FULL-SHA256SUM.txt
+          sha256sum out/part-* > out/PARTS-SHA256SUMS.txt
+          ls -lh out/
+      - name: Upload image part 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-api26-image-part-00
+          path: out/part-00
+          compression-level: 0
+          retention-days: 1
+      - name: Upload image part 01
+        if: ${{ hashFiles('out/part-01') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-api26-image-part-01
+          path: out/part-01
+          compression-level: 0
+          retention-days: 1
+      - name: Upload image part 02
+        if: ${{ hashFiles('out/part-02') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-api26-image-part-02
+          path: out/part-02
+          compression-level: 0
+          retention-days: 1
+      - name: Upload image part 03
+        if: ${{ hashFiles('out/part-03') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-api26-image-part-03
+          path: out/part-03
+          compression-level: 0
+          retention-days: 1
+      - name: Upload image checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-api26-image-checksums
+          path: |
+            out/FULL-SHA256SUM.txt
+            out/PARTS-SHA256SUMS.txt
+          retention-days: 1
