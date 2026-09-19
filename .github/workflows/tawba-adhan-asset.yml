@@ -1,0 +1,43 @@
+name: Tawba Adhan Asset
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-adhan-asset.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download licensed Adhan audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl --fail --location --retry 4 \
+            'https://upload.wikimedia.org/wikipedia/commons/8/86/Azan.ogg' \
+            --output out/adhan.ogg
+          test -s out/adhan.ogg
+          sha256sum out/adhan.ogg > out/SHA256SUMS.txt
+          cat > out/NOTICE.txt <<'EOF'
+          File: Azan.ogg
+          Author: Andrewler
+          Source: Wikimedia Commons
+          License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+          Source page: https://commons.wikimedia.org/wiki/File:Azan.ogg
+          Embedded without modification for offline prayer alerts.
+          EOF
+          ls -lh out/
+      - name: Upload audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-adhan-audio
+          path: out/
+          if-no-files-found: error
+          retention-days: 1
