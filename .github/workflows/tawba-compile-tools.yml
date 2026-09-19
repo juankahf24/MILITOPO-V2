@@ -1,0 +1,46 @@
+name: Tawba Compile Tools
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-compile-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Install Android platform and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "build-tools;36.0.0"
+      - name: Package compiler files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out/build-tools/lib out/build-tools/lib64 out/signing/lib64
+          cp "$ANDROID_SDK_ROOT/platforms/android-35/android.jar" out/android.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/d8" out/build-tools/d8
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib/d8.jar" out/build-tools/lib/d8.jar
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt2" out/build-tools/aapt2
+          cp "$ANDROID_SDK_ROOT/build-tools/35.0.0/lib64/libc++.so" out/build-tools/lib64/libc++.so
+          cp "$ANDROID_SDK_ROOT/build-tools/36.0.0/lib64/libc++.so" out/signing/lib64/libc++.so
+          chmod +x out/build-tools/d8 out/build-tools/aapt2
+          sha256sum out/android.jar out/build-tools/d8 out/build-tools/lib/d8.jar out/build-tools/aapt2 out/build-tools/lib64/libc++.so out/signing/lib64/libc++.so > out/SHA256SUMS.txt
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-compile-tools-with-libcxx36
+          path: out/
+          if-no-files-found: error
+          retention-days: 1
