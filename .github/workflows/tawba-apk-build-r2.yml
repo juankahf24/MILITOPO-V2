@@ -1,0 +1,109 @@
+name: Tawba APK QA build R2
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk-r2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tawba-build/min/0{0..8}.b64 > /tmp/tawba-source.b64
+          python3 - <<'PY'
+          from pathlib import Path
+          value = ''.join(p.read_text().strip() for p in sorted(Path('tawba-build/remhex').glob('*.hex')))
+          with Path('/tmp/tawba-source.b64').open('a') as handle:
+              handle.write(bytes.fromhex(value).decode('ascii'))
+          PY
+          base64 -d /tmp/tawba-source.b64 > /tmp/source.tar.xz
+          echo "1702ae097184e5c8625a224e015a9a1bbb57c5dadfb2876ac6dcb5f42d7a817b  /tmp/source.tar.xz" | sha256sum -c -
+          rm -rf Tawba && mkdir Tawba
+          tar -xJf /tmp/source.tar.xz -C Tawba
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Align dependencies and warning-free APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i 's/androidx-core = "1.19.0"/androidx-core = "1.17.0"/' Tawba/gradle/libs.versions.toml
+          sed -i 's/androidx-lifecycle = "2.11.0"/androidx-lifecycle = "2.10.0"/' Tawba/gradle/libs.versions.toml
+          QURAN_SCREEN=Tawba/feature/quran/src/main/kotlin/com/tawba/feature/quran/QuranFeatureScreen.kt
+          sed -i 's/import androidx.compose.material.icons.outlined.MenuBook/import androidx.compose.material.icons.automirrored.outlined.MenuBook/' "$QURAN_SCREEN"
+          sed -i 's/Icons.Outlined.MenuBook/Icons.AutoMirrored.Outlined.MenuBook/' "$QURAN_SCREEN"
+          grep -E 'androidx-core|androidx-lifecycle' Tawba/gradle/libs.versions.toml
+          grep -n 'MenuBook' "$QURAN_SCREEN"
+
+      - name: Supply QA Arabic fonts
+        shell: bash
+        run: |
+          set -euo pipefail
+          FONT_DIR=Tawba/feature/quran/src/main/res/font
+          mkdir -p "$FONT_DIR"
+          FONT_SOURCE=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+          cp "$FONT_SOURCE" "$FONT_DIR/amiri_quran_regular.ttf"
+          cp "$FONT_SOURCE" "$FONT_DIR/noto_naskh_arabic_regular.ttf"
+          cp "$FONT_SOURCE" "$FONT_DIR/noto_sans_arabic_regular.ttf"
+
+      - name: Generate validated offline Quran database
+        run: python3 tawba-build/build_db.py
+
+      - name: Compile APK
+        working-directory: Tawba
+        run: gradle :app:assembleQa --no-daemon --stacktrace
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=Tawba/app/build/outputs/apk/qa/app-qa.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/signature.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$APK" | tee /tmp/badging.txt
+          cp "$APK" Tawba-3.5.3-quran-qa.apk
+          {
+            echo "Tawba Phase 1 Part 3 — installable QA APK"
+            echo "Built: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Source SHA-256: 1702ae097184e5c8625a224e015a9a1bbb57c5dadfb2876ac6dcb5f42d7a817b"
+            echo "Quran DB SHA-256: $(cat /tmp/quran-db-sha256.txt)"
+            echo "APK SHA-256: $(sha256sum Tawba-3.5.3-quran-qa.apk | awk '{print $1}')"
+            echo
+            cat /tmp/badging.txt
+            echo
+            cat /tmp/signature.txt
+          } > Tawba-3.5.3-quran-qa-build-report.txt
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-3.5.3-quran-qa-r2
+          path: |
+            Tawba-3.5.3-quran-qa.apk
+            Tawba-3.5.3-quran-qa-build-report.txt
+          if-no-files-found: error
+          retention-days: 7
