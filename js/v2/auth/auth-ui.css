@@ -1,0 +1,139 @@
+/* MILITOPO V2 · Fase B1 · acceso Firebase Auth en plan Spark */
+:root {
+  --m2-auth-bg: rgba(5, 9, 7, .96);
+  --m2-auth-panel: rgba(16, 24, 19, .96);
+  --m2-auth-line: rgba(164, 197, 169, .22);
+  --m2-auth-text: #f3f5ef;
+  --m2-auth-muted: #aeb9af;
+  --m2-auth-accent: #cfe88f;
+  --m2-auth-danger: #ff9f9f;
+  --m2-auth-ok: #b7efad;
+}
+
+#militopoV2AuthOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100001;
+  display: grid;
+  place-items: center;
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 20% 15%, rgba(82, 117, 73, .18), transparent 34%),
+    radial-gradient(circle at 85% 80%, rgba(156, 180, 96, .11), transparent 35%),
+    var(--m2-auth-bg);
+  color: var(--m2-auth-text);
+  font-family: inherit;
+  overflow: auto;
+}
+
+#militopoV2AuthOverlay[hidden] { display: none !important; }
+
+.m2-auth-card {
+  width: min(440px, 100%);
+  border: 1px solid var(--m2-auth-line);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(24, 34, 27, .98), var(--m2-auth-panel));
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .52);
+  padding: 26px;
+}
+
+.m2-auth-brand { text-align: center; margin-bottom: 20px; }
+.m2-auth-brand img { width: 78px; height: 78px; object-fit: contain; border-radius: 20px; }
+.m2-auth-brand h2 { margin: 12px 0 4px; letter-spacing: .12em; font-size: 1.45rem; }
+.m2-auth-brand p { margin: 0; color: var(--m2-auth-muted); font-size: .92rem; }
+
+.m2-auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0; }
+.m2-auth-tab {
+  appearance: none;
+  border: 1px solid var(--m2-auth-line);
+  background: rgba(255,255,255,.03);
+  color: var(--m2-auth-muted);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+  font-weight: 700;
+}
+.m2-auth-tab.is-active { background: rgba(207,232,143,.12); color: var(--m2-auth-text); border-color: rgba(207,232,143,.46); }
+
+.m2-auth-form { display: grid; gap: 12px; }
+.m2-auth-field { display: grid; gap: 6px; }
+.m2-auth-field label { color: var(--m2-auth-muted); font-size: .82rem; font-weight: 700; }
+.m2-auth-field input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--m2-auth-line);
+  border-radius: 12px;
+  padding: 13px 14px;
+  color: var(--m2-auth-text);
+  background: rgba(0,0,0,.26);
+  font: inherit;
+  outline: none;
+}
+.m2-auth-field input:focus { border-color: rgba(207,232,143,.65); box-shadow: 0 0 0 3px rgba(207,232,143,.08); }
+
+.m2-auth-check { display: flex; gap: 9px; align-items: center; color: var(--m2-auth-muted); font-size: .86rem; }
+.m2-auth-check input { width: 18px; height: 18px; }
+
+.m2-auth-primary, .m2-auth-secondary, .m2-auth-link {
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+}
+.m2-auth-primary {
+  border: 0;
+  border-radius: 13px;
+  padding: 13px 15px;
+  font-weight: 900;
+  color: #10160f;
+  background: linear-gradient(135deg, #e3f4b0, #b9d976);
+}
+.m2-auth-primary:disabled { opacity: .55; cursor: wait; }
+.m2-auth-secondary {
+  border: 1px solid var(--m2-auth-line);
+  border-radius: 13px;
+  padding: 12px 14px;
+  color: var(--m2-auth-text);
+  background: rgba(255,255,255,.04);
+  font-weight: 700;
+}
+.m2-auth-link { border: 0; background: none; color: var(--m2-auth-accent); padding: 4px 0; text-decoration: underline; }
+.m2-auth-actions-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+#m2AuthMessage { min-height: 22px; margin: 4px 0 0; font-size: .86rem; color: var(--m2-auth-muted); }
+#m2AuthMessage.is-error { color: var(--m2-auth-danger); }
+#m2AuthMessage.is-ok { color: var(--m2-auth-ok); }
+
+.m2-auth-verify { display: grid; gap: 14px; text-align: center; }
+.m2-auth-verify h3 { margin: 2px 0 0; }
+.m2-auth-verify p { margin: 0; color: var(--m2-auth-muted); line-height: 1.5; }
+.m2-auth-verify strong { color: var(--m2-auth-text); word-break: break-word; }
+.m2-auth-verify-actions { display: grid; gap: 9px; }
+
+#militopoV2AccountBadge {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  top: max(12px, env(safe-area-inset-top));
+  z-index: 99998;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(390px, calc(100vw - 24px));
+  padding: 7px 8px 7px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(207,232,143,.25);
+  background: rgba(8,13,9,.88);
+  backdrop-filter: blur(12px);
+  color: #edf2e7;
+  box-shadow: 0 8px 30px rgba(0,0,0,.3);
+}
+#militopoV2AccountBadge[hidden] { display: none !important; }
+.m2-auth-badge-copy { min-width: 0; display: grid; line-height: 1.05; }
+.m2-auth-badge-copy strong, .m2-auth-badge-copy small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m2-auth-badge-copy strong { font-size: .76rem; }
+.m2-auth-badge-copy small { color: #aeb9af; font-size: .66rem; margin-top: 3px; }
+#m2AuthLogoutBtn { border: 0; border-radius: 999px; padding: 7px 10px; color: #e9eee4; background: rgba(255,255,255,.08); font: inherit; font-size: .72rem; font-weight: 800; }
+
+@media (max-width: 480px) {
+  .m2-auth-card { padding: 20px; border-radius: 20px; }
+  .m2-auth-brand img { width: 68px; height: 68px; }
+}
