@@ -1,0 +1,32 @@
+name: Tawba JADX Tools
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-jadx-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-jadx:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download JADX
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          curl --fail --location --retry 4 \
+            https://github.com/skylot/jadx/releases/download/v1.5.5/jadx-1.5.5.zip \
+            --output out/jadx-1.5.5.zip
+          sha256sum out/jadx-1.5.5.zip > out/SHA256SUMS.txt
+      - name: Upload JADX
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-jadx-tools
+          path: out/
+          if-no-files-found: error
+          retention-days: 1
