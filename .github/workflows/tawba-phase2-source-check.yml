@@ -1,0 +1,37 @@
+name: Tawba Phase 2 Source Check
+
+on:
+  push:
+    branches: [tawba-phase2-part1-build-20260802]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tawba-phase2/source/**'
+      - '.github/workflows/tawba-phase2-source-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify every source fragment
+        shell: bash
+        run: |
+          set -euo pipefail
+          wc -c tawba-phase2/source/part*.b64
+          sha256sum tawba-phase2/source/part*.b64
+          test "$(wc -c < tawba-phase2/source/part00.b64)" = 20000
+          test "$(wc -c < tawba-phase2/source/part01.b64)" = 20000
+          test "$(wc -c < tawba-phase2/source/part02.b64)" = 20000
+          test "$(wc -c < tawba-phase2/source/part03.b64)" = 7272
+          test "$(sha256sum tawba-phase2/source/part00.b64 | cut -d' ' -f1)" = 37237e470c8b9b107716b3d4b723a30706347100b4bbab0daa9f1a0e6e2524e7
+          test "$(sha256sum tawba-phase2/source/part01.b64 | cut -d' ' -f1)" = e135df27ba5583afd3ca8065204255bacacd0a2abb0ea462bd070f8fe99415cd
+          test "$(sha256sum tawba-phase2/source/part02.b64 | cut -d' ' -f1)" = e112ae77fb70ba04ad4c819a5cb7996de6d21e5a13fcc6a244b93bfcd3338aa3
+          test "$(sha256sum tawba-phase2/source/part03.b64 | cut -d' ' -f1)" = 5013f0dbdb0ab63a67a23d38e96ea2ac051d6312819a7df1dac023d855a66005
+          cat tawba-phase2/source/part*.b64 | base64 --decode > /tmp/source.tar.xz
+          sha256sum /tmp/source.tar.xz
+          test "$(sha256sum /tmp/source.tar.xz | cut -d' ' -f1)" = 3d15e9722e94414a9b5aaf1b76bb65ed447ee293c2c795e913436750a63600f3
+          xz -t /tmp/source.tar.xz

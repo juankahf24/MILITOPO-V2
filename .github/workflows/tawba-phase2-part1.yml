@@ -1,0 +1,253 @@
+name: Tawba Phase 2 Part 1
+
+on:
+  push:
+    branches: [tawba-phase2-part1-build-20260802]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tawba-phase2/**'
+      - '.github/workflows/tawba-phase2-part1.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tawba-phase2-part1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout isolated build branch
+        uses: actions/checkout@v4
+
+      - name: Reconstruct and verify source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tawba-phase2/source/part*.b64 | base64 --decode > /tmp/tawba-source.tar.xz
+          echo '3d15e9722e94414a9b5aaf1b76bb65ed447ee293c2c795e913436750a63600f3  /tmp/tawba-source.tar.xz' | sha256sum -c -
+          mkdir -p tawba-android
+          tar -xJf /tmp/tawba-source.tar.xz -C tawba-android
+          cp -a tawba-phase2/overlay/. tawba-android/
+          test -f tawba-android/settings.gradle.kts
+          test -f tawba-android/feature/prayer/src/main/kotlin/com/tawba/feature/prayer/PrayerScreen.kt
+          mkdir -p tawba-android/docs/qa
+
+      - name: Pin and generate immutable Quran database
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 4 \
+            'https://raw.githubusercontent.com/risan/quran-json/v3.1.2/dist/quran.json' \
+            --output /tmp/quran.json
+          test "$(git hash-object /tmp/quran.json)" = '0fbe186ef6c9e54ef69adf5787f0d1419839d3f8'
+          mkdir -p tawba-android/core/database/src/main/assets/databases
+          digest=$(python3 tawba-phase2/build/generate_quran_db.py \
+            /tmp/quran.json \
+            tawba-phase2/build/quran_structure.json \
+            tawba-android/core/database/src/main/assets/databases/tawba_quran.db)
+          test ${#digest} -eq 64
+          python3 - "$digest" <<'PY'
+          from pathlib import Path
+          import re, sys
+          digest = sys.argv[1]
+          path = Path('tawba-android/core/database/src/main/kotlin/com/tawba/core/database/QuranDatabase.kt')
+          source = path.read_text(encoding='utf-8')
+          source, count = re.subn(r'private const val EXPECTED_DATABASE_SHA256 = "[0-9a-f]{64}"', f'private const val EXPECTED_DATABASE_SHA256 = "{digest}"', source)
+          if count != 1:
+              raise SystemExit('Expected database checksum constant not found')
+          path.write_text(source, encoding='utf-8')
+          Path('tawba-android/core/database/src/main/assets/licenses/CORPUS_REFERENCE_NOTICE.txt').write_text(
+              'Corpus build source: risan/quran-json v3.1.2, dist/quran.json.\n'
+              'Source object pinned by Git blob SHA-1 0fbe186ef6c9e54ef69adf5787f0d1419839d3f8.\n'
+              'Structure: 114 surahs, 6,236 ayahs, 604 pages and 30 juz.\n'
+              'Structural and cryptographic integrity are verified; independent religious certification remains required before production publication.\n',
+              encoding='utf-8',
+          )
+          PY
+          python3 - <<'PY' | tee tawba-android/docs/qa/corpus-verification.txt
+          import hashlib, sqlite3
+          from pathlib import Path
+          path=Path('tawba-android/core/database/src/main/assets/databases/tawba_quran.db')
+          db=sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+          print('integrity='+db.execute('PRAGMA integrity_check').fetchone()[0])
+          print('surahs='+str(db.execute('SELECT COUNT(*) FROM surahs').fetchone()[0]))
+          print('ayahs='+str(db.execute('SELECT COUNT(*) FROM ayahs').fetchone()[0]))
+          print('pages='+str(db.execute('SELECT COUNT(DISTINCT page) FROM ayahs').fetchone()[0]))
+          print('juz='+str(db.execute('SELECT COUNT(DISTINCT juz) FROM ayahs').fetchone()[0]))
+          print('sha256='+hashlib.sha256(path.read_bytes()).hexdigest())
+          db.close()
+          PY
+
+      - name: Pin Quran fonts and licenses
+        shell: bash
+        run: |
+          set -euo pipefail
+          fonts='tawba-android/feature/quran/src/main/res/font'
+          licenses='tawba-android/feature/quran/src/main/assets/licenses'
+          mkdir -p "$fonts" "$licenses"
+          curl --fail --location --retry 4 \
+            'https://raw.githubusercontent.com/google/fonts/2796410152d4f9524b68ed46e69c1b60f8e0f7c3/ofl/amiriquran/AmiriQuran-Regular.ttf' \
+            --output "$fonts/amiri_quran_regular.ttf"
+          curl --fail --location --retry 4 \
+            'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoNaskhArabic/NotoNaskhArabic-Regular.ttf' \
+            --output "$fonts/noto_naskh_arabic_regular.ttf"
+          curl --fail --location --retry 4 \
+            'https://raw.githubusercontent.com/notofonts/noto-fonts/main/hinted/ttf/NotoSansArabic/NotoSansArabic-Regular.ttf' \
+            --output "$fonts/noto_sans_arabic_regular.ttf"
+          cat > /tmp/font-sha256.txt <<'EOF'
+          5d07bf69083c371239d4fc5e65e239524818215e927e20abf7b9629ba9d2475c  tawba-android/feature/quran/src/main/res/font/amiri_quran_regular.ttf
+          8c67eaa2f0086872628fc3f7f760386f83c8be5c5e9a1ba3a38891237b2ac7cb  tawba-android/feature/quran/src/main/res/font/noto_naskh_arabic_regular.ttf
+          504d7407d86875acf7d04dfaa0fd7524d0b8797723bc4aa18022f29db25b0b6e  tawba-android/feature/quran/src/main/res/font/noto_sans_arabic_regular.ttf
+          EOF
+          sed -i 's/^          //' /tmp/font-sha256.txt
+          sha256sum -c /tmp/font-sha256.txt
+          cp /tmp/font-sha256.txt tawba-android/docs/qa/font-sha256.txt
+          curl --fail --location --retry 4 \
+            'https://raw.githubusercontent.com/google/fonts/2796410152d4f9524b68ed46e69c1b60f8e0f7c3/ofl/amiriquran/OFL.txt' \
+            --output "$licenses/AMIRI-QURAN-OFL.txt"
+          curl --fail --location --retry 4 \
+            'https://raw.githubusercontent.com/notofonts/noto-fonts/main/LICENSE' \
+            --output "$licenses/NOTO-OFL.txt"
+
+      - name: Apply Android compatibility hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest=Path('tawba-android/app/src/main/AndroidManifest.xml')
+          text=manifest.read_text(encoding='utf-8').replace('\n            android:screenOrientation="unspecified"', '')
+          manifest.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Unit tests, Android Lint and QA APK
+        working-directory: tawba-android
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace \
+            testDebugUnitTest \
+            lintQa \
+            assembleQa \
+            | tee docs/qa/gradle-build.log
+
+      - name: Inspect QA APK and permission surface
+        working-directory: tawba-android
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk='app/build/outputs/apk/qa/app-qa.apk'
+          test -s "$apk"
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          unzip -t "$apk" | tee docs/qa/apk-zip-integrity.txt
+          "$tools/aapt2" dump badging "$apk" | tee docs/qa/apk-badging.txt
+          "$tools/aapt2" dump permissions "$apk" | tee docs/qa/apk-permissions.txt
+          "$tools/apksigner" verify --verbose --print-certs "$apk" | tee docs/qa/apk-signature.txt
+          sha256sum "$apk" | tee docs/qa/apk-sha256.txt
+          unzip -l "$apk" | tee docs/qa/apk-contents.txt
+          grep -q "package: name='com.tawba.app.phase2qa'" docs/qa/apk-badging.txt
+          grep -q "minSdkVersion:'24'" docs/qa/apk-badging.txt
+          grep -q "targetSdkVersion:'36'" docs/qa/apk-badging.txt
+          grep -q 'android.permission.ACCESS_COARSE_LOCATION' docs/qa/apk-permissions.txt
+          grep -q 'android.permission.ACCESS_FINE_LOCATION' docs/qa/apk-permissions.txt
+          ! grep -Eq 'ACCESS_BACKGROUND_LOCATION|POST_NOTIFICATIONS|android.permission.INTERNET' docs/qa/apk-permissions.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' docs/qa/apk-signature.txt
+          grep -q 'assets/databases/tawba_quran.db' docs/qa/apk-contents.txt
+          ! grep -E ' lib/.*\.so$' docs/qa/apk-contents.txt
+          echo 'universal_apk_no_native_abi=true' | tee docs/qa/abi.txt
+
+      - name: Enable KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify installation and launch on Android 7
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 24
+          arch: x86
+          target: default
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb logcat -c
+            adb install -r tawba-android/app/build/outputs/apk/qa/app-qa.apk | tee tawba-android/docs/qa/install-api24.txt
+            adb shell am start -W -n com.tawba.app.phase2qa/com.tawba.app.MainActivity | tee tawba-android/docs/qa/launch-api24.txt
+            sleep 10
+            adb logcat -d -t 2500 > tawba-android/docs/qa/logcat-api24.txt
+            adb shell ps | tee tawba-android/docs/qa/processes-api24.txt
+            adb exec-out screencap -p > tawba-android/docs/qa/launch-api24.png
+            grep 'com.tawba.app.phase2qa' tawba-android/docs/qa/processes-api24.txt
+            ! grep -E 'FATAL EXCEPTION|Process: com.tawba.app.phase2qa.*has died' tawba-android/docs/qa/logcat-api24.txt
+
+      - name: Verify tests, installation and launch on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            cd tawba-android
+            gradle --no-daemon --stacktrace :app:connectedQaAndroidTest :feature:prayer:connectedDebugAndroidTest | tee docs/qa/instrumented-tests.log
+            adb logcat -c
+            adb install -r app/build/outputs/apk/qa/app-qa.apk | tee docs/qa/install-api35.txt
+            adb shell pm grant com.tawba.app.phase2qa android.permission.ACCESS_COARSE_LOCATION
+            adb shell pm grant com.tawba.app.phase2qa android.permission.ACCESS_FINE_LOCATION
+            adb emu geo fix -9.1393 38.7223
+            adb shell am start -W -n com.tawba.app.phase2qa/com.tawba.app.MainActivity | tee docs/qa/launch-api35.txt
+            sleep 10
+            adb logcat -d -t 2500 > docs/qa/logcat-api35.txt
+            adb shell ps -A | tee docs/qa/processes-api35.txt
+            adb exec-out screencap -p > docs/qa/launch-api35.png
+            grep 'com.tawba.app.phase2qa' docs/qa/processes-api35.txt
+            ! grep -E 'FATAL EXCEPTION|Process: com.tawba.app.phase2qa.*has died' docs/qa/logcat-api35.txt
+
+      - name: Package complete source and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/qa
+          cp tawba-android/app/build/outputs/apk/qa/app-qa.apk delivery/Tawba-4.0.1-Phase2-Part1-QA.apk
+          cp -R tawba-android/docs/qa/. delivery/qa/
+          cp tawba-android/docs/PHASE2_PART1_PRAYER_LOCATION.md delivery/
+          (cd tawba-android && zip -qr ../delivery/Tawba-4.0.1-Phase2-Part1-Source.zip . -x '.gradle/*' '*/build/*')
+          sha256sum delivery/Tawba-4.0.1-Phase2-Part1-QA.apk delivery/Tawba-4.0.1-Phase2-Part1-Source.zip > delivery/SHA256SUMS.txt
+
+      - name: Upload verified Phase 2 Part 1 delivery
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-4.0.1-Phase2-Part1
+          path: delivery
+          if-no-files-found: error
+          retention-days: 14
