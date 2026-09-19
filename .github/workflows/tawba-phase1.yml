@@ -1,0 +1,74 @@
+name: Tawba 4 Phase 1 Clean
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tawba-bootstrap/**'
+      - '.github/workflows/tawba-phase1.yml'
+
+concurrency:
+  group: tawba-phase1-clean-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+
+    steps:
+      - name: Checkout isolated branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - name: Reconstruct, test, lint, build and inspect
+        run: bash tawba-bootstrap/ci/prepare-build.sh
+
+      - name: Instrumented tests, installation, launch and capture
+        uses: ReactiveCircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 35
+          target: aosp_atd
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash tawba-bootstrap/ci/emulator-verify.sh
+
+      - name: Package verified delivery
+        run: bash tawba-bootstrap/ci/package-delivery.sh
+
+      - name: Upload verified Phase 1 delivery
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-4.0.0-Phase1-Clean
+          path: delivery
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preserve diagnostics even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-4.0.0-Phase1-Clean-Diagnostics-${{ github.run_attempt }}
+          path: tawba-android/docs/qa
+          if-no-files-found: warn
+          retention-days: 30
