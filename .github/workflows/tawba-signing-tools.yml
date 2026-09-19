@@ -1,0 +1,36 @@
+name: Tawba Signing Tools
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-signing-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-signing-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0"
+          mkdir -p out/lib
+          cp "$ANDROID_SDK_ROOT/build-tools/36.0.0/apksigner" out/
+          cp "$ANDROID_SDK_ROOT/build-tools/36.0.0/lib/apksigner.jar" out/lib/
+          cp "$ANDROID_SDK_ROOT/build-tools/36.0.0/zipalign" out/
+          chmod +x out/apksigner out/zipalign
+          out/apksigner version
+          out/zipalign -h >/dev/null 2>&1 || true
+      - name: Upload signing tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-signing-tools
+          path: out/
+          if-no-files-found: error
+          retention-days: 1
