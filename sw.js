@@ -1,7 +1,7 @@
-/* MILITOPO PWA · v2-a1-backend-20260919 · shell estable y librerías críticas en caché */
-const CACHE_NAME="militopo-v2-pwa-v2-a1-backend-20260919";
-const RUNTIME_CACHE="militopo-v2-pwa-runtime-v2-a1-backend-20260919";
-const APP_SHELL=["./","./index.html","./styles.css","./styles.css?v=v2-a1-backend-20260919","./app.js","./app.js?v=v2-a1-backend-20260919","./manifest.webmanifest","./icons/militopo-192.png","./icons/militopo-512.png","./icons/militopo-startup-1536.png","./icons/militopo-startup-premium-2048x3072.jpg","./js/v2/firebase-config.js","./js/v2/bootstrap.js","./js/v2/auth/roles.js"];
+/* MILITOPO PWA · v2-b1-auth-spark-20260920 · shell estable y librerías críticas en caché */
+const CACHE_NAME="militopo-v2-pwa-v2-b1-auth-spark-20260920";
+const RUNTIME_CACHE="militopo-v2-pwa-runtime-v2-b1-auth-spark-20260920";
+const APP_SHELL=["./","./index.html","./styles.css","./styles.css?v=v2-b1-auth-spark-20260920","./app.js","./app.js?v=v2-b1-auth-spark-20260920","./manifest.webmanifest","./icons/militopo-192.png","./icons/militopo-512.png","./icons/militopo-startup-1536.png","./icons/militopo-startup-premium-2048x3072.jpg","./js/v2/firebase-config.js","./js/v2/bootstrap.js","./js/v2/auth/roles.js","./js/v2/auth/auth-ui.css?v=v2-b1-auth-spark-20260920","./js/v2/auth/auth-ui.js?v=v2-b1-auth-spark-20260920"];
 const REMOTE_ASSETS=[
 "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css","https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
 "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
