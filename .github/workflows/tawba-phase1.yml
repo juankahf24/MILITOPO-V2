@@ -1,0 +1,212 @@
+name: Tawba 4 Phase 1
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tawba-bootstrap/**'
+      - '.github/workflows/tawba-phase1.yml'
+
+concurrency:
+  group: tawba-phase1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout isolated branch
+        uses: actions/checkout@v4
+
+      - name: Reconstruct Tawba source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tawba-bootstrap/source.zip.b64.part* | base64 --decode > /tmp/tawba-source.zip
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          archive = Path('/tmp/tawba-source.zip')
+          target = Path('tawba-android')
+          with zipfile.ZipFile(archive) as zf:
+              bad = zf.testzip()
+              if bad is not None:
+                  raise SystemExit(f'CRC invalide: {bad}')
+              entries = len(zf.infolist())
+              zf.extractall(target)
+          if not (target / 'settings.gradle.kts').is_file():
+              raise SystemExit('Projet Gradle absent après extraction')
+          print(f'Archive validée: {entries} entrées')
+          PY
+          if [ -d tawba-bootstrap/overlay ]; then
+            cp -a tawba-bootstrap/overlay/. tawba-android/
+          fi
+
+      - name: Pin and generate Quran database
+        working-directory: tawba-android
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/databases docs/qa
+          curl --fail --location --retry 4 \
+            'https://raw.githubusercontent.com/risan/quran-json/v3.1.2/dist/quran.json' \
+            --output /tmp/quran.json
+          test "$(git hash-object /tmp/quran.json)" = '0fbe186ef6c9e54ef69adf5787f0d1419839d3f8'
+          python3 tools/generate_quran_db.py \
+            /tmp/quran.json \
+            app/src/main/assets/databases/tawba.db \
+            | tee docs/qa/quran-generation.json
+          python3 tools/verify_corpus.py \
+            app/src/main/assets/databases/tawba.db \
+            | tee docs/qa/corpus-verification-ci.json
+
+      - name: Pin Quran-capable fonts and licenses
+        working-directory: tawba-android
+        shell: bash
+        run: |
+          set -euo pipefail
+          commit='2796410152d4f9524b68ed46e69c1b60f8e0f7c3'
+          base="https://raw.githubusercontent.com/google/fonts/${commit}"
+          mkdir -p app/src/main/assets/fonts app/src/main/assets/licenses
+
+          fetch_font() {
+            local remote="$1" local_name="$2" expected_blob="$3"
+            curl --fail --location --retry 4 "${base}/${remote}" --output "app/src/main/assets/fonts/${local_name}"
+            test "$(git hash-object "app/src/main/assets/fonts/${local_name}")" = "${expected_blob}"
+          }
+
+          fetch_font 'ofl/amiri/Amiri-Regular.ttf' 'amiri.ttf' '14dfa0d6c80db50460d23daa306a7ac92e74676f'
+          fetch_font 'ofl/amiri/Amiri-Bold.ttf' 'amiri_bold.ttf' '017afa9adb8ce417b08796d22d9204569ad211c7'
+          fetch_font 'ofl/amiriquran/AmiriQuran-Regular.ttf' 'amiri_quran.ttf' '2a4de2c4fd3e6fd23656586151935a98723acaff'
+          fetch_font 'ofl/notonaskharabic/NotoNaskhArabic%5Bwght%5D.ttf' 'noto_naskh_arabic.ttf' 'a8d2867262dc7bb28492ad746de5d56235735c8b'
+          fetch_font 'ofl/notosansarabic/NotoSansArabic%5Bwdth%2Cwght%5D.ttf' 'noto_sans_arabic.ttf' 'f1d01edce4ebaedcbe9a06fc75fec07b304ec3df'
+
+          curl --fail --location --retry 4 "${base}/ofl/amiri/OFL.txt" --output app/src/main/assets/licenses/AMIRI-OFL.txt
+          curl --fail --location --retry 4 "${base}/ofl/notonaskharabic/OFL.txt" --output app/src/main/assets/licenses/NOTO-NASKH-ARABIC-OFL.txt
+          curl --fail --location --retry 4 "${base}/ofl/notosansarabic/OFL.txt" --output app/src/main/assets/licenses/NOTO-SANS-ARABIC-OFL.txt
+
+          sha256sum app/src/main/assets/fonts/* | tee docs/qa/font-sha256.txt
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and build tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.0'
+
+      - name: Unit tests, lint and APK build
+        working-directory: tawba-android
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace \
+            :app:testDebugUnitTest \
+            :app:lintDebug \
+            :app:assembleDebug \
+            | tee docs/qa/gradle-build.log
+
+      - name: Preserve lint reports
+        working-directory: tawba-android
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp app/build/reports/lint-results-debug.html docs/qa/
+          cp app/build/reports/lint-results-debug.sarif docs/qa/
+          if [ -f app/build/reports/lint-results-debug.txt ]; then
+            cp app/build/reports/lint-results-debug.txt docs/qa/
+          fi
+
+      - name: Inspect and verify APK
+        working-directory: tawba-android
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$apk"
+          build_tools="$ANDROID_HOME/build-tools/36.0.0"
+          "$build_tools/aapt" dump badging "$apk" | tee docs/qa/apk-badging.txt
+          "$build_tools/apksigner" verify --verbose --print-certs "$apk" | tee docs/qa/apk-signature.txt
+          sha256sum "$apk" | tee docs/qa/apk-sha256.txt
+          unzip -l "$apk" | tee docs/qa/apk-contents.txt
+          grep -q "package: name='com.tawba.app.phase1'" docs/qa/apk-badging.txt
+          grep -q "versionCode='400'" docs/qa/apk-badging.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' docs/qa/apk-signature.txt
+          grep -q 'assets/databases/tawba.db' docs/qa/apk-contents.txt
+          grep -q 'assets/fonts/amiri_quran.ttf' docs/qa/apk-contents.txt
+
+      - name: Instrumented test, installation, launch and capture
+        uses: ReactiveCircus/android-emulator-runner@cad321644df6d8cf1985a42767272ff068adb9cb
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-boot-timeout: 600
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            set -euo pipefail
+            cd tawba-android
+            gradle --no-daemon --stacktrace :app:connectedDebugAndroidTest | tee docs/qa/instrumented-tests.log
+            adb shell pm clear com.tawba.app.phase1
+            adb logcat -c
+            adb shell am start -W -n com.tawba.app.phase1/com.tawba.app.MainActivity | tee docs/qa/activity-start.txt
+            sleep 8
+            adb exec-out screencap -p > docs/qa/home-emulator.png
+            adb shell uiautomator dump /sdcard/tawba-home.xml >/dev/null
+            adb pull /sdcard/tawba-home.xml docs/qa/tawba-home.xml >/dev/null
+            adb shell dumpsys package com.tawba.app.phase1 > docs/qa/dumpsys-package.txt
+            adb shell pidof com.tawba.app.phase1 | tee docs/qa/app-pid.txt
+            test -s docs/qa/app-pid.txt
+            adb logcat -d > docs/qa/logcat-emulator.txt
+            if grep -E 'FATAL EXCEPTION|Process: com\.tawba\.app\.phase1.*has died' docs/qa/logcat-emulator.txt; then
+              exit 1
+            fi
+
+      - name: Package complete reproducible source
+        working-directory: tawba-android
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip -qr ../Tawba-4.0.0-Phase1-Source.zip . \
+            -x 'app/build/*' '.gradle/*'
+          sha256sum ../Tawba-4.0.0-Phase1-Source.zip | tee docs/qa/source-sha256.txt
+
+      - name: Prepare delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p delivery/qa
+          cp tawba-android/app/build/outputs/apk/debug/app-debug.apk delivery/Tawba-4.0.0-Phase1-debug.apk
+          cp Tawba-4.0.0-Phase1-Source.zip delivery/
+          cp -R tawba-android/docs/qa/. delivery/qa/
+          cp tawba-android/docs/PHASE1_STATUS.md delivery/
+          cp tawba-android/docs/QURAN_SOURCE.md delivery/
+          sha256sum delivery/Tawba-4.0.0-Phase1-debug.apk delivery/Tawba-4.0.0-Phase1-Source.zip > delivery/SHA256SUMS.txt
+
+      - name: Upload verified Phase 1 delivery
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-4.0.0-Phase1
+          path: delivery
+          if-no-files-found: error
+          retention-days: 30

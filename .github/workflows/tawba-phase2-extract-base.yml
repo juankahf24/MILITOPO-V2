@@ -1,0 +1,47 @@
+name: Extract Tawba Phase 1 Base
+
+on:
+  push:
+    branches: [tawba-phase2-base-extract-20260802]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-phase2-extract-base.yml'
+      - 'tawba-bootstrap/**'
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout isolated source branch
+        uses: actions/checkout@v4
+
+      - name: Reconstruct and verify Phase 1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tawba-bootstrap/source.zip.b64.part* | base64 --decode > /tmp/tawba-phase1-source.zip
+          python3 - <<'PY'
+          import zipfile
+          archive = '/tmp/tawba-phase1-source.zip'
+          with zipfile.ZipFile(archive) as zf:
+              bad = zf.testzip()
+              if bad is not None:
+                  raise SystemExit(f'CRC invalide: {bad}')
+              print(f'Archive CRC valide: {len(zf.infolist())} entrées')
+          PY
+          sha256sum /tmp/tawba-phase1-source.zip > /tmp/tawba-phase1-source-sha256.txt
+
+      - name: Upload reconstructed source
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-Phase1-Base-Source
+          path: |
+            /tmp/tawba-phase1-source.zip
+            /tmp/tawba-phase1-source-sha256.txt
+          if-no-files-found: error
+          retention-days: 3
