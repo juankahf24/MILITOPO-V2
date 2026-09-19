@@ -1,0 +1,45 @@
+name: Tawba APK Tools
+
+on:
+  push:
+    branches:
+      - tawba-apk-build-tools
+    paths:
+      - '.github/workflows/tawba-apk-tools.yml'
+      - 'tools/tawba-trigger.txt'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/tawba-apk-tools.yml'
+      - 'tools/tawba-trigger.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  APKTOOL_VERSION: '3.0.3'
+
+jobs:
+  package-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Apktool
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools-out
+          curl --fail --location --retry 4 \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v${APKTOOL_VERSION}/apktool_${APKTOOL_VERSION}.jar" \
+            --output tools-out/apktool.jar
+          java -jar tools-out/apktool.jar --version
+          sha256sum tools-out/apktool.jar > tools-out/SHA256SUMS.txt
+
+      - name: Upload tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-apk-tools
+          path: tools-out/
+          if-no-files-found: error
+          retention-days: 1
