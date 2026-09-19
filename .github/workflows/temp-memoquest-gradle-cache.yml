@@ -1,0 +1,88 @@
+name: Temporary MemoQuest Gradle cache
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/temp-memoquest-gradle-cache.yml'
+  workflow_dispatch:
+
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Resolve generic Capacitor Android build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir generic && cd generic
+          cat > package.json <<'JSON'
+          {
+            "private": true,
+            "dependencies": {
+              "@capacitor/android": "8.4.2",
+              "@capacitor/app": "8.0.1",
+              "@capacitor/cli": "8.4.2",
+              "@capacitor/core": "8.4.2",
+              "@capacitor/screen-orientation": "8.0.1",
+              "@capacitor/splash-screen": "8.0.2"
+            }
+          }
+          JSON
+          mkdir www
+          printf '<!doctype html><title>Generic</title>' > www/index.html
+          cat > capacitor.config.json <<'JSON'
+          {"appId":"com.example.generic","appName":"Generic","webDir":"www","android":{"minWebViewVersion":100}}
+          JSON
+          npm install --ignore-scripts --no-audit --no-fund
+          npx cap add android
+          npx cap sync android
+          cd android
+          ./gradlew --no-daemon assembleDebug || ./gradlew --no-daemon dependencies || true
+          cd ../..
+          mkdir -p output
+          tar -I 'zstd -6 -T0' -cf output/gradle-offline-cache.tar.zst -C "$HOME" .gradle
+          split -b 220M -d -a 2 output/gradle-offline-cache.tar.zst output/gradle-part-
+          sha256sum output/gradle-part-* > output/SHA256SUMS.txt
+          rm output/gradle-offline-cache.tar.zst
+      - name: Upload metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-gradle-metadata
+          path: output/SHA256SUMS.txt
+          retention-days: 1
+      - name: Upload part 00
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-gradle-part-00
+          path: output/gradle-part-00
+          retention-days: 1
+      - name: Upload part 01
+        if: ${{ hashFiles('output/gradle-part-01') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-gradle-part-01
+          path: output/gradle-part-01
+          retention-days: 1
+      - name: Upload part 02
+        if: ${{ hashFiles('output/gradle-part-02') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-gradle-part-02
+          path: output/gradle-part-02
+          retention-days: 1
+      - name: Upload part 03
+        if: ${{ hashFiles('output/gradle-part-03') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-gradle-part-03
+          path: output/gradle-part-03
+          retention-days: 1
+      - name: Upload part 04
+        if: ${{ hashFiles('output/gradle-part-04') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-gradle-part-04
+          path: output/gradle-part-04
+          retention-days: 1

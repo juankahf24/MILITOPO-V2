@@ -1,0 +1,37 @@
+name: Temporary MemoQuest Android SDK 36
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/temp-memoquest-sdk36.yml'
+  workflow_dispatch:
+
+jobs:
+  sdk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Package Android SDK 36 components
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
+          mkdir -p kit/platforms kit/build-tools kit/licenses
+          cp -a "$SDK/platforms/android-36" kit/platforms/
+          cp -a "$SDK/build-tools/36.0.0" kit/build-tools/
+          cp -a "$SDK/platform-tools" kit/
+          cp -a "$SDK/licenses/." kit/licenses/
+          tar -I 'zstd -10 -T0' -cf android-sdk36.tar.zst kit
+          sha256sum android-sdk36.tar.zst > SHA256SUMS.txt
+      - name: Upload SDK
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-android-sdk36
+          path: |
+            android-sdk36.tar.zst
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 1

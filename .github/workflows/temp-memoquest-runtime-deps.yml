@@ -1,0 +1,57 @@
+name: Temporary MemoQuest runtime and dependencies
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/temp-memoquest-runtime-deps.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Build isolated React runtime and Capacitor dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/src output
+          cd work
+          cat > package.json <<'JSON'
+          {
+            "private": true,
+            "type": "module",
+            "dependencies": {
+              "@capacitor/android": "8.4.2",
+              "@capacitor/app": "8.0.1",
+              "@capacitor/cli": "8.4.2",
+              "@capacitor/core": "8.4.2",
+              "@capacitor/screen-orientation": "8.0.1",
+              "@capacitor/splash-screen": "8.0.2",
+              "esbuild": "0.25.12",
+              "react": "19.2.7",
+              "react-dom": "19.2.7"
+            }
+          }
+          JSON
+          cat > src/react-runtime.js <<'JS'
+          import React from 'react';
+          import * as JSXRuntime from 'react/jsx-runtime';
+          import * as ReactDOMClient from 'react-dom/client';
+          window.__MQReact = React;
+          window.__MQJSX = JSXRuntime;
+          window.__MQReactDOMClient = ReactDOMClient;
+          JS
+          npm install --ignore-scripts --no-audit --no-fund
+          npx esbuild src/react-runtime.js --bundle --minify --format=iife --target=chrome100 --outfile=../output/react-runtime-MQ140.js
+          tar -I 'zstd -10 -T0' -cf ../output/memoquest-node-modules.tar.zst node_modules
+          cd ../output
+          sha256sum react-runtime-MQ140.js memoquest-node-modules.tar.zst > SHA256SUMS.txt
+      - name: Upload runtime and dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-runtime-deps
+          path: output
+          if-no-files-found: error
+          retention-days: 1

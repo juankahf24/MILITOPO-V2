@@ -1,0 +1,31 @@
+name: Temporary MemoQuest missing Android artifacts
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/temp-memoquest-missing-jars.yml'
+  workflow_dispatch:
+
+jobs:
+  artifacts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download exact AndroidX artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          curl --fail --location --retry 3 -o artifacts/resourceinspection-annotation-1.0.1.jar https://dl.google.com/dl/android/maven2/androidx/resourceinspection/resourceinspection-annotation/1.0.1/resourceinspection-annotation-1.0.1.jar
+          curl --fail --location --retry 3 -o artifacts/concurrent-futures-1.1.0.jar https://dl.google.com/dl/android/maven2/androidx/concurrent/concurrent-futures/1.1.0/concurrent-futures-1.1.0.jar
+          curl --fail --location --retry 3 -o artifacts/core-splashscreen-1.0.1.aar https://dl.google.com/dl/android/maven2/androidx/core/core-splashscreen/1.0.1/core-splashscreen-1.0.1.aar
+          curl --fail --location --retry 3 -o artifacts/core-splashscreen-1.0.1.pom https://dl.google.com/dl/android/maven2/androidx/core/core-splashscreen/1.0.1/core-splashscreen-1.0.1.pom
+          sha256sum artifacts/* > artifacts/SHA256SUMS.txt
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: memoquest-missing-androidx-artifacts
+          path: artifacts
+          if-no-files-found: error
+          retention-days: 1
