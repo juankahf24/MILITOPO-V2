@@ -1,0 +1,56 @@
+name: Apply Muslim QI Premium Motion
+
+on:
+  push:
+    branches:
+      - muslim-qi-design-apk
+    paths:
+      - "muslim-qi-design/scripts/apply_premium_motion.py"
+      - "muslim-qi-design/scripts/apply_premium_motion_phase2.py"
+      - "muslim-qi-design/scripts/cleanup_premium_motion.py"
+      - "muslim-qi-design/app/src/main/java/com/muslimqi/design/PremiumMotion.kt"
+      - ".github/workflows/apply-premium-motion.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply-motion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout animation branch
+        uses: actions/checkout@v4
+        with:
+          ref: muslim-qi-design-apk
+          fetch-depth: 0
+
+      - name: Configure Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Apply core premium motion patch
+        run: python muslim-qi-design/scripts/apply_premium_motion.py
+
+      - name: Apply premium interaction and celebration patch
+        run: python muslim-qi-design/scripts/apply_premium_motion_phase2.py
+
+      - name: Remove duplicate Kotlin imports
+        run: python muslim-qi-design/scripts/cleanup_premium_motion.py
+
+      - name: Validate generated diff
+        run: |
+          git diff --check
+          git diff --stat
+
+      - name: Commit premium animation integration
+        run: |
+          if git diff --quiet; then
+            echo "Premium motion already integrated."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add muslim-qi-design/app/src/main/java/com/muslimqi/design/FunctionalMainActivity.kt
+          git commit -m "fix(muslim-qi): normalize complete premium motion integration"
+          git push origin HEAD:muslim-qi-design-apk
