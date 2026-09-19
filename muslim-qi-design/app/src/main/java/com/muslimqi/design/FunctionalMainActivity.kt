@@ -1263,6 +1263,11 @@ private fun BottomNavigationBar(
                                 scaleY = navigationScale
                                 translationY = navigationLift
                             }
+                            .graphicsLayer {
+                                scaleX = navigationScale
+                                scaleY = navigationScale
+                                translationY = navigationLift
+                            }
                             .clip(RoundedCornerShape(15.dp))
                             .background(
                                 if (active) MaterialTheme.colorScheme.primaryContainer
