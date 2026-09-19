@@ -1,0 +1,220 @@
+name: Tawba Unified Cache Only
+
+on:
+  push:
+    branches: [tawba-unified-cache-only-20260802]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-unified-cache-only.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+          cache-disabled: true
+      - uses: android-actions/setup-android@v3
+      - name: Install Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Generate exact Tawba resolver project
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/tawba-resolver
+          mkdir -p "$root/app/src/main/java/com/tawba/resolver" "$root/app/src/main/res/values" "$root/app/src/test/java/com/tawba/resolver" "$root/app/src/androidTest/java/com/tawba/resolver"
+          cat > "$root/settings.gradle.kts" <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "TawbaResolver"
+          include(":app")
+          EOF
+          cat > "$root/build.gradle.kts" <<'EOF'
+          plugins {
+              id("com.android.application") version "8.13.2" apply false
+              id("com.android.library") version "8.13.2" apply false
+              id("org.jetbrains.kotlin.android") version "2.3.21" apply false
+              id("org.jetbrains.kotlin.plugin.compose") version "2.3.21" apply false
+          }
+          EOF
+          cat > "$root/gradle.properties" <<'EOF'
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
+          kotlin.code.style=official
+          EOF
+          cat > "$root/app/build.gradle.kts" <<'EOF'
+          import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+              id("org.jetbrains.kotlin.plugin.compose")
+          }
+          android {
+              namespace = "com.tawba.resolver"
+              compileSdk = 36
+              buildToolsVersion = "36.0.0"
+              defaultConfig {
+                  applicationId = "com.tawba.resolver"
+                  minSdk = 24
+                  targetSdk = 36
+                  versionCode = 1
+                  versionName = "1"
+                  testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+              }
+              buildFeatures { compose = true }
+              compileOptions {
+                  isCoreLibraryDesugaringEnabled = true
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              testOptions { unitTests.isIncludeAndroidResources = true }
+          }
+          kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
+          dependencies {
+              coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+              implementation("androidx.core:core-ktx:1.17.0")
+              implementation("androidx.core:core-splashscreen:1.2.0")
+              implementation("androidx.activity:activity-compose:1.12.1")
+              implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
+              implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
+              implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+              implementation("androidx.navigation:navigation-compose:2.9.8")
+              implementation("androidx.datastore:datastore-preferences:1.2.1")
+              implementation("com.batoulapps.adhan:adhan:1.2.1")
+              val composeBom = platform("androidx.compose:compose-bom:2025.10.01")
+              implementation(composeBom)
+              androidTestImplementation(composeBom)
+              implementation("androidx.compose.ui:ui")
+              implementation("androidx.compose.ui:ui-tooling-preview")
+              implementation("androidx.compose.foundation:foundation")
+              implementation("androidx.compose.animation:animation")
+              implementation("androidx.compose.material3:material3")
+              implementation("androidx.compose.material:material-icons-extended")
+              debugImplementation("androidx.compose.ui:ui-tooling")
+              debugImplementation("androidx.compose.ui:ui-test-manifest")
+              testImplementation("junit:junit:4.13.2")
+              androidTestImplementation("androidx.test:runner:1.7.0")
+              androidTestImplementation("androidx.test.ext:junit:1.3.0")
+              androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
+              androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+          }
+          tasks.register("resolveSelectedTawbaDependencies") {
+              doLast {
+                  val names = listOf(
+                      "coreLibraryDesugaring",
+                      "debugCompileClasspath",
+                      "debugRuntimeClasspath",
+                      "debugUnitTestCompileClasspath",
+                      "debugUnitTestRuntimeClasspath",
+                      "debugAndroidTestCompileClasspath",
+                      "debugAndroidTestRuntimeClasspath",
+                      "releaseCompileClasspath",
+                      "releaseRuntimeClasspath",
+                  )
+                  names.forEach { name -> configurations.getByName(name).resolve() }
+                  println("Resolved ${names.size} selected configurations")
+              }
+          }
+          EOF
+          cat > "$root/app/src/main/AndroidManifest.xml" <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application android:theme="@style/AppTheme">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+          cat > "$root/app/src/main/res/values/styles.xml" <<'EOF'
+          <resources><style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar" /></resources>
+          EOF
+          cat > "$root/app/src/main/java/com/tawba/resolver/MainActivity.kt" <<'EOF'
+          package com.tawba.resolver
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.material3.Text
+          import com.batoulapps.adhan.CalculationMethod
+          import com.batoulapps.adhan.Coordinates
+          import com.batoulapps.adhan.PrayerTimes
+          import com.batoulapps.adhan.data.DateComponents
+          import java.time.LocalDate
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  val date = LocalDate.now()
+                  val times = PrayerTimes(Coordinates(38.7223, -9.1393), DateComponents(date.year, date.monthValue, date.dayOfMonth), CalculationMethod.MUSLIM_WORLD_LEAGUE.parameters)
+                  setContent { Text("Tawba ${times.fajr.time}") }
+              }
+          }
+          EOF
+          cat > "$root/app/src/test/java/com/tawba/resolver/ResolverUnitTest.kt" <<'EOF'
+          package com.tawba.resolver
+          import org.junit.Assert.assertEquals
+          import org.junit.Test
+          class ResolverUnitTest { @Test fun works() { assertEquals(4, 2 + 2) } }
+          EOF
+          cat > "$root/app/src/androidTest/java/com/tawba/resolver/ResolverInstrumentedTest.kt" <<'EOF'
+          package com.tawba.resolver
+          import androidx.test.ext.junit.runners.AndroidJUnit4
+          import org.junit.Assert.assertTrue
+          import org.junit.Test
+          import org.junit.runner.RunWith
+          @RunWith(AndroidJUnit4::class)
+          class ResolverInstrumentedTest { @Test fun works() { assertTrue(true) } }
+          EOF
+      - name: Compile and resolve the complete exact stack
+        working-directory: /tmp/tawba-resolver
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace clean :app:resolveSelectedTawbaDependencies :app:assembleDebug :app:testDebugUnitTest :app:assembleDebugAndroidTest | tee /tmp/unified-cache-build.log
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          grep -q 'failures="0"' app/build/test-results/testDebugUnitTest/TEST-com.tawba.resolver.ResolverUnitTest.xml
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/com.android.tools.build/gradle/8.13.2"
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-compat/2.3.21"
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-impl/2.3.21"
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/com.android.tools/desugar_jdk_libs/2.0.3"
+      - name: Package one coherent cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/tawba-unified-cache
+          cp -a "$HOME/.gradle/caches" /tmp/tawba-unified-cache/
+          cp -a "$HOME/.gradle/native" /tmp/tawba-unified-cache/ 2>/dev/null || true
+          cp /tmp/unified-cache-build.log /tmp/tawba-unified-cache/
+          du -sh /tmp/tawba-unified-cache | tee /tmp/tawba-unified-cache/size.txt
+          tar -C /tmp -cf /tmp/tawba-unified-cache.tar tawba-unified-cache
+          sha256sum /tmp/tawba-unified-cache.tar > /tmp/tawba-unified-cache.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-Unified-Cache-Only
+          path: |
+            /tmp/tawba-unified-cache.tar
+            /tmp/tawba-unified-cache.sha256
+          compression-level: 6
+          if-no-files-found: error
+          retention-days: 3
