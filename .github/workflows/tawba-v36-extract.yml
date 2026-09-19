@@ -1,0 +1,34 @@
+name: Extract Tawba 3.6 Source
+
+on:
+  push:
+    branches: [tawba-phase2-v36-inspect-20260802]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-v36-extract.yml'
+      - 'tawba-ci/xz/**'
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct verified Tawba 3.6 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tawba-ci/xz/xz* | base64 -d > /tmp/tawba-v36.tar.xz
+          echo '6a4268d96590a6dd1b624e5aadec38aec7e6aafed4916551b2272d79665962b4  /tmp/tawba-v36.tar.xz' | sha256sum -c -
+          xz -t /tmp/tawba-v36.tar.xz
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-3.6-Source
+          path: /tmp/tawba-v36.tar.xz
+          if-no-files-found: error
+          retention-days: 3

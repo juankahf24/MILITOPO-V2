@@ -1,0 +1,125 @@
+name: Tawba Android Build
+
+on:
+  push:
+    branches: [tawba-3-6-build]
+    paths:
+      - "tawba-ci/**"
+      - ".github/workflows/tawba-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tawba-ci/**"
+      - ".github/workflows/tawba-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout isolated build branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Rebuild exact Tawba source project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat tawba-ci/xz/xz* | base64 -d > /tmp/tawba-project.tar.xz
+          echo "6a4268d96590a6dd1b624e5aadec38aec7e6aafed4916551b2272d79665962b4  /tmp/tawba-project.tar.xz" | sha256sum -c -
+          mkdir -p /tmp/tawba
+          tar -xJf /tmp/tawba-project.tar.xz -C /tmp/tawba
+          test -f /tmp/tawba/settings.gradle
+          test -f /tmp/tawba/app/src/main/AndroidManifest.xml
+
+      - name: Build release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/tawba
+          gradle :app:assembleRelease --stacktrace --no-daemon
+
+      - name: Verify unsigned APK structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=/tmp/tawba/app/build/outputs/apk/release/app-release-unsigned.apk
+          test -s "$APK"
+          unzip -t "$APK"
+          unzip -l "$APK" | grep -q "classes.dex"
+          sha256sum "$APK" > /tmp/tawba-unsigned-sha256.txt
+
+      - name: Export Android signing tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/android-signing-tools/lib64
+          APKSIG_JAR=$(find "$HOME/.gradle/caches/modules-2/files-2.1/com.android.tools.build/apksig" -type f -name 'apksig-*.jar' | sort | tail -1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort | tail -1)
+          test -s "$APKSIG_JAR"
+          test -x "$ZIPALIGN"
+          cp "$APKSIG_JAR" /tmp/android-signing-tools/apksig.jar
+          cp "$ZIPALIGN" /tmp/android-signing-tools/zipalign
+          BUILD_TOOLS_DIR=$(dirname "$ZIPALIGN")
+          test -s "$BUILD_TOOLS_DIR/lib/apksigner.jar"
+          cp "$BUILD_TOOLS_DIR/lib/apksigner.jar" /tmp/android-signing-tools/apksigner.jar
+          if [ -f "$BUILD_TOOLS_DIR/lib64/libc++.so" ]; then cp "$BUILD_TOOLS_DIR/lib64/libc++.so" /tmp/android-signing-tools/lib64/libc++.so; fi
+          chmod +x /tmp/android-signing-tools/zipalign
+
+      - name: Export Android compile tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMPILE_DIR=/tmp/android-compile-tools
+          mkdir -p "$COMPILE_DIR/platform" "$COMPILE_DIR/build-tools/lib" "$COMPILE_DIR/build-tools/lib64"
+          BUILD_TOOLS_DIR=$(dirname "$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort | tail -1)")
+          test -x "$BUILD_TOOLS_DIR/aapt2"
+          test -x "$BUILD_TOOLS_DIR/d8"
+          test -s "$BUILD_TOOLS_DIR/lib/d8.jar"
+          test -s "$ANDROID_HOME/platforms/android-36/android.jar"
+          cp "$BUILD_TOOLS_DIR/aapt2" "$COMPILE_DIR/build-tools/aapt2"
+          cp "$BUILD_TOOLS_DIR/d8" "$COMPILE_DIR/build-tools/d8"
+          cp "$BUILD_TOOLS_DIR/lib/d8.jar" "$COMPILE_DIR/build-tools/lib/d8.jar"
+          cp "$ANDROID_HOME/platforms/android-36/android.jar" "$COMPILE_DIR/platform/android.jar"
+          if [ -f "$BUILD_TOOLS_DIR/lib64/libc++.so" ]; then cp "$BUILD_TOOLS_DIR/lib64/libc++.so" "$COMPILE_DIR/build-tools/lib64/libc++.so"; fi
+          chmod +x "$COMPILE_DIR/build-tools/aapt2" "$COMPILE_DIR/build-tools/d8"
+          printf '%s\n' "$BUILD_TOOLS_DIR" > "$COMPILE_DIR/source-build-tools.txt"
+
+      - name: Upload unsigned APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-v3.6.0-unsigned
+          path: |
+            /tmp/tawba/app/build/outputs/apk/release/app-release-unsigned.apk
+            /tmp/tawba-unsigned-sha256.txt
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload Android signing tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-tools
+          path: /tmp/android-signing-tools
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Upload Android compile tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-compile-tools
+          path: /tmp/android-compile-tools
+          if-no-files-found: error
+          retention-days: 3
