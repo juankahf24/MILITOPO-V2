@@ -309,27 +309,27 @@ let MODULOS = 8;
 
     function guardarStorage() {
         try {
-            localStorage.setItem("milimoto_puntos", JSON.stringify(puntosData));
-            localStorage.setItem("milimoto_tipo", currentCoordType);
-            localStorage.setItem("milimoto_modulos", MODULOS);
-            localStorage.setItem("milimoto_puntos_por_modulo", PUNTOS_POR_MODULO);
-            localStorage.setItem("milimoto_app_mode", "topografica");
-            localStorage.setItem("milimoto_topografia_started", "1");
-            localStorage.setItem("milimoto_topografia_current_step", String(currentStep || 1));
+            localStorage.setItem("militopo_v2_topo_puntos", JSON.stringify(puntosData));
+            localStorage.setItem("militopo_v2_topo_tipo", currentCoordType);
+            localStorage.setItem("militopo_v2_topo_modulos", MODULOS);
+            localStorage.setItem("militopo_v2_topo_puntos_por_modulo", PUNTOS_POR_MODULO);
+            localStorage.setItem("militopo_v2_topo_app_mode", "topografica");
+            localStorage.setItem("militopo_v2_topo_topografia_started", "1");
+            localStorage.setItem("militopo_v2_topo_topografia_current_step", String(currentStep || 1));
             const numRec = document.getElementById("numRecorridos")?.value || "";
-            if (numRec) localStorage.setItem("milimoto_num_recorridos", numRec);
-            localStorage.setItem("milimoto_topografia_last_save", new Date().toISOString());
+            if (numRec) localStorage.setItem("militopo_v2_topo_num_recorridos", numRec);
+            localStorage.setItem("militopo_v2_topo_topografia_last_save", new Date().toISOString());
         } catch (e) {
             console.warn("No se pudo guardar estado de topografía:", e);
         }
     }
 
     function cargarStorage() {
-        let saved = localStorage.getItem("milimoto_puntos"),
-            savedTipo = localStorage.getItem("milimoto_tipo"),
-            savedModulos = localStorage.getItem("milimoto_modulos"),
-            savedPuntosPorModulo = localStorage.getItem("milimoto_puntos_por_modulo"),
-            savedAppMode = localStorage.getItem("milimoto_app_mode");
+        let saved = localStorage.getItem("militopo_v2_topo_puntos"),
+            savedTipo = localStorage.getItem("militopo_v2_topo_tipo"),
+            savedModulos = localStorage.getItem("militopo_v2_topo_modulos"),
+            savedPuntosPorModulo = localStorage.getItem("militopo_v2_topo_puntos_por_modulo"),
+            savedAppMode = localStorage.getItem("militopo_v2_topo_app_mode");
 
         MODULOS = savedModulos ? parseInt(savedModulos) : 8;
         PUNTOS_POR_MODULO = savedPuntosPorModulo ? parseInt(savedPuntosPorModulo) : 5;
@@ -360,14 +360,14 @@ let MODULOS = 8;
 
 
     function getSavedTopografiaStep() {
-        const raw = parseInt(localStorage.getItem("milimoto_topografia_current_step") || "1", 10);
+        const raw = parseInt(localStorage.getItem("militopo_v2_topo_topografia_current_step") || "1", 10);
         return Math.max(1, Math.min(3, Number.isFinite(raw) ? raw : 1));
     }
 
     function hasTopografiaSavedSession() {
-        return localStorage.getItem("milimoto_topografia_started") === "1" ||
-               localStorage.getItem("milimoto_app_mode") === "topografica" ||
-               !!localStorage.getItem("milimoto_puntos");
+        return localStorage.getItem("militopo_v2_topo_topografia_started") === "1" ||
+               localStorage.getItem("militopo_v2_topo_app_mode") === "topografica" ||
+               !!localStorage.getItem("militopo_v2_topo_puntos");
     }
 
     function syncTopografiaInputsToState() {
@@ -408,7 +408,7 @@ let MODULOS = 8;
     }
 
     function restaurarSeleccionNumRecorridos() {
-        const savedNum = localStorage.getItem("milimoto_num_recorridos");
+        const savedNum = localStorage.getItem("militopo_v2_topo_num_recorridos");
         const select = document.getElementById("numRecorridos");
         if (savedNum && select && [...select.options].some(o => o.value === savedNum)) {
             select.value = savedNum;
@@ -420,14 +420,14 @@ let MODULOS = 8;
         if (!ok) return;
 
         [
-            "milimoto_puntos",
-            "milimoto_tipo",
-            "milimoto_modulos",
-            "milimoto_puntos_por_modulo",
-            "milimoto_num_recorridos",
-            "milimoto_topografia_current_step",
-            "milimoto_topografia_last_save",
-            "milimoto_topografia_started"
+            "militopo_v2_topo_puntos",
+            "militopo_v2_topo_tipo",
+            "militopo_v2_topo_modulos",
+            "militopo_v2_topo_puntos_por_modulo",
+            "militopo_v2_topo_num_recorridos",
+            "militopo_v2_topo_topografia_current_step",
+            "militopo_v2_topo_topografia_last_save",
+            "militopo_v2_topo_topografia_started"
         ].forEach(k => {
             try { localStorage.removeItem(k); } catch (e) {}
         });
@@ -4051,7 +4051,7 @@ function openMapModal() {
 
     function applyTopografiaNightTheme() {
         document.body.classList.add("dark");
-        try { localStorage.setItem("milimoto_tema", "dark"); } catch (e) {}
+        try { localStorage.setItem("militopo_v2_topo_tema", "dark"); } catch (e) {}
         document.querySelectorAll(".theme-opt").forEach(o => {
             o.classList.remove("active");
             if (o.getAttribute("data-theme") === "dark") o.classList.add("active");
@@ -4145,7 +4145,7 @@ function openMapModal() {
     function changeModeWithPrompt(targetMode) {
         if (!hasUnsavedChanges) {
             appMode = targetMode;
-            try { localStorage.setItem("milimoto_app_mode", appMode); } catch (e) {}
+            try { localStorage.setItem("militopo_v2_topo_app_mode", appMode); } catch (e) {}
             if (appMode === "orientacion") showOrientacionMode();
             else showTopograficaMode();
             return;
@@ -4159,7 +4159,7 @@ function openMapModal() {
                 return;
             }
             appMode = targetMode;
-            try { localStorage.setItem("milimoto_app_mode", appMode); } catch (e) {}
+            try { localStorage.setItem("militopo_v2_topo_app_mode", appMode); } catch (e) {}
             if (appMode === "orientacion") showOrientacionMode();
             else showTopograficaMode();
             return;
@@ -4170,7 +4170,7 @@ function openMapModal() {
 
         clearUnsavedChanges();
         appMode = targetMode;
-        try { localStorage.setItem("milimoto_app_mode", appMode); } catch (e) {}
+        try { localStorage.setItem("militopo_v2_topo_app_mode", appMode); } catch (e) {}
         if (appMode === "orientacion") showOrientacionMode();
         else showTopograficaMode();
     }
@@ -4224,7 +4224,7 @@ function openMapModal() {
     function syncOrientationParticipants() {
         const txt = document.getElementById("oriParticipantsText");
         if (!txt) return;
-        try { localStorage.setItem("milimoto_ori_participants", txt.value || ""); } catch (e) {}
+        try { localStorage.setItem("militopo_v2_topo_ori_participants", txt.value || ""); } catch (e) {}
     }
 
     function setTopografiaUrlState() {
@@ -4278,7 +4278,7 @@ function openMapModal() {
             startupGuideOpenTimer = null;
             if (appMode !== "topografica" || document.body.classList.contains("startup-active")) return;
             let hideGuide = false;
-            try { hideGuide = localStorage.getItem("militopo_topografia_guide_hidden") === "1"; } catch (e) {}
+            try { hideGuide = localStorage.getItem("militopo_v2_topografia_guide_hidden") === "1"; } catch (e) {}
             if (!hideGuide) setInstructionsModalVisible(true);
         }, openDelay);
     }
@@ -4552,8 +4552,8 @@ function openMapModal() {
         });
         setTopografiaUrlState();
         try {
-            localStorage.setItem("milimoto_app_mode", appMode);
-            localStorage.setItem("milimoto_topografia_started", "1");
+            localStorage.setItem("militopo_v2_topo_app_mode", appMode);
+            localStorage.setItem("militopo_v2_topo_topografia_started", "1");
         } catch (e) {}
 
         // Conserva el paso en el que estaba el usuario. Solo una sesión nueva empieza en el paso 1.
@@ -4576,9 +4576,9 @@ function openMapModal() {
         });
         currentStep = step;
         try {
-            localStorage.setItem("milimoto_topografia_current_step", String(step));
-            localStorage.setItem("milimoto_topografia_started", "1");
-            localStorage.setItem("milimoto_app_mode", "topografica");
+            localStorage.setItem("militopo_v2_topo_topografia_current_step", String(step));
+            localStorage.setItem("militopo_v2_topo_topografia_started", "1");
+            localStorage.setItem("militopo_v2_topo_app_mode", "topografica");
         } catch (e) {}
         guardarStorage();
         if (typeof updateTopoVisualState === "function") updateTopoVisualState();
@@ -4654,7 +4654,7 @@ function openMapModal() {
         document.getElementById("confirmStep2")?.addEventListener("click", () => { clearUnsavedChanges(); });
         document.getElementById("generarBtn")?.addEventListener("click", () => { clearUnsavedChanges(); });
 
-        const savedOriParticipants = localStorage.getItem("milimoto_ori_participants");
+        const savedOriParticipants = localStorage.getItem("militopo_v2_topo_ori_participants");
         if (savedOriParticipants && document.getElementById("oriParticipantsText")) document.getElementById("oriParticipantsText").value = savedOriParticipants;
         updateHeaderModeTabs();
         document.getElementById("oriParticipantsText")?.addEventListener("input", syncOrientationParticipants);
@@ -4826,7 +4826,7 @@ function openMapModal() {
         document.getElementById("themeSwitch")?.addEventListener("click", e => {
             let t = e.target.closest(".theme-opt")?.getAttribute("data-theme");
             if (t) {
-                localStorage.setItem("milimoto_tema", t);
+                localStorage.setItem("militopo_v2_topo_tema", t);
                 if (t === "dark") document.body.classList.add("dark");
                 else document.body.classList.remove("dark");
                 document.querySelectorAll(".theme-opt").forEach(o => o.classList.remove("active"));
@@ -4991,7 +4991,7 @@ function openMapModal() {
         openInstrBtn?.addEventListener("click", showInstructions);
         closeInstrBtn?.addEventListener("click", hideInstructions);
         document.getElementById("dontShowTopoGuideBtn")?.addEventListener("click", () => {
-            try { localStorage.setItem("militopo_topografia_guide_hidden", "1"); } catch (e) {}
+            try { localStorage.setItem("militopo_v2_topografia_guide_hidden", "1"); } catch (e) {}
             hideInstructions();
         });
         window.addEventListener("click", (e) => { if (e.target === instrModal) hideInstructions(); });

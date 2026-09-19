@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Fase A: Storage permanece cerrado. Se abrirán rutas concretas para avatar,
+    // mapas y exportaciones cuando existan sus flujos y validaciones.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

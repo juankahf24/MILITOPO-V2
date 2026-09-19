@@ -1,0 +1,30 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "v2": {
+      "access": {
+        "$eventId": {
+          "$uid": {
+            ".read": false,
+            ".write": false
+          }
+        }
+      },
+      "live": {
+        "$eventId": {
+          ".read": "auth != null && (auth.token.role === 'super_admin' || root.child('v2/access').child($eventId).child(auth.uid).child('read').val() === true)",
+          "participants": {
+            "$uid": {
+              ".write": "auth != null && (auth.uid === $uid || auth.token.role === 'super_admin' || root.child('v2/access').child($eventId).child(auth.uid).child('manage').val() === true)",
+              ".validate": "newData.hasChildren(['updatedAt'])"
+            }
+          },
+          "meta": {
+            ".write": "auth != null && (auth.token.role === 'super_admin' || root.child('v2/access').child($eventId).child(auth.uid).child('manage').val() === true)"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
-  "name": "MILITOPO",
+  "name": "MILITOPO V2",
   "short_name": "MILITOPO",
-  "description": "Herramienta MILITOPO para Topografía y Orientación.",
+  "description": "MILITOPO V2 · plataforma de Topografía, Orientación, carreras y resultados.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
