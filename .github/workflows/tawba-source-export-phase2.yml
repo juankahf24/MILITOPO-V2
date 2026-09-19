@@ -1,0 +1,56 @@
+name: Tawba Source Export for Phase 2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tawba-bootstrap/**'
+      - '.github/workflows/tawba-source-export-phase2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct verified Phase 1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf tawba-android delivery
+          mkdir -p tawba-android delivery
+          cat tawba-bootstrap/source.zip.b64.part* | base64 --decode > /tmp/tawba-source.zip
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile
+          source = Path('/tmp/tawba-source.zip')
+          target = Path('tawba-android')
+          with zipfile.ZipFile(source) as zf:
+              bad = zf.testzip()
+              if bad:
+                  raise SystemExit(f'CRC invalide: {bad}')
+              zf.extractall(target)
+              print(f'archive_entries={len(zf.infolist())}')
+          if not (target / 'settings.gradle.kts').is_file():
+              raise SystemExit('settings.gradle.kts absent')
+          PY
+          cat tawba-bootstrap/clean-overlay.b64.part* | base64 --decode > /tmp/tawba-clean-overlay.tar.gz
+          echo 'e6863d0c92ab0737258cf3085baae019f3b80ad7b03f31f07396c4f33f9c2f83  /tmp/tawba-clean-overlay.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/tawba-clean-overlay.tar.gz -C tawba-android
+          cp -a tawba-bootstrap/overlay/. tawba-android/
+          rm -f tawba-android/app/lint-baseline.xml
+          find tawba-android -type f | sort > delivery/source-files.txt
+          (cd tawba-android && zip -qr ../delivery/Tawba-4.1.0-Phase1-Clean-Source.zip . -x '.gradle/*' '*/build/*')
+          sha256sum delivery/Tawba-4.1.0-Phase1-Clean-Source.zip > delivery/SHA256SUMS.txt
+
+      - name: Upload verified source
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-4.1.0-Phase1-Clean-Source
+          path: delivery
+          if-no-files-found: error
+          retention-days: 7
