@@ -1,0 +1,41 @@
+name: Tawba 3.5.2 Compiler Tools
+
+on:
+  push:
+    branches: [tawba-352-build-tools]
+    paths:
+      - '.github/workflows/tawba-352-compiler-tools.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-352-compiler-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Package Android compiler tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tools-out
+          ANDROID_JAR=$(find "$ANDROID_HOME/platforms" -mindepth 2 -maxdepth 2 -name android.jar | sort -V | tail -1)
+          test -f "$ANDROID_JAR"
+          cp "$ANDROID_JAR" tools-out/android.jar
+          curl --fail --location --retry 4 \
+            'https://dl.google.com/dl/android/maven2/com/android/tools/r8/9.1.31/r8-9.1.31.jar' \
+            --output tools-out/r8.jar
+          java -cp tools-out/r8.jar com.android.tools.r8.D8 --version
+          sha256sum tools-out/* > tools-out/SHA256SUMS.txt
+
+      - name: Upload compiler tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: tawba-352-compiler-tools
+          path: tools-out/
+          if-no-files-found: error
+          retention-days: 1
