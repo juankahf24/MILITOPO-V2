@@ -1,0 +1,58 @@
+name: Tawba Gradle Cache V3
+on:
+  push:
+    branches: [tawba-toolchain-export-20260802]
+  pull_request:
+    branches: [main]
+    paths: ['tawba-resolver/**', '.github/workflows/tawba-gradle-cache-v3.yml']
+permissions:
+  contents: read
+jobs:
+  cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+          cache-disabled: true
+      - uses: android-actions/setup-android@v3
+      - name: Install API 36
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Resolve dependencies
+        id: resolve
+        continue-on-error: true
+        working-directory: tawba-resolver
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace :app:resolveSelectedTawbaDependencies | tee /tmp/tawba-resolver.log
+      - name: Create archive
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/tawba-gradle-cache
+          cp -a "$HOME/.gradle/caches" /tmp/tawba-gradle-cache/
+          cp -a "$HOME/.gradle/native" /tmp/tawba-gradle-cache/ 2>/dev/null || true
+          cp /tmp/tawba-resolver.log /tmp/tawba-gradle-cache/ 2>/dev/null || true
+          echo "resolution_outcome=${{ steps.resolve.outcome }}" > /tmp/tawba-gradle-cache/resolution-status.txt
+          du -sh /tmp/tawba-gradle-cache | tee /tmp/tawba-gradle-cache/size.txt
+          tar -C /tmp -cf /tmp/tawba-gradle-cache.tar tawba-gradle-cache
+          sha256sum /tmp/tawba-gradle-cache.tar > /tmp/tawba-gradle-cache.sha256
+      - name: Upload cache
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-Gradle-Cache-V3
+          path: |
+            /tmp/tawba-gradle-cache.tar
+            /tmp/tawba-gradle-cache.sha256
+          if-no-files-found: error
+          compression-level: 6
+          retention-days: 3

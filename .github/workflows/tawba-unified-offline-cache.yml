@@ -1,0 +1,76 @@
+name: Tawba Unified Offline Cache
+
+on:
+  push:
+    branches: [tawba-toolchain-export-20260802]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tawba-resolver/**'
+      - '.github/workflows/tawba-unified-offline-cache.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+          cache-disabled: true
+      - uses: android-actions/setup-android@v3
+      - name: Install API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Compile exact Android, Kotlin, Compose and test stack
+        working-directory: tawba-resolver
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle --no-daemon --stacktrace \
+            clean \
+            :app:resolveSelectedTawbaDependencies \
+            :app:assembleDebug \
+            :app:testDebugUnitTest \
+            :app:assembleDebugAndroidTest \
+            | tee /tmp/unified-cache-build.log
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          test -f app/build/test-results/testDebugUnitTest/TEST-com.tawba.resolver.ResolverUnitTest.xml
+          grep -q 'failures="0"' app/build/test-results/testDebugUnitTest/TEST-com.tawba.resolver.ResolverUnitTest.xml
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/com.android.tools.build/gradle/8.13.2"
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-compat/2.3.21"
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-impl/2.3.21"
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/com.android.tools/desugar_jdk_libs/2.0.3"
+      - name: Package one coherent Gradle cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/tawba-unified-cache
+          mkdir -p "$root"
+          cp -a "$HOME/.gradle/caches" "$root/"
+          cp -a "$HOME/.gradle/native" "$root/" 2>/dev/null || true
+          cp /tmp/unified-cache-build.log "$root/"
+          du -sh "$root" | tee "$root/size.txt"
+          tar -C /tmp -cf /tmp/tawba-unified-cache.tar tawba-unified-cache
+          sha256sum /tmp/tawba-unified-cache.tar > /tmp/tawba-unified-cache.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-Unified-Offline-Cache
+          path: |
+            /tmp/tawba-unified-cache.tar
+            /tmp/tawba-unified-cache.sha256
+          compression-level: 6
+          if-no-files-found: error
+          retention-days: 3

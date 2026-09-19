@@ -1,0 +1,71 @@
+name: Tawba Kotlin Cache Direct
+
+on:
+  push:
+    branches: [tawba-toolchain-export-20260802]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/tawba-kotlin-cache-direct.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  export-kotlin-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+          cache-disabled: true
+      - name: Warm Kotlin 2.3.21 compiler cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/kotlin-warmup
+          mkdir -p "$root/src/main/kotlin"
+          cat > "$root/settings.gradle.kts" <<'EOF'
+          pluginManagement { repositories { mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositories { mavenCentral() } }
+          rootProject.name = "KotlinWarmup"
+          EOF
+          cat > "$root/build.gradle.kts" <<'EOF'
+          plugins { kotlin("jvm") version "2.3.21" }
+          kotlin { jvmToolchain(17) }
+          repositories { mavenCentral() }
+          dependencies { implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1") }
+          EOF
+          cat > "$root/src/main/kotlin/Main.kt" <<'EOF'
+          import kotlinx.coroutines.runBlocking
+          fun main() = runBlocking { println("ready") }
+          EOF
+          cd "$root"
+          gradle --no-daemon --stacktrace compileKotlin
+          test -f build/classes/kotlin/main/MainKt.class
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-compat/2.3.21"
+          test -d "$HOME/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-build-tools-impl/2.3.21"
+      - name: Package exact incremental cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/kotlin-cache
+          cp -a "$HOME/.gradle/caches" /tmp/kotlin-cache/
+          cp -a "$HOME/.gradle/native" /tmp/kotlin-cache/ 2>/dev/null || true
+          tar -C /tmp -cf /tmp/kotlin-cache.tar kotlin-cache
+          sha256sum /tmp/kotlin-cache.tar > /tmp/kotlin-cache.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tawba-Kotlin-Cache-Direct
+          path: |
+            /tmp/kotlin-cache.tar
+            /tmp/kotlin-cache.sha256
+          compression-level: 6
+          if-no-files-found: error
+          retention-days: 3
