@@ -1607,10 +1607,10 @@ module.exports = QRCode;
 
 <div id="gpsAudioVisualPulse" class="gps-audio-visual-pulse"></div>
 <div id="toast" style="display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1c2414;color:#f5e6c8;border-radius:999px;padding:12px 16px;font-weight:900"></div>
-<script type="module" src="../js/live/live-phase2.js?v=v77-reset-seguro-wakelock-20260919"></script>
+<script type="module" src="../js/live/live-phase2.js?v=v2-a1-backend-20260919"></script>
 <script>
-const BOOT_PAYLOAD_KEYS=["militopo_v1_participant_boot_payload_v3","militopo_v1_participant_boot_payload_latest","militopo_v1_participant_app_snapshot_v1","militopo_v1_participante_recorrido_activo_v1","militopo_v1_participante_recorrido_rescate_v1"];
-const PARTICIPANT_FORCE_BLANK_KEY="militopo_v1_participant_force_blank_v1";
+const BOOT_PAYLOAD_KEYS=["militopo_v2_participant_boot_payload_v3","militopo_v2_participant_boot_payload_latest","militopo_v2_participant_app_snapshot_v1","militopo_v2_participante_recorrido_activo_v1","militopo_v2_participante_recorrido_rescate_v1"];
+const PARTICIPANT_FORCE_BLANK_KEY="militopo_v2_participant_force_blank_v1";
 function isParticipantHardResetStartup(){
   try{
     const params=new URLSearchParams(location.search||"");
@@ -1627,10 +1627,10 @@ function wipeParticipantLocalRaceData(){
     let eventId="",participantId="";
     [localStorage,sessionStorage].some(storage=>{
       try{
-        const event=getJson(storage,"militopo_v1_participant_app_event_v1")||getJson(storage,"militopo_v1_participant_permanent_event_v2")||getJson(storage,"militopo_v1_participant_app_snapshot_v1")?.eventData;
+        const event=getJson(storage,"militopo_v2_participant_app_event_v1")||getJson(storage,"militopo_v2_participant_permanent_event_v2")||getJson(storage,"militopo_v2_participant_app_snapshot_v1")?.eventData;
         if(event?.eventId)eventId=String(event.eventId);
         if(event?.webParticipantId)participantId=String(event.webParticipantId);
-        const ctx=getJson(storage,"militopo_v1_live_v2_participant_context");
+        const ctx=getJson(storage,"militopo_v2_live_v2_participant_context");
         if(!eventId&&ctx?.eventId)eventId=String(ctx.eventId);
         if(!participantId&&ctx?.participantId)participantId=String(ctx.participantId);
       }catch(e){}
@@ -1638,28 +1638,28 @@ function wipeParticipantLocalRaceData(){
     });
     const eventKey=safe(eventId),participantKey=safe(participantId);
     const exact=new Set([
-      "militopo_v1_participant_app_snapshot_v1",
-      "militopo_v1_participant_app_event_v1",
-      "militopo_v1_participant_app_event_backup_v1",
-      "militopo_v1_participant_app_run_state_v1",
-      "militopo_v1_participant_permanent_event_v2",
-      "militopo_v1_participant_permanent_snapshot_v2",
-      "militopo_v1_participante_recorrido_activo_v1",
-      "militopo_v1_participante_recorrido_rescate_v1",
-      "militopo_v1_participant_boot_payload_v3",
-      "militopo_v1_participant_boot_payload_latest",
-      "militopo_v1_participant_web_event_v1"
+      "militopo_v2_participant_app_snapshot_v1",
+      "militopo_v2_participant_app_event_v1",
+      "militopo_v2_participant_app_event_backup_v1",
+      "militopo_v2_participant_app_run_state_v1",
+      "militopo_v2_participant_permanent_event_v2",
+      "militopo_v2_participant_permanent_snapshot_v2",
+      "militopo_v2_participante_recorrido_activo_v1",
+      "militopo_v2_participante_recorrido_rescate_v1",
+      "militopo_v2_participant_boot_payload_v3",
+      "militopo_v2_participant_boot_payload_latest",
+      "militopo_v2_participant_web_event_v1"
     ]);
     if(eventId&&participantId){
-      exact.add(`militopo_v1_participant_gps_enabled_v1:${eventId}:${participantId}`);
-      exact.add(`militopo_v1_participant_gps_lock_v1:${eventId}:${participantId}`);
+      exact.add(`militopo_v2_participant_gps_enabled_v1:${eventId}:${participantId}`);
+      exact.add(`militopo_v2_participant_gps_lock_v1:${eventId}:${participantId}`);
     }
-    if(eventKey&&participantKey)exact.add(`militopo_v1_live_v2_last_sync_${eventKey}:${participantKey}`);
-    const runnerPrefix=eventId?`militopo_v1_runner_${eventId}`:"";
+    if(eventKey&&participantKey)exact.add(`militopo_v2_live_v2_last_sync_${eventKey}:${participantKey}`);
+    const runnerPrefix=eventId?`militopo_v2_runner_${eventId}`:"";
     const wipe=storage=>{try{
       const keys=[];for(let i=0;i<storage.length;i++)keys.push(storage.key(i));
       keys.filter(Boolean).forEach(k=>{const key=String(k);if(exact.has(key)||(runnerPrefix&&key.startsWith(runnerPrefix)))storage.removeItem(key);});
-      const contextKey="militopo_v1_live_v2_participant_context",ctx=getJson(storage,contextKey);
+      const contextKey="militopo_v2_live_v2_participant_context",ctx=getJson(storage,contextKey);
       if(ctx&&eventKey&&safe(ctx.eventId||ctx.eventKey||"")===eventKey&&(!participantKey||!ctx.participantId||safe(ctx.participantId)===participantKey))storage.removeItem(contextKey);
     }catch(e){}};
     wipe(localStorage);wipe(sessionStorage);
@@ -1677,7 +1677,7 @@ function readBootPayload(){
   if(isParticipantHardResetStartup())return null;
   const values=[];
   try{BOOT_PAYLOAD_KEYS.forEach(k=>{const a=localStorage.getItem(k);if(a)values.push(a);const b=sessionStorage.getItem(k);if(b)values.push(b);});}catch(e){}
-  try{const wn=String(window.name||"");if(wn.startsWith("MILITOPO_V1_RUN_BACKUP:"))values.push(wn.slice("MILITOPO_V1_RUN_BACKUP:".length));if(wn.startsWith("MILITOPO_V1_PARTICIPANT_SNAPSHOT:"))values.push(wn.slice("MILITOPO_V1_PARTICIPANT_SNAPSHOT:".length));}catch(e){}
+  try{const wn=String(window.name||"");if(wn.startsWith("MILITOPO_V2_RUN_BACKUP:"))values.push(wn.slice("MILITOPO_V2_RUN_BACKUP:".length));if(wn.startsWith("MILITOPO_V2_PARTICIPANT_SNAPSHOT:"))values.push(wn.slice("MILITOPO_V2_PARTICIPANT_SNAPSHOT:".length));}catch(e){}
   const payloads=values.map(parseBootJson).filter(Boolean);
   payloads.sort((a,b)=>String(b.savedAt||b.log?.lastSavedAt||"").localeCompare(String(a.savedAt||a.log?.lastSavedAt||"")));
   return payloads[0]||null;
@@ -1749,16 +1749,16 @@ const INITIAL_URL_LOG=readInitialUrlLog();
 const EVENT_DATA=(INITIAL_URL_EVENT_DATA&&Array.isArray(INITIAL_URL_EVENT_DATA.routes)&&INITIAL_URL_EVENT_DATA.routes.length)?INITIAL_URL_EVENT_DATA:((BOOT_PAYLOAD&&BOOT_PAYLOAD.eventData&&Array.isArray(BOOT_PAYLOAD.eventData.routes)&&BOOT_PAYLOAD.eventData.routes.length)?BOOT_PAYLOAD.eventData:emptyParticipantEventData());
 const PARENT_SAVED_LOG=INITIAL_URL_LOG||((BOOT_PAYLOAD&&BOOT_PAYLOAD.log)?BOOT_PAYLOAD.log:null);
 let route=null,pid=null,log=null,stream=null,running=false,detector=null,useJsQr=false,last="",lastT=0;
-const APP_VERSION="militopo-participante-v77-reset-seguro-wakelock-20260919";
-const APP_SNAPSHOT_KEY="militopo_v1_participant_app_snapshot_v1";
-const APP_EVENT_KEY="militopo_v1_participant_app_event_v1";
-const APP_EVENT_BACKUP_KEY="militopo_v1_participant_app_event_backup_v1";
-const APP_RUN_STATE_KEY="militopo_v1_participant_app_run_state_v1";
-const APP_PERMANENT_EVENT_KEY="militopo_v1_participant_permanent_event_v2";
-const APP_PERMANENT_SNAPSHOT_KEY="militopo_v1_participant_permanent_snapshot_v2";
-const PARTICIPANT_IDB_NAME="MILITOPO_V1_PARTICIPANTE_DB_V1";
+const APP_VERSION="militopo-participante-v2-a1-backend-20260919";
+const APP_SNAPSHOT_KEY="militopo_v2_participant_app_snapshot_v1";
+const APP_EVENT_KEY="militopo_v2_participant_app_event_v1";
+const APP_EVENT_BACKUP_KEY="militopo_v2_participant_app_event_backup_v1";
+const APP_RUN_STATE_KEY="militopo_v2_participant_app_run_state_v1";
+const APP_PERMANENT_EVENT_KEY="militopo_v2_participant_permanent_event_v2";
+const APP_PERMANENT_SNAPSHOT_KEY="militopo_v2_participant_permanent_snapshot_v2";
+const PARTICIPANT_IDB_NAME="MILITOPO_V2_PARTICIPANTE_DB_V1";
 const PARTICIPANT_IDB_STORE="estado";
-const PARTICIPANT_TRACK_JOURNAL_DB="MILITOPO_V1_PARTICIPANTE_TRACK_JOURNAL_V1";
+const PARTICIPANT_TRACK_JOURNAL_DB="MILITOPO_V2_PARTICIPANTE_TRACK_JOURNAL_V1";
 const PARTICIPANT_TRACK_JOURNAL_STORE="points";
 let participantTrackJournalWrite=Promise.resolve();
 let finishedRecoverySyncTimer=null;
@@ -2045,8 +2045,8 @@ function notifyMilitopoLive(kind,extra={}){
     }catch(e){console.warn("MILITOPO LIVE · envío participante",e)}
 }
 
-const JSQR_CACHE_KEY="militopo_v1_jsqr_cache_v1";
-const RUN_WINDOW_PREFIX="MILITOPO_V1_RUN_BACKUP:";
+const JSQR_CACHE_KEY="militopo_v2_jsqr_cache_v1";
+const RUN_WINDOW_PREFIX="MILITOPO_V2_RUN_BACKUP:";
 const RUN_MEMORY={raw:""};
 function readParentUrlSnapshot(){
     try{
@@ -2079,7 +2079,7 @@ function recoverStoredEventDataBeforeInit(){
         push(readParentUrlSnapshot());
         const scan=storage=>{try{for(let i=0;i<storage.length;i++){const k=storage.key(i)||"";if(!/militopo_v1/i.test(k))continue;const raw=storage.getItem(k);if(!raw)continue;try{push(JSON.parse(raw))}catch(e){}}}catch(e){}};
         scan(localStorage);scan(sessionStorage);
-        try{const raw=String(window.name||"");if(raw.startsWith("MILITOPO_V1_PARTICIPANT_SNAPSHOT:"))push(JSON.parse(raw.slice("MILITOPO_V1_PARTICIPANT_SNAPSHOT:".length)));if(raw.startsWith("MILITOPO_V1_RUN_BACKUP:"))push(JSON.parse(raw.slice("MILITOPO_V1_RUN_BACKUP:".length)))}catch(e){}
+        try{const raw=String(window.name||"");if(raw.startsWith("MILITOPO_V2_PARTICIPANT_SNAPSHOT:"))push(JSON.parse(raw.slice("MILITOPO_V2_PARTICIPANT_SNAPSHOT:".length)));if(raw.startsWith("MILITOPO_V2_RUN_BACKUP:"))push(JSON.parse(raw.slice("MILITOPO_V2_RUN_BACKUP:".length)))}catch(e){}
         if(!candidates.length)return false;
         candidates.sort((a,b)=>runScoreForRecovery(b.value?.log||b.value)-runScoreForRecovery(a.value?.log||a.value)||String(b.value?.savedAt||"").localeCompare(String(a.value?.savedAt||"")));
         Object.keys(EVENT_DATA).forEach(k=>delete EVENT_DATA[k]);
@@ -2097,17 +2097,17 @@ function writePermanentParticipantSnapshot(eventData,runLog){
         const snap={savedAt:safeNow(),eventData};
         if(compactLog&&typeof compactLog==="object")snap.log=compactLog;
         const raw=JSON.stringify(snap);
-        [APP_SNAPSHOT_KEY,APP_EVENT_KEY,APP_EVENT_BACKUP_KEY,APP_PERMANENT_SNAPSHOT_KEY,"militopo_v1_participante_recorrido_activo_v1","militopo_v1_participante_recorrido_rescate_v1","militopo_v1_participant_boot_payload_v3","militopo_v1_participant_boot_payload_latest"].forEach(k=>writeKeyEverywhere(k,raw));
+        [APP_SNAPSHOT_KEY,APP_EVENT_KEY,APP_EVENT_BACKUP_KEY,APP_PERMANENT_SNAPSHOT_KEY,"militopo_v2_participante_recorrido_activo_v1","militopo_v2_participante_recorrido_rescate_v1","militopo_v2_participant_boot_payload_v3","militopo_v2_participant_boot_payload_latest"].forEach(k=>writeKeyEverywhere(k,raw));
         writeKeyEverywhere(APP_PERMANENT_EVENT_KEY,JSON.stringify({savedAt:snap.savedAt,eventData}));
         if(compactLog&&compactLog.participantId)writeKeyEverywhere(APP_RUN_STATE_KEY,JSON.stringify(compactLog));
-        try{window.name="MILITOPO_V1_PARTICIPANT_SNAPSHOT:"+raw}catch(e){}
+        try{window.name="MILITOPO_V2_PARTICIPANT_SNAPSHOT:"+raw}catch(e){}
         try{window.parent.postMessage({source:"MILITOPO_PARTICIPANT_APP",action:"PERSIST_SNAPSHOT",payload:{savedAt:snap.savedAt,eventData,log:compactLog}},"*")}catch(e){}
         try{persistParticipantSnapshotAsync(eventData,runLog)}catch(e){}
         updateParentUrlState();
         return true;
     }catch(e){return false}
 }
-function baseKey(){return "militopo_v1_runner_"+EVENT_DATA.eventId}
+function baseKey(){return "militopo_v2_runner_"+EVENT_DATA.eventId}
 function allRecoveryKeys(p){return [baseKey()+"_"+p,baseKey(),baseKey()+"_active",baseKey()+"_backup_"+p,baseKey()+"_backup_last",baseKey()+"_emergency_"+p,baseKey()+"_emergency_last",baseKey()+"_checkpoint_"+p]}
 function normalizeLog(x){
     if(!x||typeof x!=="object")return null;
@@ -2166,8 +2166,8 @@ function updateParentUrlState(packed){
 }
 function storageHealth(){
     let localOk=false,sessionOk=false;
-    try{const k="militopo_storage_test";localStorage.setItem(k,"1");localStorage.removeItem(k);localOk=true}catch(e){}
-    try{const k="militopo_session_test";sessionStorage.setItem(k,"1");sessionStorage.removeItem(k);sessionOk=true}catch(e){}
+    try{const k="militopo_v2_storage_test";localStorage.setItem(k,"1");localStorage.removeItem(k);localOk=true}catch(e){}
+    try{const k="militopo_v2_session_test";sessionStorage.setItem(k,"1");sessionStorage.removeItem(k);sessionOk=true}catch(e){}
     return {ok:localOk||sessionOk,localOk,sessionOk};
 }
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]||c))}
@@ -2232,7 +2232,7 @@ async function ensureOfflinePageAvailable(){
         }catch(e){}
     }
     try{
-        const cache=await caches.open("militopo-v1-participante-page-v77-reset-seguro-wakelock-20260919");
+        const cache=await caches.open("militopo-v2-participante-page-v2-a1-backend-20260919");
         const pageUrl=location.href.split("#")[0];
         const html="<!DOCTYPE html>\n"+document.documentElement.outerHTML;
         await cache.put(new Request(pageUrl),new Response(html,{headers:{"Content-Type":"text/html;charset=utf-8"}}));
@@ -2414,8 +2414,8 @@ function parse(raw){
 
 /* GPS de proximidad ejecutado dentro del iframe participante */
 const GPS_RADIUS_M=15,GPS_MAX_ACCURACY_M=12,GPS_REQUIRED_HITS=1,GPS_DUPLICATE_COOLDOWN_MS=4000;
-const GPS_PREF_PREFIX="militopo_v1_participant_gps_enabled_v1:";
-const GPS_LOCK_PREF_PREFIX="militopo_v1_participant_gps_lock_v1:";
+const GPS_PREF_PREFIX="militopo_v2_participant_gps_enabled_v1:";
+const GPS_LOCK_PREF_PREFIX="militopo_v2_participant_gps_lock_v1:";
 let gpsWatchId=null,gpsWakeLock=null,gpsInsideHits=0,gpsLastTarget="",gpsLastPosition=null,gpsLastValidatedAt=0,gpsUnlockTimer=null,gpsPrefsRestoredFor="",participantLiveSyncState="inactive",participantPendingSyncCount=0,participantPendingControlSyncCount=0,participantPendingResultSync=false,participantResultReceived=false,participantTrackReceived=false,gpsFinishedByProximity=false,gpsFinishNoticeMode="",gpsFinishNoticeDismissedMode="",gpsFinishInsideHits=0,gpsFinishConfirmOpen=false,gpsFinishDeclinedUntilLeave=false,gpsStartReminderOpen=false,cameraLayoutRestore=null;
 function gpsPrefSuffix(){return String(EVENT_DATA.eventId||"")+":"+String(pid||"pending")}
 function gpsReadPref(prefix){const k=prefix+gpsPrefSuffix();return safeGet(localStorage,k)==="1"||safeGet(sessionStorage,k)==="1"}
@@ -3026,7 +3026,7 @@ async function performParticipantAppReset(){
     try{
         if("caches" in window){
             const names=await caches.keys();
-            await Promise.all(names.filter(name=>String(name).startsWith("militopo-v1-participante-")).map(name=>caches.delete(name)));
+            await Promise.all(names.filter(name=>String(name).startsWith("militopo-v2-participante-")).map(name=>caches.delete(name)));
         }
     }catch(e){}
     /* No se borran otras bases MILITOPO: pueden contener colas/track de otros eventos. */

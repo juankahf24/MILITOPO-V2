@@ -1,11 +1,11 @@
 (() => {
   "use strict";
-  const EVENT_KEY = "militopo_v1_participant_app_event_v1";
-  const EVENT_BACKUP_KEY = "militopo_v1_participant_app_event_backup_v1";
-  const RUN_STATE_KEY = "militopo_v1_participant_app_run_state_v1";
-  const SNAPSHOT_KEY = "militopo_v1_participant_app_snapshot_v1";
-  const PERMANENT_EVENT_KEY = "militopo_v1_participant_permanent_event_v2";
-  const PERMANENT_SNAPSHOT_KEY = "militopo_v1_participant_permanent_snapshot_v2";
+  const EVENT_KEY = "militopo_v2_participant_app_event_v1";
+  const EVENT_BACKUP_KEY = "militopo_v2_participant_app_event_backup_v1";
+  const RUN_STATE_KEY = "militopo_v2_participant_app_run_state_v1";
+  const SNAPSHOT_KEY = "militopo_v2_participant_app_snapshot_v1";
+  const PERMANENT_EVENT_KEY = "militopo_v2_participant_permanent_event_v2";
+  const PERMANENT_SNAPSHOT_KEY = "militopo_v2_participant_permanent_snapshot_v2";
   let cameraFrameRestore = null;
   const MODE_QUERY = "modo=participante";
   const frame = document.getElementById("participantFrame");
@@ -15,7 +15,7 @@
   let deferredInstallPrompt = null;
   let runnerTemplate = "";
 
-  const PARTICIPANT_IDB_NAME="MILITOPO_V1_PARTICIPANTE_DB_V1";
+  const PARTICIPANT_IDB_NAME="MILITOPO_V2_PARTICIPANTE_DB_V1";
   const PARTICIPANT_IDB_STORE="estado";
   async function shellIdbGet(key){
     try{
@@ -97,8 +97,8 @@
     scanStorage(localStorage); scanStorage(sessionStorage);
     try{
       const raw=String(window.name||"");
-      if(raw.startsWith("MILITOPO_V1_PARTICIPANT_SNAPSHOT:"))pushValue(JSON.parse(raw.slice("MILITOPO_V1_PARTICIPANT_SNAPSHOT:".length)));
-      if(raw.startsWith("MILITOPO_V1_RUN_BACKUP:"))pushValue(JSON.parse(raw.slice("MILITOPO_V1_RUN_BACKUP:".length)));
+      if(raw.startsWith("MILITOPO_V2_PARTICIPANT_SNAPSHOT:"))pushValue(JSON.parse(raw.slice("MILITOPO_V2_PARTICIPANT_SNAPSHOT:".length)));
+      if(raw.startsWith("MILITOPO_V2_RUN_BACKUP:"))pushValue(JSON.parse(raw.slice("MILITOPO_V2_RUN_BACKUP:".length)));
     }catch(_){ }
     return found;
   }
@@ -178,9 +178,9 @@
       writeStorageEverywhere(EVENT_BACKUP_KEY,raw);
       writeStorageEverywhere(PERMANENT_EVENT_KEY,JSON.stringify({savedAt:snapshot.savedAt,eventData}));
       writeStorageEverywhere(PERMANENT_SNAPSHOT_KEY,raw);
-      writeStorageEverywhere("militopo_v1_participante_recorrido_activo_v1",raw);
-      writeStorageEverywhere("militopo_v1_participante_recorrido_rescate_v1",raw);
-      try{window.name="MILITOPO_V1_PARTICIPANT_SNAPSHOT:"+raw}catch(_){ }
+      writeStorageEverywhere("militopo_v2_participante_recorrido_activo_v1",raw);
+      writeStorageEverywhere("militopo_v2_participante_recorrido_rescate_v1",raw);
+      try{window.name="MILITOPO_V2_PARTICIPANT_SNAPSHOT:"+raw}catch(_){ }
       writeUrlSnapshot(snapshot);
       return true;
     }catch(_){return false}
@@ -192,10 +192,10 @@
   }
   function readSavedEventData(){
     const candidates=[];
-    [SNAPSHOT_KEY,EVENT_KEY,EVENT_BACKUP_KEY,PERMANENT_EVENT_KEY,PERMANENT_SNAPSHOT_KEY,"militopo_v1_participante_recorrido_activo_v1","militopo_v1_participante_recorrido_rescate_v1"].forEach(key=>candidates.push(...readStorageEverywhere(key)));
+    [SNAPSHOT_KEY,EVENT_KEY,EVENT_BACKUP_KEY,PERMANENT_EVENT_KEY,PERMANENT_SNAPSHOT_KEY,"militopo_v2_participante_recorrido_activo_v1","militopo_v2_participante_recorrido_rescate_v1"].forEach(key=>candidates.push(...readStorageEverywhere(key)));
     try{
       const raw=String(window.name||"");
-      if(raw.startsWith("MILITOPO_V1_PARTICIPANT_SNAPSHOT:"))candidates.push(raw.slice("MILITOPO_V1_PARTICIPANT_SNAPSHOT:".length));
+      if(raw.startsWith("MILITOPO_V2_PARTICIPANT_SNAPSHOT:"))candidates.push(raw.slice("MILITOPO_V2_PARTICIPANT_SNAPSHOT:".length));
     }catch(_){ }
     candidates.push(...collectAllParticipantSnapshots().map(value=>{try{return JSON.stringify(value)}catch(_){return null}}));
     const valid=[];
@@ -210,10 +210,10 @@
     const candidates=[];
     const urlLog=readUrlLog();
     if(urlLog)candidates.push(JSON.stringify(urlLog));
-    [RUN_STATE_KEY,SNAPSHOT_KEY,EVENT_KEY,EVENT_BACKUP_KEY,PERMANENT_SNAPSHOT_KEY,"militopo_v1_participante_recorrido_activo_v1","militopo_v1_participante_recorrido_rescate_v1"].forEach(key=>candidates.push(...readStorageEverywhere(key)));
+    [RUN_STATE_KEY,SNAPSHOT_KEY,EVENT_KEY,EVENT_BACKUP_KEY,PERMANENT_SNAPSHOT_KEY,"militopo_v2_participante_recorrido_activo_v1","militopo_v2_participante_recorrido_rescate_v1"].forEach(key=>candidates.push(...readStorageEverywhere(key)));
     try{
       const raw=String(window.name||"");
-      if(raw.startsWith("MILITOPO_V1_PARTICIPANT_SNAPSHOT:"))candidates.push(raw.slice("MILITOPO_V1_PARTICIPANT_SNAPSHOT:".length));
+      if(raw.startsWith("MILITOPO_V2_PARTICIPANT_SNAPSHOT:"))candidates.push(raw.slice("MILITOPO_V2_PARTICIPANT_SNAPSHOT:".length));
     }catch(_){ }
     candidates.push(...collectAllParticipantSnapshots().map(value=>{try{return JSON.stringify(value)}catch(_){return null}}));
     const valid=[];
@@ -243,13 +243,13 @@
     return data;
   }
   function safeJsonForScript(data){return JSON.stringify(data||emptyEventData()).replace(/<\/script/gi,"<\\/script").replace(/<!--/g,"<\\!--");}
-  const BOOT_KEY = "militopo_v1_participant_boot_payload_v3";
+  const BOOT_KEY = "militopo_v2_participant_boot_payload_v3";
   function saveBootPayload(eventData, log){
     try{
       const payload={savedAt:new Date().toISOString(),eventData:eventData||emptyEventData(),log:compactRunLogForStorage(log)||null};
       const raw=JSON.stringify(payload);
       writeStorageEverywhere(BOOT_KEY,raw);
-      writeStorageEverywhere("militopo_v1_participant_boot_payload_latest",raw);
+      writeStorageEverywhere("militopo_v2_participant_boot_payload_latest",raw);
       return true;
     }catch(_){return false;}
   }
@@ -281,7 +281,7 @@
   }
   function cleanParticipantQueue(eventId,participantId){
     try{
-      const key="militopo_v1_live_v2_pending_events",queue=JSON.parse(localStorage.getItem(key)||"[]");if(!Array.isArray(queue))return;
+      const key="militopo_v2_live_v2_pending_events",queue=JSON.parse(localStorage.getItem(key)||"[]");if(!Array.isArray(queue))return;
       const eventKey=safeFirebaseKey(eventId),pid=String(participantId||"");
       const keep=queue.filter(item=>!(String(item?.eventKey||"")===eventKey&&String(item?.participantId||"")===pid));
       keep.length?localStorage.setItem(key,JSON.stringify(keep)):localStorage.removeItem(key);
@@ -307,24 +307,24 @@
     const eventId=payload.eventId||currentEventData?.eventId||"";
     const eventKey=safeFirebaseKey(eventId),participantKey=participantId?safeFirebaseKey(participantId):"";
     cleanParticipantQueue(eventId,participantId);
-    const runnerPrefix=eventId?`militopo_v1_runner_${eventId}`:"";
+    const runnerPrefix=eventId?`militopo_v2_runner_${eventId}`:"";
     const gpsSuffix=eventId&&participantId?`${eventId}:${participantId}`:"";
-    const exact=new Set([EVENT_KEY,EVENT_BACKUP_KEY,RUN_STATE_KEY,SNAPSHOT_KEY,PERMANENT_EVENT_KEY,PERMANENT_SNAPSHOT_KEY,"militopo_v1_participant_web_event_v1","militopo_v1_jsqr_cache_v1"]);
-    if(eventKey&&participantKey)exact.add(`militopo_v1_live_v2_last_sync_${eventKey}:${participantKey}`);
-    if(gpsSuffix){exact.add(`militopo_v1_participant_gps_enabled_v1:${gpsSuffix}`);exact.add(`militopo_v1_participant_gps_lock_v1:${gpsSuffix}`);}
-    const participantPrefixes=["militopo_v1_participant_boot_payload_"];
+    const exact=new Set([EVENT_KEY,EVENT_BACKUP_KEY,RUN_STATE_KEY,SNAPSHOT_KEY,PERMANENT_EVENT_KEY,PERMANENT_SNAPSHOT_KEY,"militopo_v2_participant_web_event_v1","militopo_v2_jsqr_cache_v1"]);
+    if(eventKey&&participantKey)exact.add(`militopo_v2_live_v2_last_sync_${eventKey}:${participantKey}`);
+    if(gpsSuffix){exact.add(`militopo_v2_participant_gps_enabled_v1:${gpsSuffix}`);exact.add(`militopo_v2_participant_gps_lock_v1:${gpsSuffix}`);}
+    const participantPrefixes=["militopo_v2_participant_boot_payload_"];
     const predicate=key=>exact.has(String(key))||(runnerPrefix&&String(key).startsWith(runnerPrefix))||participantPrefixes.some(prefix=>String(key).startsWith(prefix));
     [localStorage,sessionStorage].forEach(storage=>{
       removeMatchingStorage(storage,predicate);
       try{
-        const contextKey="militopo_v1_live_v2_participant_context",ctx=JSON.parse(storage.getItem(contextKey)||"null");
+        const contextKey="militopo_v2_live_v2_participant_context",ctx=JSON.parse(storage.getItem(contextKey)||"null");
         const sameEvent=ctx&&(safeFirebaseKey(ctx.eventId||ctx.eventKey||"")===eventKey);
         const sameParticipant=!participantKey||!ctx?.participantId||safeFirebaseKey(ctx.participantId)===participantKey;
         if(sameEvent&&sameParticipant)storage.removeItem(contextKey);
       }catch(_){ }
     });
     try{window.name=""}catch(_){ }
-    if("caches" in window){const names=await caches.keys();await Promise.all(names.filter(name=>name.startsWith("militopo-v1-participante-")).map(name=>caches.delete(name)));}
+    if("caches" in window){const names=await caches.keys();await Promise.all(names.filter(name=>name.startsWith("militopo-v2-participante-")).map(name=>caches.delete(name)));}
     if("indexedDB" in window){
       try{await new Promise(resolve=>{const req=indexedDB.deleteDatabase(PARTICIPANT_IDB_NAME);req.onsuccess=req.onerror=req.onblocked=()=>resolve();});}catch(_){ }
     }
@@ -477,7 +477,7 @@
     showResetDialog({eventId:currentEventData?.eventId||"",participantId:currentEventData?.webParticipantId||saved?.participantId||"",routeId:saved?.routeId||currentEventData?.routes?.[0]?.routeId||"",completedControls:Array.isArray(saved?.scans)?saved.scans.filter(scan=>scan?.status==="correct").length:0,totalControls:currentEventData?.routes?.[0]?.points?.filter(point=>point!=="START"&&point!=="FINISH").length||0,inProgress:!!(saved?.startTime&&!saved?.finishTime),finishTime:saved?.finishTime||null,pendingTrackSync:!!(saved?.finishTime&&!confirmed),pendingResultSync:!!(saved?.finishTime&&!confirmed),safeToReset:!saved?.startTime||confirmed});
   });
 
-  try{sessionStorage.setItem("militopo_v1_participant_app_scope_v1","1")}catch(_){ }
+  try{sessionStorage.setItem("militopo_v2_participant_app_scope_v1","1")}catch(_){ }
   setupInstallGuide();
   loadRunner();
 
