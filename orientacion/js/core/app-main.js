@@ -4845,8 +4845,8 @@ function readParticipantWebDataFromUrl(){
         const eventData=(raw&&(raw.v===1||raw.v===2))?expandCompactParticipantWebData(raw):raw;
         const pid=params.get("p")||eventData.webParticipantId||"";
         const saved={pid,eventData,loadedAt:new Date().toISOString()};
-        localStorage.setItem("militopo_participant_web_event_v1",JSON.stringify(saved));
-        localStorage.setItem("militopo_orientacion_access_mode_v1","participante");
+        localStorage.setItem("militopo_v2_participant_web_event",JSON.stringify(saved));
+        localStorage.setItem("militopo_v2_orientacion_access_mode_v1","participante");
         try{
             const cleanUrl=window.location.pathname+"?modo=participante"+(pid?"&p="+encodeURIComponent(pid):"");
             window.history.replaceState({},document.title,cleanUrl);
@@ -4861,7 +4861,7 @@ function readSavedParticipantWebData(){
     const fromUrl=readParticipantWebDataFromUrl();
     if(fromUrl)return fromUrl;
     try{
-        const raw=localStorage.getItem("militopo_participant_web_event_v1");
+        const raw=localStorage.getItem("militopo_v2_participant_web_event");
         return raw?JSON.parse(raw):null;
     }catch(e){return null;}
 }
@@ -7786,7 +7786,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
             .replace(/\s+/g," ")
             .replace(/[. ]+$/g,"")
             .slice(0,120)
-            || `MILITOPO_ORIENTACION_${state.eventId||"EVENTO"}`;
+            || `MILITOPO_V2_ORIENTACION_${state.eventId||"EVENTO"}`;
         const filename=`${safeEventNameForZip}.zip`;
 
         if(typeof saveAs==="function"){
@@ -7856,7 +7856,7 @@ function buildEventData(){
         version:"orientacion_v2_restorable",
         legacyVersion:"orientacion_v1_offline",
         schemaVersion:2,
-        format:"MILITOPO_ORIENTATION_EVENT",
+        format:"MILITOPO_V2_ORIENTATION_EVENT",
         generatedAt:now,
         createdAt:now,
         eventId:state.eventId,
@@ -7950,8 +7950,8 @@ function buildEventData(){
     }
 }function pointsCsv(){const rows=[["ID","TIPO","UTM","LAT","LON","ELEVACION","QR"]];Object.values(state.points).forEach(p=>rows.push([p.id,p.type,p.utm||"",p.lat??"",p.lon??"",p.elevation??"",controlPayload(p.id)]));return rows.map(r=>r.map(csvEscape).join(",")).join("\n")}function routesCsv(){const rows=[["PARTICIPANTE","RECORRIDO","ESTADO_MATERIAL","DISTANCIA_KM","TRAMO_LARGO_KM","DESNIVEL_POSITIVO_M","DESNIVEL_NEGATIVO_M","DESNIVEL_GLOBAL_M","DIFICULTAD","ORDEN"]];(state.routes||[]).forEach((r,i)=>{const m=state.metrics[i]||{};rows.push([r.participantId,r.routeId,isRouteSkipped(r)?"DESCARTADO_RESERVA":"ACTIVO",m.distanceKm,m.longestKm,m.positiveM??"SIN_DESNIVEL_REAL",m.negativeM??"SIN_DESNIVEL_REAL",m.globalM??"SIN_DESNIVEL_REAL",m.difficulty,r.points.join(" > ")])});return rows.map(r=>r.map(csvEscape).join(",")).join("\n")}
 
-const STORAGE_KEY_IOF_CUSTOM_SYMBOLS="militopo_iof_custom_symbols_v4_c_h_combo_cruce_union_curva";
-const STORAGE_KEY_IOF_D_CUSTOM_SYMBOLS="militopo_iof_d_custom_symbols_v1";
+const STORAGE_KEY_IOF_CUSTOM_SYMBOLS="militopo_v2_iof_custom_symbols_v4_c_h_combo_cruce_union_curva";
+const STORAGE_KEY_IOF_D_CUSTOM_SYMBOLS="militopo_v2_iof_d_custom_symbols_v1";
 let customIofSymbols={combo:{},f:{},g:{}};
 
 const IOF_OPTIONS={"c":[["","—"],["norte","C1 el del norte"],["este","C2 el del este"],["sureste","C3 el del sureste"],["sur","C4 el del sur"],["oeste","C5 el del oeste"],["noreste","C6 el del noreste"],["sudoeste","C7 el del sudoeste"],["noroeste","C8 el del noroeste"],["superior","C9 el superior"],["inferior","C10 el inferior"],["medio","C11 el del medio"],["derecha","el de la derecha"],["izquierda","el de la izquierda"]],"d":[["","—"],["edificio","Edificio"],["area_pavimentada","Area pavimentada"],["ruina","Ruina"],["tuberia_pista_bobsleigh_rastro_estructura","Tubería; Pista bobsleigh / Rastro estructura"],["torre_poste","Torre / Poste"],["plataforma_tiro","Plataforma de tiro"],["mojon_delimitador_cairn","Mojón delimitador, Cairn"],["pesebre_comedero","Pesebre, comedero"],["carbonera_plataforma","Carbonera Plataforma"],["monumento_estatua","Monumento o estatua"],["paso_zona_cubierta","Paso / Zona cubierta"],["escalera","Escalera"],["area_fuera_limites","Area fuera de limites"],["carretera","Carretera"],["pista_camino","Pista / Camino"],["cortafuegos","Cortafuegos"],["puente","Puente"],["linea_electrica","Línea eléctrica"],["torre_linea_electrica","Torre de línea eléctrica"],["tunel","Túnel"],["muro_piedra","Muro de piedra"],["cerca_valla","Cerca / Valla"],["punto_cruce","Punto de cruce"],["campo_abierto","Campo abierto"],["campo_semiabierto","Campo semi-abierto"],["esquina_bosque","Esquina del bosque"],["claro","Claro"],["matorral_vegetacion_espesa","Matorral / Vegetación espesa"],["seto_matorral_lineal","Seto / Matorral lineal"],["limite_vegetacion","Límite de vegetación"],["bosquecillo","Bosquecillo"],["arbol_prominente_caracteristico","Árbol prominente / Característico"],["raiz_tocon_arbol","Raíz, tocón de árbol"],["campo_piedras","Campo de piedras"],["grupo_piedras","Grupo de piedras"],["terreno_pedregoso","Terreno pedregoso"],["afloramiento_rocoso","Afloramiento rocoso"],["paso_estrecho","Paso estrecho"],["trinchera","Trinchera"],["terraza","Terraza"],["espolon","Espolón"],["vaguada","Vaguada"],["terraplen_talud_tierra","Terraplén / Talud de tierra"],["cantera","Cantera"],["lago","Lago"],["charca","Charca"],["hoyo_agua","Hoyo de agua"],["rio_corriente_curso_agua","Río, corriente, curso de agua"],["cauce_agua_secundario_arroyo","Cauce de agua secundario, arroyo"],["pantano_estrecho","Pantano estrecho"],["pantano","Pantano"],["tierra_firme_pantano","Tierra firme en pantano"],["pozo","Pozo"],["manantial","Manantial"],["tanque_agua_abrevadero","Tanque de agua, abrevadero"],["depresion","Depresión"],["depresion_pequena","Depresión pequeña"],["foso_hoyo","Foso / Hoyo"],["terreno_suelo_accidentado","Terreno / Suelo accidentado"],["hormiguero_monticulo_termitas","Hormiguero (montículo de termitas)"],["muro_tierra","Muro de tierra"],["surco_erosion","Surco de erosión"],["surco_pequeno_erosion","Surco pequeño de erosión"],["colina","Colina"],["monticulo","Montículo"],["collado","Collado"],["cortado_risco","Cortado, risco"],["pilar_roca","Pilar de roca"],["cueva","Cueva"],["roca","Roca"]],"e":[["","—"],["bajo","E1 bajo"],["suave_poco_profundo","E2 suave / poco profundo"],["profundo","E3 profundo"],["cubierto_maleza","E4 cubierto de maleza"],["despejado_abierto","E5 despejado / abierto"],["pedregoso_rocoso","E6 pedregoso / rocoso"],["pantanoso","E7 pantanoso"],["arenoso","E8 arenoso"],["perenne_hoja_fina","E9 perenne / hoja fina"],["caducifolio_hoja_ancha","E10 caducifolio / hoja ancha"],["en_ruinas_caido","E11 en ruinas / caído"]],"f":[["","—"],["altura_profundidad","F1 altura / profundidad"],["tamano","F2 tamaño"],["altura_pendiente","F3 altura en pendiente"],["altura_dos_objetos","F4 altura de dos objetos"],["combo_cruce","F5 combinación: cruce"],["combo_union","F6 combinación: unión"],["combo_curva","F7 combinación: curva"]],"g":[["","—"],["lado_noreste","Lado noreste"],["lado_noroeste","Lado noroeste"],["lado_sureste","Lado sureste"],["lado_sudoeste","Lado sudoeste"],["borde_noreste","Borde noreste"],["borde_noroeste","Borde noroeste"],["borde_sureste","Borde sureste"],["borde_sudoeste","Borde sudoeste"],["parte_norte","Parte norte"],["parte_este","Parte este"],["parte_sur","Parte sur"],["parte_oeste","Parte oeste"],["esquina_norte_interior","Esquina norte (dentro / interior)"],["esquina_este_interior","Esquina este (dentro / interior)"],["esquina_oeste_interior","Esquina oeste (dentro / interior)"],["esquina_sur_interior","Esquina sur (dentro / interior)"],["esquina_norte_exterior","Esquina norte (fuera / exterior)"],["esquina_este_exterior","Esquina este (fuera / exterior)"],["esquina_oeste_exterior","Esquina oeste (fuera / exterior)"],["esquina_sur_exterior","Esquina sur (fuera / exterior)"],["punta_noreste","Punta noreste"],["punta_noroeste","Punta noroeste"],["punta_sureste","Punta sureste"],["punta_suroeste","Punta suroeste"],["al_pie_sin_direccion","Al pie (sin dirección)"],["al_pie_noreste","Al pie noreste"],["al_pie_noroeste","Al pie noroeste"],["al_pie_sureste","Al pie sureste"],["al_pie_sudoeste","Al pie sudoeste"],["norte_fin","Norte fin"],["noreste_fin","Noreste fin"],["este_fin","Este fin"],["sureste_fin","Sureste fin"],["sur_fin","Sur fin"],["suroeste_fin","Suroeste fin"],["oeste_fin","Oeste fin"],["noroeste_fin","Noroeste fin"],["parte_superior","Parte superior"],["parte_inferior","Parte inferior"],["encima","Encima"],["debajo","Debajo"],["entre","Entre"]],"h":[["","—"],["primeros_auxilios","H1 primeros auxilios"],["avituallamiento","H2 avituallamiento"],["controlador","H3 controlador"]],"combo":[["","—"],["cruce","Cruce"],["union","Unión"],["curva","Curva"]]};
@@ -8296,7 +8296,7 @@ async function exportFullIofCHBackup(){
     });
 
     const data={
-        type:"MILITOPO_IOF_SYMBOL_LIBRARY_BACKUP",
+        type:"MILITOPO_V2_IOF_SYMBOL_LIBRARY_BACKUP",
         version:3,
         scope:"C-H",
         exportedAt:now.toISOString(),
@@ -9139,7 +9139,7 @@ setTimeout(()=>{map.invalidateSize();map.fitBounds(bounds,{padding:[0,0],animate
 
 
 /* MILITOPO · importar y reutilizar un ejercicio completo desde ZIP o JSON */
-const STORAGE_KEY_PRE_IMPORT_BACKUP="militopo_orientacion_pre_import_backup_v1";
+const STORAGE_KEY_PRE_IMPORT_BACKUP="militopo_v2_orientacion_pre_import_backup_v1";
 
 function setupReusableExerciseImporter(){
     const step1=document.getElementById("step1");
@@ -9302,17 +9302,17 @@ function clearAllReusableExerciseRuntimeStorage(eventId){
         const eventRaw=String(eventId||"").trim();if(!eventRaw)return;
         const safe=eventRaw.replace(/[.#$\[\]\/]/g,"-").replace(/\s+/g,"-").replace(/-+/g,"-").slice(0,100);
         const exactKeys=new Set([
-            "militopo_v1_live_v2_organizer_run_"+safe,
-            "militopo_v1_live_v2_auto_import_"+safe,
-            "militopo_orientacion_last_live_run_"+safe
+            "militopo_v2_live_v2_organizer_run_"+safe,
+            "militopo_v2_live_v2_auto_import_"+safe,
+            "militopo_v2_orientacion_last_live_run_"+safe
         ]);
-        const eventPrefixes=["militopo_v1_live_v2_organizer_snapshot_"+safe, "militopo_v1_live_v2_last_sync_"+safe];
+        const eventPrefixes=["militopo_v2_live_v2_organizer_snapshot_"+safe, "militopo_v2_live_v2_last_sync_"+safe];
         const wipeScoped=storage=>{try{const keys=[];for(let i=0;i<storage.length;i++)keys.push(storage.key(i));keys.filter(Boolean).forEach(k=>{const key=String(k);if(exactKeys.has(key)||eventPrefixes.some(prefix=>key.startsWith(prefix)))storage.removeItem(key)})}catch(_){}};
         wipeScoped(localStorage);wipeScoped(sessionStorage);
         // La cola es compartida entre eventos: retirar únicamente entradas del evento restaurado.
-        try{const qKey="militopo_v1_live_v2_pending_events",raw=localStorage.getItem(qKey),queue=raw?JSON.parse(raw):[];if(Array.isArray(queue)){const keep=queue.filter(item=>String(item?.eventKey||item?.eventId||"")!==safe&&String(item?.eventId||"")!==eventRaw);keep.length?localStorage.setItem(qKey,JSON.stringify(keep)):localStorage.removeItem(qKey)}}catch(_){ }
+        try{const qKey="militopo_v2_live_v2_pending_events",raw=localStorage.getItem(qKey),queue=raw?JSON.parse(raw):[];if(Array.isArray(queue)){const keep=queue.filter(item=>String(item?.eventKey||item?.eventId||"")!==safe&&String(item?.eventId||"")!==eventRaw);keep.length?localStorage.setItem(qKey,JSON.stringify(keep)):localStorage.removeItem(qKey)}}catch(_){ }
         // El contexto participante también es global; solo se borra si pertenece al mismo evento.
-        try{const cKey="militopo_v1_live_v2_participant_context",ctx=JSON.parse(localStorage.getItem(cKey)||"null");if(ctx&&(String(ctx.eventId||"")===eventRaw||String(ctx.eventKey||"")===safe))localStorage.removeItem(cKey)}catch(_){ }
+        try{const cKey="militopo_v2_live_v2_participant_context",ctx=JSON.parse(localStorage.getItem(cKey)||"null");if(ctx&&(String(ctx.eventId||"")===eventRaw||String(ctx.eventKey||"")===safe))localStorage.removeItem(cKey)}catch(_){ }
     }catch(e){console.warn("No se pudo limpiar el runtime del evento",e)}
 }
 
@@ -9393,10 +9393,10 @@ function applyReusableExerciseData(data){
     const symbols=data.customIofSymbols||{};
     try{
         if(symbols.general){
-            localStorage.setItem("militopo_iof_custom_symbols_v4_c_h_combo_cruce_union_curva",JSON.stringify(symbols.general));
+            localStorage.setItem("militopo_v2_iof_custom_symbols_v4_c_h_combo_cruce_union_curva",JSON.stringify(symbols.general));
             customIofSymbols=safeJsonClone(symbols.general,{combo:{},f:{},g:{}});
         }
-        if(symbols.d)localStorage.setItem("militopo_iof_d_custom_symbols_v1",JSON.stringify(symbols.d));
+        if(symbols.d)localStorage.setItem("militopo_v2_iof_d_custom_symbols_v1",JSON.stringify(symbols.d));
     }catch(e){}
 
     selectedPointId="START";
@@ -9484,13 +9484,13 @@ async function importReusableExerciseFile(file){
 document.addEventListener("DOMContentLoaded",setupReusableExerciseImporter);
 
 
-const STORAGE_KEY_MAIN="militopo_orientacion_autosave_v2";
-const STORAGE_KEY_BACKUP="militopo_orientacion_autosave_backup_v2";
-const STORAGE_KEY_SESSION="militopo_orientacion_autosave_session_v2";
-const STORAGE_KEY_LEGACY="militopo_orientacion_v1";
-const STORAGE_KEY_LAST_STEP="militopo_orientacion_last_step_v2";
-const WINDOW_NAME_PREFIX="MILITOPO_ORGANIZER_BACKUP:";
-const DURABLE_ORGANIZER_DB="MILITOPO_V1_ORGANIZER_STATE_V1";
+const STORAGE_KEY_MAIN="militopo_v2_orientacion_autosave_v2";
+const STORAGE_KEY_BACKUP="militopo_v2_orientacion_autosave_backup_v2";
+const STORAGE_KEY_SESSION="militopo_v2_orientacion_autosave_session_v2";
+const STORAGE_KEY_LEGACY="militopo_v2_orientacion_v1";
+const STORAGE_KEY_LAST_STEP="militopo_v2_orientacion_last_step_v2";
+const WINDOW_NAME_PREFIX="MILITOPO_V2_ORGANIZER_BACKUP:";
+const DURABLE_ORGANIZER_DB="MILITOPO_V2_ORGANIZER_STATE_V1";
 const DURABLE_ORGANIZER_EVENT_STORE="events";
 const DURABLE_ORGANIZER_TRACK_STORE="resultTracks";
 const __durableTrackSignatures=new Map();
@@ -9764,7 +9764,7 @@ function saveState(){
         safeStorageWrite(localStorage,STORAGE_KEY_LEGACY,JSON.stringify(compactPayload.state));
         safeStorageWrite(sessionStorage,STORAGE_KEY_LEGACY,JSON.stringify(compactPayload.state));
         try{window.name=WINDOW_NAME_PREFIX+compactRaw}catch(e){}
-        safeStorageWrite(localStorage,"militopo_orientacion_restore_probe_v2",JSON.stringify({savedAt,eventId:state.eventId,currentStep:currentAppStep}));
+        safeStorageWrite(localStorage,"militopo_v2_orientacion_restore_probe_v2",JSON.stringify({savedAt,eventId:state.eventId,currentStep:currentAppStep}));
         scheduleDurableOrganizerState(compactPayload);
         if(!(mainOk||backupOk||sessionOk)){
             setRestoreStatus("⚠️ El navegador no ha podido guardar el estado local. Libera espacio antes de continuar.","err");
@@ -9814,7 +9814,7 @@ function readWindowNameOrganizerBackup(){
 }
 function storageAvailable(){
     try{
-        const k="militopo_storage_probe";
+        const k="militopo_v2_storage_probe";
         localStorage.setItem(k,"1");
         localStorage.removeItem(k);
         return true;
@@ -10664,7 +10664,7 @@ document.addEventListener("DOMContentLoaded",setupWindowsAllSelectContrast);
 
 
 /* ===== MILITOPO ORIENTACIÓN · BIBLIOTECA DE PLANOS GEOTIFF / KMZ V2 ===== */
-const ORIENTATION_GEOTIFF_DB="militopo_orientation_maps_v1";
+const ORIENTATION_GEOTIFF_DB="militopo_v2_orientation_maps";
 const ORIENTATION_GEOTIFF_STORE="maps";
 const ORIENTATION_MAP_ACTIVE_KEY="__active_map__";
 const orientationGeoTiffRuntime={ready:false,url:null,dataUrl:null,bounds:null,imageWidth:0,imageHeight:0,overlay:null,name:"",epsg:null,id:null,format:null,builtin:false};
