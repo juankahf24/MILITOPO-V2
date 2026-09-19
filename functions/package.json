@@ -1,0 +1,14 @@
+{
+  "name": "militopo-v2-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "scripts": {
+    "emulate": "firebase emulators:start --only auth,firestore,database,functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "14.4.0",
+    "firebase-functions": "7.4.0"
+  }
+}
