@@ -8,7 +8,7 @@
 // no podía descargarse y los mensajes FINISH/TRACK nunca llegaban a IndexedDB.
 // La SDK se carga de forma diferida: primero quedan activos los listeners y la
 // persistencia local; al volver internet se conecta y vacía las colas.
-const FIREBASE_SDK_VERSION = "12.15.0";
+const FIREBASE_SDK_VERSION = "12.19.0";
 let initializeApp, getApps, getApp;
 let getAuth, onAuthStateChanged, signInAnonymously;
 let getDatabase, ref, set, update, get, onValue, onDisconnect, serverTimestamp;
@@ -40,19 +40,19 @@ const firebaseConfig = {
   appId: "1:975622693671:web:1453bdd168b58817b9bf02"
 };
 
-const ROOT_PATH = "militopoLive/v2";
-const QUEUE_KEY = "militopo_v1_live_v2_pending_events";
-const PARTICIPANT_CONTEXT_KEY = "militopo_v1_live_v2_participant_context";
-const ORGANIZER_RUN_KEY_PREFIX = "militopo_v1_live_v2_organizer_run_";
-const ORGANIZER_RUN_SNAPSHOT_KEY_PREFIX = "militopo_v1_live_v2_organizer_snapshot_";
-const AUTO_IMPORT_KEY_PREFIX = "militopo_v1_live_v2_auto_import_";
-const PARTICIPANT_LAST_SYNC_KEY_PREFIX = "militopo_v1_live_v2_last_sync_";
-const TRACK_OUTBOX_DB = "MILITOPO_V1_LIVE_TRACK_OUTBOX_V1";
+const ROOT_PATH = "militopoLive/v2dev";
+const QUEUE_KEY = "militopo_v2_live_v2_pending_events";
+const PARTICIPANT_CONTEXT_KEY = "militopo_v2_live_v2_participant_context";
+const ORGANIZER_RUN_KEY_PREFIX = "militopo_v2_live_v2_organizer_run_";
+const ORGANIZER_RUN_SNAPSHOT_KEY_PREFIX = "militopo_v2_live_v2_organizer_snapshot_";
+const AUTO_IMPORT_KEY_PREFIX = "militopo_v2_live_v2_auto_import_";
+const PARTICIPANT_LAST_SYNC_KEY_PREFIX = "militopo_v2_live_v2_last_sync_";
+const TRACK_OUTBOX_DB = "MILITOPO_V2_LIVE_TRACK_OUTBOX_V1";
 const TRACK_OUTBOX_STORE = "bundles";
 const TRACK_UPLOAD_CHUNK_SIZE = 100;
-const ORGANIZER_TRACK_VAULT_DB = "MILITOPO_V1_ORGANIZER_TRACK_VAULT_V1";
+const ORGANIZER_TRACK_VAULT_DB = "MILITOPO_V2_ORGANIZER_TRACK_VAULT_V1";
 const ORGANIZER_TRACK_VAULT_STORE = "tracks";
-const ORGANIZER_RACE_SNAPSHOT_DB = "MILITOPO_V1_ORGANIZER_RACE_SNAPSHOT_V1";
+const ORGANIZER_RACE_SNAPSHOT_DB = "MILITOPO_V2_ORGANIZER_RACE_SNAPSHOT_V1";
 const ORGANIZER_RACE_SNAPSHOT_STORE = "runs";
 
 let app = null;
@@ -2312,7 +2312,8 @@ async function initFirebase() {
   if(firebaseInitPromise)return firebaseInitPromise;
   firebaseInitPromise=(async()=>{
     await loadFirebaseSdk();
-    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const legacyLiveAppName = "militopo-v2-legacy-live";
+    app = getApps().find(candidate => candidate.name === legacyLiveAppName) || initializeApp(firebaseConfig, legacyLiveAppName);
     auth = getAuth(app);
     db = getDatabase(app);
 
