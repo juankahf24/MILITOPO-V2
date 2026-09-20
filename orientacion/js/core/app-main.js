@@ -305,6 +305,7 @@ function syncPlanScaleFromUiNow(){
 }
 
 function updatePlanScaleSetting(){
+    if(rejectProtectedRaceMutation("cambiar la escala o equidistancia")){syncPlanScaleSettingUi();return;}
     syncPlanScaleFromUiNow();
     renderPlanPdfPreview();
     scheduleSaveState();
@@ -316,7 +317,7 @@ function syncPlanScaleSettingUi(){
     if(e)e.value=String(state.planEquidistanceM||5);
 }
 
-function confirmStep1(){rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();updateParticipantSelect();updateRouteCountInfo();__militopoCloudHeaderArmed=true;saveState();publishMilitopoCloudHeader("step1-confirmed");publishMilitopoCloudStructure("step1-confirmed");toast("Configuración guardada");goStep(2)}
+function confirmStep1(){if(rejectProtectedRaceMutation("cambiar la configuración del evento"))return;rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();updateParticipantSelect();updateRouteCountInfo();__militopoCloudHeaderArmed=true;saveState();publishMilitopoCloudHeader("step1-confirmed");publishMilitopoCloudStructure("step1-confirmed");toast("Configuración guardada");goStep(2)}
 // AUTOFILL TEST POINTS JS START
 function getAutofillOrientationBaseCenter(){
     // Prioridad 1: centro visible actual del mapa. Si el usuario ha buscado una zona,
@@ -503,6 +504,7 @@ function hideRouteGenerationLoader(){
 // ROUTE GENERATION LOADER JS END
 
 async function confirmStep2(){
+    if(rejectProtectedRaceMutation("generar o sustituir recorridos"))return;
     const v=validatePoints();
     if(!v.ok){
         toast("Faltan puntos obligatorios");
@@ -543,6 +545,7 @@ async function confirmStep2(){
 function validatePoints(){const requiredOk=["START","FINISH"].every(id=>state.points[id]?.lat!==null&&state.points[id]?.lon!==null);const controls=Object.values(state.points).filter(p=>p.type==="BALIZA"&&p.lat!==null&&p.lon!==null);return{ok:requiredOk&&controls.length>=state.controlsPerRoute,controlsCount:controls.length}}
 function renderPointSelectors(){const sel=document.getElementById("selectedPoint");sel.innerHTML="";Object.values(state.points).forEach(p=>{const opt=document.createElement("option");opt.value=p.id;opt.textContent=`${symbolForType(p.type)} ${p.id} · ${p.desc||p.type}`;sel.appendChild(opt)});sel.value=selectedPointId;sel.onchange=()=>{selectedPointId=sel.value;loadSelectedPointFields();zoomSelectedPoint()};loadSelectedPointFields()}function symbolForType(type){return type==="SALIDA"?"△":type==="LLEGADA"?"◎":"○"}function loadSelectedPointFields(){const p=state.points[selectedPointId];if(!p)return;document.getElementById("selectedUtm").value=p.utm||""}
 function saveSelectedPoint(){
+    if(rejectProtectedRaceMutation("editar balizas"))return;
     const p=state.points[selectedPointId];
     if(!p)return;
     const utm=normalizeUtmText(document.getElementById("selectedUtm").value);
@@ -560,7 +563,7 @@ function saveSelectedPoint(){
     saveState();
     toast(`${p.id} guardado`);
 }
-function clearSelectedPoint(){const p=state.points[selectedPointId];if(!p)return;p.utm="";p.lat=null;p.lon=null;p.elevation=null;renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} limpiado`)}
+function clearSelectedPoint(){if(rejectProtectedRaceMutation("eliminar una baliza"))return;const p=state.points[selectedPointId];if(!p)return;p.utm="";p.lat=null;p.lon=null;p.elevation=null;renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} limpiado`)}
 function normalizeUtmText(value){
     return String(value||"").trim().replace(/\s+/g," ").toUpperCase();
 }
@@ -1045,6 +1048,7 @@ function renderPointsTable(){
         tbody.appendChild(tr);
     });
     tbody.querySelectorAll("input").forEach(inp=>inp.addEventListener("change",e=>{
+        if(rejectProtectedRaceMutation("editar coordenadas de balizas")){renderPointsTable();return;}
         const id=e.target.dataset.id,p=state.points[id];
         if(!p)return;
         const val=normalizeUtmText(e.target.value);
@@ -1283,7 +1287,7 @@ function renderPlanPdfPreview(){
     });
 }
 
-function initMap(){if(map)return;const step2MaxZoom=24;const pnoaNativeMaxZoom=19;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=L.tileLayer("https://www.ign.es/wmts/mapa-raster?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=MTN&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© Instituto Geográfico Nacional",maxNativeZoom:18,maxZoom:step2MaxZoom,keepBuffer:6,updateWhenZooming:true});layers.pnoa=L.tileLayer("https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© PNOA Máxima Actualidad · IGN",maxNativeZoom:pnoaNativeMaxZoom,maxZoom:22,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:true,crossOrigin:true,className:"pnoa-overzoom-tile"});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(initialLayer==="pnoa"?22:step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;document.getElementById("selectedUtm").value=utm;renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
+function initMap(){if(map)return;const step2MaxZoom=24;const pnoaNativeMaxZoom=19;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=L.tileLayer("https://www.ign.es/wmts/mapa-raster?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=MTN&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© Instituto Geográfico Nacional",maxNativeZoom:18,maxZoom:step2MaxZoom,keepBuffer:6,updateWhenZooming:true});layers.pnoa=L.tileLayer("https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© PNOA Máxima Actualidad · IGN",maxNativeZoom:pnoaNativeMaxZoom,maxZoom:22,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:true,crossOrigin:true,className:"pnoa-overzoom-tile"});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(initialLayer==="pnoa"?22:step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;document.getElementById("selectedUtm").value=utm;renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
 function bringPlanPreviewToFront(){
     try{
         if(pdfPlanPreviewRectangle&&typeof pdfPlanPreviewRectangle.bringToFront==="function")pdfPlanPreviewRectangle.bringToFront();
@@ -1352,6 +1356,7 @@ function openOrientationPointPopup(marker, pointId){
 }
 
 function saveOrientationPopupPoint(pointId){
+    if(rejectProtectedRaceMutation("editar balizas"))return;
     const p=state.points[pointId];
     if(!p) return;
     const utmEl=document.getElementById(`oriPopupUtm_${pointId}`);
@@ -1379,6 +1384,7 @@ function saveOrientationPopupPoint(pointId){
 }
 
 function deleteOrientationPopupPoint(pointId){
+    if(rejectProtectedRaceMutation("eliminar una baliza"))return;
     const p=state.points[pointId];
     if(!p) return;
     p.utm="";
@@ -1397,7 +1403,7 @@ function deleteOrientationPopupPoint(pointId){
 }
 // ORIENTATION POINT POPUP JS END
 
-function renderMapMarkers(){if(!markersLayer)return;markersLayer.clearLayers();routeLayer?.clearLayers();renderPlanPdfPreview();Object.values(state.points).forEach(p=>{if(p.lat===null||p.lon===null)return;const icon=L.divIcon({html:`<div class="${iconClassForType(p.type)}">${p.type==="BALIZA"?p.id.replace("B",""):""}</div>`,className:"",iconSize:[22,22],iconAnchor:[11,11]});const marker=L.marker([p.lat,p.lon],{icon,draggable:true}).bindTooltip(`${p.id}`,{permanent:true,direction:"right",className:"marker-label"}).on("dragend",ev=>{const ll=ev.target.getLatLng();p.lat=ll.lat;p.lon=ll.lng;p.utm=latLonToUtm(ll.lat,ll.lng);p.elevation=null;selectedPointId=p.id;renderPointsTable();loadSelectedPointFields();saveState();renderPlanPdfPreview();marker.setPopupContent(buildOrientationPointPopup(p.id))}).on("click",()=>openOrientationPointPopup(marker,p.id)).addTo(markersLayer);marker.bindPopup(buildOrientationPointPopup(p.id),{className:"orientation-point-popup",closeButton:true,autoPan:true,maxWidth:330})})}function iconClassForType(type){return type==="SALIDA"?"ori-start-icon":type==="LLEGADA"?"ori-finish-icon":"ori-control-icon"}function zoomSelectedPoint(){const p=state.points[selectedPointId];if(!map||!p||p.lat===null)return;map.setView([p.lat,p.lon],19)}function fitAllPoints(){
+function renderMapMarkers(){if(!markersLayer)return;markersLayer.clearLayers();routeLayer?.clearLayers();renderPlanPdfPreview();Object.values(state.points).forEach(p=>{if(p.lat===null||p.lon===null)return;const icon=L.divIcon({html:`<div class="${iconClassForType(p.type)}">${p.type==="BALIZA"?p.id.replace("B",""):""}</div>`,className:"",iconSize:[22,22],iconAnchor:[11,11]});const marker=L.marker([p.lat,p.lon],{icon,draggable:!currentMilitopoCloudDesignLock()}).bindTooltip(`${p.id}`,{permanent:true,direction:"right",className:"marker-label"}).on("dragend",ev=>{if(rejectProtectedRaceMutation("mover balizas")){renderMapMarkers();return;}const ll=ev.target.getLatLng();p.lat=ll.lat;p.lon=ll.lng;p.utm=latLonToUtm(ll.lat,ll.lng);p.elevation=null;selectedPointId=p.id;renderPointsTable();loadSelectedPointFields();saveState();renderPlanPdfPreview();marker.setPopupContent(buildOrientationPointPopup(p.id))}).on("click",()=>openOrientationPointPopup(marker,p.id)).addTo(markersLayer);marker.bindPopup(buildOrientationPointPopup(p.id),{className:"orientation-point-popup",closeButton:true,autoPan:true,maxWidth:330})})}function iconClassForType(type){return type==="SALIDA"?"ori-start-icon":type==="LLEGADA"?"ori-finish-icon":"ori-control-icon"}function zoomSelectedPoint(){const p=state.points[selectedPointId];if(!map||!p||p.lat===null)return;map.setView([p.lat,p.lon],19)}function fitAllPoints(){
     if(!map)return;
     const latlngs=Object.values(state.points||{})
         .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon))
@@ -8464,7 +8470,7 @@ async function exportFullIofCHBackup(){
     toast("Backup C-H exportado en JSON");
 }
 
-function syncIofEventName(){const input=document.getElementById("iofEventName");if(input&&input.value.trim()){state.eventName=input.value.trim();const main=document.getElementById("eventName");if(main)main.value=state.eventName;scheduleSaveState()}}
+function syncIofEventName(){if(rejectProtectedRaceMutation("cambiar el nombre o descripción IOF"))return;const input=document.getElementById("iofEventName");if(input&&input.value.trim()){state.eventName=input.value.trim();const main=document.getElementById("eventName");if(main)main.value=state.eventName;scheduleSaveState()}}
 
 function iofPointIds(){
     return Object.keys(state.points||{}).sort((a,b)=>{
@@ -8610,6 +8616,7 @@ function moveIofPoint(delta){
 }
 
 function markCurrentIofComplete(){
+    if(rejectProtectedRaceMutation("editar descripciones IOF"))return;
     ensureIofDescriptions();
     if(!selectedIofPointId)return;
     const base=pointBaseStatus(selectedIofPointId);
@@ -8625,6 +8632,7 @@ function markCurrentIofComplete(){
 }
 
 function markCurrentIofPending(){
+    if(rejectProtectedRaceMutation("editar descripciones IOF"))return;
     ensureIofDescriptions();
     if(!selectedIofPointId)return;
     state.iofDescriptions[selectedIofPointId]={...(state.iofDescriptions[selectedIofPointId]||{}),complete:false};
@@ -8648,6 +8656,7 @@ function iofPreviewCells(id){
 }
 
 function updateIofDescription(id,field,value){
+    if(rejectProtectedRaceMutation("editar descripciones IOF")){renderIofDescriptionsEditor();return;}
     ensureIofDescriptions();
     const desc=state.iofDescriptions[id];
     if(field==="f"){
@@ -8686,6 +8695,7 @@ function pickRandom(arr){
 
 
 function autofillRandomIofDescriptions(){
+    if(rejectProtectedRaceMutation("rellenar descripciones IOF"))return;
     ensureIofDescriptions();
     Object.keys(state.points||{}).forEach(id=>{
         const p=state.points[id]||{};
@@ -8716,6 +8726,7 @@ function autofillRandomIofDescriptions(){
 }
 
 function autofillOfficialIofDescriptions(){
+    if(rejectProtectedRaceMutation("rellenar descripciones IOF"))return;
     ensureIofDescriptions();
     const terrain=["terraza","espolon_saliente","vaguada_entrante","talud","colina","cota_monticulo","collado","depresion","foso_hoyo"];
     const rock=["cortado_rocoso","pilar_rocoso","cueva_gruta","roca","campo_piedras","grupo_piedras","pedregal","afloramiento_rocoso"];
@@ -8745,6 +8756,7 @@ function autofillOfficialIofDescriptions(){
 }
 
 function applyIofTemplateToEmpty(){
+    if(rejectProtectedRaceMutation("aplicar una plantilla IOF"))return;
     ensureIofDescriptions();
     const template=document.getElementById("iofQuickTemplate")?.value;
     if(!template)return toast("Elige una plantilla");
@@ -8811,6 +8823,7 @@ function validateIofDescriptions(){
 }
 
 function clearIofDescriptions(){
+    if(rejectProtectedRaceMutation("borrar descripciones IOF"))return;
     if(!confirm("¿Limpiar todas las descripciones IOF?"))return;
     state.iofDescriptions={};
     Object.keys(state.points||{}).forEach(id=>{
@@ -9921,7 +9934,19 @@ function currentExerciseHasRaceEvidence(){
     }catch(_){ }
     return false;
 }
+function currentMilitopoCloudDesignLock(){
+    const lock=window.MILITOPO_V2_EVENT_EDIT_LOCK;
+    return lock&&lock.locked?lock:null;
+}
 function rejectProtectedRaceMutation(action="modificar el ejercicio"){
+    const cloudLock=currentMilitopoCloudDesignLock();
+    if(cloudLock){
+        const label=String(cloudLock.label||cloudLock.status||"PUBLICADO");
+        const msg=`🔒 Diseño bloqueado (${label}): no puedes ${action}. El evento publicado conserva sus balizas y recorridos oficiales.`;
+        try{toast(msg)}catch(_){ }
+        try{setRestoreStatus(msg,"warn")}catch(_){ }
+        return true;
+    }
     const guard=ensureRaceDataProtection();
     if(!guard.protected)return false;
     // Un run recordado o una carrera creada sin ninguna salida real no debe
