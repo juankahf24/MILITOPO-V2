@@ -187,6 +187,12 @@ function init(){
         cleanupStep2ImportAndTableUi();
         goStep(restoredStep,{silent:true,noScroll:true});
         setTimeout(()=>{publishMilitopoCloudHeader("ready");publishMilitopoCloudStructure("ready")},0);
+        window.addEventListener("militopo:v2-cloud-event-loaded",event=>{
+            applyMilitopoCloudRecoveredEvent(event?.detail||{}).catch(error=>{
+                console.error("MILITOPO C3 · aplicación del evento de nube",error);
+                try{window.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-applied",{detail:{ok:false,eventId:String(event?.detail?.header?.eventId||""),error:String(error?.message||error)}}))}catch(_){}
+            });
+        });
 
         // La copia IndexedDB es una red de seguridad, nunca debe bloquear el arranque.
         const bootStateEpoch=__militopoOrganizerStateEpoch;
@@ -9399,6 +9405,169 @@ function hardResetStateForReusableExerciseImport(){
     });
     selectedPointId="START";
     selectedIofPointId="START";
+}
+
+
+function militopoCloudRecoveredPointMap(checkpoints){
+    const out={};
+    (Array.isArray(checkpoints)?checkpoints:[]).forEach(item=>{
+        const id=String(item?.checkpointId||item?.id||"").trim();
+        if(!id)return;
+        out[id]={
+            id,
+            type:["SALIDA","LLEGADA","BALIZA"].includes(String(item?.type||""))?String(item.type):"BALIZA",
+            utm:String(item?.utm||""),
+            desc:String(item?.description??item?.desc??""),
+            lat:militopoCloudFinite(item?.lat),
+            lon:militopoCloudFinite(item?.lon),
+            elevation:militopoCloudFinite(item?.elevationM??item?.elevation)
+        };
+    });
+    return out;
+}
+
+function militopoCloudRecoveredIofMap(checkpoints){
+    const out={};
+    (Array.isArray(checkpoints)?checkpoints:[]).forEach(item=>{
+        const id=String(item?.checkpointId||item?.id||"").trim();
+        if(!id)return;
+        const src=item?.iof&&typeof item.iof==="object"?item.iof:{};
+        out[id]={
+            c:String(src.c||""),d:String(src.d||""),e:String(src.e||""),f:String(src.f||""),
+            g:String(src.g||""),h:String(src.h||""),combo:String(src.combo||""),
+            text:String(src.text||""),complete:src.complete===true
+        };
+    });
+    return out;
+}
+
+function militopoCloudRecoveredRoutes(courses,participantCount){
+    const source=(Array.isArray(courses)?courses:[]).map((course,index)=>({
+        routeId:String(course?.routeId||course?.courseId||`R${String(index+1).padStart(2,"0")}`),
+        routeDesignIndex:Math.max(0,Math.trunc(Number(course?.routeDesignIndex)||index)),
+        points:Array.isArray(course?.points)?course.points.map(String):[],
+        assignedParticipantIds:Array.isArray(course?.assignedParticipantIds)?course.assignedParticipantIds.map(String).filter(Boolean):[],
+        metrics:course?.metrics&&typeof course.metrics==="object"?JSON.parse(JSON.stringify(course.metrics)):{}
+    })).sort((a,b)=>a.routeDesignIndex-b.routeDesignIndex||a.routeId.localeCompare(b.routeId));
+    const routes=[];
+    const metrics=[];
+    const seen=new Set();
+    source.forEach(course=>{
+        course.assignedParticipantIds.forEach(pid=>{
+            if(!pid||seen.has(pid))return;
+            seen.add(pid);
+            routes.push({participantId:pid,routeId:course.routeId,routeDesignIndex:course.routeDesignIndex,points:[...course.points]});
+            metrics.push(JSON.parse(JSON.stringify(course.metrics||{})));
+        });
+    });
+    const count=Math.max(1,Math.trunc(Number(participantCount)||routes.length||10));
+    if(source.length){
+        for(let i=0;i<count;i++){
+            const pid="P"+String(i+1).padStart(2,"0");
+            if(seen.has(pid))continue;
+            const course=source[i%source.length];
+            routes.push({participantId:pid,routeId:course.routeId,routeDesignIndex:course.routeDesignIndex,points:[...course.points]});
+            metrics.push(JSON.parse(JSON.stringify(course.metrics||{})));
+            seen.add(pid);
+        }
+    }
+    const order=pid=>Number(String(pid||"").replace(/\D+/g,""))||999999;
+    const paired=routes.map((route,index)=>({route,metric:metrics[index]||{}})).sort((a,b)=>order(a.route.participantId)-order(b.route.participantId)||String(a.route.participantId).localeCompare(String(b.route.participantId)));
+    return {routes:paired.map(x=>x.route),metrics:paired.map(x=>x.metric),uniqueRouteCount:source.length};
+}
+
+async function applyMilitopoCloudRecoveredEvent(detail){
+    const header=detail?.header&&typeof detail.header==="object"?detail.header:{};
+    const eventId=String(header.eventId||"").trim();
+    if(!eventId)throw new Error("La copia de Firestore no contiene un eventId válido.");
+    const checkpoints=Array.isArray(detail?.checkpoints)?detail.checkpoints:[];
+    const courses=Array.isArray(detail?.courses)?detail.courses:[];
+    const pointMap=militopoCloudRecoveredPointMap(checkpoints);
+    if(!pointMap.START||!pointMap.FINISH)throw new Error("La copia de Firestore no contiene salida y llegada.");
+
+    const previousEventId=String(state.eventId||"");
+    if(previousEventId&&previousEventId!==eventId&&typeof currentExerciseHasRaceEvidence==="function"&&currentExerciseHasRaceEvidence()){
+        const allowed=confirm("El evento abierto en este dispositivo contiene datos de carrera o resultados. Se guardará una copia duradera, pero vas a cambiar a otro evento.\n\n¿Quieres continuar?");
+        if(!allowed){
+            window.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-applied",{detail:{ok:false,eventId,error:"Recuperación cancelada: el evento local con datos de carrera no se ha sustituido."}}));
+            return false;
+        }
+    }
+
+    // Antes de tocar el estado actual exigimos al menos una copia local válida.
+    if(saveState()===false)throw new Error("No se pudo guardar una copia local del evento actual. Libera espacio antes de abrir otro evento.");
+    try{
+        const savedAt=new Date().toISOString();
+        const durablePayload={savedAt,currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:cloneStateForCompactSave(),compact:true};
+        await withOrganizerTimeout(persistDurableOrganizerState(durablePayload),2200,"Copia duradera previa a recuperación nube");
+    }catch(error){
+        console.warn("MILITOPO C3 · no se pudo reforzar la copia IndexedDB previa",error);
+    }
+
+    __militopoOrganizerStateEpoch++;
+    clearTimeout(__autoSaveTimer);
+    clearTimeout(__durableSaveTimer);
+    hardResetStateForReusableExerciseImport();
+
+    const rebuilt=militopoCloudRecoveredRoutes(courses,header.participantCount);
+    state.eventId=eventId;
+    state.eventName=String(header.eventName||"ENTRENAMIENTO ORIENTACIÓN");
+    state.participantCount=Math.max(1,Math.trunc(Number(header.participantCount)||rebuilt.routes.length||10));
+    state.maxUniqueRoutes=Math.max(1,Math.trunc(Number(header.maxUniqueRoutes)||rebuilt.uniqueRouteCount||15));
+    state.controlCount=Math.max(0,Math.trunc(Number(header.controlCount)||Object.values(pointMap).filter(point=>point.type==="BALIZA").length));
+    state.controlsPerRoute=Math.max(0,Math.trunc(Number(header.controlsPerRoute)||Math.max(0,(rebuilt.routes[0]?.points||[]).filter(id=>id!=="START"&&id!=="FINISH").length)));
+    state.maxControlReuse=Math.max(1,Math.trunc(Number(header.maxControlReuse)||6));
+    state.planScale=Number(header.planScale)===7500?7500:10000;
+    state.planEquidistanceM=Math.max(.5,Number(header.planEquidistanceM)||5);
+    state.points=pointMap;
+    state.routes=rebuilt.routes;
+    state.metrics=rebuilt.metrics;
+    state.uniqueRouteCount=rebuilt.uniqueRouteCount;
+    state.iofDescriptions=militopoCloudRecoveredIofMap(checkpoints);
+    state.raceDataProtection={protected:false,runId:"",startedAt:"",lastDataAt:"",status:""};
+    state.participantLogs={};
+    state.participantNames={};
+    state.skippedRoutes={};
+    state.importedResults=[];
+    state.startTimes={};
+    state.finishTimes={};
+    state.scanHistory=[];
+    state.classification=[];
+    state.startFlowStatus={};
+    state.liveRunId="";
+    state.liveRunStartedAt="";
+    state.liveRunStatus="";
+    state.routeWarnings=[];
+    state.routeQualitySummary=typeof buildRouteQualitySummary==="function"?buildRouteQualitySummary(state.metrics||[]):null;
+
+    selectedPointId="START";
+    selectedIofPointId="START";
+    __militopoCloudHeaderArmed=true;
+    try{clearAllReusableExerciseRuntimeStorage(eventId)}catch(_){}
+
+    syncConfigToUi();
+    try{syncPlanScaleSettingUi()}catch(_){}
+    renderPointSelectors();
+    renderPointsTable();
+    renderIofDescriptionsEditor();
+    try{validateIofDescriptions()}catch(_){}
+    updateParticipantSelect();
+    updateRouteCountInfo();
+    try{renderRoutes()}catch(error){console.warn("C3 · render recorridos",error)}
+    try{renderQrPreview()}catch(error){console.warn("C3 · render QR",error)}
+    try{renderMapMarkers();if(map)fitAllPoints()}catch(error){console.warn("C3 · render mapa",error)}
+    try{updateOrganizerParticipantSelects()}catch(_){}
+    try{renderImportedResults()}catch(_){}
+
+    currentAppStep=rebuilt.routes.length?3:2;
+    saveState();
+    goStep(currentAppStep,{silent:true});
+    publishMilitopoCloudHeader("cloud-recovery");
+    publishMilitopoCloudStructure("cloud-recovery");
+    setRestoreStatus(`✅ Evento recuperado desde Firestore · ${eventId} · ${checkpoints.length} puntos · ${rebuilt.uniqueRouteCount} recorridos únicos`,"ok");
+    toast("Evento recuperado desde Firestore");
+    window.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-applied",{detail:{ok:true,eventId,pointCount:checkpoints.length,courseCount:rebuilt.uniqueRouteCount,participantRouteCount:rebuilt.routes.length}}));
+    return true;
 }
 
 function clearAllReusableExerciseRuntimeStorage(eventId){
