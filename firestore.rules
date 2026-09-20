@@ -10,12 +10,25 @@ service cloud.firestore {
     function isEventOwner(eventId) { return signedIn() && eventDoc(eventId).data.ownerUid == request.auth.uid; }
     function isEventMember(eventId) { return signedIn() && exists(/databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid)); }
     function managesEvent(eventId) { return isSuperAdmin() || (isOrganizer() && isEventOwner(eventId)); }
+    function validEventStatus(status) {
+      return status == "draft" || status == "prepared" || status == "published" ||
+             status == "live" || status == "finished" || status == "archived";
+    }
+    function validEventTransition(before, after) {
+      return before == after ||
+             (before == "draft" && after == "prepared") ||
+             (before == "prepared" && after == "published") ||
+             (before == "published" && after == "live") ||
+             (before == "live" && after == "finished") ||
+             (before == "finished" && after == "archived");
+    }
+    function preparedDataReady(data) {
+      return data.checkpointSyncedCount is int && data.checkpointSyncedCount >= 3 &&
+             data.courseSyncedCount is int && data.courseSyncedCount >= 1;
+    }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
-      // En Spark el perfil básico lo crea el cliente después de verificar el correo.
-      // Los roles privilegiados se asignan únicamente con Firebase Admin SDK desde
-      // un entorno administrativo (Cloud Shell), nunca desde el navegador.
       allow create: if signedIn() && request.auth.uid == uid
                     && request.resource.data.uid == request.auth.uid
                     && !request.resource.data.keys().hasAny(["role", "roleMirror", "accountStatus", "permissions"]);
@@ -33,8 +46,11 @@ service cloud.firestore {
       allow read: if signedIn() && (isSuperAdmin() || resource.data.ownerUid == request.auth.uid || isEventMember(eventId));
       allow update: if verified() && managesEvent(eventId)
                     && request.resource.data.ownerUid == resource.data.ownerUid
-                    && request.resource.data.createdAt == resource.data.createdAt;
-      // Borrado físico deshabilitado: V2 usará archivado/papelera desde backend.
+                    && request.resource.data.createdAt == resource.data.createdAt
+                    && request.resource.data.kind == resource.data.kind
+                    && validEventStatus(request.resource.data.status)
+                    && validEventTransition(resource.data.status, request.resource.data.status)
+                    && (request.resource.data.status != "prepared" || resource.data.status == "prepared" || preparedDataReady(request.resource.data));
       allow delete: if false;
 
       match /members/{uid} {
@@ -55,20 +71,19 @@ service cloud.firestore {
 
       match /results/{uid} {
         allow read: if signedIn() && (request.auth.uid == uid || managesEvent(eventId));
-        // El corredor no puede declarar por sí mismo un resultado "oficial".
         allow create, update: if verified() && managesEvent(eventId);
         allow delete: if false;
       }
 
       match /audit/{logId} {
         allow read: if signedIn() && managesEvent(eventId);
-        allow write: if false; // Solo Admin SDK / Cloud Functions.
+        allow write: if false;
       }
     }
 
     match /invitations/{inviteId} {
       allow read: if signedIn() && (resource.data.targetUid == request.auth.uid || resource.data.createdBy == request.auth.uid || isSuperAdmin());
-      allow write: if false; // Creación/aceptación atómica mediante Functions.
+      allow write: if false;
     }
 
     match /organizations/{orgId} {
