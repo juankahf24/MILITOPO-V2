@@ -82,6 +82,76 @@ function publishMilitopoCloudHeader(reason="save"){
     }catch(error){console.warn("MILITOPO · publicación de cabecera nube",error)}
 }
 
+function militopoCloudFinite(value){
+    if(value===null||value===""||typeof value==="undefined")return null;
+    const n=Number(value);
+    return Number.isFinite(n)?n:null;
+}
+function militopoCloudIofSnapshot(id){
+    const src=(state.iofDescriptions&&state.iofDescriptions[id])||{};
+    return {
+        c:String(src.c||""),d:String(src.d||""),e:String(src.e||""),f:String(src.f||""),
+        g:String(src.g||""),h:String(src.h||""),combo:String(src.combo||""),
+        text:String(src.text||""),complete:src.complete===true
+    };
+}
+function militopoCloudCheckpointSnapshots(){
+    return Object.values(state.points||{}).map(point=>({
+        checkpointId:String(point?.id||""),
+        type:String(point?.type||"BALIZA"),
+        description:String(point?.desc||""),
+        utm:String(point?.utm||""),
+        lat:militopoCloudFinite(point?.lat),
+        lon:militopoCloudFinite(point?.lon),
+        elevationM:militopoCloudFinite(point?.elevation),
+        iof:militopoCloudIofSnapshot(String(point?.id||""))
+    })).filter(point=>point.checkpointId);
+}
+function militopoCloudMetricSnapshot(metric){
+    metric=metric||{};
+    return {
+        distanceKm:militopoCloudFinite(metric.distanceKm),
+        longestKm:militopoCloudFinite(metric.longestKm),
+        positiveM:militopoCloudFinite(metric.positiveM),
+        negativeM:militopoCloudFinite(metric.negativeM),
+        difficulty:String(metric.difficulty||""),
+        quality:String(metric.quality||""),
+        qualityCode:String(metric.qualityCode||""),
+        routeMode:String(metric.routeMode||"")
+    };
+}
+function militopoCloudCourseSnapshots(){
+    const byRoute=new Map();
+    (state.routes||[]).forEach((route,index)=>{
+        const routeId=String(route?.routeId||"").trim();
+        if(!routeId)return;
+        if(!byRoute.has(routeId)){
+            byRoute.set(routeId,{
+                courseId:routeId,
+                routeId,
+                routeDesignIndex:Math.max(0,Math.trunc(Number(route?.routeDesignIndex)||0)),
+                points:Array.isArray(route?.points)?route.points.map(String):[],
+                assignedParticipantIds:[],
+                metrics:militopoCloudMetricSnapshot((state.metrics||[])[index])
+            });
+        }
+        const participantId=String(route?.participantId||"").trim();
+        if(participantId)byRoute.get(routeId).assignedParticipantIds.push(participantId);
+    });
+    return [...byRoute.values()].map(course=>({...course,assignedParticipantIds:[...new Set(course.assignedParticipantIds)]}));
+}
+function publishMilitopoCloudStructure(reason="save"){
+    try{
+        window.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure",{detail:{
+            reason,
+            armed:!!__militopoCloudHeaderArmed,
+            eventId:String(state.eventId||""),
+            checkpoints:militopoCloudCheckpointSnapshots(),
+            courses:militopoCloudCourseSnapshots()
+        }}));
+    }catch(error){console.warn("MILITOPO · publicación de estructura nube",error)}
+}
+
 function init(){
     if(__militopoOrientationInitialized)return;
     __militopoOrientationInitialized=true;
@@ -116,7 +186,7 @@ function init(){
         bindStrongAutosave();
         cleanupStep2ImportAndTableUi();
         goStep(restoredStep,{silent:true,noScroll:true});
-        setTimeout(()=>publishMilitopoCloudHeader("ready"),0);
+        setTimeout(()=>{publishMilitopoCloudHeader("ready");publishMilitopoCloudStructure("ready")},0);
 
         // La copia IndexedDB es una red de seguridad, nunca debe bloquear el arranque.
         const bootStateEpoch=__militopoOrganizerStateEpoch;
@@ -240,7 +310,7 @@ function syncPlanScaleSettingUi(){
     if(e)e.value=String(state.planEquidistanceM||5);
 }
 
-function confirmStep1(){rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();updateParticipantSelect();updateRouteCountInfo();__militopoCloudHeaderArmed=true;saveState();publishMilitopoCloudHeader("step1-confirmed");toast("Configuración guardada");goStep(2)}
+function confirmStep1(){rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();updateParticipantSelect();updateRouteCountInfo();__militopoCloudHeaderArmed=true;saveState();publishMilitopoCloudHeader("step1-confirmed");publishMilitopoCloudStructure("step1-confirmed");toast("Configuración guardada");goStep(2)}
 // AUTOFILL TEST POINTS JS START
 function getAutofillOrientationBaseCenter(){
     // Prioridad 1: centro visible actual del mapa. Si el usuario ha buscado una zona,
@@ -451,7 +521,7 @@ async function confirmStep2(){
     updateRouteGenerationLoader(ok?"Recorridos generados. Abriendo paso 3...":"No se pudieron generar los recorridos.", ok?100:0);
     await routeSleep(ok?450:900);
     hideRouteGenerationLoader();
-    if(ok) goStep(3);
+    if(ok){publishMilitopoCloudStructure("step2-confirmed");goStep(3);}
 }async function confirmStep3(){
     if(!state.routes.length){
         showRouteGenerationLoader("Generando recorridos antes del material...", 8);
@@ -9804,7 +9874,7 @@ function saveState(){
             setRestoreStatus("⚠️ El navegador no ha podido guardar el estado local. Libera espacio antes de continuar.","err");
             return false;
         }
-        if(__militopoCloudHeaderArmed)publishMilitopoCloudHeader("local-save");
+        if(__militopoCloudHeaderArmed){publishMilitopoCloudHeader("local-save");publishMilitopoCloudStructure("local-save");}
         return true;
     }catch(e){
         console.warn("Autoguardado falló:",e);
@@ -9946,6 +10016,7 @@ async function resetSavedEvent(){
     resetStateToFreshEvent();
     __militopoCloudHeaderArmed=false;
     publishMilitopoCloudHeader("fresh-reset");
+    publishMilitopoCloudStructure("fresh-reset");
 
     const eventIdInput=document.getElementById("eventId");
     if(eventIdInput)eventIdInput.value=state.eventId;
