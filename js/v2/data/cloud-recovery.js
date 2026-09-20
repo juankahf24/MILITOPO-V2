@@ -81,6 +81,7 @@ function ensureStyles() {
     .m2-cloud-recovery-btn{min-height:44px;border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:10px 14px;background:#1b2517;color:#fff;font-weight:800;cursor:pointer}
     .m2-cloud-recovery-btn:disabled{opacity:.55;cursor:not-allowed}
     .m2-cloud-recovery-overlay{position:fixed;inset:0;z-index:2147481000;background:rgba(0,0,0,.72);display:grid;place-items:center;padding:16px}
+    .m2-cloud-recovery-overlay[hidden]{display:none!important}
     .m2-cloud-recovery-panel{width:min(760px,100%);max-height:82vh;overflow:auto;background:#11180e;color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:16px;box-shadow:0 18px 60px rgba(0,0,0,.55)}
     .m2-cloud-recovery-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
     .m2-cloud-recovery-close{min-width:44px;min-height:44px;border:0;border-radius:10px;background:#262e22;color:#fff;font-size:20px;cursor:pointer}
@@ -138,6 +139,7 @@ function ensureOverlay() {
   const overlay = document.createElement("div");
   overlay.className = "m2-cloud-recovery-overlay";
   overlay.hidden = true;
+  overlay.style.display = "none";
   overlay.innerHTML = `
     <section class="m2-cloud-recovery-panel" role="dialog" aria-modal="true" aria-labelledby="m2CloudRecoveryTitle">
       <div class="m2-cloud-recovery-head">
@@ -160,7 +162,9 @@ function ensureOverlay() {
   return overlay;
 }
 function closeOverlay() {
-  if (state.overlay) state.overlay.hidden = true;
+  if (!state.overlay) return;
+  state.overlay.hidden = true;
+  state.overlay.style.display = "none";
 }
 
 function normalizeHeader(id, data = {}) {
@@ -265,6 +269,7 @@ async function openCloudPicker() {
   if (state.busy) return;
   ensureOverlay();
   state.overlay.hidden = false;
+  state.overlay.style.display = "grid";
   if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Consultando Firestore…</div>`;
   if (launcher) launcher.disabled = true;
   try {
