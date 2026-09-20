@@ -6,13 +6,6 @@
   "database": {
     "rules": "database.rules.json"
   },
-  "storage": {
-    "rules": "storage.rules"
-  },
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs22"
-  },
   "hosting": {
     "public": ".",
     "ignore": [
@@ -38,7 +31,6 @@
     "auth": { "port": 9099 },
     "firestore": { "port": 8080 },
     "database": { "port": 9000 },
-    "functions": { "port": 5001 },
     "hosting": { "port": 5000 },
     "ui": { "enabled": true, "port": 4000 },
     "singleProjectMode": true

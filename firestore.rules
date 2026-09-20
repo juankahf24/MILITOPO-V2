@@ -13,8 +13,9 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
-      // El perfil se crea/normaliza mediante Cloud Functions. El usuario solo puede
-      // editar campos no privilegiados de su propio perfil en fases posteriores.
+      // En Spark el perfil básico lo crea el cliente después de verificar el correo.
+      // Los roles privilegiados se asignan únicamente con Firebase Admin SDK desde
+      // un entorno administrativo (Cloud Shell), nunca desde el navegador.
       allow create: if signedIn() && request.auth.uid == uid
                     && request.resource.data.uid == request.auth.uid
                     && !request.resource.data.keys().hasAny(["role", "roleMirror", "accountStatus", "permissions"]);
