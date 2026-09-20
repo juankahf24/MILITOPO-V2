@@ -110,6 +110,11 @@ async function syncLatest() {
   }
   const header = normalizeHeader(packet.header);
   if (!header.eventId) return false;
+  const editLock = globalThis.MILITOPO_V2_EVENT_EDIT_LOCK;
+  if (editLock?.locked && (!editLock.eventId || String(editLock.eventId) === header.eventId)) {
+    paintStatus(`🔒 Diseño bloqueado en ${String(editLock.label || editLock.status || "PUBLICADO")}. La cabecera no se modifica.`, "warn");
+    return false;
+  }
   if (state.busy) {
     state.rerun = true;
     return false;

@@ -47,6 +47,21 @@ function validStatus(value) {
 function currentEventId() {
   return String(state.eventId || document.getElementById("eventId")?.value || "").trim();
 }
+
+function publishLifecycleState(eventId, status, exists = true) {
+  const normalized = validStatus(status);
+  const locked = Boolean(exists && !["draft", "prepared"].includes(normalized));
+  const detail = {
+    eventId: String(eventId || ""),
+    status: normalized,
+    exists: Boolean(exists),
+    lockedDesign: locked,
+    label: META[normalized]?.label || normalized
+  };
+  globalThis.MILITOPO_V2_EVENT_STATUS = detail;
+  globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status", { detail }));
+  return detail;
+}
 async function services() {
   if (!state.services) state.services = await globalThis.MILITOPO_V2.firebase();
   return state.services;
@@ -164,6 +179,7 @@ async function refresh(userRequested = false) {
   state.eventId = eventId;
   if (!canManage() || !eventId) {
     state.event = null;
+    publishLifecycleState(eventId, "draft", false);
     paint();
     return false;
   }
@@ -176,6 +192,7 @@ async function refresh(userRequested = false) {
     const snap = await getDoc(doc(firestore, "events", eventId));
     if (!snap.exists()) {
       state.event = null;
+      publishLifecycleState(eventId, "draft", false);
       paint("Este código todavía no existe en Firestore. Confirma el PASO 1 y espera a que aparezca ‘Firestore al día’. ");
       return false;
     }
@@ -186,6 +203,7 @@ async function refresh(userRequested = false) {
       return false;
     }
     state.event = { ...data, eventId: snap.id, status: validStatus(data.status) };
+    publishLifecycleState(snap.id, state.event.status, true);
     paint(userRequested ? "Estado actualizado desde Firestore. " + readinessText(state.event, state.event.status) : "");
     return true;
   } catch (error) {

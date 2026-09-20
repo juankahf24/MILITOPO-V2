@@ -193,6 +193,11 @@ async function syncLatest() {
     paintStatus("🔒 Estructura: requiere rol organizer o super_admin con correo verificado.", "warn");
     return false;
   }
+  const editLock = globalThis.MILITOPO_V2_EVENT_EDIT_LOCK;
+  if (editLock?.locked && (!editLock.eventId || String(editLock.eventId) === packet.eventId)) {
+    paintStatus(`🔒 Estructura bloqueada en ${String(editLock.label || editLock.status || "PUBLICADO")}. Firestore conserva la versión publicada.`, "warn");
+    return false;
+  }
   if (!navigator.onLine) {
     paintStatus("📴 Sin conexión: balizas y recorridos siguen protegidos localmente.", "warn");
     return false;
