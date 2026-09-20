@@ -137,3 +137,105 @@
   .m2-auth-card { padding: 20px; border-radius: 20px; }
   .m2-auth-brand img { width: 68px; height: 68px; }
 }
+
+/* ===== FASE B3 · CUENTA Y PERFIL ===== */
+#militopoV2AccountBadge {
+  padding: 0;
+  overflow: hidden;
+}
+.m2-auth-account-open {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  max-width: min(430px, calc(100vw - 24px));
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px 7px 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.m2-auth-account-open:active { background: rgba(255,255,255,.05); }
+.m2-auth-avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+  color: #11180f;
+  background: linear-gradient(135deg,#e8f6bd,#a9cc69);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.38);
+}
+.m2-auth-account-caret { color: #b8c5b3; font-size: .9rem; margin-left: 1px; }
+
+.m2-account-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100003;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(2,5,3,.75);
+  backdrop-filter: blur(10px);
+  overflow: auto;
+}
+.m2-account-overlay[hidden] { display: none !important; }
+.m2-account-card {
+  width: min(520px, 100%);
+  max-height: min(780px, calc(100dvh - 32px));
+  overflow: auto;
+  box-sizing: border-box;
+  border: 1px solid rgba(207,232,143,.24);
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(22,32,25,.985), rgba(11,17,13,.985));
+  color: #f2f5ed;
+  box-shadow: 0 30px 100px rgba(0,0,0,.62);
+  padding: 22px;
+}
+.m2-account-header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.m2-account-kicker { display:block; color:#aab8a8; font-size:.68rem; font-weight:900; letter-spacing:.16em; }
+.m2-account-header h2 { margin:4px 0 0; font-size:1.45rem; letter-spacing:.04em; }
+.m2-account-close {
+  appearance:none; border:1px solid rgba(255,255,255,.12); border-radius:50%; width:38px; height:38px;
+  display:grid; place-items:center; color:#eef3e9; background:rgba(255,255,255,.05); font:inherit; font-size:1.5rem; cursor:pointer;
+}
+.m2-account-identity { display:flex; align-items:center; gap:13px; margin:20px 0 18px; padding:14px; border-radius:18px; background:rgba(207,232,143,.055); border:1px solid rgba(207,232,143,.12); }
+.m2-account-avatar { width:48px; height:48px; flex:0 0 48px; border-radius:50%; display:grid; place-items:center; font-weight:900; color:#10160f; background:linear-gradient(135deg,#edf7c7,#a9ce68); }
+.m2-account-identity > div:last-child { min-width:0; display:grid; gap:4px; }
+.m2-account-identity strong, .m2-account-identity span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.m2-account-identity strong { font-size:.98rem; }
+.m2-account-identity span { color:#aeb9af; font-size:.78rem; }
+.m2-account-form { display:grid; gap:16px; }
+.m2-account-readonly-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+.m2-account-readonly { min-width:0; display:grid; gap:5px; padding:11px 12px; border:1px solid rgba(255,255,255,.08); border-radius:14px; background:rgba(0,0,0,.16); }
+.m2-account-readonly:last-child { grid-column:1/-1; }
+.m2-account-readonly span { color:#97a696; font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+.m2-account-readonly strong { overflow-wrap:anywhere; font-size:.84rem; }
+.m2-account-options { display:grid; gap:9px; }
+.m2-account-option { display:flex; align-items:flex-start; gap:11px; padding:12px; border-radius:15px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); cursor:pointer; }
+.m2-account-option input { width:19px; height:19px; margin-top:2px; flex:0 0 auto; }
+.m2-account-option span { display:grid; gap:3px; }
+.m2-account-option strong { font-size:.84rem; }
+.m2-account-option small { color:#9daa9c; line-height:1.38; font-size:.72rem; }
+.m2-account-message { min-height:20px; margin:0; color:#9fac9e; font-size:.79rem; line-height:1.4; }
+.m2-account-message.is-ok { color:#b7efad; }
+.m2-account-message.is-error { color:#ff9f9f; }
+.m2-account-actions { display:grid; gap:9px; }
+.m2-account-danger { appearance:none; border:1px solid rgba(255,129,129,.22); border-radius:13px; padding:12px 14px; background:rgba(120,25,25,.13); color:#ffb1b1; font:inherit; font-weight:800; cursor:pointer; }
+.m2-account-danger:disabled { opacity:.55; cursor:wait; }
+
+@media (max-width: 480px) {
+  #militopoV2AccountBadge { top:max(8px, env(safe-area-inset-top)); right:max(8px, env(safe-area-inset-right)); max-width:calc(100vw - 16px); }
+  .m2-auth-account-open { max-width:calc(100vw - 16px); padding-right:9px; }
+  .m2-auth-avatar { width:30px; height:30px; flex-basis:30px; }
+  .m2-account-overlay { padding:0; align-items:end; }
+  .m2-account-card { width:100%; max-height:92dvh; border-radius:24px 24px 0 0; border-bottom:0; padding:20px 18px max(20px, env(safe-area-inset-bottom)); }
+}

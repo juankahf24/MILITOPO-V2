@@ -1,5 +1,6 @@
-/* MILITOPO V2 · Fase B2 · Auth + refresco seguro de roles en Spark.
-   Compatible con Firebase Spark: no usa Cloud Functions ni Storage. */
+/* MILITOPO V2 · Fase B3 · Auth + perfil/cuenta en Firebase Spark.
+   Sin Cloud Functions ni Storage. Roles privilegiados siguen administrándose
+   exclusivamente con Firebase Admin SDK desde Cloud Shell. */
 import "../bootstrap.js";
 import {
   browserLocalPersistence,
@@ -23,18 +24,44 @@ import {
 import { normalizeRole } from "./roles.js";
 
 const ROOT_ICON_URL = new URL("../../../icons/militopo-512.png", import.meta.url).href;
+const TRUSTED_DEVICE_KEY = "militopo_v2_trusted_device";
+const KEEP_SESSION_KEY = "militopo_v2_keep_session";
 
 const state = {
   services: null,
   mode: "login",
   busy: false,
   currentUser: null,
-  role: "runner"
+  role: "runner",
+  profile: null,
+  trustedDeviceAtBoot: false
 };
+
+function boolFromStorage(key, fallback = false) {
+  try {
+    const value = localStorage.getItem(key);
+    if (value === null) return fallback;
+    return value === "1";
+  } catch (_) { return fallback; }
+}
+function writeBoolStorage(key, value) {
+  try { localStorage.setItem(key, value ? "1" : "0"); } catch (_) {}
+}
+function trustedDeviceEnabled() { return boolFromStorage(TRUSTED_DEVICE_KEY, false); }
+function keepSessionEnabled() { return boolFromStorage(KEEP_SESSION_KEY, true); }
 
 function authReturnUrl() {
   try { return new URL("./", window.location.href).href; }
   catch (_) { return window.location.href; }
+}
+
+function roleLabel(role) {
+  const labels = {
+    runner: "runner",
+    organizer: "organizer",
+    super_admin: "super_admin"
+  };
+  return labels[normalizeRole(role)] || "runner";
 }
 
 function buildUi() {
@@ -72,7 +99,7 @@ function buildUi() {
               <input id="m2AuthPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Repite la contraseña">
             </div>
             <label class="m2-auth-check">
-              <input id="m2AuthRemember" type="checkbox" checked>
+              <input id="m2AuthRemember" type="checkbox">
               <span>Mantener la sesión iniciada en este dispositivo</span>
             </label>
             <button id="m2AuthSubmit" class="m2-auth-primary" type="submit">ENTRAR</button>
@@ -97,12 +124,83 @@ function buildUi() {
         </div>
       </section>
     </div>
+
     <div id="militopoV2AccountBadge" hidden>
-      <div class="m2-auth-badge-copy">
-        <strong id="m2AuthBadgeName">Usuario</strong>
-        <small id="m2AuthBadgeRole">runner</small>
-      </div>
-      <button id="m2AuthLogoutBtn" type="button">SALIR</button>
+      <button id="m2AuthAccountBtn" class="m2-auth-account-open" type="button" aria-haspopup="dialog" aria-controls="militopoV2AccountPanel">
+        <span class="m2-auth-avatar" id="m2AuthAvatar">M</span>
+        <span class="m2-auth-badge-copy">
+          <strong id="m2AuthBadgeName">Usuario</strong>
+          <small id="m2AuthBadgeRole">runner</small>
+        </span>
+        <span class="m2-auth-account-caret" aria-hidden="true">⌄</span>
+      </button>
+    </div>
+
+    <div id="militopoV2AccountPanel" class="m2-account-overlay" hidden>
+      <section class="m2-account-card" role="dialog" aria-modal="true" aria-labelledby="m2AccountTitle">
+        <header class="m2-account-header">
+          <div>
+            <span class="m2-account-kicker">MILITOPO V2</span>
+            <h2 id="m2AccountTitle">Mi cuenta</h2>
+          </div>
+          <button id="m2AccountClose" class="m2-account-close" type="button" aria-label="Cerrar">×</button>
+        </header>
+
+        <div class="m2-account-identity">
+          <div class="m2-account-avatar" id="m2AccountAvatar">M</div>
+          <div>
+            <strong id="m2AccountIdentityName">Usuario</strong>
+            <span id="m2AccountIdentityEmail">correo</span>
+          </div>
+        </div>
+
+        <form id="m2AccountForm" class="m2-account-form" novalidate>
+          <div class="m2-auth-field">
+            <label for="m2AccountDisplayName">Nombre para mostrar</label>
+            <input id="m2AccountDisplayName" autocomplete="name" maxlength="80" placeholder="Nombre y apellidos">
+          </div>
+
+          <div class="m2-account-readonly-grid">
+            <div class="m2-account-readonly">
+              <span>Correo</span>
+              <strong id="m2AccountEmail">—</strong>
+            </div>
+            <div class="m2-account-readonly">
+              <span>Verificación</span>
+              <strong id="m2AccountVerified">—</strong>
+            </div>
+            <div class="m2-account-readonly">
+              <span>Rol</span>
+              <strong id="m2AccountRole">runner</strong>
+            </div>
+          </div>
+
+          <div class="m2-account-options">
+            <label class="m2-account-option">
+              <input id="m2AccountKeepSession" type="checkbox">
+              <span>
+                <strong>Mantener sesión iniciada</strong>
+                <small>Conserva el acceso en este navegador.</small>
+              </span>
+            </label>
+            <label class="m2-account-option">
+              <input id="m2AccountTrustedDevice" type="checkbox">
+              <span>
+                <strong>Dispositivo de confianza</strong>
+                <small>Permite conservar Firestore offline en este dispositivo. Úsalo solo en un móvil u ordenador personal.</small>
+              </span>
+            </label>
+          </div>
+
+          <p id="m2AccountMessage" class="m2-account-message" role="status"></p>
+          <div class="m2-account-actions">
+            <button id="m2AccountSave" class="m2-auth-primary" type="submit">GUARDAR CAMBIOS</button>
+            <button id="m2AccountReload" class="m2-auth-secondary" type="button" hidden>APLICAR Y RECARGAR</button>
+            <button id="m2AccountResetPassword" class="m2-auth-secondary" type="button">ENVIAR CAMBIO DE CONTRASEÑA</button>
+            <button id="m2AccountLogout" class="m2-account-danger" type="button">CERRAR SESIÓN</button>
+          </div>
+        </form>
+      </section>
     </div>
   `);
 }
@@ -120,10 +218,23 @@ function setVerifyMessage(text = "", kind = "") {
   node.textContent = text;
   node.className = kind ? `is-${kind}` : "";
 }
+function setAccountMessage(text = "", kind = "") {
+  const node = el("m2AccountMessage");
+  if (!node) return;
+  node.textContent = text;
+  node.className = `m2-account-message${kind ? ` is-${kind}` : ""}`;
+}
+
+function initials(name) {
+  const clean = String(name || "M").trim();
+  if (!clean) return "M";
+  const parts = clean.split(/\s+/).filter(Boolean);
+  return (parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : parts[0].slice(0, 2)).toUpperCase();
+}
 
 function setBusy(busy) {
   state.busy = Boolean(busy);
-  ["m2AuthSubmit", "m2AuthVerifiedBtn", "m2AuthResendBtn"].forEach(id => {
+  ["m2AuthSubmit", "m2AuthVerifiedBtn", "m2AuthResendBtn", "m2AccountSave", "m2AccountResetPassword", "m2AccountLogout"].forEach(id => {
     const node = el(id);
     if (node) node.disabled = state.busy;
   });
@@ -146,7 +257,6 @@ function setMode(mode) {
 }
 
 function showMainView() {
-  el("m2AuthOverlay");
   if (el("m2AuthMainView")) el("m2AuthMainView").hidden = false;
   if (el("m2AuthVerifyView")) el("m2AuthVerifyView").hidden = true;
   if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = false;
@@ -165,42 +275,73 @@ async function ensureRunnerProfile(user) {
   const { firestore } = state.services;
   const ref = doc(firestore, "users", user.uid);
   const snapshot = await getDoc(ref);
-  if (snapshot.exists()) return;
-  await setDoc(ref, {
-    uid: user.uid,
-    email: user.email || null,
-    emailVerified: true,
-    displayName: user.displayName || null,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  });
+  if (!snapshot.exists()) {
+    await setDoc(ref, {
+      uid: user.uid,
+      email: user.email || null,
+      emailVerified: true,
+      displayName: user.displayName || null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return { displayName: user.displayName || null };
+  }
+  return snapshot.data() || {};
 }
 
-async function enterApp(user) {
-  await ensureRunnerProfile(user);
-  // Fuerza un token nuevo al entrar para recoger cambios de rol hechos desde
-  // la herramienta administrativa de Cloud Shell sin esperar a que caduque el token.
-  const token = await user.getIdTokenResult(true);
-  state.role = normalizeRole(token?.claims?.role);
-  state.currentUser = user;
-
-  const badgeName = el("m2AuthBadgeName");
-  const badgeRole = el("m2AuthBadgeRole");
-  if (badgeName) badgeName.textContent = user.displayName || user.email || "Usuario";
-  if (badgeRole) badgeRole.textContent = state.role;
-  if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
-  if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
-
+function publishAuthState(user, displayName) {
   globalThis.MILITOPO_V2_AUTH = Object.freeze({
     uid: user.uid,
     email: user.email || null,
-    displayName: user.displayName || null,
+    displayName: displayName || null,
     role: state.role,
-    emailVerified: true
+    emailVerified: Boolean(user.emailVerified)
   });
   globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-ready", {
     detail: globalThis.MILITOPO_V2_AUTH
   }));
+}
+
+function paintAccount(user, displayName) {
+  const finalName = displayName || user.displayName || user.email || "Usuario";
+  const badgeName = el("m2AuthBadgeName");
+  const badgeRole = el("m2AuthBadgeRole");
+  if (badgeName) badgeName.textContent = finalName;
+  if (badgeRole) badgeRole.textContent = roleLabel(state.role);
+  [el("m2AuthAvatar"), el("m2AccountAvatar")].forEach(node => { if (node) node.textContent = initials(finalName); });
+  if (el("m2AccountIdentityName")) el("m2AccountIdentityName").textContent = finalName;
+  if (el("m2AccountIdentityEmail")) el("m2AccountIdentityEmail").textContent = user.email || "";
+  if (el("m2AccountDisplayName")) el("m2AccountDisplayName").value = finalName === user.email ? "" : finalName;
+  if (el("m2AccountEmail")) el("m2AccountEmail").textContent = user.email || "—";
+  if (el("m2AccountVerified")) el("m2AccountVerified").textContent = user.emailVerified ? "Verificado ✓" : "Pendiente";
+  if (el("m2AccountRole")) el("m2AccountRole").textContent = roleLabel(state.role);
+  if (el("m2AccountKeepSession")) el("m2AccountKeepSession").checked = keepSessionEnabled();
+  if (el("m2AccountTrustedDevice")) el("m2AccountTrustedDevice").checked = trustedDeviceEnabled();
+}
+
+async function enterApp(user) {
+  const profile = await ensureRunnerProfile(user);
+  const token = await user.getIdTokenResult(true);
+  state.role = normalizeRole(token?.claims?.role);
+  state.currentUser = user;
+  state.profile = profile;
+  const displayName = profile?.displayName || user.displayName || null;
+  paintAccount(user, displayName);
+  if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
+  if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
+  publishAuthState(user, displayName);
+}
+
+function openAccountPanel() {
+  if (!state.currentUser) return;
+  paintAccount(state.currentUser, state.profile?.displayName || state.currentUser.displayName || null);
+  setAccountMessage("");
+  if (el("m2AccountReload")) el("m2AccountReload").hidden = true;
+  if (el("militopoV2AccountPanel")) el("militopoV2AccountPanel").hidden = false;
+  setTimeout(() => el("m2AccountDisplayName")?.focus(), 0);
+}
+function closeAccountPanel() {
+  if (el("militopoV2AccountPanel")) el("militopoV2AccountPanel").hidden = true;
 }
 
 function friendlyError(error) {
@@ -213,7 +354,8 @@ function friendlyError(error) {
     "auth/weak-password": "La contraseña no cumple los requisitos de seguridad.",
     "auth/too-many-requests": "Demasiados intentos. Espera unos minutos y vuelve a probar.",
     "auth/network-request-failed": "No hay conexión con Firebase. Comprueba Internet.",
-    "auth/missing-password": "Introduce la contraseña."
+    "auth/missing-password": "Introduce la contraseña.",
+    "auth/requires-recent-login": "Por seguridad, vuelve a iniciar sesión antes de hacer este cambio."
   };
   return table[code] || "No se ha podido completar la operación. Vuelve a intentarlo.";
 }
@@ -244,6 +386,7 @@ async function handleSubmit(event) {
   setBusy(true);
   setMessage(state.mode === "register" ? "Creando cuenta…" : "Iniciando sesión…");
   try {
+    writeBoolStorage(KEEP_SESSION_KEY, remember);
     await setPersistence(state.services.auth, remember ? browserLocalPersistence : browserSessionPersistence);
     if (state.mode === "register") {
       const credential = await createUserWithEmailAndPassword(state.services.auth, email, password);
@@ -254,11 +397,8 @@ async function handleSubmit(event) {
       setVerifyMessage("Correo de verificación enviado.", "ok");
     } else {
       const credential = await signInWithEmailAndPassword(state.services.auth, email, password);
-      if (!credential.user.emailVerified) {
-        showVerifyView(credential.user);
-      } else {
-        await enterApp(credential.user);
-      }
+      if (!credential.user.emailVerified) showVerifyView(credential.user);
+      else await enterApp(credential.user);
     }
   } catch (error) {
     console.error("[MILITOPO V2 Auth]", error);
@@ -268,8 +408,51 @@ async function handleSubmit(event) {
   }
 }
 
+async function saveAccount(event) {
+  event.preventDefault();
+  if (!state.currentUser || state.busy) return;
+  const name = String(el("m2AccountDisplayName")?.value || "").trim();
+  const keepSession = Boolean(el("m2AccountKeepSession")?.checked);
+  const trustedDevice = Boolean(el("m2AccountTrustedDevice")?.checked);
+  if (!name) return setAccountMessage("Introduce un nombre para mostrar.", "error");
+  if (name.length > 80) return setAccountMessage("El nombre es demasiado largo.", "error");
+
+  setBusy(true);
+  setAccountMessage("Guardando…");
+  try {
+    const beforeTrusted = trustedDeviceEnabled();
+    await updateProfile(state.currentUser, { displayName: name });
+    await setDoc(doc(state.services.firestore, "users", state.currentUser.uid), {
+      displayName: name,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    await setPersistence(state.services.auth, keepSession ? browserLocalPersistence : browserSessionPersistence);
+    writeBoolStorage(KEEP_SESSION_KEY, keepSession);
+    writeBoolStorage(TRUSTED_DEVICE_KEY, trustedDevice);
+
+    state.profile = { ...(state.profile || {}), displayName: name };
+    paintAccount(state.currentUser, name);
+    publishAuthState(state.currentUser, name);
+
+    if (beforeTrusted !== trustedDevice || state.trustedDeviceAtBoot !== trustedDevice) {
+      setAccountMessage("Cambios guardados. Recarga para aplicar el modo offline de este dispositivo.", "ok");
+      if (el("m2AccountReload")) el("m2AccountReload").hidden = false;
+    } else {
+      setAccountMessage("Cambios guardados.", "ok");
+    }
+  } catch (error) {
+    console.error("[MILITOPO V2 Account]", error);
+    setAccountMessage(friendlyError(error), "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
 async function init() {
   buildUi();
+  state.trustedDeviceAtBoot = trustedDeviceEnabled();
+  if (el("m2AuthRemember")) el("m2AuthRemember").checked = keepSessionEnabled();
   setMode("login");
   try {
     state.services = await globalThis.MILITOPO_V2.firebase();
@@ -332,17 +515,45 @@ async function init() {
     setMode("login");
   });
 
-  el("m2AuthLogoutBtn")?.addEventListener("click", async () => {
-    await signOut(state.services.auth);
-    if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = true;
-    showMainView();
-    setMode("login");
+  el("m2AuthAccountBtn")?.addEventListener("click", openAccountPanel);
+  el("m2AccountClose")?.addEventListener("click", closeAccountPanel);
+  el("m2AccountForm")?.addEventListener("submit", saveAccount);
+  el("m2AccountReload")?.addEventListener("click", () => window.location.reload());
+  el("m2AccountResetPassword")?.addEventListener("click", async () => {
+    const email = state.currentUser?.email;
+    if (!email || state.busy) return;
+    setBusy(true);
+    setAccountMessage("Enviando correo…");
+    try {
+      await sendPasswordResetEmail(state.services.auth, email, { url: authReturnUrl() });
+      setAccountMessage("Correo para cambiar la contraseña enviado. Revisa tu bandeja de entrada.", "ok");
+    } catch (error) {
+      setAccountMessage(friendlyError(error), "error");
+    } finally { setBusy(false); }
+  });
+
+  el("m2AccountLogout")?.addEventListener("click", async () => {
+    if (state.busy) return;
+    setBusy(true);
+    try {
+      closeAccountPanel();
+      await signOut(state.services.auth);
+    } finally { setBusy(false); }
+  });
+
+  el("militopoV2AccountPanel")?.addEventListener("click", event => {
+    if (event.target === el("militopoV2AccountPanel")) closeAccountPanel();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !el("militopoV2AccountPanel")?.hidden) closeAccountPanel();
   });
 
   onAuthStateChanged(state.services.auth, async user => {
     try {
       if (!user) {
         state.currentUser = null;
+        state.profile = null;
+        closeAccountPanel();
         if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = true;
         showMainView();
         return;
