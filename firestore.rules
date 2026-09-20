@@ -26,6 +26,15 @@ service cloud.firestore {
       return data.checkpointSyncedCount is int && data.checkpointSyncedCount >= 3 &&
              data.courseSyncedCount is int && data.courseSyncedCount >= 1;
     }
+    function designEditableStatus(status) {
+      return status == "draft" || status == "prepared";
+    }
+    function lifecycleOnlyAfterPublication() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        "status", "cloudStage", "lifecycleVersion", "updatedAt",
+        "publishedAt", "liveAt", "finishedAt", "archivedAt"
+      ]);
+    }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
@@ -50,7 +59,8 @@ service cloud.firestore {
                     && request.resource.data.kind == resource.data.kind
                     && validEventStatus(request.resource.data.status)
                     && validEventTransition(resource.data.status, request.resource.data.status)
-                    && (request.resource.data.status != "prepared" || resource.data.status == "prepared" || preparedDataReady(request.resource.data));
+                    && (request.resource.data.status != "prepared" || resource.data.status == "prepared" || preparedDataReady(request.resource.data))
+                    && (designEditableStatus(resource.data.status) || lifecycleOnlyAfterPublication());
       allow delete: if false;
 
       match /members/{uid} {
@@ -61,12 +71,14 @@ service cloud.firestore {
 
       match /courses/{courseId} {
         allow read: if signedIn() && (managesEvent(eventId) || isEventMember(eventId));
-        allow write: if verified() && managesEvent(eventId);
+        allow write: if verified() && managesEvent(eventId)
+                     && designEditableStatus(eventDoc(eventId).data.status);
       }
 
       match /checkpoints/{checkpointId} {
         allow read: if signedIn() && (managesEvent(eventId) || isEventMember(eventId));
-        allow write: if verified() && managesEvent(eventId);
+        allow write: if verified() && managesEvent(eventId)
+                     && designEditableStatus(eventDoc(eventId).data.status);
       }
 
       match /results/{uid} {
