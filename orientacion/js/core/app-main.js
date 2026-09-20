@@ -50,6 +50,38 @@ function resetStateToFreshEvent(){
 
 let __militopoOrientationInitialized=false;
 let __militopoOrganizerStateEpoch=0;
+let __militopoCloudHeaderArmed=false;
+
+function militopoCloudHeaderSnapshot(){
+    const readNumber=(id,fallback)=>{
+        const node=document.getElementById(id);
+        const n=Number(node?node.value:fallback);
+        return Number.isFinite(n)?n:Number(fallback)||0;
+    };
+    const nameInput=document.getElementById("eventName");
+    const idInput=document.getElementById("eventId");
+    return {
+        eventId:String(idInput?.value||state.eventId||"").trim(),
+        eventName:String(nameInput?.value||state.eventName||"ENTRENAMIENTO ORIENTACIÓN").trim()||"ENTRENAMIENTO ORIENTACIÓN",
+        participantCount:Math.max(1,Math.trunc(readNumber("participantCount",state.participantCount||10))),
+        maxUniqueRoutes:Math.max(1,Math.trunc(readNumber("maxUniqueRoutes",state.maxUniqueRoutes||15))),
+        controlCount:Math.max(0,Math.trunc(readNumber("controlCount",state.controlCount||25))),
+        controlsPerRoute:Math.max(0,Math.trunc(readNumber("controlsPerRoute",state.controlsPerRoute||8))),
+        maxControlReuse:Math.max(1,Math.trunc(readNumber("maxControlReuse",state.maxControlReuse||6))),
+        planScale:readNumber("planScaleSelect",state.planScale||10000)===7500?7500:10000,
+        planEquidistanceM:Math.max(.5,readNumber("planEquidistanceInput",state.planEquidistanceM||5))
+    };
+}
+function publishMilitopoCloudHeader(reason="save"){
+    try{
+        window.dispatchEvent(new CustomEvent("militopo:v2-orientation-header",{detail:{
+            reason,
+            armed:!!__militopoCloudHeaderArmed,
+            header:militopoCloudHeaderSnapshot()
+        }}));
+    }catch(error){console.warn("MILITOPO · publicación de cabecera nube",error)}
+}
+
 function init(){
     if(__militopoOrientationInitialized)return;
     __militopoOrientationInitialized=true;
@@ -69,6 +101,7 @@ function init(){
         const restoreInfo=loadState();
         const restored=!!(restoreInfo&&restoreInfo.restored);
         const restoredStep=normalizeAppStep((restoreInfo&&restoreInfo.step)||1);
+        __militopoCloudHeaderArmed=restored;
 
         syncConfigToUi();
         rebuildPointsFromConfig(true);
@@ -83,6 +116,7 @@ function init(){
         bindStrongAutosave();
         cleanupStep2ImportAndTableUi();
         goStep(restoredStep,{silent:true,noScroll:true});
+        setTimeout(()=>publishMilitopoCloudHeader("ready"),0);
 
         // La copia IndexedDB es una red de seguridad, nunca debe bloquear el arranque.
         const bootStateEpoch=__militopoOrganizerStateEpoch;
@@ -206,7 +240,7 @@ function syncPlanScaleSettingUi(){
     if(e)e.value=String(state.planEquidistanceM||5);
 }
 
-function confirmStep1(){rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();updateParticipantSelect();updateRouteCountInfo();saveState();toast("Configuración guardada");goStep(2)}
+function confirmStep1(){rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();updateParticipantSelect();updateRouteCountInfo();__militopoCloudHeaderArmed=true;saveState();publishMilitopoCloudHeader("step1-confirmed");toast("Configuración guardada");goStep(2)}
 // AUTOFILL TEST POINTS JS START
 function getAutofillOrientationBaseCenter(){
     // Prioridad 1: centro visible actual del mapa. Si el usuario ha buscado una zona,
@@ -9770,6 +9804,7 @@ function saveState(){
             setRestoreStatus("⚠️ El navegador no ha podido guardar el estado local. Libera espacio antes de continuar.","err");
             return false;
         }
+        if(__militopoCloudHeaderArmed)publishMilitopoCloudHeader("local-save");
         return true;
     }catch(e){
         console.warn("Autoguardado falló:",e);
@@ -9909,6 +9944,8 @@ async function resetSavedEvent(){
     try{if(String(window.name||"").startsWith(WINDOW_NAME_PREFIX))window.name=""}catch(e){}
 
     resetStateToFreshEvent();
+    __militopoCloudHeaderArmed=false;
+    publishMilitopoCloudHeader("fresh-reset");
 
     const eventIdInput=document.getElementById("eventId");
     if(eventIdInput)eventIdInput.value=state.eventId;
