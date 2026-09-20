@@ -1,4 +1,4 @@
-/* MILITOPO V2 · Fase B1 · registro/login/verificación de correo.
+/* MILITOPO V2 · Fase B2 · Auth + refresco seguro de roles en Spark.
    Compatible con Firebase Spark: no usa Cloud Functions ni Storage. */
 import "../bootstrap.js";
 import {
@@ -178,7 +178,9 @@ async function ensureRunnerProfile(user) {
 
 async function enterApp(user) {
   await ensureRunnerProfile(user);
-  const token = await user.getIdTokenResult(false);
+  // Fuerza un token nuevo al entrar para recoger cambios de rol hechos desde
+  // la herramienta administrativa de Cloud Shell sin esperar a que caduque el token.
+  const token = await user.getIdTokenResult(true);
   state.role = normalizeRole(token?.claims?.role);
   state.currentUser = user;
 
