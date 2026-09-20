@@ -4,8 +4,9 @@
   "main": "index.js",
   "engines": { "node": "22" },
   "scripts": {
-    "emulate": "firebase emulators:start --only auth,firestore,database,functions",
-    "deploy": "firebase deploy --only functions"
+    "admin:list-users": "node admin/list-users.js",
+    "admin:set-role": "node admin/set-user-role.js",
+    "deploy": "node -e \"console.error('Despliegue de Functions deshabilitado: MILITOPO-V2 está en Firebase Spark.'); process.exit(1)\""
   },
   "dependencies": {
     "firebase-admin": "14.4.0",
