@@ -19,6 +19,7 @@ import {
 import {
   doc,
   getDoc,
+  runTransaction,
   serverTimestamp,
   setDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -122,6 +123,11 @@ function buildUi() {
               <label for="m2AuthName">Nombre</label>
               <input id="m2AuthName" name="name" autocomplete="name" maxlength="80" placeholder="Nombre y apellidos">
             </div>
+            <div id="m2AuthUsernameField" class="m2-auth-field" hidden>
+              <label for="m2AuthUsername">Usuario único</label>
+              <input id="m2AuthUsername" name="username" autocomplete="username" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="@juankahf23">
+              <small>3–24 caracteres: letras, números, punto, guion o guion bajo.</small>
+            </div>
             <div class="m2-auth-field">
               <label for="m2AuthEmail">Correo electrónico</label>
               <input id="m2AuthEmail" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="tu@correo.com">
@@ -194,6 +200,12 @@ function buildUi() {
           <div class="m2-auth-field">
             <label for="m2AccountDisplayName">Nombre para mostrar</label>
             <input id="m2AccountDisplayName" autocomplete="name" maxlength="80" placeholder="Nombre y apellidos">
+          </div>
+
+          <div class="m2-auth-field">
+            <label for="m2AccountUsername">Usuario único</label>
+            <input id="m2AccountUsername" autocomplete="username" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="@tuusuario">
+            <small id="m2AccountUsernameHelp">El usuario te identifica para invitaciones. Una vez reservado no se puede cambiar desde la web.</small>
           </div>
 
           <div class="m2-account-readonly-grid">
@@ -282,6 +294,7 @@ function setMode(mode) {
   el("m2AuthLoginTab")?.classList.toggle("is-active", !register);
   el("m2AuthRegisterTab")?.classList.toggle("is-active", register);
   if (el("m2AuthNameField")) el("m2AuthNameField").hidden = !register;
+  if (el("m2AuthUsernameField")) el("m2AuthUsernameField").hidden = !register;
   if (el("m2AuthConfirmField")) el("m2AuthConfirmField").hidden = !register;
   const password = el("m2AuthPassword");
   if (password) password.autocomplete = register ? "new-password" : "current-password";
@@ -307,29 +320,113 @@ function showVerifyView(user) {
   setVerifyMessage("");
 }
 
+
+function normalizeUsername(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, "")
+    .slice(0, 24);
+}
+function validUsername(value) {
+  return /^[a-z0-9._-]{3,24}$/.test(normalizeUsername(value));
+}
+function usernameError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+async function usernameAvailable(raw, ownUid = "") {
+  const key = normalizeUsername(raw);
+  if (!validUsername(key)) return false;
+  const ref = doc(state.services.firestore, "usernames", key);
+  const snap = await getDoc(ref);
+  return !snap.exists() || String(snap.data()?.uid || "") === String(ownUid || "");
+}
+async function claimUsername(user, raw, displayName) {
+  const key = normalizeUsername(raw);
+  if (!validUsername(key)) {
+    throw usernameError("username/invalid", "El usuario debe tener entre 3 y 24 caracteres y solo puede usar letras, números, punto, guion o guion bajo.");
+  }
+  const { firestore } = state.services;
+  const directoryRef = doc(firestore, "usernames", key);
+  const profileRef = doc(firestore, "users", user.uid);
+
+  await runTransaction(firestore, async transaction => {
+    const directorySnap = await transaction.get(directoryRef);
+    const profileSnap = await transaction.get(profileRef);
+    if (directorySnap.exists() && String(directorySnap.data()?.uid || "") !== String(user.uid)) {
+      throw usernameError("username/taken", `@${key} ya está utilizado por otra cuenta.`);
+    }
+    const currentKey = normalizeUsername(profileSnap.exists() ? profileSnap.data()?.usernameKey : "");
+    if (currentKey && currentKey !== key) {
+      throw usernameError("username/locked", `Tu cuenta ya tiene el usuario @${currentKey}.`);
+    }
+    const now = serverTimestamp();
+    transaction.set(directoryRef, {
+      uid: user.uid,
+      username: key,
+      usernameKey: key,
+      displayName: String(displayName || user.displayName || "").trim().slice(0, 80) || null,
+      createdAt: directorySnap.exists() ? (directorySnap.data()?.createdAt || now) : now,
+      updatedAt: now
+    }, { merge: true });
+    transaction.set(profileRef, {
+      uid: user.uid,
+      email: user.email || null,
+      emailVerified: Boolean(user.emailVerified),
+      displayName: String(displayName || user.displayName || "").trim().slice(0, 80) || null,
+      username: key,
+      usernameKey: key,
+      updatedAt: now,
+      ...(profileSnap.exists() ? {} : { createdAt: now })
+    }, { merge: true });
+  });
+  return key;
+}
+async function updateDirectoryDisplayName(profile, displayName) {
+  const key = normalizeUsername(profile?.usernameKey || profile?.username);
+  if (!key) return;
+  await setDoc(doc(state.services.firestore, "usernames", key), {
+    uid: state.currentUser.uid,
+    username: key,
+    usernameKey: key,
+    displayName: String(displayName || "").trim().slice(0, 80) || null,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
 async function ensureRunnerProfile(user) {
   const { firestore } = state.services;
   const ref = doc(firestore, "users", user.uid);
   const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
-    await setDoc(ref, {
+    const created = {
       uid: user.uid,
       email: user.email || null,
-      emailVerified: true,
+      emailVerified: Boolean(user.emailVerified),
       displayName: user.displayName || null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
-    return { displayName: user.displayName || null };
+    };
+    await setDoc(ref, created);
+    return { displayName: user.displayName || null, username: null, usernameKey: null };
   }
-  return snapshot.data() || {};
+  const profile = snapshot.data() || {};
+  if (user.emailVerified && profile.emailVerified !== true) {
+    await setDoc(ref, { emailVerified: true, updatedAt: serverTimestamp() }, { merge: true });
+    profile.emailVerified = true;
+  }
+  return profile;
 }
 
 function publishAuthState(user, displayName) {
+  const username = normalizeUsername(state.profile?.usernameKey || state.profile?.username);
   globalThis.MILITOPO_V2_AUTH = Object.freeze({
     uid: user.uid,
     email: user.email || null,
     displayName: displayName || null,
+    username: username || null,
     role: state.role,
     emailVerified: Boolean(user.emailVerified)
   });
@@ -343,11 +440,21 @@ function paintAccount(user, displayName) {
   const badgeName = el("m2AuthBadgeName");
   const badgeRole = el("m2AuthBadgeRole");
   if (badgeName) badgeName.textContent = finalName;
-  if (badgeRole) badgeRole.textContent = roleLabel(state.role);
+  if (badgeRole) badgeRole.textContent = state.profile?.usernameKey ? `@${normalizeUsername(state.profile.usernameKey)} · ${roleLabel(state.role)}` : roleLabel(state.role);
   [el("m2AuthAvatar"), el("m2AccountAvatar")].forEach(node => { if (node) node.textContent = initials(finalName); });
   if (el("m2AccountIdentityName")) el("m2AccountIdentityName").textContent = finalName;
   if (el("m2AccountIdentityEmail")) el("m2AccountIdentityEmail").textContent = user.email || "";
   if (el("m2AccountDisplayName")) el("m2AccountDisplayName").value = finalName === user.email ? "" : finalName;
+  const username = normalizeUsername(state.profile?.usernameKey || state.profile?.username);
+  if (el("m2AccountUsername")) {
+    el("m2AccountUsername").value = username ? `@${username}` : "";
+    el("m2AccountUsername").disabled = Boolean(username);
+  }
+  if (el("m2AccountUsernameHelp")) {
+    el("m2AccountUsernameHelp").textContent = username
+      ? `Tu identificador es @${username}.`
+      : "Elige un @usuario único para que otros organizadores puedan encontrarte e invitarte.";
+  }
   if (el("m2AccountEmail")) el("m2AccountEmail").textContent = user.email || "—";
   if (el("m2AccountVerified")) el("m2AccountVerified").textContent = user.emailVerified ? "Verificado ✓" : "Pendiente";
   if (el("m2AccountRole")) el("m2AccountRole").textContent = roleLabel(state.role);
@@ -402,7 +509,10 @@ function friendlyError(error) {
     "auth/invalid-continue-uri": "La dirección de retorno del correo de verificación no es válida.",
     "auth/user-token-expired": "La sesión ha caducado. Pulsa USAR OTRA CUENTA e inicia sesión de nuevo.",
     "permission-denied": "Tu cuenta está verificada, pero Firebase ha rechazado el acceso al perfil. Vuelve a iniciar sesión.",
-    "firestore/permission-denied": "Tu cuenta está verificada, pero Firebase ha rechazado el acceso al perfil. Vuelve a iniciar sesión."
+    "firestore/permission-denied": "Tu cuenta está verificada, pero Firebase ha rechazado el acceso al perfil. Vuelve a iniciar sesión.",
+    "username/invalid": "El usuario debe tener entre 3 y 24 caracteres y solo puede usar letras, números, punto, guion o guion bajo.",
+    "username/taken": "Ese @usuario ya está utilizado. Elige otro.",
+    "username/locked": "Tu cuenta ya tiene un @usuario asignado."
   };
   if (table[code]) return table[code];
   return code ? `No se ha podido completar la operación (${code}).` : "No se ha podido completar la operación. Vuelve a intentarlo.";
@@ -435,10 +545,18 @@ async function handleSubmit(event) {
 
   if (state.mode === "register") {
     const name = String(el("m2AuthName")?.value || "").trim();
+    const username = normalizeUsername(el("m2AuthUsername")?.value || "");
     const confirm = String(el("m2AuthPasswordConfirm")?.value || "");
     if (!name) return setMessage("Introduce tu nombre.", "error");
+    if (!validUsername(username)) return setMessage("Elige un @usuario de 3–24 caracteres: letras, números, punto, guion o guion bajo.", "error");
     if (password.length < 8) return setMessage("Usa una contraseña de al menos 8 caracteres.", "error");
     if (password !== confirm) return setMessage("Las contraseñas no coinciden.", "error");
+    try {
+      if (!(await usernameAvailable(username))) return setMessage(`@${username} ya está utilizado. Elige otro.`, "error");
+    } catch (error) {
+      console.error("[MILITOPO V2 Auth] username availability", error);
+      return setMessage("No se pudo comprobar el @usuario. Comprueba Internet y vuelve a intentarlo.", "error");
+    }
   }
 
   setBusy(true);
@@ -452,7 +570,9 @@ async function handleSubmit(event) {
     if (state.mode === "register") {
       const credential = await createUserWithEmailAndPassword(state.services.auth, email, password);
       const name = String(el("m2AuthName")?.value || "").trim();
+      const username = normalizeUsername(el("m2AuthUsername")?.value || "");
       if (name) await updateProfile(credential.user, { displayName: name });
+      await claimUsername(credential.user, username, name);
       showVerifyView(credential.user);
       try {
         await sendVerification(credential.user);
@@ -480,10 +600,14 @@ async function saveAccount(event) {
   event.preventDefault();
   if (!state.currentUser || state.busy) return;
   const name = String(el("m2AccountDisplayName")?.value || "").trim();
+  const requestedUsername = normalizeUsername(el("m2AccountUsername")?.value || "");
   const keepSession = Boolean(el("m2AccountKeepSession")?.checked);
   const trustedDevice = Boolean(el("m2AccountTrustedDevice")?.checked);
   if (!name) return setAccountMessage("Introduce un nombre para mostrar.", "error");
   if (name.length > 80) return setAccountMessage("El nombre es demasiado largo.", "error");
+  if (!normalizeUsername(state.profile?.usernameKey || state.profile?.username) && !validUsername(requestedUsername)) {
+    return setAccountMessage("Elige un @usuario de 3–24 caracteres.", "error");
+  }
 
   setBusy(true);
   setAccountMessage("Guardando…");
@@ -492,14 +616,22 @@ async function saveAccount(event) {
     await updateProfile(state.currentUser, { displayName: name });
     await setDoc(doc(state.services.firestore, "users", state.currentUser.uid), {
       displayName: name,
+      emailVerified: Boolean(state.currentUser.emailVerified),
       updatedAt: serverTimestamp()
     }, { merge: true });
+
+    let username = normalizeUsername(state.profile?.usernameKey || state.profile?.username);
+    if (!username) {
+      username = await claimUsername(state.currentUser, requestedUsername, name);
+    } else {
+      await updateDirectoryDisplayName(state.profile, name);
+    }
 
     await setPersistence(state.services.auth, keepSession ? browserLocalPersistence : browserSessionPersistence);
     writeBoolStorage(KEEP_SESSION_KEY, keepSession);
     writeBoolStorage(TRUSTED_DEVICE_KEY, trustedDevice);
 
-    state.profile = { ...(state.profile || {}), displayName: name };
+    state.profile = { ...(state.profile || {}), displayName: name, username, usernameKey: username };
     paintAccount(state.currentUser, name);
     publishAuthState(state.currentUser, name);
 
@@ -651,3 +783,4 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
+
