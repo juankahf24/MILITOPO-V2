@@ -355,16 +355,35 @@ function friendlyError(error) {
     "auth/too-many-requests": "Demasiados intentos. Espera unos minutos y vuelve a probar.",
     "auth/network-request-failed": "No hay conexión con Firebase. Comprueba Internet.",
     "auth/missing-password": "Introduce la contraseña.",
-    "auth/requires-recent-login": "Por seguridad, vuelve a iniciar sesión antes de hacer este cambio."
+    "auth/requires-recent-login": "Por seguridad, vuelve a iniciar sesión antes de hacer este cambio.",
+    "auth/user-not-found": "No existe una cuenta con ese correo. Pulsa CREAR CUENTA si es tu primer acceso.",
+    "auth/wrong-password": "Correo o contraseña incorrectos.",
+    "auth/operation-not-allowed": "El acceso por correo y contraseña no está disponible ahora.",
+    "auth/unauthorized-continue-uri": "Firebase no acepta la dirección de retorno para verificar el correo.",
+    "auth/invalid-continue-uri": "La dirección de retorno del correo de verificación no es válida.",
+    "auth/user-token-expired": "La sesión ha caducado. Pulsa USAR OTRA CUENTA e inicia sesión de nuevo.",
+    "permission-denied": "Tu cuenta está verificada, pero Firebase ha rechazado el acceso al perfil. Vuelve a iniciar sesión.",
+    "firestore/permission-denied": "Tu cuenta está verificada, pero Firebase ha rechazado el acceso al perfil. Vuelve a iniciar sesión."
   };
-  return table[code] || "No se ha podido completar la operación. Vuelve a intentarlo.";
+  if (table[code]) return table[code];
+  return code ? `No se ha podido completar la operación (${code}).` : "No se ha podido completar la operación. Vuelve a intentarlo.";
 }
 
 async function sendVerification(user) {
-  await sendEmailVerification(user, {
-    url: authReturnUrl(),
-    handleCodeInApp: false
-  });
+  if (!user) throw new Error("No hay una sesión activa para verificar.");
+  try {
+    await sendEmailVerification(user, {
+      url: authReturnUrl(),
+      handleCodeInApp: false
+    });
+  } catch (error) {
+    const code = String(error?.code || "");
+    if (code === "auth/unauthorized-continue-uri" || code === "auth/invalid-continue-uri") {
+      await sendEmailVerification(user);
+      return;
+    }
+    throw error;
+  }
 }
 
 async function handleSubmit(event) {
@@ -392,13 +411,20 @@ async function handleSubmit(event) {
       const credential = await createUserWithEmailAndPassword(state.services.auth, email, password);
       const name = String(el("m2AuthName")?.value || "").trim();
       if (name) await updateProfile(credential.user, { displayName: name });
-      await sendVerification(credential.user);
       showVerifyView(credential.user);
-      setVerifyMessage("Correo de verificación enviado.", "ok");
+      try {
+        await sendVerification(credential.user);
+        setVerifyMessage("Correo de verificación enviado. Abre el enlace del correo y después pulsa YA LO HE VERIFICADO.", "ok");
+      } catch (verificationError) {
+        console.error("[MILITOPO V2 Auth] verification email", verificationError);
+        setVerifyMessage(`${friendlyError(verificationError)} Puedes pulsar REENVIAR CORREO para intentarlo otra vez.`, "error");
+      }
     } else {
       const credential = await signInWithEmailAndPassword(state.services.auth, email, password);
-      if (!credential.user.emailVerified) showVerifyView(credential.user);
-      else await enterApp(credential.user);
+      if (!credential.user.emailVerified) {
+        showVerifyView(credential.user);
+        setVerifyMessage("Esta cuenta existe, pero el correo todavía no está verificado. Abre el enlace recibido o pulsa REENVIAR CORREO.", "error");
+      } else await enterApp(credential.user);
     }
   } catch (error) {
     console.error("[MILITOPO V2 Auth]", error);
@@ -480,19 +506,25 @@ async function init() {
   });
 
   el("m2AuthVerifiedBtn")?.addEventListener("click", async () => {
-    if (!state.currentUser) return;
+    const user = state.services?.auth?.currentUser || state.currentUser;
+    if (!user) {
+      setVerifyMessage("La sesión de verificación ya no está activa. Pulsa USAR OTRA CUENTA e inicia sesión.", "error");
+      return;
+    }
     setBusy(true);
-    setVerifyMessage("Comprobando…");
+    setVerifyMessage("Comprobando la verificación con Firebase…");
     try {
-      await reload(state.currentUser);
-      const current = state.services.auth.currentUser;
-      if (!current?.emailVerified) {
-        setVerifyMessage("Todavía no consta como verificado. Pulsa el enlace del correo y vuelve a probar.", "error");
+      await reload(user);
+      const current = state.services.auth.currentUser || user;
+      if (!current.emailVerified) {
+        setVerifyMessage("Todavía no consta como verificado. Primero abre el enlace que Firebase ha enviado a tu correo y, después, vuelve aquí y pulsa este botón.", "error");
       } else {
         await current.getIdToken(true);
         await enterApp(current);
+        setVerifyMessage("");
       }
     } catch (error) {
+      console.error("[MILITOPO V2 Auth] verify check", error);
       setVerifyMessage(friendlyError(error), "error");
     } finally { setBusy(false); }
   });

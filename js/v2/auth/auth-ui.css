@@ -27,6 +27,13 @@
 }
 
 #militopoV2AuthOverlay[hidden] { display: none !important; }
+#militopoV2AuthOverlay [hidden],
+#militopoV2AccountPanel [hidden],
+#m2AuthMainView[hidden],
+#m2AuthVerifyView[hidden],
+#m2AuthNameField[hidden],
+#m2AuthConfirmField[hidden],
+#m2AuthReset[hidden] { display: none !important; }
 
 .m2-auth-card {
   width: min(440px, 100%);
