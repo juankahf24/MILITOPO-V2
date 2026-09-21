@@ -508,7 +508,6 @@ function openAccountPanel() {
   setAccountMessage("");
   if (el("m2AccountReload")) el("m2AccountReload").hidden = true;
   if (el("militopoV2AccountPanel")) el("militopoV2AccountPanel").hidden = false;
-  setTimeout(() => el("m2AccountDisplayName")?.focus(), 0);
 }
 function closeAccountPanel() {
   if (el("militopoV2AccountPanel")) el("militopoV2AccountPanel").hidden = true;
