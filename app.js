@@ -4592,6 +4592,16 @@ function openMapModal() {
         e.returnValue = "";
     });
 
+    window.addEventListener("militopo:v2:show-branch-selector", () => {
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("modo");
+            const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+            window.history.replaceState(window.history.state, "", nextUrl);
+        } catch (e) {}
+        openStartupOverlaySmooth();
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
         initTheme();
         cargarStorage();
