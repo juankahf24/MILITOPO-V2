@@ -12,7 +12,11 @@ service cloud.firestore {
     function usernameDoc(key) { return get(/databases/$(database)/documents/usernames/$(key)); }
     function eventDoc(eventId) { return get(/databases/$(database)/documents/events/$(eventId)); }
     function isEventOwner(eventId) { return signedIn() && eventDoc(eventId).data.ownerUid == request.auth.uid; }
-    function isEventMember(eventId) { return signedIn() && exists(/databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid)); }
+    function isEventMember(eventId) {
+      return signedIn()
+             && exists(/databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid))
+             && get(/databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid)).data.status == "active";
+    }
     function managesEvent(eventId) { return isSuperAdmin() || (isOrganizer() && isEventOwner(eventId)); }
     function validEventStatus(status) {
       return status == "draft" || status == "prepared" || status == "published" ||
@@ -33,6 +37,10 @@ service cloud.firestore {
     function designEditableStatus(status) {
       return status == "draft" || status == "prepared";
     }
+    function membershipEditable(eventId) {
+      let status = eventDoc(eventId).data.status;
+      return status == "prepared" || status == "published";
+    }
     function lifecycleOnlyAfterPublication() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         "status", "cloudStage", "lifecycleVersion", "updatedAt",
@@ -43,6 +51,7 @@ service cloud.firestore {
     function selfJoinFromAcceptedInvite(eventId, uid) {
       let invite = getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data;
       return verified()
+             && membershipEditable(eventId)
              && request.auth.uid == uid
              && request.auth.token.email is string
              && request.resource.data.keys().hasOnly([
@@ -65,6 +74,7 @@ service cloud.firestore {
       let uidMatches = resource.data.keys().hasAny(["targetUid"])
                        && resource.data.targetUid == request.auth.uid;
       return verified()
+             && membershipEditable(resource.data.eventId)
              && resource.data.status == "pending"
              && (emailMatches || uidMatches)
              && request.resource.data.status == "accepted"
@@ -83,12 +93,61 @@ service cloud.firestore {
     function managerRevokesInvitation() {
       return verified()
              && managesEvent(resource.data.eventId)
+             && membershipEditable(resource.data.eventId)
              && resource.data.status == "pending"
              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                "status", "updatedAt", "revokedAt"
              ])
              && request.resource.data.status == "revoked";
     }
+
+    function managerChangesAcceptedInvitation() {
+      return verified()
+             && managesEvent(resource.data.eventId)
+             && membershipEditable(resource.data.eventId)
+             && (
+               (resource.data.status == "accepted"
+                 && request.resource.data.status == "removed"
+                 && request.resource.data.removedBy == request.auth.uid
+                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                   "status", "removedAt", "removedBy", "updatedAt"
+                 ]))
+               ||
+               (resource.data.status == "removed"
+                 && request.resource.data.status == "accepted"
+                 && request.resource.data.restoredBy == request.auth.uid
+                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                   "status", "restoredAt", "restoredBy", "updatedAt"
+                 ]))
+             );
+    }
+    function managerChangesMember(eventId, uid) {
+      return verified()
+             && managesEvent(eventId)
+             && membershipEditable(eventId)
+             && request.resource.data.uid == resource.data.uid
+             && request.resource.data.uid == uid
+             && request.resource.data.email == resource.data.email
+             && request.resource.data.role == resource.data.role
+             && request.resource.data.invitationId == resource.data.invitationId
+             && request.resource.data.joinedAt == resource.data.joinedAt
+             && (
+               (resource.data.status == "active"
+                 && request.resource.data.status == "removed"
+                 && request.resource.data.removedBy == request.auth.uid
+                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                   "status", "removedAt", "removedBy", "updatedAt"
+                 ]))
+               ||
+               (resource.data.status == "removed"
+                 && request.resource.data.status == "active"
+                 && request.resource.data.restoredBy == request.auth.uid
+                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                   "status", "restoredAt", "restoredBy", "updatedAt"
+                 ]))
+             );
+    }
+
     function validInvitationTarget(data) {
       let usernameTarget = data.keys().hasAll(["targetUid", "targetUsername", "targetUsernameKey"])
                            && !data.keys().hasAny(["targetEmail"])
@@ -164,9 +223,9 @@ service cloud.firestore {
 
       match /members/{uid} {
         allow read: if signedIn() && (request.auth.uid == uid || managesEvent(eventId));
-        allow create: if (verified() && managesEvent(eventId)) || selfJoinFromAcceptedInvite(eventId, uid);
-        allow update: if verified() && managesEvent(eventId);
-        allow delete: if verified() && managesEvent(eventId);
+        allow create: if selfJoinFromAcceptedInvite(eventId, uid);
+        allow update: if managerChangesMember(eventId, uid);
+        allow delete: if false;
       }
 
       match /courses/{courseId} {
@@ -210,7 +269,7 @@ service cloud.firestore {
                     && managesEvent(request.resource.data.eventId)
                     && (eventDoc(request.resource.data.eventId).data.status == "prepared" ||
                         eventDoc(request.resource.data.eventId).data.status == "published");
-      allow update: if managerRevokesInvitation() || runnerAcceptsInvitation();
+      allow update: if managerRevokesInvitation() || runnerAcceptsInvitation() || managerChangesAcceptedInvitation();
       allow delete: if false;
     }
 
