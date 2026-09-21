@@ -25,7 +25,9 @@ const state = {
   list: null,
   status: null,
   email: null,
-  create: null
+  create: null,
+  loadedEventId: "",
+  loading: false
 };
 
 function roleOf() {
@@ -96,7 +98,7 @@ function injectStyle() {
     .m2-invites button:disabled{opacity:.45;cursor:not-allowed}
     .m2-invites-create{background:linear-gradient(180deg,#f6d285,#d99c38)!important;color:#1b160c!important}
     .m2-invites-status{margin:9px 0;font-size:.82rem;line-height:1.4;opacity:.86}
-    .m2-invites-list{display:grid;gap:8px;margin-top:10px}
+    .m2-invites-list{display:grid;gap:8px;margin-top:10px;min-height:22px}
     .m2-invite-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:11px;background:rgba(0,0,0,.12)}
     .m2-invite-email{font-weight:900;overflow-wrap:anywhere}
     .m2-invite-link{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.73rem;opacity:.76;overflow-wrap:anywhere;margin-top:3px}
@@ -171,22 +173,42 @@ function paint(message = "") {
     ? "Crea una invitación individual. El corredor la verá en su cuenta y también puedes enviársela por WhatsApp o compartir el enlace."
     : `Las invitaciones solo se crean con el evento PREPARADO o PUBLICADO. Estado actual: ${status.toUpperCase()}.`);
 }
-async function loadEvent() {
+async function loadEvent({ force = false } = {}) {
   ensurePanel();
   const eventId = currentEventId();
-  state.event = null;
-  state.rows = [];
-  state.list.innerHTML = "";
   if (!canManage() || !eventId || !navigator.onLine) { paint(); return false; }
+
+  // app-main emite militopo:v2-orientation-header durante el autoguardado.
+  // Si seguimos en el mismo evento no volvemos a vaciar/repintar la lista:
+  // evita el parpadeo y el salto vertical de toda la interfaz.
+  if (!force && state.event?.eventId === eventId && state.loadedEventId === eventId) return true;
+  if (state.loading) return false;
+
+  const changedEvent = state.loadedEventId && state.loadedEventId !== eventId;
+  state.loading = true;
+  if (changedEvent) {
+    state.event = null;
+    state.rows = [];
+    state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Cargando invitaciones…</div>`;
+    paint("Cargando el evento seleccionado…");
+  }
+
   try {
     const { firestore } = await services();
     const snap = await getDoc(doc(firestore, "events", eventId));
-    if (!snap.exists()) { paint("El evento todavía no existe en Firestore."); return false; }
+    if (!snap.exists()) {
+      if (changedEvent) state.list.innerHTML = "";
+      paint("El evento todavía no existe en Firestore.");
+      return false;
+    }
     const data = snap.data() || {};
     if (roleOf() !== "super_admin" && String(data.ownerUid || "") !== String(state.auth.uid || "")) {
-      paint("Este evento no pertenece a esta cuenta."); return false;
+      if (changedEvent) state.list.innerHTML = "";
+      paint("Este evento no pertenece a esta cuenta.");
+      return false;
     }
     state.event = { ...data, eventId: snap.id };
+    state.loadedEventId = eventId;
     paint();
     await loadInvitations();
     return true;
@@ -194,6 +216,8 @@ async function loadEvent() {
     console.error("[MILITOPO E1] load event", error);
     paint("No se pudo leer el evento. La aplicación local sigue intacta.");
     return false;
+  } finally {
+    state.loading = false;
   }
 }
 async function loadInvitations() {
@@ -354,22 +378,30 @@ function onListClick(event) {
   const revoke = event.target.closest("[data-revoke]");
   if (revoke) revokeInvitation(revoke.dataset.revoke);
 }
-function scheduleLoad(delay = 250) {
+function scheduleLoad(delay = 250, force = false) {
   clearTimeout(scheduleLoad.timer);
-  scheduleLoad.timer = setTimeout(() => loadEvent(), delay);
+  scheduleLoad.force = Boolean(scheduleLoad.force || force);
+  scheduleLoad.timer = setTimeout(() => {
+    const mustForce = Boolean(scheduleLoad.force);
+    scheduleLoad.force = false;
+    loadEvent({ force: mustForce });
+  }, delay);
 }
 function init() {
   ensurePanel();
   globalThis.addEventListener("militopo:v2-auth-ready", event => {
     state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
-    scheduleLoad(150);
+    state.loadedEventId = "";
+    scheduleLoad(150, true);
   });
-  globalThis.addEventListener("militopo:v2-orientation-header", () => scheduleLoad(700));
-  globalThis.addEventListener("militopo:v2-cloud-event-applied", event => { if (event?.detail?.ok) scheduleLoad(250); });
-  globalThis.addEventListener("militopo:v2-event-status-changed", () => scheduleLoad(250));
-  globalThis.addEventListener("online", () => scheduleLoad(100));
+  // Este evento puede dispararse muchas veces por el autoguardado. Solo recarga
+  // si realmente cambió el eventId; loadEvent lo comprueba sin tocar el DOM.
+  globalThis.addEventListener("militopo:v2-orientation-header", () => scheduleLoad(250, false));
+  globalThis.addEventListener("militopo:v2-cloud-event-applied", event => { if (event?.detail?.ok) scheduleLoad(180, true); });
+  globalThis.addEventListener("militopo:v2-event-status-changed", () => scheduleLoad(180, true));
+  globalThis.addEventListener("online", () => scheduleLoad(100, true));
   globalThis.addEventListener("offline", () => paint("📴 Sin conexión: no se pueden crear invitaciones ahora."));
-  if (globalThis.MILITOPO_V2_AUTH) scheduleLoad(120);
+  if (globalThis.MILITOPO_V2_AUTH) scheduleLoad(120, true);
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
