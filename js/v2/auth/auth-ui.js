@@ -5,6 +5,7 @@ import "../bootstrap.js";
 import {
   browserLocalPersistence,
   browserSessionPersistence,
+  inMemoryPersistence,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   reload,
@@ -49,6 +50,41 @@ function writeBoolStorage(key, value) {
 }
 function trustedDeviceEnabled() { return boolFromStorage(TRUSTED_DEVICE_KEY, false); }
 function keepSessionEnabled() { return boolFromStorage(KEEP_SESSION_KEY, true); }
+
+async function applyCompatiblePersistence(auth, remember) {
+  const preferred = remember ? browserLocalPersistence : browserSessionPersistence;
+  try {
+    await setPersistence(auth, preferred);
+    return remember ? "local" : "session";
+  } catch (error) {
+    console.warn("[MILITOPO V2 Auth] persistence fallback", error);
+  }
+
+  if (preferred !== browserSessionPersistence) {
+    try {
+      await setPersistence(auth, browserSessionPersistence);
+      return "session";
+    } catch (error) {
+      console.warn("[MILITOPO V2 Auth] session persistence fallback", error);
+    }
+  }
+
+  await setPersistence(auth, inMemoryPersistence);
+  return "memory";
+}
+
+async function signInCompatible(auth, email, password) {
+  try {
+    return await signInWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    if (String(error?.code || "") !== "auth/internal-error") throw error;
+    console.warn("[MILITOPO V2 Auth] internal-error; retrying with memory persistence", error);
+    try { await signOut(auth); } catch (_) {}
+    await setPersistence(auth, inMemoryPersistence);
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return await signInWithEmailAndPassword(auth, email, password);
+  }
+}
 
 function authReturnUrl() {
   try { return new URL("./", window.location.href).href; }
@@ -359,6 +395,9 @@ function friendlyError(error) {
     "auth/user-not-found": "No existe una cuenta con ese correo. Pulsa CREAR CUENTA si es tu primer acceso.",
     "auth/wrong-password": "Correo o contraseña incorrectos.",
     "auth/operation-not-allowed": "El acceso por correo y contraseña no está disponible ahora.",
+    "auth/unsupported-persistence-type": "Este navegador no admite el modo de sesión solicitado. MILITOPO intentará un modo compatible.",
+    "auth/web-storage-unsupported": "Este navegador tiene bloqueado el almacenamiento necesario para conservar la sesión.",
+    "auth/internal-error": "Firebase ha devuelto un error interno al iniciar sesión incluso en modo de compatibilidad. Cierra esta pestaña, vuelve a abrir MILITOPO e inténtalo una vez más.",
     "auth/unauthorized-continue-uri": "Firebase no acepta la dirección de retorno para verificar el correo.",
     "auth/invalid-continue-uri": "La dirección de retorno del correo de verificación no es válida.",
     "auth/user-token-expired": "La sesión ha caducado. Pulsa USAR OTRA CUENTA e inicia sesión de nuevo.",
@@ -406,7 +445,10 @@ async function handleSubmit(event) {
   setMessage(state.mode === "register" ? "Creando cuenta…" : "Iniciando sesión…");
   try {
     writeBoolStorage(KEEP_SESSION_KEY, remember);
-    await setPersistence(state.services.auth, remember ? browserLocalPersistence : browserSessionPersistence);
+    const persistenceMode = await applyCompatiblePersistence(state.services.auth, remember);
+    if (persistenceMode === "memory") {
+      writeBoolStorage(KEEP_SESSION_KEY, false);
+    }
     if (state.mode === "register") {
       const credential = await createUserWithEmailAndPassword(state.services.auth, email, password);
       const name = String(el("m2AuthName")?.value || "").trim();
@@ -420,7 +462,7 @@ async function handleSubmit(event) {
         setVerifyMessage(`${friendlyError(verificationError)} Puedes pulsar REENVIAR CORREO para intentarlo otra vez.`, "error");
       }
     } else {
-      const credential = await signInWithEmailAndPassword(state.services.auth, email, password);
+      const credential = await signInCompatible(state.services.auth, email, password);
       if (!credential.user.emailVerified) {
         showVerifyView(credential.user);
         setVerifyMessage("Esta cuenta existe, pero el correo todavía no está verificado. Abre el enlace recibido o pulsa REENVIAR CORREO.", "error");
