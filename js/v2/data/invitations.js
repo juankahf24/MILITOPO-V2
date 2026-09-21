@@ -84,6 +84,7 @@ function statusLabel(row) {
   const status = String(row.status || "pending");
   if (status === "accepted") return "ACEPTADA";
   if (status === "revoked") return "REVOCADA";
+  if (status === "removed") return "RETIRADA";
   return "PENDIENTE";
 }
 function targetLabel(row) {
@@ -228,7 +229,7 @@ async function loadInvitations() {
 function renderList(rows) {
   if (!rows.length) { state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Aún no hay invitaciones para este evento.</div>`; return; }
   state.list.innerHTML = rows.map(row => {
-    const status = String(row.status || "pending"), revoked = status === "revoked", accepted = status === "accepted", url = invitationUrl(row.id);
+    const status = String(row.status || "pending"), revoked = status === "revoked" || status === "removed", accepted = status === "accepted", url = invitationUrl(row.id);
     return `<article class="m2-invite-item ${revoked ? "m2-invite-revoked" : ""} ${accepted ? "m2-invite-accepted" : ""}">
       <div><div class="m2-invite-email">${esc(targetLabel(row))}</div><div class="m2-invite-meta">${esc(statusLabel(row))} · ${esc(formatDate(row.createdAt))}</div><div class="m2-invite-link">${esc(url)}</div></div>
       <div class="m2-invite-actions"><button type="button" data-whatsapp="${esc(row.id)}">WHATSAPP</button><button type="button" data-share="${esc(row.id)}">COMPARTIR</button><button type="button" data-copy-link="${esc(row.id)}">COPIAR ENLACE</button>${row.targetEmail ? `<button type="button" data-email="${esc(row.id)}">EMAIL</button>` : ""}${status === "pending" ? `<button type="button" data-revoke="${esc(row.id)}">REVOCAR</button>` : ""}</div>
@@ -373,11 +374,17 @@ async function createTargets(rawTargets, bulkMode, origin = bulkMode ? "bulk" : 
     }
     const notMembers = [];
     let alreadyJoined = 0;
+    let removedMembers = 0;
     const { firestore } = await services();
     for (const target of resolved) {
       if (target.kind === "user") {
         const memberSnap = await getDoc(doc(firestore, "events", state.event.eventId, "members", target.targetUid));
-        if (memberSnap.exists()) { alreadyJoined += 1; continue; }
+        if (memberSnap.exists()) {
+          const memberStatus = String(memberSnap.data()?.status || "active");
+          if (memberStatus === "removed") removedMembers += 1;
+          else alreadyJoined += 1;
+          continue;
+        }
       }
       notMembers.push(target);
     }
@@ -391,6 +398,7 @@ async function createTargets(rawTargets, bulkMode, origin = bulkMode ? "bulk" : 
     await loadInvitations();
     const pieces = [`✅ ${created} invitación${created === 1 ? "" : "es"} creada${created === 1 ? "" : "s"}`];
     if (alreadyJoined) pieces.push(`ℹ️ ${alreadyJoined} ya estaba${alreadyJoined === 1 ? "" : "n"} unido${alreadyJoined === 1 ? "" : "s"} al evento`);
+    if (removedMembers) pieces.push(`ℹ️ ${removedMembers} está${removedMembers === 1 ? "" : "n"} retirado${removedMembers === 1 ? "" : "s"}; restáuralo${removedMembers === 1 ? "" : "s"} desde CENSO DEL EVENTO`);
     if (skipped) pieces.push(`ℹ️ ${skipped} ya tenía${skipped === 1 ? "" : "n"} invitación pendiente`);
     if (errors.length) {
       pieces.push(`⚠️ ${errors.length} entrada${errors.length === 1 ? "" : "s"} no válida${errors.length === 1 ? "" : "s"}`);
@@ -398,13 +406,14 @@ async function createTargets(rawTargets, bulkMode, origin = bulkMode ? "bulk" : 
       if (errors.length > 5) pieces.push(`   • …y ${errors.length - 5} más`);
     }
     paint(pieces.join("\n"));
+    globalThis.dispatchEvent(new CustomEvent("militopo:v2-roster-refresh"));
   } catch (error) { console.error("[MILITOPO E2] create", error); paint(`No se pudieron crear las invitaciones: ${String(error?.message || error)}`); }
   finally { state.busy = false; paint(state.status.textContent); }
 }
 async function revokeInvitation(id) {
   if (!id || state.busy) return; if (!confirm("¿Revocar esta invitación? El participante ya no podrá utilizar este enlace.")) return;
   state.busy = true; paint("Revocando invitación…");
-  try { const { firestore } = await services(); await updateDoc(doc(firestore, "invitations", id), { status:"revoked", revokedAt:serverTimestamp(), updatedAt:serverTimestamp() }); await loadInvitations(); paint("✅ Invitación revocada."); }
+  try { const { firestore } = await services(); await updateDoc(doc(firestore, "invitations", id), { status:"revoked", revokedAt:serverTimestamp(), updatedAt:serverTimestamp() }); await loadInvitations(); globalThis.dispatchEvent(new CustomEvent("militopo:v2-roster-refresh")); paint("✅ Invitación revocada."); }
   catch (error) { console.error("[MILITOPO E2] revoke", error); paint(`No se pudo revocar: ${String(error?.message || error)}`); }
   finally { state.busy = false; paint(state.status.textContent); }
 }
@@ -436,6 +445,7 @@ function init() {
   globalThis.addEventListener("militopo:v2-orientation-header", () => scheduleLoad(250, false));
   globalThis.addEventListener("militopo:v2-cloud-event-applied", event => { if (event?.detail?.ok) scheduleLoad(180, true); });
   globalThis.addEventListener("militopo:v2-event-status-changed", () => scheduleLoad(180, true));
+  globalThis.addEventListener("militopo:v2-invitation-refresh", () => scheduleLoad(120, true));
   globalThis.addEventListener("online", () => scheduleLoad(100, true));
   globalThis.addEventListener("offline", () => paint("📴 Sin conexión: no se pueden crear invitaciones ahora."));
   if (globalThis.MILITOPO_V2_AUTH) scheduleLoad(120, true);
