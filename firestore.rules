@@ -128,7 +128,7 @@ service cloud.firestore {
 
     match /usernames/{usernameKey} {
       allow get: if validUsernameKey(usernameKey);
-      allow list: if false;
+      allow list: if verified() && isOrganizer();
       allow create: if signedIn()
                     && validUsernameKey(usernameKey)
                     && request.resource.data.keys().hasOnly([
