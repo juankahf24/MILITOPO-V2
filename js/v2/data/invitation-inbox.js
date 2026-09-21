@@ -132,7 +132,7 @@ function render() {
     const direct = String(row.id) === String(state.directInviteId);
     return `<article class="m2-inbox-item ${direct ? "is-direct" : ""}">
       <div class="m2-inbox-event">${esc(row.eventName || "Carrera de orientación")}</div>
-      <div class="m2-inbox-meta">Invitación para ${esc(row.targetEmail || emailOf())}</div>
+      <div class="m2-inbox-meta">Invitación para ${esc(row.targetUsername ? `@${row.targetUsername}` : (row.targetEmail || emailOf()))}</div>
       ${isPending
         ? `<div class="m2-inbox-actions"><button class="m2-inbox-accept" type="button" data-accept-invite="${esc(row.id)}" ${state.busy ? "disabled" : ""}>UNIRME A ESTA CARRERA</button></div>`
         : `<div class="m2-inbox-joined">✓ Ya estás unido a esta carrera</div>`}
@@ -148,15 +148,21 @@ async function loadInvitations() {
   setStatus("Comprobando invitaciones…");
   try {
     const { firestore } = await services();
-    const snap = await getDocs(query(collection(firestore, "invitations"), where("targetEmail", "==", emailOf())));
-    const rows = [];
-    snap.forEach(d => {
-      const data = d.data() || {};
-      const status = String(data.status || "pending");
-      if (status === "pending" || (status === "accepted" && String(data.targetUid || "") === String(state.auth.uid))) {
-        rows.push({ id: d.id, ...data });
-      }
-    });
+    const rowsById = new Map();
+    const [emailSnap, uidSnap] = await Promise.all([
+      getDocs(query(collection(firestore, "invitations"), where("targetEmail", "==", emailOf()))),
+      getDocs(query(collection(firestore, "invitations"), where("targetUid", "==", String(state.auth.uid))))
+    ]);
+    for (const snap of [emailSnap, uidSnap]) {
+      snap.forEach(d => {
+        const data = d.data() || {};
+        const status = String(data.status || "pending");
+        if (status === "pending" || (status === "accepted" && String(data.targetUid || "") === String(state.auth.uid))) {
+          rowsById.set(d.id, { id: d.id, ...data });
+        }
+      });
+    }
+    const rows = [...rowsById.values()];
     if (state.directInviteId && !rows.some(row => row.id === state.directInviteId)) {
       try {
         const direct = await getDoc(doc(firestore, "invitations", state.directInviteId));
@@ -205,7 +211,9 @@ async function acceptInvitation(id) {
     const inviteSnap = await getDoc(inviteRef);
     if (!inviteSnap.exists()) throw new Error("La invitación ya no existe.");
     const invite = inviteSnap.data() || {};
-    if (String(invite.targetEmail || "").toLowerCase() !== emailOf()) throw new Error("La invitación no corresponde a esta cuenta.");
+    const targetsUid = String(invite.targetUid || "") === String(state.auth.uid);
+    const targetsEmail = String(invite.targetEmail || "").toLowerCase() === emailOf();
+    if (!targetsUid && !targetsEmail) throw new Error("La invitación no corresponde a esta cuenta.");
     if (String(invite.status || "pending") === "revoked") throw new Error("La invitación ha sido revocada.");
     if (String(invite.status || "pending") === "accepted" && String(invite.targetUid || "") === String(state.auth.uid)) {
       removeInviteParam();
@@ -218,12 +226,13 @@ async function acceptInvitation(id) {
     const memberRef = doc(firestore, "events", String(invite.eventId), "members", String(state.auth.uid));
     const memberSnap = await getDoc(memberRef);
     const batch = writeBatch(firestore);
-    batch.update(inviteRef, {
+    const inviteUpdate = {
       status: "accepted",
-      targetUid: state.auth.uid,
       acceptedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
+    if (!invite.targetUid) inviteUpdate.targetUid = state.auth.uid;
+    batch.update(inviteRef, inviteUpdate);
     if (!memberSnap.exists()) {
       batch.set(memberRef, {
         uid: state.auth.uid,
