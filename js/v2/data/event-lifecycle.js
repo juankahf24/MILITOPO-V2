@@ -1,4 +1,4 @@
-/* MILITOPO V2 · Fase D1 · ciclo de vida del evento.
+/* MILITOPO V2 · Fase D2 hotfix cache/transiciones · ciclo de vida del evento.
    Gestiona estados del evento desde Firestore sin Cloud Functions ni Storage. */
 import "../bootstrap.js";
 import {
@@ -30,6 +30,14 @@ const state = {
   action: null,
   refresh: null
 };
+
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label || "Operación"} tardó demasiado. Comprueba la conexión y pulsa ACTUALIZAR ESTADO.`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 function roleOf(auth = state.auth) {
   const role = String(auth?.role || "runner");
@@ -189,7 +197,7 @@ async function refresh(userRequested = false) {
   }
   try {
     const { firestore } = await services();
-    const snap = await getDoc(doc(firestore, "events", eventId));
+    const snap = await withTimeout(getDoc(doc(firestore, "events", eventId)), 12000, "Lectura de Firestore");
     if (!snap.exists()) {
       state.event = null;
       publishLifecycleState(eventId, "draft", false);
@@ -236,8 +244,8 @@ async function advance() {
     const { firestore } = await services();
     const payload = {
       status: to,
-      cloudStage: "D1",
-      lifecycleVersion: 1,
+      cloudStage: "D2",
+      lifecycleVersion: 2,
       updatedAt: serverTimestamp()
     };
     if (to === "prepared") payload.preparedAt = serverTimestamp();
@@ -245,8 +253,16 @@ async function advance() {
     if (to === "live") payload.liveAt = serverTimestamp();
     if (to === "finished") payload.finishedAt = serverTimestamp();
     if (to === "archived") payload.archivedAt = serverTimestamp();
-    await updateDoc(doc(firestore, "events", eventId), payload);
-    await refresh();
+    await withTimeout(updateDoc(doc(firestore, "events", eventId), payload), 12000, "Cambio de estado");
+    // updateDoc resuelto = Firestore aceptó el cambio. Reflejarlo de inmediato para no dejar la UI bloqueada.
+    state.event = { ...(state.event || {}), ...payload, eventId, status: to };
+    publishLifecycleState(eventId, to, true);
+    state.busy = false;
+    paint(`Estado actualizado: ${META[to].label}. Verificando Firestore…`);
+    await withTimeout(refresh(), 12000, "Verificación de estado").catch(error => {
+      console.warn("[MILITOPO D2 hotfix] verification", error);
+      paint(`Estado ${META[to].label} guardado. Pulsa ACTUALIZAR ESTADO para volver a comprobarlo.`);
+    });
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to } }));
     if (typeof globalThis.toast === "function") globalThis.toast(`Estado: ${META[to].label}`);
   } catch (error) {
