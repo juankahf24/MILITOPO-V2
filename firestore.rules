@@ -6,6 +6,10 @@ service cloud.firestore {
     function isSuperAdmin() { return signedIn() && role() == "super_admin"; }
     function isOrganizer() { return signedIn() && (role() == "organizer" || role() == "super_admin"); }
     function verified() { return signedIn() && request.auth.token.email_verified == true; }
+    function validUsernameKey(key) {
+      return key is string && key.size() >= 3 && key.size() <= 24 && key.matches('^[a-z0-9._-]+$');
+    }
+    function usernameDoc(key) { return get(/databases/$(database)/documents/usernames/$(key)); }
     function eventDoc(eventId) { return get(/databases/$(database)/documents/events/$(eventId)); }
     function isEventOwner(eventId) { return signedIn() && eventDoc(eventId).data.ownerUid == request.auth.uid; }
     function isEventMember(eventId) { return signedIn() && exists(/databases/$(database)/documents/events/$(eventId)/members/$(request.auth.uid)); }
@@ -37,6 +41,7 @@ service cloud.firestore {
     }
 
     function selfJoinFromAcceptedInvite(eventId, uid) {
+      let invite = getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data;
       return verified()
              && request.auth.uid == uid
              && request.auth.token.email is string
@@ -48,45 +53,97 @@ service cloud.firestore {
              && request.resource.data.role == "runner"
              && request.resource.data.status == "active"
              && request.resource.data.invitationId is string
-             && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.eventId == eventId
-             && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.targetEmail == request.auth.token.email
-             && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.targetUid == uid
-             && getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data.status == "accepted";
+             && invite.eventId == eventId
+             && invite.status == "accepted"
+             && invite.targetUid == uid
+             && (!invite.keys().hasAny(["targetEmail"]) || invite.targetEmail == request.auth.token.email);
     }
     function runnerAcceptsInvitation() {
+      let emailMatches = request.auth.token.email is string
+                         && resource.data.keys().hasAny(["targetEmail"])
+                         && resource.data.targetEmail == request.auth.token.email;
+      let uidMatches = resource.data.keys().hasAny(["targetUid"])
+                       && resource.data.targetUid == request.auth.uid;
       return verified()
-             && request.auth.token.email is string
              && resource.data.status == "pending"
-             && resource.data.targetEmail == request.auth.token.email
-             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-               "status", "targetUid", "acceptedAt", "updatedAt"
-             ])
+             && (emailMatches || uidMatches)
              && request.resource.data.status == "accepted"
-             && request.resource.data.targetUid == request.auth.uid;
+             && request.resource.data.targetUid == request.auth.uid
+             && (
+               (uidMatches && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                 "status", "acceptedAt", "updatedAt"
+               ]))
+               ||
+               (emailMatches && !resource.data.keys().hasAny(["targetUid"])
+                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                   "status", "targetUid", "acceptedAt", "updatedAt"
+                 ]))
+             );
     }
     function managerRevokesInvitation() {
       return verified()
              && managesEvent(resource.data.eventId)
              && resource.data.status == "pending"
-             && request.resource.data.eventId == resource.data.eventId
-             && request.resource.data.createdBy == resource.data.createdBy
-             && request.resource.data.targetEmail == resource.data.targetEmail
-             && request.resource.data.role == resource.data.role
              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                "status", "updatedAt", "revokedAt"
              ])
              && request.resource.data.status == "revoked";
     }
+    function validInvitationTarget(data) {
+      let usernameTarget = data.keys().hasAll(["targetUid", "targetUsername", "targetUsernameKey"])
+                           && !data.keys().hasAny(["targetEmail"])
+                           && validUsernameKey(data.targetUsernameKey)
+                           && data.targetUsername == data.targetUsernameKey
+                           && usernameDoc(data.targetUsernameKey).data.uid == data.targetUid;
+      let emailTarget = data.keys().hasAny(["targetEmail"])
+                        && data.targetEmail is string
+                        && !data.keys().hasAny(["targetUid", "targetUsername", "targetUsernameKey"]);
+      return usernameTarget || emailTarget;
+    }
+
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
       allow create: if signedIn() && request.auth.uid == uid
                     && request.resource.data.uid == request.auth.uid
-                    && !request.resource.data.keys().hasAny(["role", "roleMirror", "accountStatus", "permissions"]);
+                    && !request.resource.data.keys().hasAny(["role", "roleMirror", "accountStatus", "permissions"])
+                    && (!request.resource.data.keys().hasAny(["usernameKey"])
+                        || (validUsernameKey(request.resource.data.usernameKey)
+                            && request.resource.data.username == request.resource.data.usernameKey
+                            && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.usernameKey)).data.uid == uid));
       allow update: if signedIn() && request.auth.uid == uid
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                      "displayName", "firstName", "lastName", "photoURL", "preferences", "updatedAt"
-                    ]);
+                      "displayName", "firstName", "lastName", "photoURL", "preferences", "updatedAt",
+                      "emailVerified", "username", "usernameKey"
+                    ])
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["username", "usernameKey"])
+                        || (
+                          !resource.data.keys().hasAny(["usernameKey"])
+                          && validUsernameKey(request.resource.data.usernameKey)
+                          && request.resource.data.username == request.resource.data.usernameKey
+                          && getAfter(/databases/$(database)/documents/usernames/$(request.resource.data.usernameKey)).data.uid == uid
+                        ));
+      allow delete: if false;
+    }
+
+    match /usernames/{usernameKey} {
+      allow get: if validUsernameKey(usernameKey);
+      allow list: if false;
+      allow create: if signedIn()
+                    && validUsernameKey(usernameKey)
+                    && request.resource.data.keys().hasOnly([
+                      "uid", "username", "usernameKey", "displayName", "createdAt", "updatedAt"
+                    ])
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.username == usernameKey
+                    && request.resource.data.usernameKey == usernameKey;
+      allow update: if signedIn()
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == resource.data.uid
+                    && request.resource.data.username == resource.data.username
+                    && request.resource.data.usernameKey == resource.data.usernameKey
+                    && request.resource.data.createdAt == resource.data.createdAt
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["displayName", "updatedAt"]);
       allow delete: if false;
     }
 
@@ -140,16 +197,16 @@ service cloud.firestore {
       allow read: if signedIn() && (
         isSuperAdmin() ||
         resource.data.createdBy == request.auth.uid ||
-        resource.data.targetUid == request.auth.uid ||
-        (request.auth.token.email is string && resource.data.targetEmail == request.auth.token.email)
+        (resource.data.keys().hasAny(["targetUid"]) && resource.data.targetUid == request.auth.uid) ||
+        (request.auth.token.email is string && resource.data.keys().hasAny(["targetEmail"]) && resource.data.targetEmail == request.auth.token.email)
       );
       allow create: if verified() && isOrganizer()
                     && request.resource.data.eventId is string
                     && request.resource.data.createdBy == request.auth.uid
-                    && request.resource.data.targetEmail is string
                     && request.resource.data.role == "runner"
                     && request.resource.data.status == "pending"
-                    && !request.resource.data.keys().hasAny(["targetUid", "acceptedAt", "revokedAt"])
+                    && !request.resource.data.keys().hasAny(["acceptedAt", "revokedAt"])
+                    && validInvitationTarget(request.resource.data)
                     && managesEvent(request.resource.data.eventId)
                     && (eventDoc(request.resource.data.eventId).data.status == "prepared" ||
                         eventDoc(request.resource.data.eventId).data.status == "published");
