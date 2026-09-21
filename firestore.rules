@@ -94,8 +94,31 @@ service cloud.firestore {
     }
 
     match /invitations/{inviteId} {
-      allow read: if signedIn() && (resource.data.targetUid == request.auth.uid || resource.data.createdBy == request.auth.uid || isSuperAdmin());
-      allow write: if false;
+      allow read: if signedIn() && (
+        isSuperAdmin() ||
+        resource.data.createdBy == request.auth.uid ||
+        resource.data.targetUid == request.auth.uid ||
+        (request.auth.token.email is string && resource.data.targetEmail == request.auth.token.email)
+      );
+      allow create: if verified() && isOrganizer()
+                    && request.resource.data.eventId is string
+                    && request.resource.data.createdBy == request.auth.uid
+                    && request.resource.data.targetEmail is string
+                    && request.resource.data.role == "runner"
+                    && request.resource.data.status == "pending"
+                    && managesEvent(request.resource.data.eventId)
+                    && (eventDoc(request.resource.data.eventId).data.status == "prepared" ||
+                        eventDoc(request.resource.data.eventId).data.status == "published");
+      allow update: if verified() && managesEvent(resource.data.eventId)
+                    && request.resource.data.eventId == resource.data.eventId
+                    && request.resource.data.createdBy == resource.data.createdBy
+                    && request.resource.data.targetEmail == resource.data.targetEmail
+                    && request.resource.data.role == resource.data.role
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                      "status", "updatedAt", "revokedAt"
+                    ])
+                    && (request.resource.data.status == "pending" || request.resource.data.status == "revoked");
+      allow delete: if false;
     }
 
     match /organizations/{orgId} {
