@@ -1,6 +1,5 @@
-/* MILITOPO V2 · Fase E1 · invitaciones de participantes en Spark.
-   Sin Functions ni correo automático: el organizador crea un código y lo comparte manualmente.
-   Firestore Rules son la autoridad real. */
+/* MILITOPO V2 · Fase E1 ampliada · invitaciones por enlace/WhatsApp + estado en app.
+   Spark-safe: Firestore + Auth, sin Functions ni servicios de pago. */
 import "../bootstrap.js";
 import {
   collection,
@@ -20,6 +19,7 @@ const state = {
   auth: globalThis.MILITOPO_V2_AUTH || null,
   services: null,
   event: null,
+  rows: [],
   busy: false,
   panel: null,
   list: null,
@@ -63,6 +63,23 @@ async function services() {
   state.services = await globalThis.MILITOPO_V2.firebase();
   return state.services;
 }
+function invitationUrl(id) {
+  const root = new URL("../", window.location.href);
+  root.hash = "";
+  root.search = "";
+  root.searchParams.set("invite", String(id));
+  return root.href;
+}
+function shareMessage(row) {
+  const eventName = String(row.eventName || state.event?.eventName || "una carrera de orientación").trim();
+  return `Te han invitado a participar en ${eventName} con MILITOPO.\n\nAbre este enlace para iniciar sesión y unirte a la carrera:\n${invitationUrl(row.id)}`;
+}
+function statusLabel(row) {
+  const status = String(row.status || "pending");
+  if (status === "accepted") return "ACEPTADA";
+  if (status === "revoked") return "REVOCADA";
+  return "PENDIENTE";
+}
 function injectStyle() {
   if (document.getElementById("m2InviteStyle")) return;
   const style = document.createElement("style");
@@ -82,11 +99,13 @@ function injectStyle() {
     .m2-invites-list{display:grid;gap:8px;margin-top:10px}
     .m2-invite-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:11px;background:rgba(0,0,0,.12)}
     .m2-invite-email{font-weight:900;overflow-wrap:anywhere}
-    .m2-invite-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;opacity:.86;overflow-wrap:anywhere;margin-top:3px}
+    .m2-invite-link{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.73rem;opacity:.76;overflow-wrap:anywhere;margin-top:3px}
     .m2-invite-meta{font-size:.75rem;opacity:.65;margin-top:3px}
-    .m2-invite-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .m2-invite-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:330px}
+    .m2-invite-actions button{font-size:.78rem}
     .m2-invite-revoked{opacity:.55}
-    @media(max-width:560px){.m2-invites-form{grid-template-columns:1fr}.m2-invites-form button{width:100%}.m2-invite-item{grid-template-columns:1fr}.m2-invite-actions{justify-content:stretch}.m2-invite-actions button{flex:1}}
+    .m2-invite-accepted{border-color:rgba(126,220,150,.35)}
+    @media(max-width:680px){.m2-invites-form{grid-template-columns:1fr}.m2-invites-form button{width:100%}.m2-invite-item{grid-template-columns:1fr}.m2-invite-actions{justify-content:stretch;max-width:none}.m2-invite-actions button{flex:1 1 45%}}
   `;
   document.head.appendChild(style);
 }
@@ -149,13 +168,14 @@ function paint(message = "") {
   const allowed = ALLOWED_EVENT_STATES.has(status);
   state.create.disabled = state.busy || !allowed || !navigator.onLine;
   state.status.textContent = message || (allowed
-    ? "Crea un código por participante y compártelo de forma privada. El correo debe coincidir con su cuenta MILITOPO."
+    ? "Crea una invitación individual. El corredor la verá en su cuenta y también puedes enviársela por WhatsApp o compartir el enlace."
     : `Las invitaciones solo se crean con el evento PREPARADO o PUBLICADO. Estado actual: ${status.toUpperCase()}.`);
 }
 async function loadEvent() {
   ensurePanel();
   const eventId = currentEventId();
   state.event = null;
+  state.rows = [];
   state.list.innerHTML = "";
   if (!canManage() || !eventId || !navigator.onLine) { paint(); return false; }
   try {
@@ -195,6 +215,7 @@ async function loadInvitations() {
       const am = a.createdAt?.toMillis?.() || 0, bm = b.createdAt?.toMillis?.() || 0;
       return bm - am;
     });
+    state.rows = rows;
     renderList(rows);
   } catch (error) {
     console.error("[MILITOPO E1] list", error);
@@ -207,16 +228,21 @@ function renderList(rows) {
     return;
   }
   state.list.innerHTML = rows.map(row => {
-    const revoked = String(row.status || "pending") === "revoked";
-    return `<article class="m2-invite-item ${revoked ? "m2-invite-revoked" : ""}">
+    const status = String(row.status || "pending");
+    const revoked = status === "revoked";
+    const accepted = status === "accepted";
+    const url = invitationUrl(row.id);
+    return `<article class="m2-invite-item ${revoked ? "m2-invite-revoked" : ""} ${accepted ? "m2-invite-accepted" : ""}">
       <div>
         <div class="m2-invite-email">${esc(row.targetEmail || "Sin correo")}</div>
-        <div class="m2-invite-code">CÓDIGO: ${esc(row.id)}</div>
-        <div class="m2-invite-meta">${revoked ? "REVOCADA" : "PENDIENTE"} · ${esc(formatDate(row.createdAt))}</div>
+        <div class="m2-invite-meta">${esc(statusLabel(row))} · ${esc(formatDate(row.createdAt))}</div>
+        <div class="m2-invite-link">${esc(url)}</div>
       </div>
       <div class="m2-invite-actions">
-        <button type="button" data-copy="${esc(row.id)}">COPIAR CÓDIGO</button>
-        ${revoked ? "" : `<button type="button" data-revoke="${esc(row.id)}">REVOCAR</button>`}
+        <button type="button" data-whatsapp="${esc(row.id)}">WHATSAPP</button>
+        <button type="button" data-share="${esc(row.id)}">COMPARTIR</button>
+        <button type="button" data-copy-link="${esc(row.id)}">COPIAR ENLACE</button>
+        ${status === "pending" ? `<button type="button" data-revoke="${esc(row.id)}">REVOCAR</button>` : ""}
       </div>
     </article>`;
   }).join("");
@@ -230,13 +256,18 @@ async function createInvitation() {
     return;
   }
   if (!ALLOWED_EVENT_STATES.has(String(state.event.status || ""))) { paint(); return; }
+  const existing = state.rows.find(row => normalizedEmail(row.targetEmail) === email && String(row.status || "pending") === "pending");
+  if (existing) {
+    paint("Ese corredor ya tiene una invitación pendiente. Puedes compartir el enlace que aparece debajo.");
+    return;
+  }
   state.busy = true;
   paint("Creando invitación…");
   try {
     const { firestore } = await services();
     const ref = doc(collection(firestore, "invitations"));
     await setDoc(ref, {
-      schemaVersion: 1,
+      schemaVersion: 2,
       eventId: state.event.eventId,
       eventName: String(state.event.eventName || "").slice(0, 140),
       createdBy: state.auth.uid,
@@ -247,7 +278,7 @@ async function createInvitation() {
       updatedAt: serverTimestamp()
     });
     state.email.value = "";
-    paint(`✅ Invitación creada. Código: ${ref.id}`);
+    paint("✅ Invitación creada. Ya puedes enviarla por WhatsApp, compartirla o copiar el enlace.");
     await loadInvitations();
   } catch (error) {
     console.error("[MILITOPO E1] create", error);
@@ -259,7 +290,7 @@ async function createInvitation() {
 }
 async function revokeInvitation(id) {
   if (!id || state.busy) return;
-  if (!confirm("¿Revocar esta invitación? El participante ya no podrá utilizar este código.")) return;
+  if (!confirm("¿Revocar esta invitación? El participante ya no podrá utilizar este enlace.")) return;
   state.busy = true;
   paint("Revocando invitación…");
   try {
@@ -279,18 +310,47 @@ async function revokeInvitation(id) {
     paint(state.status.textContent);
   }
 }
-async function copyCode(code) {
+function rowById(id) {
+  return state.rows.find(row => String(row.id) === String(id)) || null;
+}
+async function copyLink(id) {
+  const url = invitationUrl(id);
   try {
-    await navigator.clipboard.writeText(code);
-    if (typeof globalThis.toast === "function") globalThis.toast("Código de invitación copiado");
-    else paint("✅ Código copiado.");
+    await navigator.clipboard.writeText(url);
+    if (typeof globalThis.toast === "function") globalThis.toast("Enlace de invitación copiado");
+    else paint("✅ Enlace copiado.");
   } catch (_) {
-    prompt("Copia este código de invitación:", code);
+    prompt("Copia este enlace de invitación:", url);
   }
 }
+function shareWhatsApp(id) {
+  const row = rowById(id);
+  if (!row) return;
+  const url = `https://wa.me/?text=${encodeURIComponent(shareMessage(row))}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+async function shareNative(id) {
+  const row = rowById(id);
+  if (!row) return;
+  const url = invitationUrl(id);
+  const text = shareMessage(row);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: `Invitación MILITOPO · ${row.eventName || "Carrera"}`, text, url });
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  await copyLink(id);
+}
 function onListClick(event) {
-  const copy = event.target.closest("[data-copy]");
-  if (copy) { copyCode(copy.dataset.copy); return; }
+  const whatsapp = event.target.closest("[data-whatsapp]");
+  if (whatsapp) { shareWhatsApp(whatsapp.dataset.whatsapp); return; }
+  const share = event.target.closest("[data-share]");
+  if (share) { shareNative(share.dataset.share); return; }
+  const copy = event.target.closest("[data-copy-link]");
+  if (copy) { copyLink(copy.dataset.copyLink); return; }
   const revoke = event.target.closest("[data-revoke]");
   if (revoke) revokeInvitation(revoke.dataset.revoke);
 }
