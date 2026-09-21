@@ -12,7 +12,7 @@ const LABELS = {
   finished: "FINALIZADO",
   archived: "ARCHIVADO"
 };
-const state = { eventId: "", status: "draft", locked: false, observer: null };
+const state = { eventId: "", status: "draft", locked: false, observer: null, applying: false, scheduled: false };
 
 function normalizeStatus(value) {
   const key = String(value || "draft");
@@ -70,17 +70,22 @@ function mutationButton(button) {
 function setControlLocked(el, locked) {
   if (!el) return;
   if (locked) {
-    if (!el.dataset.m2PrevDisabled) el.dataset.m2PrevDisabled = el.disabled ? "1" : "0";
-    el.disabled = true;
-    el.classList.add("m2-cloud-locked-control");
+    // "0" es un valor válido: comprobar existencia, no truthiness.
+    if (el.dataset.m2PrevDisabled == null) el.dataset.m2PrevDisabled = el.disabled ? "1" : "0";
+    if (!el.disabled) el.disabled = true;
+    if (!el.classList.contains("m2-cloud-locked-control")) el.classList.add("m2-cloud-locked-control");
   } else if (el.dataset.m2PrevDisabled != null) {
-    el.disabled = el.dataset.m2PrevDisabled === "1";
+    const previous = el.dataset.m2PrevDisabled === "1";
+    if (el.disabled !== previous) el.disabled = previous;
     delete el.dataset.m2PrevDisabled;
     el.classList.remove("m2-cloud-locked-control");
   }
 }
 function applyControls() {
+  if (state.applying) return;
+  state.applying = true;
   const locked = state.locked;
+  try {
   [
     "eventName", "participantCount", "maxUniqueRoutes", "controlCount", "controlsPerRoute",
     "maxControlReuse", "planScaleSelect", "planEquidistanceInput", "selectedUtm", "iofEventName",
@@ -95,13 +100,32 @@ function applyControls() {
   ["step1", "step2", "step3"].forEach(stepId => {
     const banner = ensureBanner(stepId);
     if (!banner) return;
-    banner.hidden = !locked;
+    if (banner.hidden === locked) banner.hidden = !locked;
     if (locked) {
-      banner.innerHTML = `<strong>🔒 DISEÑO BLOQUEADO · ${LABELS[state.status]}</strong><br>` +
+      const desired = `<strong>🔒 DISEÑO BLOQUEADO · ${LABELS[state.status]}</strong><br>` +
         `Balizas, configuración y recorridos quedan congelados para que participantes y material oficial usen una única versión. ` +
         `Puedes consultar el evento y generar material, pero no modificar su diseño.`;
+      // IMPORTANT: no reescribir innerHTML si ya es idéntico. El MutationObserver observa
+      // estos pasos; reescribirlo en cada callback provocaba un bucle infinito al abrir
+      // eventos PUBLICADOS con contenido.
+      if (banner.innerHTML !== desired) banner.innerHTML = desired;
+    } else if (banner.innerHTML) {
+      banner.textContent = "";
     }
   });
+  } finally {
+    state.applying = false;
+  }
+}
+function scheduleApplyControls() {
+  if (state.scheduled) return;
+  state.scheduled = true;
+  const run = () => {
+    state.scheduled = false;
+    applyControls();
+  };
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+  else setTimeout(run, 0);
 }
 function applyStatus(detail = {}) {
   const status = normalizeStatus(detail.status);
@@ -122,13 +146,15 @@ function init() {
   globalThis.addEventListener("militopo:v2-cloud-event-applied", event => {
     if (event?.detail?.ok) {
       state.eventId = String(event.detail.eventId || currentEventId());
-      setTimeout(applyControls, 100);
+      setTimeout(scheduleApplyControls, 100);
     }
   });
   const existing = globalThis.MILITOPO_V2_EVENT_STATUS;
   if (existing) applyStatus(existing);
   else { publishGlobal(); applyControls(); }
-  state.observer = new MutationObserver(() => applyControls());
+  // Coalescer las mutaciones del render clásico y no reaccionar recursivamente a nuestras
+  // propias inserciones/actualizaciones del banner de bloqueo.
+  state.observer = new MutationObserver(() => scheduleApplyControls());
   ["step1", "step2", "step3"].forEach(id => {
     const node = document.getElementById(id);
     if (node) state.observer.observe(node, { childList: true, subtree: true });
