@@ -1,6 +1,6 @@
-/* MILITOPO V2 · Fase C3 · recuperación segura de eventos desde Firestore.
-   Lista únicamente eventos del usuario autenticado. La app local decide cómo
-   aplicar el evento y conserva antes una copia duradera del evento actual. */
+/* MILITOPO V2 · Fase D3 · centro de eventos del Organizador.
+   Organizer: solo sus eventos. Super admin: todos los eventos accesibles.
+   Mantiene la recuperación C3 y nunca borra eventos físicamente. */
 import "../bootstrap.js";
 import {
   collection,
@@ -27,6 +27,16 @@ function cleanRole(role) {
 }
 function canManage(auth = state.auth) {
   return Boolean(auth?.uid && auth?.emailVerified && MANAGER_ROLES.has(cleanRole(auth.role)));
+}
+function isSuperAdmin(auth = state.auth) {
+  return cleanRole(auth?.role) === "super_admin";
+}
+const STATUS_LABELS = {
+  draft: "BORRADOR", prepared: "PREPARADO", published: "PUBLICADO",
+  live: "EN DIRECTO", finished: "FINALIZADO", archived: "ARCHIVADO"
+};
+function statusLabel(value) {
+  return STATUS_LABELS[String(value || "draft")] || String(value || "draft").toUpperCase();
 }
 function cleanString(value, max = 300) {
   return String(value ?? "").trim().slice(0, max);
@@ -89,6 +99,8 @@ function ensureStyles() {
     .m2-cloud-event{border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px;background:rgba(255,255,255,.04)}
     .m2-cloud-event h3{margin:0 0 5px;font-size:1rem}
     .m2-cloud-event-meta{font-size:.86rem;opacity:.78;display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+    .m2-cloud-event-status{display:inline-flex;align-items:center;min-height:26px;padding:3px 8px;border-radius:999px;border:1px solid rgba(245,204,121,.34);font-size:.74rem;font-weight:900;letter-spacing:.04em}
+    .m2-cloud-event.archived{opacity:.72}
     .m2-cloud-event-open{min-height:42px;border:0;border-radius:9px;padding:9px 13px;font-weight:900;cursor:pointer;background:#d9e8c9;color:#10150d}
     .m2-cloud-recovery-empty{padding:14px;border:1px dashed rgba(255,255,255,.25);border-radius:10px;opacity:.82}
     @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:100%}}
@@ -145,7 +157,7 @@ function ensureOverlay() {
       <div class="m2-cloud-recovery-head">
         <div>
           <h2 id="m2CloudRecoveryTitle" style="margin:0">Eventos en Firestore</h2>
-          <div style="font-size:.86rem;opacity:.72;margin-top:3px">Solo se muestran eventos vinculados a tu cuenta.</div>
+          <div style="font-size:.86rem;opacity:.72;margin-top:3px">Organizer: tus eventos. Super admin: todos los eventos accesibles.</div>
         </div>
         <button type="button" class="m2-cloud-recovery-close" aria-label="Cerrar">×</button>
       </div>
@@ -227,15 +239,22 @@ async function loadEventList() {
   if (!canManage()) throw new Error("Necesitas una cuenta organizer o super_admin verificada.");
   if (!navigator.onLine) throw new Error("No hay conexión. El evento local sigue disponible.");
   const { firestore } = await services();
-  const q = query(collection(firestore, "events"), where("ownerUid", "==", String(state.auth.uid)));
-  const snap = await getDocs(q);
+  const eventsRef = collection(firestore, "events");
+  const source = isSuperAdmin()
+    ? eventsRef
+    : query(eventsRef, where("ownerUid", "==", String(state.auth.uid)));
+  const snap = await getDocs(source);
   const rows = [];
   snap.forEach(docSnap => {
     const data = docSnap.data() || {};
     if (String(data.kind || "orientation") !== "orientation") return;
     rows.push(normalizeHeader(docSnap.id, data));
   });
-  rows.sort((a, b) => timestampMs(b.updatedAt) - timestampMs(a.updatedAt) || a.eventName.localeCompare(b.eventName, "es"));
+  rows.sort((a, b) => {
+    const aa = a.status === "archived" ? 1 : 0;
+    const ba = b.status === "archived" ? 1 : 0;
+    return aa - ba || timestampMs(b.updatedAt) - timestampMs(a.updatedAt) || a.eventName.localeCompare(b.eventName, "es");
+  });
   state.events = rows;
   return rows;
 }
@@ -246,19 +265,25 @@ function renderEventList(rows) {
     state.list.innerHTML = `<div class="m2-cloud-recovery-empty">No hay eventos de Orientación guardados en Firestore para esta cuenta.</div>`;
     return;
   }
-  state.list.innerHTML = rows.map(row => `
-    <article class="m2-cloud-event">
-      <h3>${esc(row.eventName)}</h3>
-      <div class="m2-cloud-event-meta">
-        <span>${esc(row.eventId)}</span>
-        <span>${row.participantCount} participantes</span>
-        <span>${row.controlCount} balizas</span>
-        <span>${esc(row.cloudStage || "C1")}</span>
-        <span>${esc(formatDate(row.updatedAt))}</span>
-      </div>
-      <button type="button" class="m2-cloud-event-open" data-event-id="${esc(row.eventId)}">ABRIR ESTE EVENTO</button>
-    </article>
-  `).join("");
+  state.list.innerHTML = rows.map(row => {
+    const archived = row.status === "archived";
+    const own = String(row.ownerUid || "") === String(state.auth?.uid || "");
+    return `
+      <article class="m2-cloud-event${archived ? " archived" : ""}">
+        <h3>${esc(row.eventName)}</h3>
+        <div class="m2-cloud-event-meta">
+          <span class="m2-cloud-event-status">${esc(statusLabel(row.status))}</span>
+          <span>${esc(row.eventId)}</span>
+          <span>${row.participantCount} participantes</span>
+          <span>${row.controlCount} balizas</span>
+          <span>${esc(row.cloudStage || "C1")}</span>
+          ${isSuperAdmin() ? `<span>${own ? "PROPIO" : "OTRO ORGANIZADOR"}</span>` : ""}
+          <span>${esc(formatDate(row.updatedAt))}</span>
+        </div>
+        <button type="button" class="m2-cloud-event-open" data-event-id="${esc(row.eventId)}">${archived ? "ABRIR ARCHIVADO" : "ABRIR ESTE EVENTO"}</button>
+      </article>
+    `;
+  }).join("");
   state.list.querySelectorAll(".m2-cloud-event-open").forEach(button => {
     button.addEventListener("click", () => recoverEvent(button.dataset.eventId));
   });
@@ -275,7 +300,7 @@ async function openCloudPicker() {
   try {
     const rows = await loadEventList();
     renderEventList(rows);
-    paintStatus(`☁️ ${rows.length} evento${rows.length === 1 ? "" : "s"} disponible${rows.length === 1 ? "" : "s"} en la nube.`, "ok");
+    paintStatus(`☁️ ${rows.length} evento${rows.length === 1 ? "" : "s"} disponible${rows.length === 1 ? "" : "s"} en el centro de eventos.`, "ok");
   } catch (error) {
     console.error("[MILITOPO C3] list", error);
     if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">⚠️ ${esc(error?.message || "No se pudo consultar Firestore.")}</div>`;
@@ -295,7 +320,9 @@ async function fetchCloudEvent(eventId) {
   ]);
   if (!eventSnap.exists()) throw new Error("El evento ya no existe en Firestore.");
   const header = normalizeHeader(eventSnap.id, eventSnap.data() || {});
-  if (String(header.ownerUid || "") !== String(state.auth?.uid || "")) throw new Error("Este evento no pertenece a la cuenta actual.");
+  if (String(header.ownerUid || "") !== String(state.auth?.uid || "") && !isSuperAdmin()) {
+    throw new Error("Este evento no pertenece a la cuenta actual.");
+  }
   const checkpoints = [];
   const courses = [];
   checkpointSnap.forEach(snap => checkpoints.push(normalizeCheckpoint(snap.id, snap.data() || {})));
