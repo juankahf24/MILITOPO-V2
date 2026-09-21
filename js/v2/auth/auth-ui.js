@@ -28,6 +28,30 @@ import { normalizeRole } from "./roles.js";
 const ROOT_ICON_URL = new URL("../../../icons/militopo-512.png", import.meta.url).href;
 const TRUSTED_DEVICE_KEY = "militopo_v2_trusted_device";
 const KEEP_SESSION_KEY = "militopo_v2_keep_session";
+const POST_LOGIN_SELECTOR_KEY = "militopo_v2_post_login_selector";
+
+function markPostLoginSelector() {
+  try { sessionStorage.setItem(POST_LOGIN_SELECTOR_KEY, "1"); } catch (_) {}
+}
+function clearPostLoginSelector() {
+  try { sessionStorage.removeItem(POST_LOGIN_SELECTOR_KEY); } catch (_) {}
+}
+function consumePostLoginSelector() {
+  try {
+    if (sessionStorage.getItem(POST_LOGIN_SELECTOR_KEY) !== "1") return false;
+    sessionStorage.removeItem(POST_LOGIN_SELECTOR_KEY);
+    return true;
+  } catch (_) { return false; }
+}
+function requestBranchSelectorAfterLogin() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("modo");
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", next);
+  } catch (_) {}
+  window.dispatchEvent(new CustomEvent("militopo:v2:show-branch-selector", { detail: { reason: "interactive-login" } }));
+}
 
 const state = {
   services: null,
@@ -473,6 +497,9 @@ async function enterApp(user) {
   if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
   if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
   publishAuthState(user, displayName);
+  if (consumePostLoginSelector()) {
+    queueMicrotask(requestBranchSelectorAfterLogin);
+  }
 }
 
 function openAccountPanel() {
@@ -559,6 +586,7 @@ async function handleSubmit(event) {
     }
   }
 
+  markPostLoginSelector();
   setBusy(true);
   setMessage(state.mode === "register" ? "Creando cuenta…" : "Iniciando sesión…");
   try {
@@ -589,6 +617,7 @@ async function handleSubmit(event) {
       } else await enterApp(credential.user);
     }
   } catch (error) {
+    clearPostLoginSelector();
     console.error("[MILITOPO V2 Auth]", error);
     setMessage(friendlyError(error), "error");
   } finally {
