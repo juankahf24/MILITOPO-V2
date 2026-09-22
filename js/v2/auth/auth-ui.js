@@ -29,6 +29,20 @@ const ROOT_ICON_URL = new URL("../../../icons/militopo-512.png", import.meta.url
 const TRUSTED_DEVICE_KEY = "militopo_v2_trusted_device";
 const KEEP_SESSION_KEY = "militopo_v2_keep_session";
 const POST_LOGIN_SELECTOR_KEY = "militopo_v2_post_login_selector";
+const RUNNER_LANDING_URL = new URL("../../../orientacion/participante/", import.meta.url).href;
+
+function isRunnerArea() {
+  try { return /\/orientacion\/participante(?:\/|$)/.test(new URL(window.location.href).pathname); }
+  catch (_) { return false; }
+}
+
+function routeRunnerToParticipant() {
+  clearPostLoginSelector();
+  if (isRunnerArea()) return false;
+  try { window.location.replace(RUNNER_LANDING_URL); }
+  catch (_) { window.location.href = RUNNER_LANDING_URL; }
+  return true;
+}
 
 function markPostLoginSelector() {
   try { sessionStorage.setItem(POST_LOGIN_SELECTOR_KEY, "1"); } catch (_) {}
@@ -493,12 +507,23 @@ async function enterApp(user) {
   state.currentUser = user;
   state.profile = profile;
   const displayName = profile?.displayName || user.displayName || null;
+
+  // Un corredor no necesita elegir entre ramas ni entrar en el área Organizador.
+  // Su destino normal es directamente MILITOPO Participante.
+  if (state.role === "runner" && routeRunnerToParticipant()) {
+    return;
+  }
+
   paintAccount(user, displayName);
   if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
   if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
   publishAuthState(user, displayName);
-  if (consumePostLoginSelector()) {
+
+  // organizer/super_admin conservan el selector de ramas tras un login manual.
+  if (state.role !== "runner" && consumePostLoginSelector()) {
     queueMicrotask(requestBranchSelectorAfterLogin);
+  } else if (state.role === "runner") {
+    clearPostLoginSelector();
   }
 }
 
