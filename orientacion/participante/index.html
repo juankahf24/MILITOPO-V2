@@ -3,102 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#20351f">
+  <meta name="theme-color" content="#132114">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MILITOPO Participante">
-  <title>MILITOPO Participante</title>
-  <style>
-    html,body{background:#0a0e0a!important;margin:0;min-height:100%}
-    body.participant-page-booting{opacity:0;background:#0a0e0a!important;-webkit-transition:opacity .42s ease;transition:opacity .42s ease}
-    body.participant-page-ready{opacity:1}
-    @media (prefers-reduced-motion: reduce){
-      body.participant-page-booting{-webkit-transition:none!important;transition:none!important;opacity:1!important}
-    }
-  </style>
-  <script>
-    (function(){
-      try{
-        var params=new URLSearchParams(location.search||'');
-        if(!params.has('install') && !params.has('shell')){
-          var target=new URL('runner.html?v=v2-f3a-role-routing-20260922', location.href);
-          params.forEach(function(v,k){ target.searchParams.set(k,v); });
-          if(!target.searchParams.has('app')) target.searchParams.set('app','1');
-          target.hash=location.hash||'';
-          location.replace(target.pathname+target.search+target.hash);
-        }
-      }catch(e){}
-    })();
-  </script>
+  <title>MILITOPO · Participante</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/participante-192.png">
-  <link rel="icon" type="image/png" sizes="512x512" href="icons/participante-512.png">
-  <link rel="stylesheet" href="styles.css?v=v2-f3a-role-routing-20260922">
+  <link rel="stylesheet" href="../../js/v2/auth/auth-ui.css?v=v2-f3a-runner-home-20260923">
+  <style>
+    :root{color-scheme:dark;--bg:#081008;--panel:#102015;--panel2:#16281b;--line:rgba(240,193,106,.34);--gold:#f0c16a;--cream:#f5e6c8;--muted:#b9b09d;--green:#9ed56f}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% 0,rgba(69,106,48,.26),transparent 38%),linear-gradient(180deg,#0b140c,#070c08 72%);color:var(--cream);font-family:"Courier New",ui-monospace,monospace}
+    body{padding:max(86px,calc(env(safe-area-inset-top) + 72px)) 16px calc(34px + env(safe-area-inset-bottom));}
+    .runner-home{width:min(720px,100%);margin:0 auto;display:grid;gap:16px}
+    .participant-main-hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:24px 18px;border:1px solid var(--line);border-radius:30px;background:linear-gradient(180deg,rgba(35,60,31,.96),rgba(17,32,20,.97));box-shadow:0 18px 46px rgba(0,0,0,.34)}
+    .participant-main-hero img{width:118px;height:118px;object-fit:cover;border-radius:29px;border:4px solid rgba(240,193,106,.78);background:#fff}
+    .participant-main-hero h1{margin:4px 0 0;font-size:clamp(1.8rem,8vw,3rem);letter-spacing:.16em;color:var(--gold)}
+    .participant-main-hero p{margin:0;color:var(--muted);font-size:.88rem;line-height:1.5}
+    .runner-home-note{padding:14px 16px;border-radius:18px;border:1px solid rgba(158,213,111,.24);background:rgba(158,213,111,.08);color:#dff2cf;line-height:1.45;font-size:.82rem}
+    .runner-home-note strong{color:#fff3d7}
+    .m2-runner-v2{margin:0!important}
+    #militopoV2AccountBadge{z-index:120000!important}
+    @media(max-width:480px){body{padding-left:10px;padding-right:10px}.participant-main-hero{padding:20px 12px;border-radius:24px}.participant-main-hero img{width:102px;height:102px}.runner-home-note{font-size:.76rem}}
+  </style>
 </head>
-<body class="participant-page-booting">
-  <button id="shellMenuBtn" class="shell-menu-btn shell-menu-floating" type="button" aria-label="Opciones">⋮</button>
-
-  <main id="shellMain" class="participant-shell-main">
-    <div id="shellLoading" class="shell-loading"><div class="shell-spinner"></div><b>Preparando MILITOPO Participante…</b></div>
-    <iframe id="participantFrame" scrolling="no" title="MILITOPO Participante" allow="camera; geolocation; autoplay; fullscreen; clipboard-write; screen-wake-lock" referrerpolicy="same-origin"></iframe>
+<body data-runner-home="1">
+  <main class="runner-home">
+    <section class="participant-main-hero" aria-label="MILITOPO Participante">
+      <img src="icons/participante-192.png" alt="MILITOPO">
+      <h1>MILITOPO</h1>
+      <p><strong>ÁREA DEL CORREDOR</strong><br>Tus carreras, invitaciones y sesiones Live V2 aparecen aquí automáticamente.</p>
+    </section>
+    <div class="runner-home-note"><strong>Acceso personal.</strong> No necesitas elegir entre Participante u Organizador. Tu cuenta runner entra directamente en esta zona.</div>
   </main>
 
-  <section id="installGuide" class="install-guide" aria-live="polite">
-    <div class="install-card">
-      <button id="closeInstallGuide" class="install-close" type="button" aria-label="Cerrar">✕</button>
-      <div class="install-icon" id="installIcon">📱</div>
-      <h1 id="installTitle">Instalar MILITOPO Participante</h1>
-      <p id="installText"></p>
-      <div id="iosSteps" class="install-steps"></div>
-      <button id="installNowBtn" class="primary-action" type="button">INSTALAR APLICACIÓN</button>
-      <button id="continueBtn" class="secondary-action" type="button">CONTINUAR A MILITOPO PARTICIPANTE</button>
-    </div>
-  </section>
-
-  <section id="shellMenu" class="shell-dialog" aria-hidden="true">
-    <div class="shell-dialog-card">
-      <button class="dialog-close" type="button" data-close-dialog>✕</button>
-      <h2>Opciones de la aplicación</h2>
-      <p>El recorrido se gestiona desde la pantalla del participante. Usa el restablecimiento completo solo para resolver problemas de actualización.</p>
-      <button id="hardResetBtn" class="danger-action" type="button">RESTABLECER APP Y CACHÉ</button>
-      <div class="version-line">MILITOPO Participante · v1.0</div>
-    </div>
-  </section>
-
-  <section id="resetDialog" class="shell-dialog" aria-hidden="true">
-    <div class="shell-dialog-card reset-dialog-card">
-      <button class="dialog-close" type="button" data-close-dialog>✕</button>
-      <div class="dialog-icon">🗑</div>
-      <h2>Borrar recorrido y preparar nueva prueba</h2>
-      <div id="resetSummary" class="reset-summary"></div>
-      <div id="resetWarning" class="reset-warning"></div>
-      <button id="retrySyncBtn" class="primary-action" type="button" hidden>🔄 REINTENTAR SINCRONIZACIÓN</button>
-      <button id="showResultBtn" class="secondary-action" type="button" hidden>MOSTRAR QR FINAL ANTES DE BORRAR</button>
-      <button id="confirmResetBtn" class="danger-action" type="button">🗑 BORRAR RECORRIDO Y CACHÉ</button>
-      <button class="secondary-action" type="button" data-close-dialog>CANCELAR</button>
-    </div>
-  </section>
-
-  <section id="resultBackupDialog" class="shell-dialog" aria-hidden="true">
-    <div class="shell-dialog-card">
-      <button class="dialog-close" type="button" data-close-dialog>✕</button>
-      <h2>Resultado de respaldo</h2>
-      <p>Guarda o enseña este código al organizador antes de borrar.</p>
-      <textarea id="backupResultText" readonly></textarea>
-      <button id="copyBackupResultBtn" class="primary-action" type="button">📋 COPIAR CÓDIGO</button>
-    </div>
-  </section>
-
-  <div id="shellToast" class="shell-toast" role="status"></div>
-  <script src="app.js?v=v2-f3a-role-routing-20260922"></script>
-  <script type="module" src="../js/live/live-phase2.js?v=v2-f3a-role-routing-20260922"></script>
+  <script src="../../js/v2/firebase-config.js"></script>
+  <script type="module" src="../../js/v2/bootstrap.js"></script>
+  <script type="module" src="../../js/v2/auth/auth-ui.js?v=v2-f3a-runner-home-20260923"></script>
+  <script type="module" src="../../js/v2/data/invitation-inbox.js?v=v2-f3a-runner-home-20260923"></script>
+  <script type="module" src="../../js/v2/live/runner-session-v2.js?v=v2-f3a-runner-home-20260923"></script>
   <script>
-    window.addEventListener("load",function(){
-      document.body.classList.add("participant-page-ready");
-      requestAnimationFrame(function(){ document.body.classList.remove("participant-page-booting"); });
-    });
+    if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}
   </script>
 </body>
 </html>
