@@ -6,6 +6,7 @@ import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const SYNCABLE_STATES = new Set(["prepared", "published", "live", "finished"]);
+const STATUS_ES = { draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"ARCHIVADO" };
 const state = {
   auth: globalThis.MILITOPO_V2_AUTH || null,
   services: null,
@@ -62,7 +63,7 @@ function ensurePanel() {
     </div>
     <div id="m2LiveV2Status" class="m2-livev2-status">Carga un evento para comprobar el backend Live V2.</div>
     <button id="m2LiveV2Sync" type="button">SINCRONIZAR ACCESO LIVE V2</button>
-    <div class="m2-livev2-note">F2B añade inicio/final de carrera desde backend. El Live V1 sigue intacto hasta F2C/F3.</div>`;
+    <div class="m2-livev2-note">F2C: el seguimiento del organizador ya usa Live V2. El participante heredado se mantiene como respaldo hasta F3.</div>`;
   const nav = step.querySelector(".nav-row");
   if (nav) nav.insertAdjacentElement("beforebegin", panel); else step.appendChild(panel);
   panel.querySelector("#m2LiveV2Sync").addEventListener("click", () => sync(true));
@@ -87,11 +88,11 @@ function paint(message) {
     button.disabled = true; return;
   }
   const statusKey = String(state.event.status || "draft");
-  chip.textContent = statusKey.toUpperCase();
+  chip.textContent = STATUS_ES[statusKey] || statusKey.toUpperCase();
   button.disabled = state.busy || !navigator.onLine || !SYNCABLE_STATES.has(statusKey);
   const visibleMessage = state.runMessage || state.message;
   if (visibleMessage) status.textContent = visibleMessage;
-  else if (!SYNCABLE_STATES.has(statusKey)) status.textContent = `Estado ${statusKey.toUpperCase()}: Live V2 se prepara desde PREPARADO.`;
+  else if (!SYNCABLE_STATES.has(statusKey)) status.textContent = `Estado ${STATUS_ES[statusKey] || statusKey.toUpperCase()}: Live V2 se prepara desde PREPARADO.`;
   else if (statusKey === "live") status.textContent = "🟢 Evento EN DIRECTO · sesión Live V2 activa.";
   else if (statusKey === "finished") status.textContent = "✅ Evento FINALIZADO · sesión Live V2 cerrada.";
   else status.textContent = "Backend Live V2 listo para sincronizar accesos.";
