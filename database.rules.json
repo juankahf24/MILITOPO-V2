@@ -23,7 +23,7 @@
               "$runId": {
                 "meta": {
                   ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid) || root.child('v2/live').child($ownerUid).child($eventId).child('members').child(auth.uid).child('active').val() === true)",
-                  ".write": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))"
+                  ".write": false
                 },
                 "participants": {
                   ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))",
@@ -33,6 +33,10 @@
                   }
                 }
               }
+            },
+            "activeRun": {
+              ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid) || root.child('v2/live').child($ownerUid).child($eventId).child('members').child(auth.uid).child('active').val() === true)",
+              ".write": false
             }
           }
         }
