@@ -92,13 +92,18 @@ function injectStyle() {
     .m2-life-progress-card{width:min(92vw,430px);border:1px solid rgba(245,204,121,.52);border-radius:22px;padding:22px 20px;background:rgba(8,20,10,.97);box-shadow:0 18px 60px rgba(0,0,0,.35);text-align:center}
     .m2-life-progress-icon{font-size:2rem;line-height:1;margin-bottom:10px}
     .m2-life-progress-title{font-weight:900;letter-spacing:.09em;color:#f5d18b;font-size:1.05rem}
-    .m2-life-progress-text{margin-top:8px;line-height:1.45;opacity:.86;font-size:.84rem}
+    .m2-life-progress-text{margin-top:8px;line-height:1.45;opacity:.88;font-size:.84rem;min-height:2.9em}
     .m2-life-progress-track{height:7px;margin-top:18px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.10)}
-    .m2-life-progress-bar{width:42%;height:100%;border-radius:inherit;background:linear-gradient(90deg,rgba(245,204,121,.35),#f5cc79,rgba(245,204,121,.35));animation:m2LifeProgress 1.05s ease-in-out infinite}
-    .m2-life-overlay.is-success .m2-life-progress-bar{width:100%;animation:none}
-    .m2-life-overlay.is-error .m2-life-progress-bar{width:100%;animation:none;opacity:.5}
-    @keyframes m2LifeProgress{0%{transform:translateX(-105%)}50%{transform:translateX(105%)}100%{transform:translateX(245%)}}
-    @media(prefers-reduced-motion:reduce){.m2-life-progress-bar{animation:none;width:72%}}
+    .m2-life-progress-bar{width:12%;height:100%;border-radius:inherit;background:linear-gradient(90deg,rgba(245,204,121,.55),#f5cc79);transition:width .48s cubic-bezier(.2,.8,.2,1)}
+    .m2-life-progress-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:14px}
+    .m2-life-progress-step{padding:7px 5px;border-radius:10px;border:1px solid rgba(255,255,255,.08);font-size:.61rem;line-height:1.2;opacity:.42;transition:opacity .28s ease,background .28s ease,border-color .28s ease}
+    .m2-life-progress-step.is-active{opacity:1;background:rgba(245,204,121,.10);border-color:rgba(245,204,121,.38)}
+    .m2-life-progress-step.is-done{opacity:.78;background:rgba(118,166,88,.12);border-color:rgba(118,166,88,.30)}
+    .m2-life-overlay.is-success .m2-life-progress-bar{width:100%!important}
+    .m2-life-overlay.is-error .m2-life-progress-bar{width:100%!important;opacity:.5}
+    .m2-life-progress-card{animation:m2LifeCardIn .22s ease-out both}
+    @keyframes m2LifeCardIn{from{opacity:0;transform:scale(.975) translateY(8px)}to{opacity:1;transform:none}}
+    @media(prefers-reduced-motion:reduce){.m2-life-progress-bar,.m2-life-progress-step,.m2-life-progress-card{transition:none;animation:none}}
     @media(max-width:520px){.m2-life-track{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-life-actions button{width:100%}}
   `;
   document.head.appendChild(style);
@@ -125,35 +130,90 @@ function ensureProcessingOverlay() {
       <div class="m2-life-progress-title">PROCESANDO…</div>
       <div class="m2-life-progress-text">Espera un momento.</div>
       <div class="m2-life-progress-track" aria-hidden="true"><div class="m2-life-progress-bar"></div></div>
+      <div class="m2-life-progress-steps" aria-hidden="true">
+        <div class="m2-life-progress-step" data-stage="1">SOLICITUD</div>
+        <div class="m2-life-progress-step" data-stage="2">VALIDACIÓN</div>
+        <div class="m2-life-progress-step" data-stage="3">GUARDADO</div>
+      </div>
     </div>`;
   document.body.appendChild(overlay);
   state.overlay = overlay;
   return overlay;
+}
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function setProcessingStage(stage, title, text, width) {
+  const overlay = ensureProcessingOverlay();
+  if (title) overlay.querySelector(".m2-life-progress-title").textContent = title;
+  if (text) overlay.querySelector(".m2-life-progress-text").textContent = text;
+  const bar = overlay.querySelector(".m2-life-progress-bar");
+  if (bar && Number.isFinite(Number(width))) bar.style.width = `${Math.max(8, Math.min(100, Number(width)))}%`;
+  overlay.querySelectorAll(".m2-life-progress-step").forEach((node, index) => {
+    const n = index + 1;
+    node.classList.toggle("is-done", n < stage);
+    node.classList.toggle("is-active", n === stage);
+  });
 }
 function showProcessing(from, to) {
   const overlay = ensureProcessingOverlay();
   const [title, text] = TRANSITION_UI[`${from}>${to}`] || ["ACTUALIZANDO EVENTO", "Guardando el nuevo estado…"];
   overlay.classList.remove("is-success", "is-error");
   overlay.querySelector(".m2-life-progress-icon").textContent = "⏳";
-  overlay.querySelector(".m2-life-progress-title").textContent = title;
-  overlay.querySelector(".m2-life-progress-text").textContent = text;
   overlay.hidden = false;
   overlay.setAttribute("aria-busy", "true");
   state.overlayShownAt = Date.now();
+  setProcessingStage(1, title, "Solicitud recibida. Preparando la operación…", 12);
+
+  // La secuencia visual empieza inmediatamente y avanza aunque el backend responda muy rápido.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    setProcessingStage(1, title, "Solicitud recibida. Preparando la operación…", 18);
+  }));
+  clearTimeout(state.processingStage2Timer);
+  clearTimeout(state.processingStage3Timer);
+  state.processingStage2Timer = setTimeout(() => {
+    if (!overlay.hidden) setProcessingStage(2, title, text, 48);
+  }, 420);
+  state.processingStage3Timer = setTimeout(() => {
+    if (!overlay.hidden) setProcessingStage(3, title, "Guardando y confirmando el nuevo estado…", 78);
+  }, 1050);
 }
 async function finishProcessing(ok, text = "") {
   const overlay = ensureProcessingOverlay();
+  clearTimeout(state.processingStage2Timer);
+  clearTimeout(state.processingStage3Timer);
+
+  // Mantener la secuencia el tiempo suficiente para que pueda leerse y no dé sensación de salto.
   const elapsed = Date.now() - Number(state.overlayShownAt || 0);
-  if (elapsed < 500) await new Promise(resolve => setTimeout(resolve, 500 - elapsed));
+  if (elapsed < 1650) {
+    if (elapsed < 420) {
+      await sleep(Math.max(0, 420 - elapsed));
+      setProcessingStage(2, null, "Validando la operación con MILITOPO…", 48);
+    }
+    const elapsed2 = Date.now() - Number(state.overlayShownAt || 0);
+    if (elapsed2 < 1050) {
+      await sleep(Math.max(0, 1050 - elapsed2));
+      setProcessingStage(3, null, "Guardando y confirmando el nuevo estado…", 78);
+    }
+    const elapsed3 = Date.now() - Number(state.overlayShownAt || 0);
+    if (elapsed3 < 1650) await sleep(1650 - elapsed3);
+  }
+
   overlay.classList.toggle("is-success", Boolean(ok));
   overlay.classList.toggle("is-error", !ok);
   overlay.querySelector(".m2-life-progress-icon").textContent = ok ? "✅" : "⚠️";
-  overlay.querySelector(".m2-life-progress-title").textContent = ok ? "COMPLETADO" : "NO SE PUDO COMPLETAR";
+  overlay.querySelector(".m2-life-progress-title").textContent = ok ? "OPERACIÓN COMPLETADA" : "NO SE PUDO COMPLETAR";
   overlay.querySelector(".m2-life-progress-text").textContent = text || (ok ? "Estado actualizado correctamente." : "Revisa el mensaje del bloque de gestión.");
+  overlay.querySelector(".m2-life-progress-bar").style.width = "100%";
+  overlay.querySelectorAll(".m2-life-progress-step").forEach(node => {
+    node.classList.remove("is-active");
+    node.classList.add("is-done");
+  });
   overlay.setAttribute("aria-busy", "false");
-  await new Promise(resolve => setTimeout(resolve, ok ? 420 : 900));
+
+  // Resultado visible el tiempo suficiente para leerlo.
+  await sleep(ok ? 1350 : 2000);
   overlay.hidden = true;
   overlay.classList.remove("is-success", "is-error");
+  overlay.querySelector(".m2-life-progress-bar").style.width = "12%";
 }
 
 function ensurePanel() {
