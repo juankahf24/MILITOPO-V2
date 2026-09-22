@@ -1,6 +1,5 @@
-/* MILITOPO V2 · F2A Blaze · Live V2 serverizado.
-   La sincronización de permisos Firestore -> Realtime Database se ejecuta en
-   Cloud Functions. El navegador ya no escribe meta/members directamente. */
+/* MILITOPO V2 · F2B Blaze · base Live serverizada.
+   Accesos, inicio y final de sesión se coordinan desde Cloud Functions. */
 import "../bootstrap.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
@@ -62,7 +61,7 @@ function ensurePanel() {
     </div>
     <div id="m2LiveV2Status" class="m2-livev2-status">Carga un evento para comprobar el backend Live V2.</div>
     <button id="m2LiveV2Sync" type="button">SINCRONIZAR ACCESO LIVE V2</button>
-    <div class="m2-livev2-note">F2A mueve la sincronización sensible al servidor. El Live V1 sigue intacto hasta el corte F2/F3.</div>`;
+    <div class="m2-livev2-note">F2B añade inicio/final de carrera desde backend. El Live V1 sigue intacto hasta F2C/F3.</div>`;
   const nav = step.querySelector(".nav-row");
   if (nav) nav.insertAdjacentElement("beforebegin", panel); else step.appendChild(panel);
   panel.querySelector("#m2LiveV2Sync").addEventListener("click", () => sync(true));
@@ -171,6 +170,15 @@ function init() {
   globalThis.addEventListener("militopo:v2-event-status-changed", event => refreshFromEventStatus(event.detail || globalThis.MILITOPO_V2_EVENT_STATUS || {}, true));
   globalThis.addEventListener("militopo:v2-roster-refresh", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 150); } });
   globalThis.addEventListener("militopo:v2-invitation-accepted", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 150); } });
+  globalThis.addEventListener("militopo:v2-live-run-changed", event => {
+    const detail = event?.detail || {};
+    if (detail.eventId && String(detail.eventId) === String(state.eventId || eventIdNow())) {
+      state.message = detail.status === "live"
+        ? `✅ Sesión Live V2 iniciada · ${Number(detail.participantCount || 0)} corredor${Number(detail.participantCount || 0) === 1 ? "" : "es"}.`
+        : detail.status === "finished" ? "✅ Sesión Live V2 finalizada en backend." : state.message;
+      paint();
+    }
+  });
   globalThis.addEventListener("online", () => { if (state.eventId) refreshFromEventStatus({ eventId: state.eventId }, true); });
   globalThis.addEventListener("offline", () => paint("📴 Sin conexión. Live V2 conserva la última configuración del servidor."));
   if (globalThis.MILITOPO_V2_AUTH) onAuthReady({ detail: globalThis.MILITOPO_V2_AUTH });
