@@ -25,7 +25,11 @@ const state = {
   busy: false,
   lastHash: "",
   timer: null,
-  panel: null
+  panel: null,
+  message: "",
+  lastAttemptHash: "",
+  lastFailedHash: "",
+  lastFailedMessage: ""
 };
 
 function roleOf() {
@@ -90,7 +94,8 @@ function ensurePanel() {
   paint();
   return panel;
 }
-function paint(message = "") {
+function paint(message) {
+  if (typeof message === "string") state.message = message;
   const panel = ensurePanel(); if (!panel) return;
   const chip = panel.querySelector("#m2LiveV2Chip");
   const status = panel.querySelector("#m2LiveV2Status");
@@ -102,16 +107,28 @@ function paint(message = "") {
   }
   if (!state.event) {
     chip.textContent = "SIN EVENTO";
-    status.textContent = message || "Carga un evento Firestore para preparar su acceso Live V2.";
+    status.textContent = state.message || "Carga un evento Firestore para preparar su acceso Live V2.";
     button.disabled = true; return;
   }
   const statusKey = String(state.event.status || "draft");
   chip.textContent = statusKey.toUpperCase();
   button.disabled = state.busy || !navigator.onLine || !SYNCABLE_STATES.has(statusKey);
-  if (message) status.textContent = message;
+  if (state.message) status.textContent = state.message;
   else if (!SYNCABLE_STATES.has(statusKey)) status.textContent = `Estado ${statusKey.toUpperCase()}: Live V2 se prepara desde PREPARADO.`;
   else status.textContent = "Base Live V2 lista para sincronizar accesos.";
   button.textContent = state.busy ? "SINCRONIZANDO…" : "SINCRONIZAR ACCESO LIVE V2";
+}
+function errorMessage(error) {
+  const code = String(error?.code || "").trim();
+  const msg = String(error?.message || error || "").trim();
+  const joined = `${code} ${msg}`.toLowerCase();
+  if (joined.includes("permission") || joined.includes("denied")) {
+    return "⛔ Realtime Database rechazó la operación. Comprueba que las reglas F1 corregidas estén desplegadas.";
+  }
+  if (joined.includes("network") || joined.includes("unavailable") || joined.includes("offline")) {
+    return "📴 No se pudo conectar con Realtime Database. Comprueba la conexión y vuelve a intentarlo.";
+  }
+  return `⚠️ No se pudo preparar Live V2${code ? ` · ${code}` : ""}. Firestore y el Live antiguo no se han modificado.`;
 }
 async function readEventAndMembers(eventId) {
   const { firestore } = await services();
@@ -134,15 +151,33 @@ async function sync(userRequested = false) {
   state.eventId = eventId;
   if (!canManage() || !eventId || state.busy) { paint(); return false; }
   if (!navigator.onLine) { paint("📴 Sin conexión. La base Live V2 no se modifica."); return false; }
-  state.busy = true; paint("Comprobando Firestore y Realtime Database…");
+
+  state.busy = true;
+  paint("Comprobando Firestore y Realtime Database…");
   try {
     const { database } = await services();
     const { data, members } = await readEventAndMembers(eventId);
     state.event = data;
     const eventStatus = String(data.status || "draft");
-    if (!SYNCABLE_STATES.has(eventStatus)) { paint(); return false; }
+    if (!SYNCABLE_STATES.has(eventStatus)) {
+      state.message = "";
+      return false;
+    }
+
     const hash = stableHash(data, members);
-    if (!userRequested && hash === state.lastHash) { paint(`✅ Live V2 al día · ${members.filter(x => x.status === "active").length} corredores autorizados.`); return true; }
+    if (!userRequested && hash === state.lastHash) {
+      const active = members.filter(x => x.status === "active").length;
+      state.message = `✅ Live V2 al día · ${active} corredor${active === 1 ? "" : "es"} autorizado${active === 1 ? "" : "s"}.`;
+      return true;
+    }
+    // Si un intento automático ya falló con exactamente los mismos datos, no lo
+    // repetimos en bucle. El botón manual sigue disponible para reintentar.
+    if (!userRequested && hash === state.lastFailedHash) {
+      state.message = state.lastFailedMessage || "⚠️ Live V2 pendiente de reintento manual.";
+      return false;
+    }
+    state.lastAttemptHash = hash;
+
     const ownerUid = String(data.ownerUid);
     const base = `v2/live/${ownerUid}/${eventId}`;
     const currentMembersSnap = await get(ref(database, `${base}/members`));
@@ -165,21 +200,26 @@ async function sync(userRequested = false) {
       updates[`members/${member.uid}/updatedAt`] = serverTimestamp();
     }
     Object.keys(currentMembers).forEach(uid => { if (!seen.has(uid)) updates[`members/${uid}`] = null; });
+
     await update(ref(database, base), updates);
     state.lastHash = hash;
+    state.lastFailedHash = "";
+    state.lastFailedMessage = "";
     const active = members.filter(row => row.status === "active").length;
     const removed = members.filter(row => row.status === "removed").length;
-    paint(`✅ Live V2 preparado · ${active} autorizado${active === 1 ? "" : "s"}${removed ? ` · ${removed} retirado${removed === 1 ? "" : "s"}` : ""}.`);
+    state.message = `✅ Live V2 preparado · ${active} autorizado${active === 1 ? "" : "s"}${removed ? ` · ${removed} retirado${removed === 1 ? "" : "s"}` : ""}.`;
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-foundation-ready", { detail: { eventId, ownerUid, activeMembers: active } }));
     return true;
   } catch (error) {
     console.error("[MILITOPO F1] sync", error);
-    const code = String(error?.message || error || "");
-    paint(code.includes("PERMISSION_DENIED") ? "⛔ Realtime Database rechazó la operación. Revisa que las reglas F1 estén desplegadas." : "⚠️ No se pudo preparar Live V2. Firestore y el Live antiguo no se han modificado.");
+    const msg = errorMessage(error);
+    state.lastFailedHash = state.lastAttemptHash;
+    state.lastFailedMessage = msg;
+    state.message = msg;
     return false;
   } finally {
     state.busy = false;
-    const button = state.panel?.querySelector("#m2LiveV2Sync"); if (button) button.textContent = "SINCRONIZAR ACCESO LIVE V2";
+    paint();
   }
 }
 async function refreshFromEventStatus(detail = {}) {
@@ -188,9 +228,9 @@ async function refreshFromEventStatus(detail = {}) {
   if (!eventId || !canManage()) { state.event = null; paint(); return; }
   try {
     const { data } = await readEventAndMembers(eventId);
-    state.event = data; paint();
+    state.event = data;
     clearTimeout(state.timer);
-    state.timer = setTimeout(() => sync(false), 350);
+    state.timer = setTimeout(() => sync(false), 650);
   } catch (error) {
     state.event = null; paint("No se pudo leer el evento para Live V2.");
   }
@@ -206,8 +246,8 @@ function init() {
   globalThis.addEventListener("militopo:v2-auth-ready", onAuthReady);
   globalThis.addEventListener("militopo:v2-event-status", event => refreshFromEventStatus(event.detail || {}));
   globalThis.addEventListener("militopo:v2-event-status-changed", event => refreshFromEventStatus(event.detail || globalThis.MILITOPO_V2_EVENT_STATUS || {}));
-  globalThis.addEventListener("militopo:v2-roster-refresh", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 350); } });
-  globalThis.addEventListener("militopo:v2-invitation-accepted", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 350); } });
+  globalThis.addEventListener("militopo:v2-roster-refresh", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 650); } });
+  globalThis.addEventListener("militopo:v2-invitation-accepted", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 650); } });
   globalThis.addEventListener("online", () => { if (state.eventId) refreshFromEventStatus({ eventId: state.eventId }); });
   globalThis.addEventListener("offline", () => paint("📴 Sin conexión. Live V2 conserva la última configuración en Realtime Database."));
   if (globalThis.MILITOPO_V2_AUTH) onAuthReady({ detail: globalThis.MILITOPO_V2_AUTH });
