@@ -322,3 +322,43 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false }, async request => {
   await appendAudit("LIVE_RUN_FINISHED", identity.uid, null, { eventId, ownerUid, runId });
   return { ok: true, eventId, ownerUid, runId, status: "finished" };
 });
+
+// F3A · Contexto Live del corredor autenticado.
+exports.getRunnerLiveEvents = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const uid = String(identity.uid || "").trim();
+  const memberships = await db.collectionGroup("members").where("uid", "==", uid).get();
+  const eventRefs = new Map();
+  memberships.forEach(memberSnap => {
+    const data = memberSnap.data() || {};
+    if (String(data.status || "active").toLowerCase() !== "active") return;
+    const eventRef = memberSnap.ref.parent.parent;
+    if (eventRef) eventRefs.set(eventRef.id, eventRef);
+  });
+  const events = [];
+  for (const [eventId, eventRef] of eventRefs) {
+    const eventSnap = await eventRef.get();
+    if (!eventSnap.exists) continue;
+    const data = eventSnap.data() || {};
+    const status = String(data.status || "draft").toLowerCase();
+    if (!["prepared", "published", "live", "finished"].includes(status)) continue;
+    const ownerUid = String(data.ownerUid || "").trim();
+    if (!ownerUid) continue;
+    const activeSnap = await rtdb.ref(`v2/live/${ownerUid}/${eventId}/activeRun`).get();
+    const activeRun = activeSnap.exists() ? (activeSnap.val() || {}) : {};
+    events.push({
+      eventId,
+      eventName: String(data.eventName || "Carrera de orientación").slice(0, 140),
+      ownerUid,
+      status,
+      liveRunId: String(activeRun.runId || data.liveRunId || ""),
+      liveStatus: String(activeRun.status || ""),
+      participantCount: Math.max(0, Number(activeRun.participantCount || 0))
+    });
+  }
+  events.sort((a, b) => {
+    const rank = { live: 0, published: 1, prepared: 2, finished: 3 };
+    return (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || a.eventName.localeCompare(b.eventName, "es");
+  });
+  return { ok: true, uid, events };
+});
