@@ -39,6 +39,11 @@ function isRunnerArea() {
 function routeRunnerToParticipant() {
   clearPostLoginSelector();
   if (isRunnerArea()) return false;
+  // La navegación por rol es intencionada: no debe activar avisos de
+  // "cambios sin guardar" de las ramas de trabajo que aún estén montadas.
+  globalThis.MILITOPO_V2_AUTH_NAVIGATION = true;
+  try { window.dispatchEvent(new CustomEvent("militopo:v2:auth-navigation", { detail: { role: "runner" } })); } catch (_) {}
+  setTimeout(() => { try { globalThis.MILITOPO_V2_AUTH_NAVIGATION = false; } catch (_) {} }, 4000);
   try { window.location.replace(RUNNER_LANDING_URL); }
   catch (_) { window.location.href = RUNNER_LANDING_URL; }
   return true;
