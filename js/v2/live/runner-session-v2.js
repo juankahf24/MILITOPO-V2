@@ -6,7 +6,7 @@ import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 import { ref, get, onValue, update, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 const STATUS_ES = { prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO" };
-const state = { services:null, user:null, events:[], selected:null, runId:"", unsubRun:null, unsubParticipant:null, heartbeat:null, panel:null, list:null, status:null };
+const state = { services:null, user:null, events:[], selected:null, runId:"", unsubRun:null, unsubParticipant:null, heartbeat:null, panel:null, list:null, status:null, home:false };
 
 function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
 async function services(){ if(!state.services) state.services = await globalThis.MILITOPO_V2.firebase(); return state.services; }
@@ -26,15 +26,35 @@ function ensurePanel(){
   const panel=document.createElement("section"); panel.id="m2RunnerLiveV2"; panel.className="m2-runner-v2";
   panel.innerHTML=`<h2>📡 LIVE V2 · MI CARRERA</h2><div id="m2RunnerV2Status" class="m2-runner-v2-status">Comprobando sesión…</div><div id="m2RunnerV2List" class="m2-runner-v2-list"></div>`;
   hero.insertAdjacentElement("afterend",panel); state.panel=panel; state.status=panel.querySelector("#m2RunnerV2Status"); state.list=panel.querySelector("#m2RunnerV2List");
-  state.list.addEventListener("click",e=>{const b=e.target.closest("[data-event-id]");if(b)connectEvent(b.dataset.eventId);}); return panel;
+  state.list.addEventListener("click",e=>{
+    const b=e.target.closest("[data-event-id]");
+    if(!b)return;
+    const eventId=String(b.dataset.eventId||"");
+    if(state.home){
+      try{sessionStorage.setItem("militopo_v2_runner_selected_event",eventId)}catch(_){}
+      const target=new URL("runner.html",window.location.href);
+      target.searchParams.set("app","1");
+      target.searchParams.set("event",eventId);
+      window.location.href=target.href;
+      return;
+    }
+    connectEvent(eventId);
+  }); return panel;
 }
 function setStatus(t){ensurePanel(); if(state.status)state.status.textContent=t;}
 function renderEvents(){
   ensurePanel(); if(!state.list)return;
   if(!state.user){state.list.innerHTML=`<a class="m2-runner-v2-btn" style="display:grid;place-items:center;text-decoration:none" href="../../">VOLVER A MILITOPO E INICIAR SESIÓN</a>`;return;}
   if(!state.events.length){state.list.innerHTML="";setStatus("No tienes carreras activas o publicadas asociadas a esta cuenta.");return;}
-  state.list.innerHTML=state.events.map(ev=>{const live=ev.status==="live"&&ev.liveRunId;const label=STATUS_ES[ev.status]||ev.status.toUpperCase();return `<article class="m2-runner-v2-event"><strong>${esc(ev.eventName)}</strong><div class="m2-runner-v2-meta">${esc(label)} · ${esc(ev.eventId)}</div>${live?`<button type="button" class="m2-runner-v2-btn" data-event-id="${esc(ev.eventId)}">CONECTAR A LA CARRERA EN DIRECTO</button>`:`<div class="m2-runner-v2-live">${ev.status==="finished"?"Carrera finalizada.":"Esperando a que el organizador inicie la carrera."}</div>`}</article>`;}).join("");
-  setStatus("Carreras asociadas a tu cuenta MILITOPO.");
+  state.list.innerHTML=state.events.map(ev=>{
+    const live=ev.status==="live"&&ev.liveRunId;
+    const label=STATUS_ES[ev.status]||String(ev.status||"").toUpperCase();
+    const action=live
+      ? `<button type="button" class="m2-runner-v2-btn" data-event-id="${esc(ev.eventId)}">${state.home?"ENTRAR EN LA CARRERA":"CONECTAR A LA CARRERA EN DIRECTO"}</button>`
+      : `<div class="m2-runner-v2-live">${ev.status==="finished"?"Carrera finalizada.":"Esperando a que el organizador inicie la carrera."}</div>`;
+    return `<article class="m2-runner-v2-event"><strong>${esc(ev.eventName)}</strong><div class="m2-runner-v2-meta">${esc(label)} · ${esc(ev.eventId)}</div>${action}</article>`;
+  }).join("");
+  setStatus(state.home?"Estas son las carreras asociadas a tu cuenta.":"Carreras asociadas a tu cuenta MILITOPO.");
 }
 function cleanupConnection(){
   try{state.unsubRun?.();}catch(_){} try{state.unsubParticipant?.();}catch(_){} state.unsubRun=null;state.unsubParticipant=null;
@@ -61,9 +81,24 @@ async function connectEvent(eventId){
 }
 async function loadEvents(){
   if(!state.user)return; setStatus("Buscando tus carreras en MILITOPO…");
-  try{const {functions}=await services();const call=httpsCallable(functions,"getRunnerLiveEvents");const res=await call({});state.events=Array.isArray(res.data?.events)?res.data.events:[];renderEvents();const live=state.events.filter(e=>e.status==="live"&&e.liveRunId);if(live.length===1)setTimeout(()=>connectEvent(live[0].eventId),350);}catch(error){console.error("[MILITOPO F3A events]",error);setStatus("No se pudieron consultar tus carreras ahora.");}
+  try{
+    const {functions}=await services();
+    const call=httpsCallable(functions,"getRunnerLiveEvents");
+    const res=await call({});
+    state.events=Array.isArray(res.data?.events)?res.data.events:[];
+    renderEvents();
+    if(state.home)return;
+    const params=new URLSearchParams(location.search||"");
+    let requested=String(params.get("event")||"").trim();
+    if(!requested){try{requested=String(sessionStorage.getItem("militopo_v2_runner_selected_event")||"").trim()}catch(_){} }
+    const requestedEvent=requested?state.events.find(e=>e.eventId===requested&&e.status==="live"&&e.liveRunId):null;
+    if(requestedEvent){setTimeout(()=>connectEvent(requestedEvent.eventId),180);return;}
+    const live=state.events.filter(e=>e.status==="live"&&e.liveRunId);
+    if(live.length===1)setTimeout(()=>connectEvent(live[0].eventId),350);
+  }catch(error){console.error("[MILITOPO F3A events]",error);setStatus("No se pudieron consultar tus carreras ahora.");}
 }
 async function init(){
+  state.home=document.body?.dataset?.runnerHome==="1";
   ensurePanel(); const {auth}=await services(); onAuthStateChanged(auth,user=>{cleanupConnection();state.user=user||null;state.events=[];if(!user){setStatus("Inicia sesión con tu cuenta MILITOPO para acceder a tu carrera.");renderEvents();return;} if(!user.emailVerified){setStatus("Verifica tu correo desde MILITOPO antes de entrar en una carrera.");renderEvents();return;} loadEvents();});
 }
 init().catch(error=>{console.error("[MILITOPO F3A init]",error);setStatus("No se pudo iniciar Live V2 del participante.");});
