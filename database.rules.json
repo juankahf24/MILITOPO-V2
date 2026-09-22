@@ -16,7 +16,8 @@
                 ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid) || auth.uid === $uid)",
                 ".write": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))",
                 ".validate": "!newData.exists() || (newData.hasChildren(['uid','active','updatedAt']) && newData.child('uid').val() === $uid && newData.child('active').isBoolean())"
-              }
+              },
+              ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))"
             },
             "runs": {
               "$runId": {
