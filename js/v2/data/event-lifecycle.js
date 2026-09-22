@@ -1,5 +1,5 @@
-/* MILITOPO V2 · Fase D2 hotfix cache/transiciones · ciclo de vida del evento.
-   Gestiona estados del evento desde Firestore sin Cloud Functions ni Storage. */
+/* MILITOPO V2 · F2B · ciclo de vida con inicio/final de carrera serverizado.
+   PUBLICADO→EN DIRECTO y EN DIRECTO→FINALIZADO pasan por Cloud Functions. */
 import "../bootstrap.js";
 import {
   doc,
@@ -7,6 +7,7 @@ import {
   serverTimestamp,
   updateDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const ORDER = ["draft", "prepared", "published", "live", "finished", "archived"];
@@ -30,14 +31,6 @@ const state = {
   action: null,
   refresh: null
 };
-
-function withTimeout(promise, ms, label) {
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label || "Operación"} tardó demasiado. Comprueba la conexión y pulsa ACTUALIZAR ESTADO.`)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
 
 function roleOf(auth = state.auth) {
   const role = String(auth?.role || "runner");
@@ -197,7 +190,7 @@ async function refresh(userRequested = false) {
   }
   try {
     const { firestore } = await services();
-    const snap = await withTimeout(getDoc(doc(firestore, "events", eventId)), 12000, "Lectura de Firestore");
+    const snap = await getDoc(doc(firestore, "events", eventId));
     if (!snap.exists()) {
       state.event = null;
       publishLifecycleState(eventId, "draft", false);
@@ -241,10 +234,29 @@ async function advance() {
   state.busy = true;
   paint(`Cambiando ${META[from].label} → ${META[to].label}…`);
   try {
-    const { firestore } = await services();
+    const svc = await services();
+    const { firestore, functions } = svc;
+    if (from === "published" && to === "live") {
+      const response = await httpsCallable(functions, "startLiveRun")({ eventId });
+      const data = response?.data || {};
+      await refresh();
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
+      if (typeof globalThis.toast === "function") globalThis.toast(`Carrera iniciada · ${data.participantCount ?? 0} corredor(es)`);
+      return;
+    }
+    if (from === "live" && to === "finished") {
+      const response = await httpsCallable(functions, "finishLiveRun")({ eventId });
+      const data = response?.data || {};
+      await refresh();
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
+      if (typeof globalThis.toast === "function") globalThis.toast("Carrera finalizada en backend Live V2");
+      return;
+    }
     const payload = {
       status: to,
-      cloudStage: "D2",
+      cloudStage: "F2B",
       lifecycleVersion: 2,
       updatedAt: serverTimestamp()
     };
@@ -253,20 +265,12 @@ async function advance() {
     if (to === "live") payload.liveAt = serverTimestamp();
     if (to === "finished") payload.finishedAt = serverTimestamp();
     if (to === "archived") payload.archivedAt = serverTimestamp();
-    await withTimeout(updateDoc(doc(firestore, "events", eventId), payload), 12000, "Cambio de estado");
-    // updateDoc resuelto = Firestore aceptó el cambio. Reflejarlo de inmediato para no dejar la UI bloqueada.
-    state.event = { ...(state.event || {}), ...payload, eventId, status: to };
-    publishLifecycleState(eventId, to, true);
-    state.busy = false;
-    paint(`Estado actualizado: ${META[to].label}. Verificando Firestore…`);
-    await withTimeout(refresh(), 12000, "Verificación de estado").catch(error => {
-      console.warn("[MILITOPO D2 hotfix] verification", error);
-      paint(`Estado ${META[to].label} guardado. Pulsa ACTUALIZAR ESTADO para volver a comprobarlo.`);
-    });
+    await updateDoc(doc(firestore, "events", eventId), payload);
+    await refresh();
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to } }));
     if (typeof globalThis.toast === "function") globalThis.toast(`Estado: ${META[to].label}`);
   } catch (error) {
-    console.error("[MILITOPO D1] transition", error);
+    console.error("[MILITOPO F2B] transition", error);
     paint(`No se pudo cambiar el estado: ${String(error?.message || error)}`);
   } finally {
     state.busy = false;
