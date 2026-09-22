@@ -25,7 +25,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <link rel="stylesheet" href="css/styles.css?v=v2-a1-backend-20260919" />
-<link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-e3-roster-20260922" />
+<link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-e3-ui-20260922" />
 
 
 
@@ -68,14 +68,14 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 .pnoa-overzoom-tile{image-rendering:auto;filter:contrast(1.035) saturate(1.025);}
 </style>
 <script>
-/* MILITOPO v2-e3-roster-20260922: limpia SOLO caches antiguas de la PWA; no toca localStorage ni IndexedDB. */
+/* MILITOPO v2-e3-ui-20260922: limpia SOLO caches antiguas de la PWA; no toca localStorage ni IndexedDB. */
 window.MILITOPO_V2_CACHE_RECOVERY = (async function(){
   if (!("caches" in window)) return;
   try {
     const keep = new Set([
-      "militopo-v2-orientacion-v2-e3-roster-20260922",
-      "militopo-v2-orientacion-runtime-v2-e3-roster-20260922",
-      "militopo-v2-page-snapshot-v2-e3-roster-20260922"
+      "militopo-v2-orientacion-v2-e3-ui-20260922",
+      "militopo-v2-orientacion-runtime-v2-e3-ui-20260922",
+      "militopo-v2-page-snapshot-v2-e3-ui-20260922"
     ]);
     const keys = await caches.keys();
     await Promise.all(keys.map(function(key){
@@ -87,15 +87,15 @@ window.MILITOPO_V2_CACHE_RECOVERY = (async function(){
 </script>
 <script src="../js/v2/firebase-config.js"></script>
 <script type="module" src="../js/v2/bootstrap.js"></script>
-<script type="module" src="../js/v2/auth/auth-ui.js?v=v2-e3-roster-20260922"></script>
-<script type="module" src="../js/v2/auth/organizer-guard.js?v=v2-e3-roster-20260922"></script>
-<script type="module" src="../js/v2/data/invitations.js?v=v2-e3-roster-20260922"></script>
-<script type="module" src="../js/v2/data/participants-admin.js?v=v2-e3-roster-20260922"></script>
-<script type="module" src="../js/v2/data/events.js?v=v2-e3-roster-20260922"></script>
-<script type="module" src="../js/v2/data/orientation-structure.js?v=v2-e3-roster-20260922"></script>
-<script type="module" src="../js/v2/data/cloud-recovery.js?v=v2-e3-roster-20260922"></script>
-<script type="module" src="../js/v2/data/event-lifecycle.js?v=v2-e3-roster-20260922"></script>
-<script type="module" src="../js/v2/data/event-edit-lock.js?v=v2-e3-roster-20260922"></script>
+<script type="module" src="../js/v2/auth/auth-ui.js?v=v2-e3-ui-20260922"></script>
+<script type="module" src="../js/v2/auth/organizer-guard.js?v=v2-e3-ui-20260922"></script>
+<script type="module" src="../js/v2/data/invitations.js?v=v2-e3-ui-20260922"></script>
+<script type="module" src="../js/v2/data/participants-admin.js?v=v2-e3-ui-20260922"></script>
+<script type="module" src="../js/v2/data/events.js?v=v2-e3-ui-20260922"></script>
+<script type="module" src="../js/v2/data/orientation-structure.js?v=v2-e3-ui-20260922"></script>
+<script type="module" src="../js/v2/data/cloud-recovery.js?v=v2-e3-ui-20260922"></script>
+<script type="module" src="../js/v2/data/event-lifecycle.js?v=v2-e3-ui-20260922"></script>
+<script type="module" src="../js/v2/data/event-edit-lock.js?v=v2-e3-ui-20260922"></script>
 </head>
 <body class="ori-page-booting" style="background:#0a0e0a;">
 
@@ -601,7 +601,7 @@ window.MILITOPO_V2_CACHE_RECOVERY = (async function(){
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
-<script src="js/app.js?v=v2-e3-roster-20260922"></script>
+<script src="js/app.js?v=v2-e3-ui-20260922"></script>
 <script type="module" src="js/live/live-phase2.js?v=v2-a1-backend-20260919"></script>
 <script>
 window.addEventListener("load",function(){
@@ -614,9 +614,9 @@ window.addEventListener("load",function(){
   if (!("serviceWorker" in navigator) || !("caches" in window) || !/^https?:$/.test(location.protocol)) return;
   async function cacheCurrentMilitopoPage(){
     try {
-      const cache = await caches.open("militopo-v2-page-snapshot-v2-e3-roster-20260922");
+      const cache = await caches.open("militopo-v2-page-snapshot-v2-e3-ui-20260922");
       await cache.add(new Request(location.href, { cache: "reload" })).catch(function(){});
-      await Promise.allSettled(["./", "./index.html", "./js/app.js", "./js/live/live-phase2.js", "./js/config/iof-symbols-baked.js", "./js/config/plan-assets.js", "./js/core/app-main.js", "./js/pdf/pdf-professional.js", "./js/results/results-v16.js", "./js/results/results-classification-fix.js", "./css/styles.css", "./js/vendor/qr.js", "./maps/index.json", "../js/v2/firebase-config.js", "../js/v2/bootstrap.js", "../js/v2/auth/roles.js", "../js/v2/auth/auth-ui.css?v=v2-e3-roster-20260922", "../js/v2/auth/auth-ui.js?v=v2-e3-roster-20260922", "../js/v2/auth/organizer-guard.js?v=v2-e3-roster-20260922", "../js/v2/data/invitations.js?v=v2-e3-roster-20260922", "../js/v2/data/participants-admin.js?v=v2-e3-roster-20260922", "../js/v2/data/events.js?v=v2-e3-roster-20260922", "../js/v2/data/orientation-structure.js?v=v2-e3-roster-20260922", "../js/v2/data/cloud-recovery.js?v=v2-e3-roster-20260922", "../js/v2/data/event-lifecycle.js?v=v2-e3-roster-20260922", "../js/v2/data/event-edit-lock.js?v=v2-e3-roster-20260922"].map(function(url){
+      await Promise.allSettled(["./", "./index.html", "./js/app.js", "./js/live/live-phase2.js", "./js/config/iof-symbols-baked.js", "./js/config/plan-assets.js", "./js/core/app-main.js", "./js/pdf/pdf-professional.js", "./js/results/results-v16.js", "./js/results/results-classification-fix.js", "./css/styles.css", "./js/vendor/qr.js", "./maps/index.json", "../js/v2/firebase-config.js", "../js/v2/bootstrap.js", "../js/v2/auth/roles.js", "../js/v2/auth/auth-ui.css?v=v2-e3-ui-20260922", "../js/v2/auth/auth-ui.js?v=v2-e3-ui-20260922", "../js/v2/auth/organizer-guard.js?v=v2-e3-ui-20260922", "../js/v2/data/invitations.js?v=v2-e3-ui-20260922", "../js/v2/data/participants-admin.js?v=v2-e3-ui-20260922", "../js/v2/data/events.js?v=v2-e3-ui-20260922", "../js/v2/data/orientation-structure.js?v=v2-e3-ui-20260922", "../js/v2/data/cloud-recovery.js?v=v2-e3-ui-20260922", "../js/v2/data/event-lifecycle.js?v=v2-e3-ui-20260922", "../js/v2/data/event-edit-lock.js?v=v2-e3-ui-20260922"].map(function(url){
         return cache.add(new Request(url, { cache: "reload" }));
       }));
     } catch (e) {}
