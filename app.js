@@ -4587,6 +4587,9 @@ function openMapModal() {
     }
 
     window.addEventListener("beforeunload", (e) => {
+        // El cambio automático de un runner hacia su área personal es una
+        // navegación controlada por Auth, no una salida accidental.
+        if (globalThis.MILITOPO_V2_AUTH_NAVIGATION === true) return;
         if (!hasUnsavedChanges) return;
         e.preventDefault();
         e.returnValue = "";
