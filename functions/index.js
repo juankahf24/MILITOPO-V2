@@ -6,6 +6,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getDatabase } = require("firebase-admin/database");
+const { randomUUID } = require("node:crypto");
 
 initializeApp();
 // Control de coste/escala: MILITOPO no necesita decenas de instancias simultáneas.
@@ -115,11 +116,10 @@ exports.setUserRole = onCall({ enforceAppCheck: false }, async request => {
   return { ok: true, uid: targetUid, role };
 });
 
-exports.syncLiveAccess = onCall({ enforceAppCheck: false }, async request => {
-  const identity = requireVerified(request);
-  const eventId = cleanEventId(request.data?.eventId);
+
+async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = null) {
   const eventRef = db.collection("events").doc(eventId);
-  const eventSnap = await eventRef.get();
+  const eventSnap = suppliedEventSnap || await eventRef.get();
   if (!eventSnap.exists) throw new HttpsError("not-found", "El evento no existe.");
 
   const eventData = eventSnap.data() || {};
@@ -176,9 +176,149 @@ exports.syncLiveAccess = onCall({ enforceAppCheck: false }, async request => {
   for (const uid of Object.keys(currentMembers)) {
     if (!seen.has(uid)) updates[`members/${uid}`] = null;
   }
-
   await baseRef.update(updates);
-  const activeMembers = members.filter(row => row.status === "active").length;
-  const removedMembers = members.filter(row => row.status === "removed").length;
-  return { ok: true, eventId, ownerUid, status, activeMembers, removedMembers, schemaVersion: 2 };
+  return {
+    eventRef, eventSnap, eventData, ownerUid, status, members, baseRef,
+    activeMembers: members.filter(row => row.status === "active")
+  };
+}
+
+function newRunId() {
+  return `run_${Date.now()}_${randomUUID().replace(/-/g, "").slice(0, 10)}`;
+}
+
+exports.syncLiveAccess = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const live = await syncLiveAccessForEvent(identity, eventId);
+  const removedMembers = live.members.filter(row => row.status === "removed").length;
+  return {
+    ok: true,
+    eventId,
+    ownerUid: live.ownerUid,
+    status: live.status,
+    activeMembers: live.activeMembers.length,
+    removedMembers,
+    schemaVersion: 2
+  };
+});
+
+exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const eventRef = db.collection("events").doc(eventId);
+  let eventSnap = await eventRef.get();
+  if (!eventSnap.exists) throw new HttpsError("not-found", "El evento no existe.");
+  let eventData = eventSnap.data() || {};
+  assertManagerForEvent(identity, eventData);
+
+  const ownerUid = String(eventData.ownerUid || "").trim();
+  if (!ownerUid) throw new HttpsError("failed-precondition", "El evento no tiene organizador.");
+  const baseRef = rtdb.ref(`v2/live/${ownerUid}/${eventId}`);
+  const activeSnap = await baseRef.child("activeRun").get();
+  const existing = activeSnap.exists() ? (activeSnap.val() || {}) : {};
+
+  if (String(eventData.status || "").toLowerCase() === "live" && existing.runId) {
+    return { ok: true, recovered: true, eventId, ownerUid, runId: String(existing.runId), status: "live" };
+  }
+  if (String(eventData.status || "").toLowerCase() !== "published") {
+    throw new HttpsError("failed-precondition", "Solo se puede iniciar una carrera PUBLICADA.");
+  }
+
+  const live = await syncLiveAccessForEvent(identity, eventId, eventSnap);
+  const runId = newRunId();
+  const now = Date.now();
+  const participants = {};
+  for (const member of live.activeMembers) {
+    participants[member.uid] = {
+      uid: member.uid,
+      username: member.username || null,
+      displayName: member.displayName || null,
+      status: "not_started",
+      online: false,
+      startedAt: null,
+      finishedAt: null,
+      lastSeen: null,
+      updatedAt: now
+    };
+  }
+
+  const updates = {};
+  updates[`runs/${runId}/meta`] = {
+    runId,
+    eventId,
+    ownerUid,
+    eventName: String(eventData.eventName || "").slice(0, 140),
+    status: "active",
+    participantCount: live.activeMembers.length,
+    startedAt: now,
+    finishedAt: null,
+    schemaVersion: 2,
+    backend: "cloud-functions-v2"
+  };
+  updates[`runs/${runId}/participants`] = participants;
+  updates["activeRun"] = {
+    runId,
+    status: "active",
+    startedAt: now,
+    participantCount: live.activeMembers.length,
+    updatedAt: now
+  };
+  updates["meta/status"] = "live";
+  updates["meta/activeRunId"] = runId;
+  updates["meta/updatedAt"] = now;
+  await baseRef.update(updates);
+
+  await eventRef.set({
+    status: "live",
+    liveRunId: runId,
+    liveBackend: "cloud-functions-v2",
+    liveAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+  await appendAudit("LIVE_RUN_STARTED", identity.uid, null, { eventId, ownerUid, runId, participantCount: live.activeMembers.length });
+  return { ok: true, eventId, ownerUid, runId, status: "live", participantCount: live.activeMembers.length };
+});
+
+exports.finishLiveRun = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const eventRef = db.collection("events").doc(eventId);
+  const eventSnap = await eventRef.get();
+  if (!eventSnap.exists) throw new HttpsError("not-found", "El evento no existe.");
+  const eventData = eventSnap.data() || {};
+  assertManagerForEvent(identity, eventData);
+
+  const ownerUid = String(eventData.ownerUid || "").trim();
+  if (!ownerUid) throw new HttpsError("failed-precondition", "El evento no tiene organizador.");
+  const status = String(eventData.status || "draft").toLowerCase();
+  if (status === "finished") {
+    return { ok: true, recovered: true, eventId, ownerUid, runId: String(eventData.liveRunId || ""), status: "finished" };
+  }
+  if (status !== "live") throw new HttpsError("failed-precondition", "Solo se puede finalizar un evento EN DIRECTO.");
+
+  const baseRef = rtdb.ref(`v2/live/${ownerUid}/${eventId}`);
+  const activeSnap = await baseRef.child("activeRun").get();
+  const active = activeSnap.exists() ? (activeSnap.val() || {}) : {};
+  const runId = String(eventData.liveRunId || active.runId || "").trim();
+  if (!runId) throw new HttpsError("failed-precondition", "No existe una sesión Live V2 activa para este evento.");
+  const now = Date.now();
+  await baseRef.update({
+    [`runs/${runId}/meta/status`]: "finished",
+    [`runs/${runId}/meta/finishedAt`]: now,
+    [`runs/${runId}/meta/updatedAt`]: now,
+    "activeRun/status": "finished",
+    "activeRun/finishedAt": now,
+    "activeRun/updatedAt": now,
+    "meta/status": "finished",
+    "meta/updatedAt": now
+  });
+  await eventRef.set({
+    status: "finished",
+    finishedAt: FieldValue.serverTimestamp(),
+    liveRunId: runId,
+    updatedAt: FieldValue.serverTimestamp()
+  }, { merge: true });
+  await appendAudit("LIVE_RUN_FINISHED", identity.uid, null, { eventId, ownerUid, runId });
+  return { ok: true, eventId, ownerUid, runId, status: "finished" };
 });
