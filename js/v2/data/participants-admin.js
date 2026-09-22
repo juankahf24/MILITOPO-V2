@@ -31,6 +31,7 @@ const state = {
   list: null,
   status: null,
   searchInput: null,
+  searchSuggest: null,
   tabs: null,
   bulkBar: null
 };
@@ -79,15 +80,15 @@ function injectStyle() {
     .m2-roster-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
     .m2-roster-title{font-weight:950;letter-spacing:.045em}.m2-roster-state{font-size:.75rem;font-weight:900;border:1px solid rgba(245,204,121,.32);border-radius:999px;padding:5px 9px}
     .m2-roster-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:11px 0}.m2-roster-stat{padding:9px;border:1px solid rgba(255,255,255,.11);border-radius:10px;background:rgba(0,0,0,.12);text-align:center}.m2-roster-stat strong{display:block;font-size:1.08rem}.m2-roster-stat span{font-size:.7rem;opacity:.7;font-weight:850}
-    .m2-roster-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;margin:10px 0}.m2-roster-search{width:100%;min-height:44px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:#0d140b;color:#fff;padding:10px 12px;font:inherit;font-size:16px;box-sizing:border-box}
+    .m2-roster-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start;margin:10px 0}.m2-roster-search-wrap{position:relative;min-width:0}.m2-roster-search{width:100%;min-height:44px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:#0d140b;color:#fff;padding:10px 12px;font:inherit;font-size:16px;box-sizing:border-box}.m2-roster-suggest{position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:40;border:1px solid rgba(245,204,121,.3);border-radius:12px;background:#0b1209;box-shadow:0 14px 30px rgba(0,0,0,.35);overflow:hidden;max-height:290px;overflow-y:auto}.m2-roster-suggest[hidden]{display:none!important}.m2-roster-suggest-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;border:0;border-bottom:1px solid rgba(255,255,255,.08);background:transparent;color:inherit;padding:10px 12px;font:inherit;cursor:pointer}.m2-roster-suggest-btn:last-child{border-bottom:0}.m2-roster-suggest-btn:active,.m2-roster-suggest-btn:focus-visible{background:rgba(245,204,121,.12);outline:none}.m2-roster-suggest-main{min-width:0}.m2-roster-suggest-name{font-weight:950;overflow-wrap:anywhere}.m2-roster-suggest-meta{font-size:.72rem;opacity:.68;overflow-wrap:anywhere}.m2-roster-suggest-state{flex:0 0 auto;border:1px solid rgba(245,204,121,.28);border-radius:999px;padding:4px 7px;font-size:.62rem;font-weight:950}.m2-roster-suggest-empty{padding:10px 12px;font-size:.78rem;opacity:.7}
     .m2-roster-refresh,.m2-roster-action{min-height:44px;border-radius:10px;border:1px solid rgba(245,204,121,.35);background:rgba(245,204,121,.14);color:inherit;padding:9px 12px;font:inherit;font-weight:900;cursor:pointer}.m2-roster-refresh:disabled,.m2-roster-action:disabled{opacity:.45;cursor:not-allowed}
-    .m2-roster-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.m2-roster-tab{min-height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;padding:7px 11px;font:inherit;font-size:.78rem;font-weight:900;cursor:pointer}.m2-roster-tab.is-active{border-color:rgba(245,204,121,.48);background:rgba(245,204,121,.13)}
-    .m2-roster-status{min-height:22px;margin:8px 0;font-size:.8rem;line-height:1.45;opacity:.82;white-space:pre-line}.m2-roster-list{display:grid;gap:8px;min-height:30px}
+    .m2-roster-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:8px 0}.m2-roster-tab{min-width:0;min-height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:inherit;padding:7px 4px;font:inherit;font-size:.7rem;font-weight:900;cursor:pointer;white-space:nowrap}.m2-roster-tab.is-active{border-color:rgba(245,204,121,.48);background:rgba(245,204,121,.13)}
+    .m2-roster-status{min-height:22px;margin:8px 0;font-size:.8rem;line-height:1.45;opacity:.82;white-space:pre-line}.m2-roster-status.is-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;opacity:1;white-space:normal}.m2-roster-status-chip{display:flex;align-items:center;justify-content:center;gap:5px;min-width:0;border:1px solid rgba(245,204,121,.34);border-radius:999px;background:rgba(245,204,121,.11);padding:7px 6px;font-size:.68rem;font-weight:900;white-space:nowrap}.m2-roster-status-chip strong{font-size:.92rem;color:#f5cc79}.m2-roster-list{display:grid;gap:8px;min-height:30px}
     .m2-roster-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:11px;background:rgba(0,0,0,.12)}.m2-roster-row.is-removed{opacity:.68}.m2-roster-row.is-pending{border-color:rgba(245,204,121,.22)}
     .m2-roster-check{width:20px;height:20px;accent-color:#e4b754}.m2-roster-name{font-weight:950;overflow-wrap:anywhere}.m2-roster-handle{font-size:.77rem;opacity:.72;overflow-wrap:anywhere}.m2-roster-meta{font-size:.74rem;opacity:.62;margin-top:2px;overflow-wrap:anywhere}.m2-roster-badge{display:inline-flex;margin-top:5px;border-radius:999px;padding:4px 7px;font-size:.68rem;font-weight:950;border:1px solid rgba(255,255,255,.14)}
     .m2-roster-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.m2-roster-actions button{min-height:38px;border-radius:9px;border:1px solid rgba(245,204,121,.3);background:rgba(245,204,121,.1);color:inherit;padding:7px 9px;font:inherit;font-size:.74rem;font-weight:900;cursor:pointer}.m2-roster-actions button:disabled{opacity:.45;cursor:not-allowed}
     .m2-roster-bulk{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)}.m2-roster-bulk[hidden]{display:none!important}.m2-roster-bulk-count{font-size:.78rem;font-weight:900;margin-right:auto}
-    @media(max-width:680px){.m2-roster-summary{grid-template-columns:repeat(3,1fr)}.m2-roster-toolbar{grid-template-columns:1fr}.m2-roster-refresh{width:100%}.m2-roster-row{grid-template-columns:auto minmax(0,1fr)}.m2-roster-actions{grid-column:1/-1;justify-content:stretch}.m2-roster-actions button{flex:1 1 42%}.m2-roster-bulk .m2-roster-action{flex:1 1 100%}}
+    @media(max-width:680px){.m2-roster-summary{grid-template-columns:repeat(3,1fr)}.m2-roster-toolbar{grid-template-columns:1fr}.m2-roster-refresh{width:100%}.m2-roster-tab{font-size:.64rem;padding:7px 2px}.m2-roster-status-chip{font-size:.61rem;padding:7px 3px;gap:3px}.m2-roster-status-chip strong{font-size:.82rem}.m2-roster-row{grid-template-columns:auto minmax(0,1fr)}.m2-roster-actions{grid-column:1/-1;justify-content:stretch}.m2-roster-actions button{flex:1 1 42%}.m2-roster-bulk .m2-roster-action{flex:1 1 100%}}
   `;
   document.head.appendChild(style);
 }
@@ -110,7 +111,10 @@ function ensureUi() {
       <div class="m2-roster-stat"><strong id="m2RosterRemoved">0</strong><span>RETIRADOS</span></div>
     </div>
     <div class="m2-roster-toolbar">
-      <input id="m2RosterSearch" class="m2-roster-search" type="search" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Buscar por nombre, @usuario o correo">
+      <div class="m2-roster-search-wrap">
+        <input id="m2RosterSearch" class="m2-roster-search" type="search" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Buscar por nombre, @usuario o correo" aria-autocomplete="list" aria-controls="m2RosterSuggest">
+        <div id="m2RosterSuggest" class="m2-roster-suggest" role="listbox" hidden></div>
+      </div>
       <button id="m2RosterRefresh" class="m2-roster-refresh" type="button">ACTUALIZAR</button>
     </div>
     <div id="m2RosterTabs" class="m2-roster-tabs" role="tablist" aria-label="Filtrar participantes">
@@ -137,10 +141,15 @@ function ensureUi() {
   state.list = root.querySelector("#m2RosterList");
   state.status = root.querySelector("#m2RosterStatus");
   state.searchInput = root.querySelector("#m2RosterSearch");
+  state.searchSuggest = root.querySelector("#m2RosterSuggest");
   state.tabs = root.querySelector("#m2RosterTabs");
   state.bulkBar = root.querySelector("#m2RosterBulk");
   root.querySelector("#m2RosterRefresh")?.addEventListener("click", () => loadAll({ force:true }));
-  state.searchInput?.addEventListener("input", () => { state.search = state.searchInput.value || ""; render(); });
+  state.searchInput?.addEventListener("input", () => { state.search = state.searchInput.value || ""; render(); renderSearchSuggest(); });
+  state.searchInput?.addEventListener("focus", () => renderSearchSuggest());
+  state.searchInput?.addEventListener("keydown", event => { if (event.key === "Escape") hideSearchSuggest(); });
+  state.searchSuggest?.addEventListener("click", onSearchSuggestClick);
+  document.addEventListener("pointerdown", event => { if (state.root?.isConnected && !state.root.querySelector(".m2-roster-search-wrap")?.contains(event.target)) hideSearchSuggest(); }, { passive:true });
   state.tabs?.addEventListener("click", event => {
     const button = event.target.closest("[data-roster-filter]");
     if (!button) return;
@@ -148,6 +157,7 @@ function ensureUi() {
     state.tabs.querySelectorAll("[data-roster-filter]").forEach(el => el.classList.toggle("is-active", el === button));
     state.selected.clear();
     render();
+    renderSearchSuggest();
   });
   state.list?.addEventListener("click", onListClick);
   state.list?.addEventListener("change", onListChange);
@@ -157,7 +167,57 @@ function ensureUi() {
   return true;
 }
 function setStatus(text) {
-  if (state.status) state.status.textContent = text || "";
+  if (!state.status) return;
+  state.status.classList.remove("is-summary");
+  state.status.textContent = text || "";
+}
+function setSummaryStatus(active, pending, removed) {
+  if (!state.status) return;
+  state.status.classList.add("is-summary");
+  state.status.innerHTML = `
+    <span class="m2-roster-status-chip"><strong>${active}</strong> UNIDO${active === 1 ? "" : "S"}</span>
+    <span class="m2-roster-status-chip"><strong>${pending}</strong> PENDIENTE${pending === 1 ? "" : "S"}</span>
+    <span class="m2-roster-status-chip"><strong>${removed}</strong> RETIRADO${removed === 1 ? "" : "S"}</span>`;
+}
+function hideSearchSuggest() {
+  if (state.searchSuggest) state.searchSuggest.hidden = true;
+}
+function searchSuggestionRows() {
+  const needle = normalize(state.search).replace(/^@+/, "");
+  let rows = allRows().filter(row => state.filter === "all" || row.type === state.filter);
+  if (needle) {
+    rows = rows.filter(row => [row.displayName, row.username, row.email, row.uid].some(value => normalize(value).includes(needle)));
+  }
+  return rows.slice(0, 8);
+}
+function renderSearchSuggest() {
+  if (!state.searchSuggest || document.activeElement !== state.searchInput) return;
+  const rows = searchSuggestionRows();
+  state.searchSuggest.hidden = false;
+  if (!rows.length) {
+    state.searchSuggest.innerHTML = `<div class="m2-roster-suggest-empty">No hay participantes que coincidan.</div>`;
+    return;
+  }
+  state.searchSuggest.innerHTML = rows.map(row => {
+    const handle = row.username ? `@${row.username}` : "";
+    const meta = [handle, row.email].filter(Boolean).join(" · ");
+    return `<button class="m2-roster-suggest-btn" type="button" role="option" data-roster-suggest="${esc(row.key)}">
+      <span class="m2-roster-suggest-main"><span class="m2-roster-suggest-name">${esc(row.displayName)}</span>${meta ? `<br><span class="m2-roster-suggest-meta">${esc(meta)}</span>` : ""}</span>
+      <span class="m2-roster-suggest-state">${actionLabel(row.type)}</span>
+    </button>`;
+  }).join("");
+}
+function onSearchSuggestClick(event) {
+  const button = event.target.closest("[data-roster-suggest]");
+  if (!button || !state.searchInput) return;
+  const row = allRows().find(item => item.key === String(button.dataset.rosterSuggest || ""));
+  if (!row) return;
+  const value = row.username ? `@${row.username}` : (row.email || row.displayName);
+  state.searchInput.value = value;
+  state.search = value;
+  hideSearchSuggest();
+  render();
+  state.searchInput.blur();
 }
 function directoryForUid(uid) {
   return state.directoryByUid.get(String(uid || "")) || null;
@@ -252,7 +312,7 @@ function render() {
   }
   const editable = membershipsEditable();
   if (!editable) setStatus(`El censo se conserva, pero los cambios de participantes están bloqueados en ${eventState}.`);
-  else if (!state.loading && !state.busy) setStatus(`${active} unido${active === 1 ? "" : "s"} · ${pending} pendiente${pending === 1 ? "" : "s"} · ${removed} retirado${removed === 1 ? "" : "s"}.`);
+  else if (!state.loading && !state.busy) setSummaryStatus(active, pending, removed);
 
   const rows = filteredRows();
   if (!rows.length) {
@@ -353,6 +413,7 @@ async function loadAll({ force = false } = {}) {
     state.loadedEventId = eventId;
     state.selected.clear();
     render();
+    renderSearchSuggest();
     return true;
   } catch (error) {
     console.error("[MILITOPO E3] load roster", error);
