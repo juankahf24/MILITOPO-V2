@@ -21,7 +21,7 @@
       try{
         var params=new URLSearchParams(location.search||'');
         if(!params.has('install') && !params.has('shell')){
-          var target=new URL('runner.html?v=v2-a1-backend-20260919', location.href);
+          var target=new URL('runner.html?v=v2-f3a-runner-live-20260922', location.href);
           params.forEach(function(v,k){ target.searchParams.set(k,v); });
           if(!target.searchParams.has('app')) target.searchParams.set('app','1');
           target.hash=location.hash||'';
@@ -35,7 +35,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/participante-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icons/participante-512.png">
-  <link rel="stylesheet" href="styles.css?v=v2-a1-backend-20260919">
+  <link rel="stylesheet" href="styles.css?v=v2-f3a-runner-live-20260922">
 </head>
 <body class="participant-page-booting">
   <button id="shellMenuBtn" class="shell-menu-btn shell-menu-floating" type="button" aria-label="Opciones">⋮</button>
@@ -92,8 +92,8 @@
   </section>
 
   <div id="shellToast" class="shell-toast" role="status"></div>
-  <script src="app.js?v=v2-a1-backend-20260919"></script>
-  <script type="module" src="../js/live/live-phase2.js?v=v2-a1-backend-20260919"></script>
+  <script src="app.js?v=v2-f3a-runner-live-20260922"></script>
+  <script type="module" src="../js/live/live-phase2.js?v=v2-f3a-runner-live-20260922"></script>
   <script>
     window.addEventListener("load",function(){
       document.body.classList.add("participant-page-ready");
