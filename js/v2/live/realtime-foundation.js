@@ -1,19 +1,9 @@
-/* MILITOPO V2 · Fase F1 · base segura de Live en Realtime Database.
-   No sustituye todavía live-phase2.js: prepara el namespace V2, sincroniza acceso
-   desde Firestore y mantiene V1 intacto hasta F2/F3. */
+/* MILITOPO V2 · F2A Blaze · Live V2 serverizado.
+   La sincronización de permisos Firestore -> Realtime Database se ejecuta en
+   Cloud Functions. El navegador ya no escribe meta/members directamente. */
 import "../bootstrap.js";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import {
-  get,
-  ref,
-  serverTimestamp,
-  update
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const SYNCABLE_STATES = new Set(["prepared", "published", "live", "finished"]);
@@ -23,15 +13,10 @@ const state = {
   eventId: "",
   event: null,
   busy: false,
-  lastHash: "",
-  timer: null,
   panel: null,
   message: "",
-  lastAttemptHash: "",
-  lastFailedHash: "",
-  lastFailedMessage: "",
-  lastAutoSyncAt: 0,
-  autoSyncIntervalMs: 30000
+  timer: null,
+  lastSyncedKey: ""
 };
 
 function roleOf() {
@@ -41,19 +26,8 @@ function roleOf() {
 function canManage() {
   return Boolean(state.auth?.uid && state.auth?.emailVerified && MANAGER_ROLES.has(roleOf()));
 }
-function esc(value) {
-  return String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
-}
 function eventIdNow() {
   return String(state.eventId || globalThis.MILITOPO_V2_EVENT_STATUS?.eventId || document.getElementById("eventId")?.value || "").trim();
-}
-function stableHash(eventData, members) {
-  return JSON.stringify({
-    eventId: eventData?.eventId || "",
-    ownerUid: eventData?.ownerUid || "",
-    status: eventData?.status || "",
-    members: members.map(row => [row.uid, row.status]).sort((a,b) => a[0].localeCompare(b[0]))
-  });
 }
 async function services() {
   if (!state.services) state.services = await globalThis.MILITOPO_V2.firebase();
@@ -83,12 +57,12 @@ function ensurePanel() {
   panel.className = "m2-livev2";
   panel.innerHTML = `
     <div class="m2-livev2-head">
-      <div class="m2-livev2-title">📡 LIVE V2 · REALTIME DATABASE</div>
+      <div class="m2-livev2-title">📡 LIVE V2 · BACKEND BLAZE</div>
       <div id="m2LiveV2Chip" class="m2-livev2-chip">ESPERANDO</div>
     </div>
-    <div id="m2LiveV2Status" class="m2-livev2-status">Carga un evento para preparar su acceso Live V2.</div>
+    <div id="m2LiveV2Status" class="m2-livev2-status">Carga un evento para comprobar el backend Live V2.</div>
     <button id="m2LiveV2Sync" type="button">SINCRONIZAR ACCESO LIVE V2</button>
-    <div class="m2-livev2-note">F1 prepara la base segura en Realtime Database. El Live antiguo sigue intacto hasta F2/F3.</div>`;
+    <div class="m2-livev2-note">F2A mueve la sincronización sensible al servidor. El Live V1 sigue intacto hasta el corte F2/F3.</div>`;
   const nav = step.querySelector(".nav-row");
   if (nav) nav.insertAdjacentElement("beforebegin", panel); else step.appendChild(panel);
   panel.querySelector("#m2LiveV2Sync").addEventListener("click", () => sync(true));
@@ -109,7 +83,7 @@ function paint(message) {
   }
   if (!state.event) {
     chip.textContent = "SIN EVENTO";
-    status.textContent = state.message || "Carga un evento Firestore para preparar su acceso Live V2.";
+    status.textContent = state.message || "Carga un evento Firestore para preparar Live V2.";
     button.disabled = true; return;
   }
   const statusKey = String(state.event.status || "draft");
@@ -117,163 +91,88 @@ function paint(message) {
   button.disabled = state.busy || !navigator.onLine || !SYNCABLE_STATES.has(statusKey);
   if (state.message) status.textContent = state.message;
   else if (!SYNCABLE_STATES.has(statusKey)) status.textContent = `Estado ${statusKey.toUpperCase()}: Live V2 se prepara desde PREPARADO.`;
-  else status.textContent = "Base Live V2 lista para sincronizar accesos.";
+  else status.textContent = "Backend Live V2 listo para sincronizar accesos.";
   button.textContent = state.busy ? "SINCRONIZANDO…" : "SINCRONIZAR ACCESO LIVE V2";
 }
 function errorMessage(error) {
   const code = String(error?.code || "").trim();
   const msg = String(error?.message || error || "").trim();
   const joined = `${code} ${msg}`.toLowerCase();
-  if (joined.includes("permission") || joined.includes("denied")) {
-    return "⛔ Realtime Database rechazó la operación. Comprueba que las reglas F1 corregidas estén desplegadas.";
-  }
-  if (joined.includes("network") || joined.includes("unavailable") || joined.includes("offline")) {
-    return "📴 No se pudo conectar con Realtime Database. Comprueba la conexión y vuelve a intentarlo.";
-  }
-  return `⚠️ No se pudo preparar Live V2${code ? ` · ${code}` : ""}. Firestore y el Live antiguo no se han modificado.`;
+  if (joined.includes("permission") || joined.includes("denied")) return "⛔ El backend rechazó la operación por permisos.";
+  if (joined.includes("not-found")) return "⚠️ El evento no existe en Firestore.";
+  if (joined.includes("failed-precondition")) return "⚠️ El evento todavía no está en un estado válido para Live V2.";
+  if (joined.includes("network") || joined.includes("unavailable") || joined.includes("offline")) return "📴 No se pudo contactar con Cloud Functions. Comprueba la conexión.";
+  if (joined.includes("internal")) return "⚠️ Error interno del backend Live V2. Vuelve a intentarlo.";
+  return `⚠️ No se pudo sincronizar Live V2${code ? ` · ${code}` : ""}.`;
 }
-async function readEventAndMembers(eventId) {
+async function readEvent(eventId) {
   const { firestore } = await services();
-  const eventSnap = await getDoc(doc(firestore, "events", eventId));
-  if (!eventSnap.exists()) throw new Error("EVENT_NOT_FOUND");
-  const data = { ...(eventSnap.data() || {}), eventId: eventSnap.id };
-  const ownerUid = String(data.ownerUid || "");
-  if (!ownerUid) throw new Error("EVENT_WITHOUT_OWNER");
-  if (roleOf() !== "super_admin" && ownerUid !== String(state.auth?.uid || "")) throw new Error("EVENT_NOT_OWNED");
-  const memberSnap = await getDocs(collection(firestore, "events", eventId, "members"));
-  const members = [];
-  memberSnap.forEach(d => {
-    const row = d.data() || {};
-    members.push({ uid: String(row.uid || d.id), status: String(row.status || "active") });
-  });
-  return { data, members };
+  const snap = await getDoc(doc(firestore, "events", eventId));
+  if (!snap.exists()) throw new Error("EVENT_NOT_FOUND");
+  const data = { ...(snap.data() || {}), eventId: snap.id };
+  if (roleOf() !== "super_admin" && String(data.ownerUid || "") !== String(state.auth?.uid || "")) throw new Error("EVENT_NOT_OWNED");
+  return data;
 }
-async function sync(userRequested = false, forceAuto = false) {
+async function sync(userRequested = false) {
   const eventId = eventIdNow();
   state.eventId = eventId;
-  if (!canManage() || !eventId || state.busy) { if (userRequested) paint(); return false; }
-  if (!navigator.onLine) { if (userRequested || !state.lastHash) paint("📴 Sin conexión. La base Live V2 no se modifica."); return false; }
+  if (!canManage() || !eventId || state.busy) return false;
+  if (!navigator.onLine) { if (userRequested || !state.message) paint("📴 Sin conexión. Live V2 no se modifica."); return false; }
 
-  const now = Date.now();
-  if (!userRequested && !forceAuto && state.lastAutoSyncAt && (now - state.lastAutoSyncAt) < state.autoSyncIntervalMs) {
-    return true;
-  }
-  if (!userRequested) state.lastAutoSyncAt = now;
-
-  const visibleProgress = userRequested || !state.lastHash;
   state.busy = true;
-  if (visibleProgress) paint("Comprobando Firestore y Realtime Database…");
+  if (userRequested) paint("Sincronizando mediante Cloud Functions…");
   try {
-    const { database } = await services();
-    const { data, members } = await readEventAndMembers(eventId);
-    state.event = data;
-    const eventStatus = String(data.status || "draft");
-    if (!SYNCABLE_STATES.has(eventStatus)) {
-      state.message = "";
-      return false;
-    }
-
-    const hash = stableHash(data, members);
-    if (!userRequested && hash === state.lastHash) {
-      if (!state.message || !state.message.startsWith("✅")) {
-        const active = members.filter(x => x.status === "active").length;
-        state.message = `✅ Live V2 al día · ${active} corredor${active === 1 ? "" : "es"} autorizado${active === 1 ? "" : "s"}.`;
-        paint();
-      }
-      return true;
-    }
-    // Si un intento automático ya falló con exactamente los mismos datos, no lo
-    // repetimos en bucle. El botón manual sigue disponible para reintentar.
-    if (!userRequested && hash === state.lastFailedHash) {
-      state.message = state.lastFailedMessage || "⚠️ Live V2 pendiente de reintento manual.";
-      return false;
-    }
-    state.lastAttemptHash = hash;
-
-    const ownerUid = String(data.ownerUid);
-    const base = `v2/live/${ownerUid}/${eventId}`;
-    const currentMembersSnap = await get(ref(database, `${base}/members`));
-    const currentMembers = currentMembersSnap.exists() ? (currentMembersSnap.val() || {}) : {};
-    const updates = {
-      "meta/ownerUid": ownerUid,
-      "meta/eventId": eventId,
-      "meta/eventName": String(data.eventName || "").slice(0, 140),
-      "meta/status": eventStatus,
-      "meta/schemaVersion": 1,
-      "meta/updatedAt": serverTimestamp()
-    };
-    const seen = new Set();
-    for (const member of members) {
-      if (!member.uid) continue;
-      seen.add(member.uid);
-      updates[`members/${member.uid}/uid`] = member.uid;
-      updates[`members/${member.uid}/active`] = member.status === "active";
-      updates[`members/${member.uid}/status`] = member.status;
-      updates[`members/${member.uid}/updatedAt`] = serverTimestamp();
-    }
-    Object.keys(currentMembers).forEach(uid => { if (!seen.has(uid)) updates[`members/${uid}`] = null; });
-
-    await update(ref(database, base), updates);
-    state.lastHash = hash;
-    state.lastFailedHash = "";
-    state.lastFailedMessage = "";
-    const active = members.filter(row => row.status === "active").length;
-    const removed = members.filter(row => row.status === "removed").length;
-    state.message = `✅ Live V2 preparado · ${active} autorizado${active === 1 ? "" : "s"}${removed ? ` · ${removed} retirado${removed === 1 ? "" : "s"}` : ""}.`;
-    globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-foundation-ready", { detail: { eventId, ownerUid, activeMembers: active } }));
+    const { functions } = await services();
+    const call = httpsCallable(functions, "syncLiveAccess");
+    const response = await call({ eventId });
+    const data = response?.data || {};
+    const active = Number(data.activeMembers || 0);
+    const removed = Number(data.removedMembers || 0);
+    state.lastSyncedKey = `${eventId}:${String(data.status || "")}:${active}:${removed}`;
+    state.message = `✅ Backend Live V2 al día · ${active} corredor${active === 1 ? "" : "es"} autorizado${active === 1 ? "" : "s"}${removed ? ` · ${removed} retirado${removed === 1 ? "" : "s"}` : ""}.`;
+    globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-foundation-ready", { detail: data }));
     return true;
   } catch (error) {
-    console.error("[MILITOPO F1] sync", error);
-    const msg = errorMessage(error);
-    state.lastFailedHash = state.lastAttemptHash;
-    state.lastFailedMessage = msg;
-    // Un fallo en una comprobación periódica no debe hacer parpadear ni sustituir
-    // un estado válido que ya estaba confirmado. Los fallos iniciales/manuales sí se muestran.
-    if (userRequested || !state.lastHash) state.message = msg;
+    console.error("[MILITOPO F2A] syncLiveAccess", error);
+    state.message = errorMessage(error);
     return false;
   } finally {
     state.busy = false;
-    if (visibleProgress) paint();
+    paint();
   }
 }
-async function refreshFromEventStatus(detail = {}) {
+async function refreshFromEventStatus(detail = {}, forceSync = false) {
   const eventId = String(detail.eventId || eventIdNow()).trim();
   state.eventId = eventId;
   if (!eventId || !canManage()) { state.event = null; paint(); return; }
   try {
-    const { data } = await readEventAndMembers(eventId);
-    state.event = data;
-    clearTimeout(state.timer);
-    state.timer = setTimeout(() => sync(false, false), 650);
+    state.event = await readEvent(eventId);
+    paint();
+    const status = String(state.event.status || "draft");
+    if (SYNCABLE_STATES.has(status)) {
+      clearTimeout(state.timer);
+      state.timer = setTimeout(() => sync(false), forceSync ? 120 : 450);
+    }
   } catch (error) {
-    state.event = null; paint("No se pudo leer el evento para Live V2.");
+    state.event = null;
+    paint("No se pudo leer el evento para Live V2.");
   }
 }
 function onAuthReady(event) {
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
   paint();
   const detail = globalThis.MILITOPO_V2_EVENT_STATUS || {};
-  if (detail.eventId) refreshFromEventStatus(detail);
+  if (detail.eventId) refreshFromEventStatus(detail, true);
 }
 function init() {
   ensurePanel();
   globalThis.addEventListener("militopo:v2-auth-ready", onAuthReady);
   globalThis.addEventListener("militopo:v2-event-status", event => refreshFromEventStatus(event.detail || {}));
-  globalThis.addEventListener("militopo:v2-event-status-changed", event => {
-    state.lastAutoSyncAt = 0;
-    refreshFromEventStatus(event.detail || globalThis.MILITOPO_V2_EVENT_STATUS || {});
-  });
-  globalThis.addEventListener("militopo:v2-roster-refresh", () => {
-    if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false, true), 250); }
-  });
-  globalThis.addEventListener("militopo:v2-invitation-accepted", () => {
-    if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false, true), 250); }
-  });
-  globalThis.addEventListener("online", () => {
-    state.lastAutoSyncAt = 0;
-    if (state.eventId) refreshFromEventStatus({ eventId: state.eventId });
-  });
-  globalThis.addEventListener("offline", () => paint("📴 Sin conexión. Live V2 conserva la última configuración en Realtime Database."));
+  globalThis.addEventListener("militopo:v2-event-status-changed", event => refreshFromEventStatus(event.detail || globalThis.MILITOPO_V2_EVENT_STATUS || {}, true));
+  globalThis.addEventListener("militopo:v2-roster-refresh", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 150); } });
+  globalThis.addEventListener("militopo:v2-invitation-accepted", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 150); } });
+  globalThis.addEventListener("online", () => { if (state.eventId) refreshFromEventStatus({ eventId: state.eventId }, true); });
+  globalThis.addEventListener("offline", () => paint("📴 Sin conexión. Live V2 conserva la última configuración del servidor."));
   if (globalThis.MILITOPO_V2_AUTH) onAuthReady({ detail: globalThis.MILITOPO_V2_AUTH });
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once:true }); else init();
