@@ -2,18 +2,20 @@
 
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { defineString } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getDatabase } = require("firebase-admin/database");
 
 initializeApp();
-setGlobalOptions({ region: "europe-west1", maxInstances: 20 });
+// Control de coste/escala: MILITOPO no necesita decenas de instancias simultáneas.
+setGlobalOptions({ region: "europe-west1", maxInstances: 3, timeoutSeconds: 60, memory: "256MiB" });
 
 const db = getFirestore();
 const auth = getAuth();
-const BOOTSTRAP_ADMIN_EMAIL = defineString("BOOTSTRAP_ADMIN_EMAIL");
+const rtdb = getDatabase();
 const VALID_ROLES = new Set(["runner", "organizer", "super_admin"]);
+const LIVE_STATES = new Set(["prepared", "published", "live", "finished"]);
 
 function requireAuth(request) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
@@ -34,6 +36,22 @@ function requireSuperAdmin(request) {
     throw new HttpsError("permission-denied", "Permiso de superadministrador requerido.");
   }
   return identity;
+}
+
+function cleanEventId(value) {
+  const eventId = String(value || "").trim();
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(eventId)) {
+    throw new HttpsError("invalid-argument", "Identificador de evento no válido.");
+  }
+  return eventId;
+}
+
+function assertManagerForEvent(identity, eventData) {
+  const role = String(identity.token.role || "runner");
+  const ownerUid = String(eventData?.ownerUid || "");
+  if (role === "super_admin") return;
+  if (role === "organizer" && identity.uid === ownerUid) return;
+  throw new HttpsError("permission-denied", "No tienes permisos para administrar este evento.");
 }
 
 async function appendAudit(action, actorUid, targetUid, extra = {}) {
@@ -97,45 +115,70 @@ exports.setUserRole = onCall({ enforceAppCheck: false }, async request => {
   return { ok: true, uid: targetUid, role };
 });
 
-exports.bootstrapSuperAdmin = onCall({ enforceAppCheck: false }, async request => {
+exports.syncLiveAccess = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
-  const configuredEmail = String(BOOTSTRAP_ADMIN_EMAIL.value() || "").trim().toLowerCase();
-  const callerEmail = String(identity.token.email || "").trim().toLowerCase();
-  if (!configuredEmail || callerEmail !== configuredEmail) {
-    throw new HttpsError("permission-denied", "Esta cuenta no está autorizada para el bootstrap inicial.");
+  const eventId = cleanEventId(request.data?.eventId);
+  const eventRef = db.collection("events").doc(eventId);
+  const eventSnap = await eventRef.get();
+  if (!eventSnap.exists) throw new HttpsError("not-found", "El evento no existe.");
+
+  const eventData = eventSnap.data() || {};
+  assertManagerForEvent(identity, eventData);
+  const ownerUid = String(eventData.ownerUid || "").trim();
+  if (!ownerUid) throw new HttpsError("failed-precondition", "El evento no tiene organizador.");
+
+  const status = String(eventData.status || "draft").toLowerCase();
+  if (!LIVE_STATES.has(status)) {
+    throw new HttpsError("failed-precondition", "Live V2 solo se prepara desde PREPARADO.");
   }
 
-  const lockRef = db.collection("system").doc("superAdminBootstrap");
-  await db.runTransaction(async tx => {
-    const lock = await tx.get(lockRef);
-    if (lock.exists && lock.data()?.uid !== identity.uid) {
-      throw new HttpsError("already-exists", "El superadministrador inicial ya fue configurado.");
-    }
-    if (!lock.exists) {
-      tx.create(lockRef, {
-        uid: identity.uid,
-        email: callerEmail,
-        status: "pending",
-        createdAt: FieldValue.serverTimestamp()
-      });
-    }
+  const membersSnap = await eventRef.collection("members").get();
+  const members = [];
+  membersSnap.forEach(docSnap => {
+    const row = docSnap.data() || {};
+    const uid = String(row.uid || docSnap.id || "").trim();
+    if (!uid) return;
+    members.push({
+      uid,
+      status: String(row.status || "active").toLowerCase(),
+      username: String(row.username || "").slice(0, 40),
+      displayName: String(row.displayName || row.name || "").slice(0, 120),
+      email: String(row.email || "").slice(0, 180)
+    });
   });
 
-  const user = await auth.getUser(identity.uid);
-  await auth.setCustomUserClaims(identity.uid, { ...(user.customClaims || {}), role: "super_admin" });
-  const userRef = db.collection("users").doc(identity.uid);
-  const userSnap = await userRef.get();
-  const profile = {
-    uid: identity.uid,
-    email: user.email || callerEmail,
-    emailVerified: true,
-    roleMirror: "super_admin",
-    accountStatus: "active",
-    updatedAt: FieldValue.serverTimestamp()
+  const baseRef = rtdb.ref(`v2/live/${ownerUid}/${eventId}`);
+  const currentMembersSnap = await baseRef.child("members").get();
+  const currentMembers = currentMembersSnap.exists() ? (currentMembersSnap.val() || {}) : {};
+  const updates = {
+    "meta/ownerUid": ownerUid,
+    "meta/eventId": eventId,
+    "meta/eventName": String(eventData.eventName || "").slice(0, 140),
+    "meta/status": status,
+    "meta/schemaVersion": 2,
+    "meta/backend": "cloud-functions-v2",
+    "meta/updatedAt": Date.now()
   };
-  if (!userSnap.exists) profile.createdAt = FieldValue.serverTimestamp();
-  await userRef.set(profile, { merge: true });
-  await lockRef.set({ status: "complete", completedAt: FieldValue.serverTimestamp() }, { merge: true });
-  await appendAudit("SUPER_ADMIN_BOOTSTRAPPED", identity.uid, identity.uid);
-  return { ok: true, uid: identity.uid, role: "super_admin" };
+
+  const seen = new Set();
+  for (const member of members) {
+    seen.add(member.uid);
+    updates[`members/${member.uid}`] = {
+      uid: member.uid,
+      active: member.status === "active",
+      status: member.status,
+      username: member.username || null,
+      displayName: member.displayName || null,
+      email: member.email || null,
+      updatedAt: Date.now()
+    };
+  }
+  for (const uid of Object.keys(currentMembers)) {
+    if (!seen.has(uid)) updates[`members/${uid}`] = null;
+  }
+
+  await baseRef.update(updates);
+  const activeMembers = members.filter(row => row.status === "active").length;
+  const removedMembers = members.filter(row => row.status === "removed").length;
+  return { ok: true, eventId, ownerUid, status, activeMembers, removedMembers, schemaVersion: 2 };
 });
