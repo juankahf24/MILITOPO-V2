@@ -15,7 +15,8 @@ const state = {
   panel: null,
   message: "",
   timer: null,
-  lastSyncedKey: ""
+  lastSyncedKey: "",
+  runMessage: ""
 };
 
 function roleOf() {
@@ -88,8 +89,11 @@ function paint(message) {
   const statusKey = String(state.event.status || "draft");
   chip.textContent = statusKey.toUpperCase();
   button.disabled = state.busy || !navigator.onLine || !SYNCABLE_STATES.has(statusKey);
-  if (state.message) status.textContent = state.message;
+  const visibleMessage = state.runMessage || state.message;
+  if (visibleMessage) status.textContent = visibleMessage;
   else if (!SYNCABLE_STATES.has(statusKey)) status.textContent = `Estado ${statusKey.toUpperCase()}: Live V2 se prepara desde PREPARADO.`;
+  else if (statusKey === "live") status.textContent = "🟢 Evento EN DIRECTO · sesión Live V2 activa.";
+  else if (statusKey === "finished") status.textContent = "✅ Evento FINALIZADO · sesión Live V2 cerrada.";
   else status.textContent = "Backend Live V2 listo para sincronizar accesos.";
   button.textContent = state.busy ? "SINCRONIZANDO…" : "SINCRONIZAR ACCESO LIVE V2";
 }
@@ -142,21 +146,37 @@ async function sync(userRequested = false) {
 }
 async function refreshFromEventStatus(detail = {}, forceSync = false) {
   const eventId = String(detail.eventId || eventIdNow()).trim();
+  const changedEvent = Boolean(eventId && state.eventId && eventId !== state.eventId);
+  if (changedEvent) {
+    clearTimeout(state.timer);
+    state.event = null;
+    state.message = "";
+    state.runMessage = "";
+    state.lastSyncedKey = "";
+    paint("Cargando estado Live V2 del evento…");
+  }
   state.eventId = eventId;
-  if (!eventId || !canManage()) { state.event = null; paint(); return; }
+  if (!eventId || !canManage()) { state.event = null; state.message = ""; state.runMessage = ""; paint(); return; }
   try {
     state.event = await readEvent(eventId);
-    paint();
     const status = String(state.event.status || "draft");
+    if (!new Set(["live", "finished"]).has(status)) state.runMessage = "";
+    paint();
     if (SYNCABLE_STATES.has(status)) {
       clearTimeout(state.timer);
       state.timer = setTimeout(() => sync(false), forceSync ? 120 : 450);
+    } else {
+      state.message = "";
+      paint();
     }
   } catch (error) {
     state.event = null;
+    state.message = "";
+    state.runMessage = "";
     paint("No se pudo leer el evento para Live V2.");
   }
 }
+
 function onAuthReady(event) {
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
   paint();
@@ -173,9 +193,10 @@ function init() {
   globalThis.addEventListener("militopo:v2-live-run-changed", event => {
     const detail = event?.detail || {};
     if (detail.eventId && String(detail.eventId) === String(state.eventId || eventIdNow())) {
-      state.message = detail.status === "live"
+      if (state.event && detail.status) state.event.status = String(detail.status);
+      state.runMessage = detail.status === "live"
         ? `✅ Sesión Live V2 iniciada · ${Number(detail.participantCount || 0)} corredor${Number(detail.participantCount || 0) === 1 ? "" : "es"}.`
-        : detail.status === "finished" ? "✅ Sesión Live V2 finalizada en backend." : state.message;
+        : detail.status === "finished" ? "✅ Sesión Live V2 finalizada en backend." : state.runMessage;
       paint();
     }
   });
