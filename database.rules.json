@@ -8,13 +8,13 @@
           "$eventId": {
             "meta": {
               ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid) || root.child('v2/live').child($ownerUid).child($eventId).child('members').child(auth.uid).child('active').val() === true)",
-              ".write": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))",
+              ".write": false,
               ".validate": "!newData.exists() || (newData.hasChildren(['ownerUid','eventId','updatedAt']) && newData.child('ownerUid').val() === $ownerUid && newData.child('eventId').val() === $eventId)"
             },
             "members": {
               "$uid": {
                 ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid) || auth.uid === $uid)",
-                ".write": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))",
+                ".write": false,
                 ".validate": "!newData.exists() || (newData.hasChildren(['uid','active','updatedAt']) && newData.child('uid').val() === $uid && newData.child('active').isBoolean())"
               },
               ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))"
