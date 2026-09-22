@@ -29,7 +29,9 @@ const state = {
   status: null,
   detail: null,
   action: null,
-  refresh: null
+  refresh: null,
+  overlay: null,
+  overlayShownAt: 0
 };
 
 function roleOf(auth = state.auth) {
@@ -85,10 +87,75 @@ function injectStyle() {
     .m2-life button{min-height:44px;border-radius:12px;border:1px solid rgba(245,204,121,.38);padding:9px 12px;font:inherit;font-weight:900;cursor:pointer;background:rgba(245,204,121,.14);color:inherit}
     .m2-life button[disabled]{opacity:.42;cursor:not-allowed}
     .m2-life .m2-life-primary{background:linear-gradient(180deg,#f6d285,#d99c38);color:#1b160c;border-color:#f7d793}
+    .m2-life-overlay[hidden]{display:none!important}
+    .m2-life-overlay{position:fixed;inset:0;z-index:2147482500;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,3,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+    .m2-life-progress-card{width:min(92vw,430px);border:1px solid rgba(245,204,121,.52);border-radius:22px;padding:22px 20px;background:rgba(8,20,10,.97);box-shadow:0 18px 60px rgba(0,0,0,.35);text-align:center}
+    .m2-life-progress-icon{font-size:2rem;line-height:1;margin-bottom:10px}
+    .m2-life-progress-title{font-weight:900;letter-spacing:.09em;color:#f5d18b;font-size:1.05rem}
+    .m2-life-progress-text{margin-top:8px;line-height:1.45;opacity:.86;font-size:.84rem}
+    .m2-life-progress-track{height:7px;margin-top:18px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.10)}
+    .m2-life-progress-bar{width:42%;height:100%;border-radius:inherit;background:linear-gradient(90deg,rgba(245,204,121,.35),#f5cc79,rgba(245,204,121,.35));animation:m2LifeProgress 1.05s ease-in-out infinite}
+    .m2-life-overlay.is-success .m2-life-progress-bar{width:100%;animation:none}
+    .m2-life-overlay.is-error .m2-life-progress-bar{width:100%;animation:none;opacity:.5}
+    @keyframes m2LifeProgress{0%{transform:translateX(-105%)}50%{transform:translateX(105%)}100%{transform:translateX(245%)}}
+    @media(prefers-reduced-motion:reduce){.m2-life-progress-bar{animation:none;width:72%}}
     @media(max-width:520px){.m2-life-track{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-life-actions button{width:100%}}
   `;
   document.head.appendChild(style);
 }
+const TRANSITION_UI = {
+  "draft>prepared": ["PREPARANDO EVENTO", "Validando balizas y recorridos y guardando el estado…"],
+  "prepared>published": ["PUBLICANDO EVENTO", "Aplicando el estado PUBLICADO y cerrando el diseño…"],
+  "published>live": ["INICIANDO EVENTO", "Creando la sesión Live V2 y autorizando corredores…"],
+  "live>finished": ["FINALIZANDO EVENTO", "Cerrando la sesión Live V2 y guardando el final de la actividad…"],
+  "finished>archived": ["ARCHIVANDO EVENTO", "Guardando el evento como archivado sin borrar sus datos…"]
+};
+function ensureProcessingOverlay() {
+  if (state.overlay?.isConnected) return state.overlay;
+  const overlay = document.createElement("div");
+  overlay.id = "m2LifecycleProcessing";
+  overlay.className = "m2-life-overlay";
+  overlay.hidden = true;
+  overlay.setAttribute("role", "status");
+  overlay.setAttribute("aria-live", "polite");
+  overlay.setAttribute("aria-busy", "false");
+  overlay.innerHTML = `
+    <div class="m2-life-progress-card">
+      <div class="m2-life-progress-icon" aria-hidden="true">⏳</div>
+      <div class="m2-life-progress-title">PROCESANDO…</div>
+      <div class="m2-life-progress-text">Espera un momento.</div>
+      <div class="m2-life-progress-track" aria-hidden="true"><div class="m2-life-progress-bar"></div></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  state.overlay = overlay;
+  return overlay;
+}
+function showProcessing(from, to) {
+  const overlay = ensureProcessingOverlay();
+  const [title, text] = TRANSITION_UI[`${from}>${to}`] || ["ACTUALIZANDO EVENTO", "Guardando el nuevo estado…"];
+  overlay.classList.remove("is-success", "is-error");
+  overlay.querySelector(".m2-life-progress-icon").textContent = "⏳";
+  overlay.querySelector(".m2-life-progress-title").textContent = title;
+  overlay.querySelector(".m2-life-progress-text").textContent = text;
+  overlay.hidden = false;
+  overlay.setAttribute("aria-busy", "true");
+  state.overlayShownAt = Date.now();
+}
+async function finishProcessing(ok, text = "") {
+  const overlay = ensureProcessingOverlay();
+  const elapsed = Date.now() - Number(state.overlayShownAt || 0);
+  if (elapsed < 500) await new Promise(resolve => setTimeout(resolve, 500 - elapsed));
+  overlay.classList.toggle("is-success", Boolean(ok));
+  overlay.classList.toggle("is-error", !ok);
+  overlay.querySelector(".m2-life-progress-icon").textContent = ok ? "✅" : "⚠️";
+  overlay.querySelector(".m2-life-progress-title").textContent = ok ? "COMPLETADO" : "NO SE PUDO COMPLETAR";
+  overlay.querySelector(".m2-life-progress-text").textContent = text || (ok ? "Estado actualizado correctamente." : "Revisa el mensaje del bloque de gestión.");
+  overlay.setAttribute("aria-busy", "false");
+  await new Promise(resolve => setTimeout(resolve, ok ? 420 : 900));
+  overlay.hidden = true;
+  overlay.classList.remove("is-success", "is-error");
+}
+
 function ensurePanel() {
   if (state.panel?.isConnected) return state.panel;
   const step = document.getElementById("step1");
@@ -149,6 +216,7 @@ function paint(message = "") {
     state.status.textContent = "SIN PERMISOS";
     state.detail.textContent = "Se necesita una cuenta organizer o super_admin verificada.";
     state.action.disabled = true;
+    state.refresh.disabled = state.busy;
     state.action.textContent = "ACCESO NO DISPONIBLE";
     state.panel.querySelector("#m2LifecycleTrack").innerHTML = trackHtml("draft");
     return;
@@ -157,11 +225,13 @@ function paint(message = "") {
     state.status.textContent = eventId ? "COMPROBANDO" : "SIN EVENTO";
     state.detail.textContent = message || "Confirma el PASO 1 para crear el evento en Firestore.";
     state.action.disabled = true;
+    state.refresh.disabled = state.busy;
     state.action.textContent = "EVENTO AÚN NO DISPONIBLE";
     state.panel.querySelector("#m2LifecycleTrack").innerHTML = trackHtml("draft");
     return;
   }
   const status = validStatus(state.event.status);
+  state.refresh.disabled = state.busy;
   state.status.textContent = META[status].label;
   state.panel.querySelector("#m2LifecycleTrack").innerHTML = trackHtml(status);
   state.detail.textContent = message || readinessText(state.event, status);
@@ -231,8 +301,12 @@ async function advance() {
     return;
   }
   if (!confirmTransition(from, to)) return;
+
   state.busy = true;
+  showProcessing(from, to);
   paint(`Cambiando ${META[from].label} → ${META[to].label}…`);
+  let ok = false;
+  let finalMessage = "";
   try {
     const svc = await services();
     const { firestore, functions } = svc;
@@ -242,7 +316,9 @@ async function advance() {
       await refresh();
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
+      finalMessage = `Evento EN DIRECTO · ${Number(data.participantCount || 0)} corredor${Number(data.participantCount || 0) === 1 ? "" : "es"} autorizado${Number(data.participantCount || 0) === 1 ? "" : "s"}.`;
       if (typeof globalThis.toast === "function") globalThis.toast(`Carrera iniciada · ${data.participantCount ?? 0} corredor(es)`);
+      ok = true;
       return;
     }
     if (from === "live" && to === "finished") {
@@ -251,7 +327,9 @@ async function advance() {
       await refresh();
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
+      finalMessage = "Evento FINALIZADO · sesión Live V2 cerrada correctamente.";
       if (typeof globalThis.toast === "function") globalThis.toast("Carrera finalizada en backend Live V2");
+      ok = true;
       return;
     }
     const payload = {
@@ -262,21 +340,23 @@ async function advance() {
     };
     if (to === "prepared") payload.preparedAt = serverTimestamp();
     if (to === "published") payload.publishedAt = serverTimestamp();
-    if (to === "live") payload.liveAt = serverTimestamp();
-    if (to === "finished") payload.finishedAt = serverTimestamp();
     if (to === "archived") payload.archivedAt = serverTimestamp();
     await updateDoc(doc(firestore, "events", eventId), payload);
     await refresh();
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to } }));
+    finalMessage = `Estado actualizado a ${META[to].label}.`;
     if (typeof globalThis.toast === "function") globalThis.toast(`Estado: ${META[to].label}`);
+    ok = true;
   } catch (error) {
     console.error("[MILITOPO F2B] transition", error);
-    paint(`No se pudo cambiar el estado: ${String(error?.message || error)}`);
+    finalMessage = `No se pudo cambiar el estado: ${String(error?.message || error)}`;
   } finally {
     state.busy = false;
-    paint();
+    paint(ok ? "" : finalMessage);
+    await finishProcessing(ok, finalMessage);
   }
 }
+
 function onAuthReady(event) {
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
   setTimeout(() => refresh(), 120);
