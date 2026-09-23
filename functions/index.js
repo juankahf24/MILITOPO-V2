@@ -356,6 +356,91 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false }, async request => {
   return { ok: true, eventId, ownerUid, runId, status: "finished" };
 });
 
+
+// F3B · Transiciones de carrera del corredor desde backend.
+async function resolveRunnerLiveContext(identity, eventId) {
+  const uid = String(identity.uid || "").trim();
+  const eventRef = db.collection("events").doc(eventId);
+  const eventSnap = await eventRef.get();
+  if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera no existe.");
+  const eventData = eventSnap.data() || {};
+  const ownerUid = String(eventData.ownerUid || "").trim();
+  if (!ownerUid) throw new HttpsError("failed-precondition", "La carrera no tiene organizador.");
+
+  const memberSnap = await eventRef.collection("members").doc(uid).get();
+  if (!memberSnap.exists || String(memberSnap.data()?.status || "active").toLowerCase() !== "active") {
+    throw new HttpsError("permission-denied", "Tu cuenta no está activa en esta carrera.");
+  }
+  if (String(eventData.status || "").toLowerCase() !== "live") {
+    throw new HttpsError("failed-precondition", "La carrera no está EN DIRECTO.");
+  }
+
+  const baseRef = rtdb.ref(`v2/live/${ownerUid}/${eventId}`);
+  const activeSnap = await baseRef.child("activeRun").get();
+  const active = activeSnap.exists() ? (activeSnap.val() || {}) : {};
+  const runId = String(active.runId || eventData.liveRunId || "").trim();
+  if (!runId || String(active.status || "") !== "active") {
+    throw new HttpsError("failed-precondition", "No existe una sesión Live V2 activa.");
+  }
+  const participantRef = baseRef.child(`runs/${runId}/participants/${uid}`);
+  const participantSnap = await participantRef.get();
+  if (!participantSnap.exists) throw new HttpsError("permission-denied", "No estás incluido en esta sesión Live V2.");
+  return { uid, eventId, eventRef, eventData, ownerUid, baseRef, runId, participantRef, participant: participantSnap.val() || {} };
+}
+
+exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const ctx = await resolveRunnerLiveContext(identity, eventId);
+  const current = String(ctx.participant.status || "not_started").toLowerCase();
+  const status = ["racing", "started", "finished"].includes(current) ? (current === "started" ? "racing" : current) : "ready";
+  const profileSnap = await db.collection("users").doc(ctx.uid).get();
+  const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
+  const now = Date.now();
+  await ctx.participantRef.update({
+    uid: ctx.uid,
+    displayName: String(profile.displayName || ctx.participant.displayName || "").slice(0, 120) || null,
+    username: String(profile.usernameKey || profile.username || ctx.participant.username || "").replace(/^@/, "").slice(0, 40) || null,
+    email: String(profile.email || ctx.participant.email || identity.token.email || "").slice(0, 180) || null,
+    status,
+    online: true,
+    lastSeen: now,
+    updatedAt: now
+  });
+  return { ok: true, eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, status };
+});
+
+exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const ctx = await resolveRunnerLiveContext(identity, eventId);
+  const current = String(ctx.participant.status || "not_started").toLowerCase();
+  if (current === "finished") throw new HttpsError("failed-precondition", "Este recorrido ya está finalizado.");
+  if (["racing", "started"].includes(current)) {
+    return { ok: true, recovered: true, eventId, runId: ctx.runId, status: "racing", startedAt: ctx.participant.startedAt || null };
+  }
+  if (!["not_started", "ready"].includes(current)) throw new HttpsError("failed-precondition", "Estado de salida no válido.");
+  const now = Date.now();
+  await ctx.participantRef.update({ status: "racing", online: true, startedAt: now, lastSeen: now, updatedAt: now });
+  await appendAudit("RUNNER_STARTED", identity.uid, identity.uid, { eventId, ownerUid: ctx.ownerUid, runId: ctx.runId });
+  return { ok: true, eventId, runId: ctx.runId, status: "racing", startedAt: now };
+});
+
+exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const ctx = await resolveRunnerLiveContext(identity, eventId);
+  const current = String(ctx.participant.status || "").toLowerCase();
+  if (current === "finished") {
+    return { ok: true, recovered: true, eventId, runId: ctx.runId, status: "finished", finishedAt: ctx.participant.finishedAt || null };
+  }
+  if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes iniciar el recorrido antes de finalizarlo.");
+  const now = Date.now();
+  await ctx.participantRef.update({ status: "finished", online: true, finishedAt: now, lastSeen: now, updatedAt: now });
+  await appendAudit("RUNNER_FINISHED", identity.uid, identity.uid, { eventId, ownerUid: ctx.ownerUid, runId: ctx.runId });
+  return { ok: true, eventId, runId: ctx.runId, status: "finished", finishedAt: now };
+});
+
 // F3A · Contexto Live del corredor autenticado.
 // Evita collectionGroup("members"): esa consulta puede necesitar un índice de
 // grupo de colecciones y, si falta, Cloud Functions termina devolviendo 500.
