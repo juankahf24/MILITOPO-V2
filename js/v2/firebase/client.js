@@ -1,4 +1,4 @@
-/* MILITOPO V2 · F2A Blaze · Firebase client singleton.
+/* MILITOPO V2 · F3A · Firebase client singleton + runner shell helpers.
    Añade Cloud Functions 2nd gen en europe-west1 manteniendo Auth, Firestore y RTDB. */
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
@@ -16,8 +16,12 @@ import {
   persistentMultipleTabManager,
   connectFirestoreEmulator
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getDatabase, connectDatabaseEmulator } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
-import { getFunctions, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import {
+  getDatabase, connectDatabaseEmulator, ref as databaseRef, get as databaseGet,
+  onValue as databaseOnValue, update as databaseUpdate, onDisconnect as databaseOnDisconnect,
+  serverTimestamp as databaseServerTimestamp
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+import { getFunctions, connectFunctionsEmulator, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
 
 const APP_NAME = "militopo-v2";
@@ -77,6 +81,15 @@ export function getMilitopoFirebase() {
     });
   }
 
-  services = Object.freeze({ app, auth, firestore, database, functions, appCheck, config: cfg });
+  const callable = (name, data = {}) => httpsCallable(functions, String(name))(data);
+  const databaseApi = Object.freeze({
+    ref: path => databaseRef(database, String(path || "")),
+    get: target => databaseGet(target),
+    onValue: (target, next, error) => databaseOnValue(target, next, error),
+    update: (target, value) => databaseUpdate(target, value),
+    onDisconnect: target => databaseOnDisconnect(target),
+    serverTimestamp: () => databaseServerTimestamp()
+  });
+  services = Object.freeze({ app, auth, firestore, database, functions, appCheck, config: cfg, callable, databaseApi });
   return services;
 }
