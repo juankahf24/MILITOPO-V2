@@ -50,6 +50,18 @@
             }
           }
         }
+      },
+      "userSignals": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": false,
+          "invitations": {
+            "$invitationId": {
+              ".read": "auth != null && auth.uid === $uid",
+              ".write": false
+            }
+          }
+        }
       }
     }
   }
