@@ -173,11 +173,24 @@
   });
   addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
   document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner")loadEvents(false,true);});
+  addEventListener("focus",()=>{if(state.auth?.role==="runner")loadEvents(false,true);});
+  addEventListener("online",()=>{if(state.auth?.role==="runner")loadEvents(true,true);});
+  addEventListener("militopo:v2-invitation-accepted",()=>{if(state.auth?.role==="runner")loadEvents(true,false);});
+  addEventListener("militopo:v2-inbox-updated",event=>{if(state.auth?.role==="runner" && Number(event?.detail?.pending||0)===0) loadEvents(true,true);});
   try{
     if(localStorage.getItem(LAST_ROLE_KEY)==="runner"){
       reveal();
       setStatus("Recuperando tu sesión de corredor…");
     }
   }catch(_){}
+  let bootTries=0;
+  const bootTimer=setInterval(()=>{
+    bootTries+=1;
+    const auth=globalThis.MILITOPO_V2_AUTH;
+    if(auth?.role==="runner"){
+      clearInterval(bootTimer);
+      activate(auth);
+    } else if(bootTries>=20) clearInterval(bootTimer);
+  },400);
   if(globalThis.MILITOPO_V2_AUTH) queueMicrotask(()=>activate(globalThis.MILITOPO_V2_AUTH));
 })();
