@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-f3a-live-sync-identity-20260923";
-  const state = { auth:null, services:null, events:[], active:null, runId:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map() };
+  const VERSION = "v2-f3b-race-ui-20260923";
+  const state = { auth:null, services:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map() };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
 
   const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -38,7 +38,7 @@
     document.body.appendChild(root); state.root=root;
     root.querySelector("#m2rdAccount")?.addEventListener("click",()=>document.getElementById("m2AuthAccountBtn")?.click());
     root.querySelector("#m2rdRetry")?.addEventListener("click",()=>loadEvents(true));
-    root.addEventListener("click",e=>{const btn=e.target.closest("[data-enter-event]"); if(!btn)return; const id=btn.dataset.enterEvent||""; const url=new URL("orientacion/participante/runner.html",location.href); url.searchParams.set("app","1");url.searchParams.set("event",id); location.href=url.href;});
+    root.addEventListener("click",e=>{const btn=e.target.closest("[data-enter-event]"); if(!btn)return; const id=btn.dataset.enterEvent||""; const event=state.events.find(row=>row.eventId===id); if(!event||!state.runId)return; window.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{event:{...event},runId:state.runId,auth:{...state.auth}}}));});
     return root;
   }
   function el(id){return ensureRoot().querySelector("#"+id);}
@@ -56,7 +56,7 @@
   }
   function cleanupLive(){
     try{state.unsubRun?.();}catch(_){} try{state.unsubParticipant?.();}catch(_){} state.unsubRun=null;state.unsubParticipant=null;
-    if(state.heartbeat){clearInterval(state.heartbeat);state.heartbeat=null;} state.runId="";state.active=null;
+    if(state.heartbeat){clearInterval(state.heartbeat);state.heartbeat=null;} state.runId="";state.participantStatus="";state.active=null;
   }
   function cleanupEventWatchers(){
     for(const unsubscribe of state.eventWatchers.values()){try{unsubscribe?.();}catch(_){}}
@@ -112,14 +112,14 @@
       const activeRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/activeRun`);
       const activeSnap=await api.get(activeRef); const active=activeSnap.exists()?(activeSnap.val()||{}):{};
       if(!active.runId||String(active.status)!=="active") throw new Error("La carrera todavía no está en directo.");
-      state.runId=String(active.runId);
+      const joined=await svc.callable("runnerJoinLive",{eventId:event.eventId,clientVersion:VERSION});
+      state.runId=String(joined?.data?.runId||active.runId||"");
+      if(!state.runId) throw new Error("No se pudo resolver la sesión Live V2.");
       const pRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/runs/${state.runId}/participants/${state.auth.uid}`);
-      const pSnap=await api.get(pRef); if(!pSnap.exists()) throw new Error("Tu cuenta no está incluida en esta sesión Live.");
-      const current=pSnap.val()||{}; const currentStatus=String(current.status||""); const nextStatus=["racing","started","finished"].includes(currentStatus)?currentStatus:"ready";
-      await api.update(pRef,{online:true,status:nextStatus,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});
+      await api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});
       try{await api.onDisconnect(pRef).update({online:false,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});}catch(_){}
       state.heartbeat=setInterval(()=>api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()}).catch(()=>{}),20000);
-      state.unsubParticipant=api.onValue(pRef,snap=>{const row=snap.val()||{}; const label=String(row.status||"ready").toLowerCase()==="ready"?"PREPARADO":statusES(row.status); setStatus(`✅ Conectado a Live V2 · ${event.eventName} · ${label}`,"ok"); renderEvents();});
+      state.unsubParticipant=api.onValue(pRef,snap=>{const row=snap.val()||{}; state.participantStatus=String(row.status||"ready").toLowerCase(); const label=state.participantStatus==="ready"?"PREPARADO":state.participantStatus==="racing"?"EN CARRERA":state.participantStatus==="finished"?"FINALIZADO":statusES(state.participantStatus); setStatus(`✅ Conectado a Live V2 · ${event.eventName} · ${label}`,"ok"); renderEvents();});
       state.unsubRun=api.onValue(activeRef,snap=>{const row=snap.val()||{};if(String(row.status||"")==="finished"){setStatus("🏁 La sesión Live V2 ha finalizado.","ok");cleanupLive();renderEvents();}});
     }catch(error){console.error("[MILITOPO runner dashboard live]",error);setStatus(`⚠️ ${String(error?.message||error)}`,"err");}
   }
@@ -130,7 +130,12 @@
       const live=String(ev.status)==="live"&&String(ev.liveRunId||"").trim();
       const isConnected=state.active?.eventId===ev.eventId&&state.runId;
       let action="";
-      if(live){action=isConnected?`<div class="m2rd-live">✅ CONECTADO · PREPARADO / SIN SALIR</div><button class="m2rd-btn" type="button" data-enter-event="${esc(ev.eventId)}">ENTRAR EN LA INTERFAZ DE CARRERA</button>`:`<div class="m2rd-live">Carrera EN DIRECTO. Conectando automáticamente…</div>`;}
+      if(live){
+        const ps=String(state.participantStatus||"ready").toLowerCase();
+        const liveLabel=ps==="racing"?"EN CARRERA":ps==="finished"?"FINALIZADO":"PREPARADO / SIN SALIR";
+        const buttonLabel=ps==="finished"?"VER RESUMEN DE CARRERA":"ENTRAR EN LA CARRERA";
+        action=isConnected?`<div class="m2rd-live">✅ CONECTADO · ${liveLabel}</div><button class="m2rd-btn" type="button" data-enter-event="${esc(ev.eventId)}">${buttonLabel}</button>`:`<div class="m2rd-live">Carrera EN DIRECTO. Conectando automáticamente…</div>`;
+      }
       else if(String(ev.status)==="finished") action=`<div class="m2rd-note">Carrera finalizada.</div>`;
       else if(String(ev.status)==="prepared") action=`<div class="m2rd-note">La carrera está PREPARADA. Espera a que el organizador la publique.</div>`;
       else action=`<div class="m2rd-note">Esperando a que el organizador inicie la carrera.</div>`;
