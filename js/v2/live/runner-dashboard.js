@@ -3,13 +3,31 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-f3b-race-ui-20260923";
+  const VERSION = "v2-f3b-session-realtimefix-20260923";
   const state = { auth:null, services:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map() };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
+  const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
 
   const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusES = s => ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"})[String(s||"").toLowerCase()] || String(s||"").toUpperCase();
   const initials = name => { const p=String(name||"").trim().split(/\s+/).filter(Boolean); return ((p[0]?.[0]||"")+(p[1]?.[0]||"")).toUpperCase()||"R"; };
+
+
+  function cachedAuth(){
+    try{const raw=localStorage.getItem(AUTH_SNAPSHOT_KEY);if(!raw)return null;const data=JSON.parse(raw);return data?.role==="runner"?data:null;}catch(_){return null;}
+  }
+  async function recoverRunnerAuth(){
+    if(state.auth?.uid)return true;
+    try{
+      const svc=await services();
+      if(typeof svc.auth?.authStateReady==="function") await Promise.race([svc.auth.authStateReady(),new Promise(resolve=>setTimeout(resolve,5000))]);
+      const user=svc.auth?.currentUser;
+      if(!user||!user.emailVerified)return false;
+      const snap=cachedAuth();
+      activate({uid:user.uid,email:user.email||snap?.email||null,displayName:snap?.displayName||user.displayName||null,username:snap?.username||null,role:"runner",emailVerified:true},true);
+      return true;
+    }catch(error){console.warn("[MILITOPO runner dashboard] auth recovery",error);return false;}
+  }
 
   function installStyle(){
     if(document.getElementById("m2RunnerDashboardStyle")) return;
@@ -159,17 +177,19 @@
       }
     }catch(error){console.error("[MILITOPO runner dashboard]",error);setStatus(`⚠️ ${String(error?.message||"No se pudieron consultar tus carreras.")}`,"err");retry.hidden=false;}
   }
-  function activate(auth){
+  function activate(auth, silent=false){
     if(!auth||auth.role!=="runner"){hide();return;}
+    const changedUid=String(state.auth?.uid||"")!==String(auth.uid||"");
     state.auth=auth;
-    try{localStorage.setItem(LAST_ROLE_KEY,"runner");}catch(_){}
-    reveal(); paintIdentity(auth); loadEvents();
+    try{localStorage.setItem(LAST_ROLE_KEY,"runner");localStorage.setItem(AUTH_SNAPSHOT_KEY,JSON.stringify(auth));}catch(_){}
+    reveal(); paintIdentity(auth);
+    if(changedUid||!state.events.length) loadEvents(false,silent);
   }
   addEventListener("militopo:v2-auth-ready",e=>activate(e.detail));
   addEventListener("militopo:v2-runner-dashboard",e=>activate(e.detail));
   addEventListener("militopo:v2-auth-signed-out",()=>{
     state.auth=null;state.events=[];cleanupLive();cleanupEventWatchers();hide();
-    try{localStorage.removeItem(LAST_ROLE_KEY);}catch(_){}
+    try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);}catch(_){}
   });
   addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
   document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner")loadEvents(false,true);});
@@ -180,7 +200,10 @@
   try{
     if(localStorage.getItem(LAST_ROLE_KEY)==="runner"){
       reveal();
+      const snap=cachedAuth();
+      if(snap) paintIdentity(snap);
       setStatus("Recuperando tu sesión de corredor…");
+      setTimeout(()=>recoverRunnerAuth(),120);
     }
   }catch(_){}
   let bootTries=0;
@@ -189,8 +212,11 @@
     const auth=globalThis.MILITOPO_V2_AUTH;
     if(auth?.role==="runner"){
       clearInterval(bootTimer);
-      activate(auth);
-    } else if(bootTries>=20) clearInterval(bootTimer);
+      activate(auth,true);
+    } else if(bootTries%5===0){
+      recoverRunnerAuth();
+    }
+    if(bootTries>=30) clearInterval(bootTimer);
   },400);
-  if(globalThis.MILITOPO_V2_AUTH) queueMicrotask(()=>activate(globalThis.MILITOPO_V2_AUTH));
+  if(globalThis.MILITOPO_V2_AUTH) queueMicrotask(()=>activate(globalThis.MILITOPO_V2_AUTH,true));
 })();

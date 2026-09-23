@@ -63,7 +63,7 @@ function ensurePanel() {
     </div>
     <div id="m2LiveV2Status" class="m2-livev2-status">Carga un evento para comprobar el backend Live V2.</div>
     <button id="m2LiveV2Sync" type="button">SINCRONIZAR ACCESO LIVE V2</button>
-    <div class="m2-livev2-note">F2C: el seguimiento del organizador ya usa Live V2. El participante heredado se mantiene como respaldo hasta F3.</div>`;
+    <div class="m2-livev2-note">Live V2 es el sistema activo de carrera. Los accesos se sincronizan automáticamente con el censo.</div>`;
   const nav = step.querySelector(".nav-row");
   if (nav) nav.insertAdjacentElement("beforebegin", panel); else step.appendChild(panel);
   panel.querySelector("#m2LiveV2Sync").addEventListener("click", () => sync(true));
@@ -190,6 +190,10 @@ function init() {
   globalThis.addEventListener("militopo:v2-event-status", event => refreshFromEventStatus(event.detail || {}));
   globalThis.addEventListener("militopo:v2-event-status-changed", event => refreshFromEventStatus(event.detail || globalThis.MILITOPO_V2_EVENT_STATUS || {}, true));
   globalThis.addEventListener("militopo:v2-roster-refresh", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 150); } });
+  globalThis.addEventListener("militopo:v2-roster-changed", event => {
+    const eventId = String(event?.detail?.eventId || "");
+    if (state.eventId && (!eventId || eventId === state.eventId)) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 120); }
+  });
   globalThis.addEventListener("militopo:v2-invitation-accepted", () => { if (state.eventId) { clearTimeout(state.timer); state.timer = setTimeout(() => sync(false), 150); } });
   globalThis.addEventListener("militopo:v2-live-run-changed", event => {
     const detail = event?.detail || {};
