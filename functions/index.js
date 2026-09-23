@@ -324,41 +324,71 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false }, async request => {
 });
 
 // F3A · Contexto Live del corredor autenticado.
+// Evita collectionGroup("members"): esa consulta puede necesitar un índice de
+// grupo de colecciones y, si falta, Cloud Functions termina devolviendo 500.
+// Primero buscamos únicamente eventos activos y después comprobamos el
+// documento members/{uid} de cada candidato. Las carreras FINALIZADAS no se
+// muestran en "Mis carreras"; quedarán para la futura vista de historial.
 exports.getRunnerLiveEvents = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const uid = String(identity.uid || "").trim();
-  const memberships = await db.collectionGroup("members").where("uid", "==", uid).get();
-  const eventRefs = new Map();
-  memberships.forEach(memberSnap => {
-    const data = memberSnap.data() || {};
-    if (String(data.status || "active").toLowerCase() !== "active") return;
-    const eventRef = memberSnap.ref.parent.parent;
-    if (eventRef) eventRefs.set(eventRef.id, eventRef);
-  });
-  const events = [];
-  for (const [eventId, eventRef] of eventRefs) {
-    const eventSnap = await eventRef.get();
-    if (!eventSnap.exists) continue;
-    const data = eventSnap.data() || {};
-    const status = String(data.status || "draft").toLowerCase();
-    if (!["prepared", "published", "live", "finished"].includes(status)) continue;
-    const ownerUid = String(data.ownerUid || "").trim();
-    if (!ownerUid) continue;
-    const activeSnap = await rtdb.ref(`v2/live/${ownerUid}/${eventId}/activeRun`).get();
-    const activeRun = activeSnap.exists() ? (activeSnap.val() || {}) : {};
-    events.push({
-      eventId,
-      eventName: String(data.eventName || "Carrera de orientación").slice(0, 140),
-      ownerUid,
-      status,
-      liveRunId: String(activeRun.runId || data.liveRunId || ""),
-      liveStatus: String(activeRun.status || ""),
-      participantCount: Math.max(0, Number(activeRun.participantCount || 0))
+
+  try {
+    const wantedStatuses = ["prepared", "published", "live"];
+    const snapshots = await Promise.all(
+      wantedStatuses.map(status => db.collection("events").where("status", "==", status).limit(200).get())
+    );
+
+    const candidates = new Map();
+    for (const querySnap of snapshots) {
+      querySnap.forEach(eventSnap => candidates.set(eventSnap.id, eventSnap));
+    }
+
+    const rows = await Promise.all(Array.from(candidates.values()).map(async eventSnap => {
+      const eventId = eventSnap.id;
+      const data = eventSnap.data() || {};
+      const memberSnap = await eventSnap.ref.collection("members").doc(uid).get();
+      if (!memberSnap.exists) return null;
+
+      const memberData = memberSnap.data() || {};
+      if (String(memberData.status || "active").toLowerCase() !== "active") return null;
+
+      const status = String(data.status || "draft").toLowerCase();
+      const ownerUid = String(data.ownerUid || "").trim();
+      if (!ownerUid || !wantedStatuses.includes(status)) return null;
+
+      let activeRun = {};
+      // Solo consultamos RTDB si la carrera está realmente EN DIRECTO.
+      if (status === "live") {
+        const activeSnap = await rtdb.ref(`v2/live/${ownerUid}/${eventId}/activeRun`).get();
+        activeRun = activeSnap.exists() ? (activeSnap.val() || {}) : {};
+      }
+
+      return {
+        eventId,
+        eventName: String(data.eventName || "Carrera de orientación").slice(0, 140),
+        ownerUid,
+        status,
+        liveRunId: String(activeRun.runId || data.liveRunId || ""),
+        liveStatus: String(activeRun.status || ""),
+        participantCount: Math.max(0, Number(activeRun.participantCount || 0))
+      };
+    }));
+
+    const events = rows.filter(Boolean);
+    events.sort((a, b) => {
+      const rank = { live: 0, published: 1, prepared: 2 };
+      return (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || a.eventName.localeCompare(b.eventName, "es");
     });
+
+    return { ok: true, uid, events };
+  } catch (error) {
+    console.error("[MILITOPO getRunnerLiveEvents]", {
+      uid,
+      code: error?.code || null,
+      message: error?.message || String(error)
+    });
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "No se pudieron consultar tus carreras activas.");
   }
-  events.sort((a, b) => {
-    const rank = { live: 0, published: 1, prepared: 2, finished: 3 };
-    return (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || a.eventName.localeCompare(b.eventName, "es");
-  });
-  return { ok: true, uid, events };
 });
