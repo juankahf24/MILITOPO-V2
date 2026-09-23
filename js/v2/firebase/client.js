@@ -1,10 +1,9 @@
-/* MILITOPO V2 · F3A · Firebase client singleton + runner shell helpers.
+/* MILITOPO V2 · v2-f3b-session-realtimefix-20260923 · Firebase client singleton + sesión estable.
    Añade Cloud Functions 2nd gen en europe-west1 manteniendo Auth, Firestore y RTDB. */
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,
   getAuth,
-  indexedDBLocalPersistence,
   browserLocalPersistence,
   browserSessionPersistence,
   connectAuthEmulator
@@ -48,7 +47,7 @@ export function getMilitopoFirebase() {
   let auth;
   try {
     auth = initializeAuth(app, {
-      persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence]
+      persistence: [browserLocalPersistence, browserSessionPersistence]
     });
   } catch (error) {
     if (String(error?.code || "").includes("already-initialized")) auth = getAuth(app);
