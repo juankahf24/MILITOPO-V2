@@ -58,7 +58,18 @@
   </main>
 
   <script src="../../js/v2/firebase-config.js"></script>
-  <script type="module" src="./runner-home-v3.js?v=v2-f3a-runner-home-v3-20260923"></script>
+  <script>
+    window.__MILITOPO_RUNNER_HOME_V4_BOOTED=false;
+    window.__MILITOPO_RUNNER_HOME_V4_WATCHDOG=setTimeout(function(){
+      if(window.__MILITOPO_RUNNER_HOME_V4_BOOTED)return;
+      var name=document.getElementById("rhName"),meta=document.getElementById("rhMeta"),status=document.getElementById("rhStatus"),retry=document.getElementById("rhRetry");
+      if(name)name.textContent="No se pudo iniciar tu área";
+      if(meta)meta.textContent="El módulo de Firebase no terminó de cargar.";
+      if(status){status.textContent="⚠️ No se pudo cargar Firebase. Comprueba la conexión y pulsa REINTENTAR.";status.className="status err";}
+      if(retry)retry.style.display="block";
+    },12000);
+  </script>
+  <script type="module" src="./runner-home-v4.js?v=v2-f3a-runner-home-v4-20260923"></script>
   <script>
     if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}
   </script>
