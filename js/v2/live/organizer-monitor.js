@@ -41,7 +41,9 @@ const state = {
   unsubActive: null,
   unsubParticipants: null,
   panel: null,
-  lastError: ""
+  lastError: "",
+  profileCache: new Map(),
+  profileLoads: new Set()
 };
 
 function roleOf() {
@@ -148,6 +150,40 @@ function participantRows() {
     return an.localeCompare(bn, "es");
   });
 }
+async function hydrateParticipantProfiles() {
+  const rows = Object.values(state.participants || {}).filter(Boolean);
+  const pending = rows.filter(row => {
+    const uid = String(row?.uid || "").trim();
+    if (!uid) return false;
+    if (row.displayName || row.username || row.email) return false;
+    if (state.profileCache.has(uid) || state.profileLoads.has(uid)) return false;
+    return true;
+  });
+  if (!pending.length) return;
+
+  const { firestore } = await services();
+  await Promise.allSettled(pending.map(async row => {
+    const uid = String(row.uid || "").trim();
+    state.profileLoads.add(uid);
+    try {
+      const snap = await getDoc(doc(firestore, "users", uid));
+      const profile = snap.exists() ? (snap.data() || {}) : {};
+      const hydrated = {
+        displayName: String(profile.displayName || "").trim(),
+        username: String(profile.usernameKey || profile.username || "").replace(/^@/, "").trim(),
+        email: String(profile.email || "").trim()
+      };
+      state.profileCache.set(uid, hydrated);
+      if (state.participants?.[uid]) Object.assign(state.participants[uid], hydrated);
+    } catch (error) {
+      console.warn("[MILITOPO F2C] perfil participante", uid, error);
+      state.profileCache.set(uid, {});
+    } finally {
+      state.profileLoads.delete(uid);
+    }
+  }));
+  render();
+}
 function normalizedStatus(row) {
   const raw = String(row?.status || "not_started").toLowerCase();
   if (raw === "started") return "racing";
@@ -243,8 +279,12 @@ async function bindParticipants() {
   const path = `v2/live/${state.ownerUid}/${state.eventId}/runs/${state.runId}/participants`;
   state.unsubParticipants = onValue(ref(database, path), snap => {
     state.participants = snap.exists() ? (snap.val() || {}) : {};
+    for (const [uid, cached] of state.profileCache.entries()) {
+      if (state.participants?.[uid]) Object.assign(state.participants[uid], cached);
+    }
     state.lastError = "";
     render();
+    hydrateParticipantProfiles();
   }, error => {
     console.error("[MILITOPO F2C] participants", error);
     state.lastError = "No se pudo leer la tabla Live V2 del organizador.";

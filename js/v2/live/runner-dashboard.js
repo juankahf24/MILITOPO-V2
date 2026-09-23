@@ -3,8 +3,9 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-f3a-membership-fix-20260923";
-  const state = { auth:null, services:null, events:[], active:null, runId:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null };
+  const VERSION = "v2-f3a-live-sync-identity-20260923";
+  const state = { auth:null, services:null, events:[], active:null, runId:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map() };
+  const LAST_ROLE_KEY = "militopo_v2_last_role";
 
   const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusES = s => ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"})[String(s||"").toLowerCase()] || String(s||"").toUpperCase();
@@ -57,7 +58,52 @@
     try{state.unsubRun?.();}catch(_){} try{state.unsubParticipant?.();}catch(_){} state.unsubRun=null;state.unsubParticipant=null;
     if(state.heartbeat){clearInterval(state.heartbeat);state.heartbeat=null;} state.runId="";state.active=null;
   }
+  function cleanupEventWatchers(){
+    for(const unsubscribe of state.eventWatchers.values()){try{unsubscribe?.();}catch(_){}}
+    state.eventWatchers.clear();
+  }
   async function services(){ if(!state.services) state.services=await globalThis.MILITOPO_V2.firebase(); return state.services; }
+  async function bindEventWatchers(){
+    cleanupEventWatchers();
+    if(!state.auth?.uid || !state.events.length) return;
+    try{
+      const svc=await services(), api=svc.databaseApi;
+      if(!api) return;
+      for(const event of state.events){
+        if(!event?.ownerUid || !event?.eventId) continue;
+        const activeRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/activeRun`);
+        const unsubscribe=api.onValue(activeRef,snap=>{
+          const active=snap.exists()?(snap.val()||{}):{};
+          const runId=String(active.runId||"").trim();
+          const runStatus=String(active.status||"").toLowerCase();
+          const target=state.events.find(row=>row.eventId===event.eventId);
+          if(!target) return;
+          if(runId && runStatus==="active"){
+            target.status="live";
+            target.liveRunId=runId;
+            target.liveStatus=runStatus;
+            renderEvents();
+            if(!state.active || state.active.eventId!==target.eventId || !state.runId){
+              connectLive(target);
+            }
+          } else if(runStatus==="finished"){
+            target.status="finished";
+            target.liveStatus="finished";
+            renderEvents();
+            if(state.active?.eventId===target.eventId){
+              cleanupLive();
+              setStatus("🏁 La sesión Live V2 ha finalizado.","ok");
+            }
+            setTimeout(()=>loadEvents(false,true),500);
+          }
+        },error=>console.warn("[MILITOPO runner dashboard] activeRun watcher",event.eventId,error));
+        state.eventWatchers.set(event.eventId,unsubscribe);
+      }
+    }catch(error){
+      console.warn("[MILITOPO runner dashboard] watchers",error);
+    }
+  }
+
   async function connectLive(event){
     cleanupLive(); state.active=event; setStatus(`Conectando con ${event.eventName}…`);
     try{
@@ -91,24 +137,42 @@
       return `<article class="m2rd-event"><strong>${esc(ev.eventName||"Carrera")}</strong><div class="m2rd-event-meta">${esc(statusES(ev.status))} · ${esc(ev.eventId||"")}</div><span class="m2rd-pill">${esc(statusES(ev.status))}</span>${action}</article>`;
     }).join("");
   }
-  async function loadEvents(force=false){
+  async function loadEvents(force=false,silent=false){
     if(!state.auth||state.auth.role!=="runner") return;
-    const retry=el("m2rdRetry"); retry.hidden=true; setStatus("Consultando tus carreras Live V2…");
+    const retry=el("m2rdRetry"); retry.hidden=true;
+    if(!silent) setStatus("Consultando tus carreras Live V2…");
     try{
       const svc=await services(); if(!svc.callable) throw new Error("Backend Live V2 no disponible.");
       const result=await svc.callable("getRunnerLiveEvents",{clientVersion:VERSION});
       state.events=Array.isArray(result?.data?.events)?result.data.events:[]; renderEvents();
+      await bindEventWatchers();
       const live=state.events.filter(e=>String(e.status)==="live"&&String(e.liveRunId||"").trim());
       if(live.length===1&&(!state.active||state.active.eventId!==live[0].eventId)) setTimeout(()=>connectLive(live[0]),250);
-      else if(!live.length){cleanupLive(); if(state.events.length)setStatus(`✅ ${state.events.length} carrera${state.events.length===1?"":"s"} asociada${state.events.length===1?"":"s"} a tu cuenta.`,"ok");}
+      else if(!live.length){
+        cleanupLive();
+        if(state.events.length&&!silent)setStatus(`✅ ${state.events.length} carrera${state.events.length===1?"":"s"} asociada${state.events.length===1?"":"s"} a tu cuenta.`,"ok");
+      }
     }catch(error){console.error("[MILITOPO runner dashboard]",error);setStatus(`⚠️ ${String(error?.message||"No se pudieron consultar tus carreras.")}`,"err");retry.hidden=false;}
   }
   function activate(auth){
     if(!auth||auth.role!=="runner"){hide();return;}
-    state.auth=auth; reveal(); paintIdentity(auth); loadEvents();
+    state.auth=auth;
+    try{localStorage.setItem(LAST_ROLE_KEY,"runner");}catch(_){}
+    reveal(); paintIdentity(auth); loadEvents();
   }
   addEventListener("militopo:v2-auth-ready",e=>activate(e.detail));
   addEventListener("militopo:v2-runner-dashboard",e=>activate(e.detail));
-  addEventListener("militopo:v2-auth-signed-out",()=>{state.auth=null;state.events=[];hide();});
+  addEventListener("militopo:v2-auth-signed-out",()=>{
+    state.auth=null;state.events=[];cleanupLive();cleanupEventWatchers();hide();
+    try{localStorage.removeItem(LAST_ROLE_KEY);}catch(_){}
+  });
+  addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner")loadEvents(false,true);});
+  try{
+    if(localStorage.getItem(LAST_ROLE_KEY)==="runner"){
+      reveal();
+      setStatus("Recuperando tu sesión de corredor…");
+    }
+  }catch(_){}
   if(globalThis.MILITOPO_V2_AUTH) queueMicrotask(()=>activate(globalThis.MILITOPO_V2_AUTH));
 })();
