@@ -147,9 +147,34 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
     });
   });
 
+  // Completa la identidad desde users/{uid}. Miembros creados en fases
+  // anteriores podían tener solo uid/email y el monitor acababa mostrando el UID.
+  if (members.length) {
+    const refs = members.map(member => db.collection("users").doc(member.uid));
+    const profiles = await db.getAll(...refs);
+    profiles.forEach((profileSnap, index) => {
+      if (!profileSnap?.exists) return;
+      const profile = profileSnap.data() || {};
+      const member = members[index];
+      if (!member.username) {
+        member.username = String(profile.usernameKey || profile.username || "").replace(/^@/, "").slice(0, 40);
+      }
+      if (!member.displayName) {
+        member.displayName = String(profile.displayName || "").slice(0, 120);
+      }
+      if (!member.email) {
+        member.email = String(profile.email || "").slice(0, 180);
+      }
+    });
+  }
+
   const baseRef = rtdb.ref(`v2/live/${ownerUid}/${eventId}`);
   const currentMembersSnap = await baseRef.child("members").get();
   const currentMembers = currentMembersSnap.exists() ? (currentMembersSnap.val() || {}) : {};
+  const currentActiveRunSnap = await baseRef.child("activeRun").get();
+  const currentActiveRun = currentActiveRunSnap.exists() ? (currentActiveRunSnap.val() || {}) : {};
+  const currentRunId = String(currentActiveRun.runId || "").trim();
+  const currentRunActive = Boolean(currentRunId && String(currentActiveRun.status || "") === "active");
   const updates = {
     "meta/ownerUid": ownerUid,
     "meta/eventId": eventId,
@@ -172,6 +197,13 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
       email: member.email || null,
       updatedAt: Date.now()
     };
+    // Si la sesión ya está en directo, refresca solo los datos de identidad.
+    // No toca estado, online, salida, llegada ni lastSeen.
+    if (currentRunActive && member.status === "active") {
+      updates[`runs/${currentRunId}/participants/${member.uid}/username`] = member.username || null;
+      updates[`runs/${currentRunId}/participants/${member.uid}/displayName`] = member.displayName || null;
+      updates[`runs/${currentRunId}/participants/${member.uid}/email`] = member.email || null;
+    }
   }
   for (const uid of Object.keys(currentMembers)) {
     if (!seen.has(uid)) updates[`members/${uid}`] = null;
@@ -234,6 +266,7 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
       uid: member.uid,
       username: member.username || null,
       displayName: member.displayName || null,
+      email: member.email || null,
       status: "not_started",
       online: false,
       startedAt: null,
