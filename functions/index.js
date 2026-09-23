@@ -2,6 +2,7 @@
 
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -510,3 +511,62 @@ exports.getRunnerLiveEvents = onCall({ enforceAppCheck: false }, async request =
     throw new HttpsError("internal", "No se pudieron consultar tus carreras activas.");
   }
 });
+
+// F3B hardening · sincronización servidor-servidor de membresías e invitaciones.
+// Evita depender de eventos CustomEvent entre dispositivos y mantiene RTDB al día
+// aunque ningún organizador tenga la página abierta.
+exports.syncLiveMembershipOnWrite = onDocumentWritten("events/{eventId}/members/{uid}", async event => {
+  const eventId = cleanEventId(event.params.eventId);
+  try {
+    await syncLiveAccessForEvent({ uid: "system", token: { role: "super_admin" } }, eventId);
+  } catch (error) {
+    const code = String(error?.code || "");
+    if (code === "failed-precondition" || code === "not-found") {
+      console.log("[MILITOPO syncLiveMembershipOnWrite] omitido", { eventId, code });
+      return;
+    }
+    console.error("[MILITOPO syncLiveMembershipOnWrite]", { eventId, code, message: error?.message || String(error) });
+    throw error;
+  }
+});
+
+async function resolveInvitationSignalUid(data) {
+  if (!data) return "";
+  const direct = String(data.targetUid || "").trim();
+  if (direct) return direct;
+  const email = String(data.targetEmail || "").trim().toLowerCase();
+  if (!email) return "";
+  const snap = await db.collection("users").where("email", "==", email).limit(1).get();
+  if (snap.empty) return "";
+  return String(snap.docs[0].id || snap.docs[0].data()?.uid || "").trim();
+}
+
+exports.mirrorInvitationSignal = onDocumentWritten("invitations/{invitationId}", async event => {
+  const invitationId = String(event.params.invitationId || "").trim();
+  const before = event.data?.before?.exists ? (event.data.before.data() || {}) : null;
+  const after = event.data?.after?.exists ? (event.data.after.data() || {}) : null;
+  const [beforeUid, afterUid] = await Promise.all([
+    resolveInvitationSignalUid(before),
+    resolveInvitationSignalUid(after)
+  ]);
+  const touched = new Set([beforeUid, afterUid].filter(Boolean));
+  const updates = {};
+  for (const uid of touched) {
+    const path = `v2/userSignals/${uid}/invitations/${invitationId}`;
+    const isCurrentTarget = uid === afterUid;
+    const status = String(after?.status || "").toLowerCase();
+    if (isCurrentTarget && after && status === "pending") {
+      updates[path] = {
+        invitationId,
+        eventId: String(after.eventId || ""),
+        eventName: String(after.eventName || "Carrera").slice(0, 140),
+        status: "pending",
+        updatedAt: Date.now()
+      };
+    } else {
+      updates[path] = null;
+    }
+  }
+  if (Object.keys(updates).length) await rtdb.ref().update(updates);
+});
+
