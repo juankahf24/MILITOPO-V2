@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   where,
@@ -21,7 +22,12 @@ const state = {
   list: null,
   status: null,
   badge: null,
-  directInviteId: new URL(window.location.href).searchParams.get("invite") || ""
+  directInviteId: new URL(window.location.href).searchParams.get("invite") || "",
+  realtimeUnsubs: [],
+  realtimeEmailRows: new Map(),
+  realtimeUidRows: new Map(),
+  realtimeStartedFor: "",
+  lastPendingSignature: ""
 };
 
 function esc(value) {
@@ -100,6 +106,82 @@ function ensureUi() {
 }
 function setStatus(text) {
   if (state.status) state.status.textContent = text;
+}
+
+function stopRealtimeInvitations() {
+  for (const unsubscribe of state.realtimeUnsubs.splice(0)) {
+    try { unsubscribe?.(); } catch (_) {}
+  }
+  state.realtimeEmailRows.clear();
+  state.realtimeUidRows.clear();
+  state.realtimeStartedFor = "";
+}
+function rowsFromSnapshot(snapshot) {
+  const out = new Map();
+  snapshot.forEach(d => {
+    const data = d.data() || {};
+    const status = String(data.status || "pending");
+    if (status === "pending" || (status === "accepted" && String(data.targetUid || "") === String(state.auth?.uid || ""))) {
+      out.set(d.id, { id: d.id, ...data });
+    }
+  });
+  return out;
+}
+function applyRealtimeRows() {
+  const rowsById = new Map([...state.realtimeEmailRows, ...state.realtimeUidRows]);
+  const rows = [...rowsById.values()];
+  rows.sort((a,b) => {
+    if (a.id === state.directInviteId) return -1;
+    if (b.id === state.directInviteId) return 1;
+    const am = a.createdAt?.toMillis?.() || 0, bm = b.createdAt?.toMillis?.() || 0;
+    return bm - am;
+  });
+  state.rows = rows;
+  render();
+  const pending = rows.filter(row => String(row.status || "pending") === "pending");
+  const signature = pending.map(row => row.id).sort().join("|");
+  if (pending.length && signature && signature !== state.lastPendingSignature) {
+    state.lastPendingSignature = signature;
+    const marker = `militopo_v2_invite_seen_${state.auth?.uid || ""}_${pending.map(r => r.id).join("_")}`;
+    let seen = false;
+    try { seen = sessionStorage.getItem(marker) === "1"; } catch (_) {}
+    if (state.directInviteId || !seen) {
+      try { sessionStorage.setItem(marker, "1"); } catch (_) {}
+      setTimeout(() => document.getElementById("m2AuthAccountBtn")?.click(), 120);
+    }
+  } else if (!pending.length) {
+    state.lastPendingSignature = "";
+  }
+  try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-inbox-updated", { detail: { pending: pending.length, rows: rows.length } })); } catch (_) {}
+}
+async function startRealtimeInvitations({ force = false } = {}) {
+  if (!state.auth?.uid || !state.auth?.emailVerified || !emailOf()) return;
+  if (!ensureUi()) { setTimeout(() => startRealtimeInvitations({ force }), 150); return; }
+  const key = `${state.auth.uid}|${emailOf()}`;
+  if (!force && state.realtimeStartedFor === key && state.realtimeUnsubs.length) return;
+  stopRealtimeInvitations();
+  state.realtimeStartedFor = key;
+  setStatus("Comprobando invitaciones…");
+  try {
+    const { firestore } = await services();
+    const emailQuery = query(collection(firestore, "invitations"), where("targetEmail", "==", emailOf()));
+    const uidQuery = query(collection(firestore, "invitations"), where("targetUid", "==", String(state.auth.uid)));
+    const onError = error => {
+      console.error("[MILITOPO inbox realtime]", error);
+      setStatus("No se pudieron sincronizar las invitaciones en tiempo real. Reintentaremos al recuperar conexión.");
+    };
+    state.realtimeUnsubs.push(onSnapshot(emailQuery, snap => {
+      state.realtimeEmailRows = rowsFromSnapshot(snap);
+      applyRealtimeRows();
+    }, onError));
+    state.realtimeUnsubs.push(onSnapshot(uidQuery, snap => {
+      state.realtimeUidRows = rowsFromSnapshot(snap);
+      applyRealtimeRows();
+    }, onError));
+  } catch (error) {
+    console.error("[MILITOPO inbox realtime] start", error);
+    setStatus("No se pudieron iniciar las invitaciones en tiempo real.");
+  }
 }
 function removeInviteParam() {
   try {
@@ -246,9 +328,10 @@ async function acceptInvitation(id) {
     }
     await batch.commit();
     removeInviteParam();
-    await loadInvitations();
+    applyRealtimeRows();
     setStatus("✅ Te has unido correctamente a la carrera.");
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-invitation-accepted", { detail: { inviteId: id, eventId: invite.eventId } }));
+    globalThis.dispatchEvent(new CustomEvent("militopo:v2-invitation-refresh", { detail: { inviteId: id, eventId: invite.eventId } }));
   } catch (error) {
     console.error("[MILITOPO E1 inbox] accept", error);
     setStatus(`No se pudo aceptar la invitación: ${String(error?.message || error)}`);
@@ -268,13 +351,14 @@ function onAuth(detail) {
     if (state.badge) state.badge.hidden = true;
     return;
   }
-  setTimeout(loadInvitations, 80);
+  setTimeout(() => startRealtimeInvitations({ force: true }), 80);
 }
 function init() {
   ensureUi();
   globalThis.addEventListener("militopo:v2-auth-ready", event => onAuth(event?.detail));
-  globalThis.addEventListener("militopo:v2-invitation-refresh", () => loadInvitations());
-  globalThis.addEventListener("online", () => loadInvitations());
+  globalThis.addEventListener("militopo:v2-invitation-refresh", () => startRealtimeInvitations({ force: true }));
+  globalThis.addEventListener("online", () => startRealtimeInvitations({ force: true }));
+  globalThis.addEventListener("militopo:v2-auth-signed-out", () => { stopRealtimeInvitations(); state.rows = []; render(); });
   if (globalThis.MILITOPO_V2_AUTH) onAuth(globalThis.MILITOPO_V2_AUTH);
 }
 

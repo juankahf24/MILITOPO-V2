@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   query,
   serverTimestamp,
   where,
@@ -33,7 +34,11 @@ const state = {
   searchInput: null,
   searchSuggest: null,
   tabs: null,
-  bulkBar: null
+  bulkBar: null,
+  realtimeMembersUnsub: null,
+  realtimeInvitesUnsub: null,
+  realtimeEventId: "",
+  realtimeSeq: 0
 };
 
 function roleOf() {
@@ -373,11 +378,65 @@ async function resolveDirectory(uids) {
     }
   }
 }
+
+function stopRealtimeRoster() {
+  try { state.realtimeMembersUnsub?.(); } catch (_) {}
+  try { state.realtimeInvitesUnsub?.(); } catch (_) {}
+  state.realtimeMembersUnsub = null;
+  state.realtimeInvitesUnsub = null;
+  state.realtimeEventId = "";
+  state.realtimeSeq += 1;
+}
+function refreshRosterUi() {
+  state.selected.forEach(key => {
+    const exists = allRows().some(row => row.key === key);
+    if (!exists) state.selected.delete(key);
+  });
+  render();
+  renderSearchSuggest();
+}
+async function startRealtimeRoster(eventId) {
+  if (!eventId || !canManage()) return;
+  if (state.realtimeEventId === eventId && state.realtimeMembersUnsub && state.realtimeInvitesUnsub) return;
+  stopRealtimeRoster();
+  state.realtimeEventId = eventId;
+  const seq = state.realtimeSeq;
+  try {
+    const { firestore } = await services();
+    const membersRef = collection(firestore, "events", eventId, "members");
+    state.realtimeMembersUnsub = onSnapshot(membersRef, async snap => {
+      if (seq !== state.realtimeSeq) return;
+      const members = [];
+      snap.forEach(d => members.push({ id:d.id, ...(d.data() || {}), uid:String((d.data() || {}).uid || d.id) }));
+      await resolveDirectory(members.map(row => row.uid));
+      if (seq !== state.realtimeSeq) return;
+      state.members = members;
+      refreshRosterUi();
+    }, error => console.warn("[MILITOPO roster realtime members]", error));
+
+    const inviteQuery = roleOf() === "super_admin"
+      ? query(collection(firestore, "invitations"), where("eventId", "==", eventId))
+      : query(collection(firestore, "invitations"), where("createdBy", "==", state.auth.uid));
+    state.realtimeInvitesUnsub = onSnapshot(inviteQuery, snap => {
+      if (seq !== state.realtimeSeq) return;
+      const invitations = [];
+      snap.forEach(d => {
+        const data = d.data() || {};
+        if (String(data.eventId || "") === eventId) invitations.push({ id:d.id, ...data });
+      });
+      state.invitations = invitations;
+      refreshRosterUi();
+    }, error => console.warn("[MILITOPO roster realtime invitations]", error));
+  } catch (error) {
+    console.warn("[MILITOPO roster realtime] start", error);
+  }
+}
+
 async function loadAll({ force = false } = {}) {
   ensureUi();
   const eventId = currentEventId();
   if (!canManage() || !eventId || !navigator.onLine) { render(); return false; }
-  if (!force && state.loadedEventId === eventId && state.event) { render(); return true; }
+  if (!force && state.loadedEventId === eventId && state.event) { render(); await startRealtimeRoster(eventId); return true; }
   if (state.loading) return false;
   state.loading = true;
   setStatus("Actualizando censo…");
@@ -414,6 +473,7 @@ async function loadAll({ force = false } = {}) {
     state.selected.clear();
     render();
     renderSearchSuggest();
+    await startRealtimeRoster(eventId);
     return true;
   } catch (error) {
     console.error("[MILITOPO E3] load roster", error);
@@ -535,11 +595,12 @@ function init() {
   ensureUi();
   globalThis.addEventListener("militopo:v2-auth-ready", event => {
     state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
+    stopRealtimeRoster();
     state.loadedEventId = ""; state.selected.clear(); scheduleLoad(120, true);
   });
   globalThis.addEventListener("militopo:v2-orientation-header", () => {
     const eventId = currentEventId();
-    if (eventId && eventId !== state.loadedEventId) scheduleLoad(220, true);
+    if (eventId && eventId !== state.loadedEventId) { stopRealtimeRoster(); scheduleLoad(220, true); }
   });
   globalThis.addEventListener("militopo:v2-cloud-event-applied", event => { if (event?.detail?.ok) scheduleLoad(160, true); });
   globalThis.addEventListener("militopo:v2-event-status-changed", () => scheduleLoad(160, true));
@@ -548,6 +609,7 @@ function init() {
   globalThis.addEventListener("militopo:v2-invitation-refresh", () => scheduleLoad(160, true));
   globalThis.addEventListener("online", () => scheduleLoad(100, true));
   globalThis.addEventListener("offline", () => setStatus("📴 Sin conexión: el censo queda visible, pero no se pueden aplicar cambios."));
+  globalThis.addEventListener("militopo:v2-auth-signed-out", stopRealtimeRoster);
   if (globalThis.MILITOPO_V2_AUTH) scheduleLoad(120, true);
 }
 

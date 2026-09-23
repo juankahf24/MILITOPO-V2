@@ -10,6 +10,7 @@ import {
   getDocs,
   limit,
   orderBy,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -41,7 +42,9 @@ const state = {
   directoryCache: new Map(),
   directorySearchTimer: null,
   loadedEventId: "",
-  loading: false
+  loading: false,
+  realtimeUnsub: null,
+  realtimeEventId: ""
 };
 
 function roleOf() {
@@ -199,19 +202,55 @@ function paint(message = "") {
   state.selectedCreate.disabled = state.busy || !allowed || !navigator.onLine || state.selectedUsers.size === 0;
   state.status.textContent = message || (allowed ? "Busca por @usuario si ya tiene cuenta MILITOPO, o usa su correo si todavía no está registrado." : `Las invitaciones solo se crean con el evento PREPARADO o PUBLICADO. Estado actual: ${status.toUpperCase()}.`);
 }
+
+function stopRealtimeInvitations() {
+  try { state.realtimeUnsub?.(); } catch (_) {}
+  state.realtimeUnsub = null;
+  state.realtimeEventId = "";
+}
+async function startRealtimeInvitations() {
+  if (!state.event || !canManage()) return;
+  const eventId = String(state.event.eventId || "");
+  if (!eventId) return;
+  if (state.realtimeUnsub && state.realtimeEventId === eventId) return;
+  stopRealtimeInvitations();
+  try {
+    const { firestore } = await services();
+    const liveQuery = roleOf() === "super_admin"
+      ? query(collection(firestore, "invitations"), where("eventId", "==", eventId))
+      : query(collection(firestore, "invitations"), where("createdBy", "==", state.auth.uid));
+    state.realtimeEventId = eventId;
+    state.realtimeUnsub = onSnapshot(liveQuery, snap => {
+      const rows = [];
+      snap.forEach(d => {
+        const data = d.data() || {};
+        if (String(data.eventId || "") === eventId) rows.push({ id:d.id, ...data });
+      });
+      rows.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      state.rows = rows;
+      renderList(rows);
+    }, error => {
+      console.warn("[MILITOPO invitations realtime]", error);
+    });
+  } catch (error) {
+    console.warn("[MILITOPO invitations realtime] start", error);
+  }
+}
+
 async function loadEvent({ force = false } = {}) {
   ensurePanel(); const eventId = currentEventId();
   if (!canManage() || !eventId || !navigator.onLine) { paint(); return false; }
   if (!force && state.event?.eventId === eventId && state.loadedEventId === eventId) return true;
   if (state.loading) return false;
   const changedEvent = state.loadedEventId && state.loadedEventId !== eventId; state.loading = true;
+  if (changedEvent) stopRealtimeInvitations();
   if (changedEvent) { state.event = null; state.rows = []; state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Cargando invitaciones…</div>`; paint("Cargando el evento seleccionado…"); }
   try {
     const { firestore } = await services(); const snap = await getDoc(doc(firestore, "events", eventId));
     if (!snap.exists()) { if (changedEvent) state.list.innerHTML = ""; paint("El evento todavía no existe en Firestore."); return false; }
     const data = snap.data() || {};
     if (roleOf() !== "super_admin" && String(data.ownerUid || "") !== String(state.auth.uid || "")) { if (changedEvent) state.list.innerHTML = ""; paint("Este evento no pertenece a esta cuenta."); return false; }
-    state.event = { ...data, eventId: snap.id }; state.loadedEventId = eventId; paint(); await loadInvitations(); return true;
+    state.event = { ...data, eventId: snap.id }; state.loadedEventId = eventId; paint(); await loadInvitations(); await startRealtimeInvitations(); return true;
   } catch (error) { console.error("[MILITOPO E2] load event", error); paint("No se pudo leer el evento. La aplicación local sigue intacta."); return false; }
   finally { state.loading = false; }
 }
@@ -441,13 +480,14 @@ function scheduleLoad(delay = 250, force = false) {
 }
 function init() {
   ensurePanel();
-  globalThis.addEventListener("militopo:v2-auth-ready", event => { state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null; state.loadedEventId = ""; state.directoryCache.clear(); state.selectedUsers.clear(); renderSelectedUsers(); scheduleLoad(150, true); });
+  globalThis.addEventListener("militopo:v2-auth-ready", event => { state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null; stopRealtimeInvitations(); state.loadedEventId = ""; state.directoryCache.clear(); state.selectedUsers.clear(); renderSelectedUsers(); scheduleLoad(150, true); });
   globalThis.addEventListener("militopo:v2-orientation-header", () => scheduleLoad(250, false));
   globalThis.addEventListener("militopo:v2-cloud-event-applied", event => { if (event?.detail?.ok) scheduleLoad(180, true); });
   globalThis.addEventListener("militopo:v2-event-status-changed", () => scheduleLoad(180, true));
   globalThis.addEventListener("militopo:v2-invitation-refresh", () => scheduleLoad(120, true));
   globalThis.addEventListener("online", () => scheduleLoad(100, true));
   globalThis.addEventListener("offline", () => paint("📴 Sin conexión: no se pueden crear invitaciones ahora."));
+  globalThis.addEventListener("militopo:v2-auth-signed-out", stopRealtimeInvitations);
   if (globalThis.MILITOPO_V2_AUTH) scheduleLoad(120, true);
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once:true }); else init();
