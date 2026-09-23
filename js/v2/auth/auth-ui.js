@@ -1,11 +1,12 @@
 /* MILITOPO V2 · Fase B3 · Auth + perfil/cuenta en Firebase Spark.
    Sin Cloud Functions ni Storage. Roles privilegiados siguen administrándose
    exclusivamente con Firebase Admin SDK desde Cloud Shell. */
-import "../bootstrap.js";
+import "../bootstrap.js?v=v2-f3a-runner-homefix2-20260923";
 import {
   browserLocalPersistence,
   browserSessionPersistence,
   inMemoryPersistence,
+  indexedDBLocalPersistence,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   reload,
@@ -95,26 +96,26 @@ function writeBoolStorage(key, value) {
 function trustedDeviceEnabled() { return boolFromStorage(TRUSTED_DEVICE_KEY, false); }
 function keepSessionEnabled() { return boolFromStorage(KEEP_SESSION_KEY, true); }
 
-async function applyCompatiblePersistence(auth, remember) {
-  const preferred = remember ? browserLocalPersistence : browserSessionPersistence;
-  try {
-    await setPersistence(auth, preferred);
-    return remember ? "local" : "session";
-  } catch (error) {
-    console.warn("[MILITOPO V2 Auth] persistence fallback", error);
-  }
+function rememberPersistenceMode(mode) {
+  try { sessionStorage.setItem("militopo_v2_auth_persistence_mode", String(mode || "")); } catch (_) {}
+}
 
-  if (preferred !== browserSessionPersistence) {
+async function applyCompatiblePersistence(auth, remember) {
+  const attempts = remember
+    ? [[indexedDBLocalPersistence, "indexeddb"], [browserLocalPersistence, "local"], [browserSessionPersistence, "session"], [inMemoryPersistence, "memory"]]
+    : [[browserSessionPersistence, "session"], [indexedDBLocalPersistence, "indexeddb"], [browserLocalPersistence, "local"], [inMemoryPersistence, "memory"]];
+  let lastError = null;
+  for (const [persistence, mode] of attempts) {
     try {
-      await setPersistence(auth, browserSessionPersistence);
-      return "session";
+      await setPersistence(auth, persistence);
+      rememberPersistenceMode(mode);
+      return mode;
     } catch (error) {
-      console.warn("[MILITOPO V2 Auth] session persistence fallback", error);
+      lastError = error;
+      console.warn(`[MILITOPO V2 Auth] persistence ${mode} no disponible`, error);
     }
   }
-
-  await setPersistence(auth, inMemoryPersistence);
-  return "memory";
+  throw lastError || new Error("AUTH_PERSISTENCE_UNAVAILABLE");
 }
 
 async function signInCompatible(auth, email, password) {
@@ -122,12 +123,24 @@ async function signInCompatible(auth, email, password) {
     return await signInWithEmailAndPassword(auth, email, password);
   } catch (error) {
     if (String(error?.code || "") !== "auth/internal-error") throw error;
-    console.warn("[MILITOPO V2 Auth] internal-error; retrying with memory persistence", error);
-    try { await signOut(auth); } catch (_) {}
-    await setPersistence(auth, inMemoryPersistence);
-    await new Promise(resolve => setTimeout(resolve, 250));
-    return await signInWithEmailAndPassword(auth, email, password);
+    console.warn("[MILITOPO V2 Auth] internal-error; probando persistencias alternativas", error);
   }
+  const retries = [[indexedDBLocalPersistence, "indexeddb"], [browserSessionPersistence, "session"], [browserLocalPersistence, "local"], [inMemoryPersistence, "memory"]];
+  let lastError = null;
+  for (const [persistence, mode] of retries) {
+    try {
+      try { await signOut(auth); } catch (_) {}
+      await setPersistence(auth, persistence);
+      rememberPersistenceMode(mode);
+      await new Promise(resolve => setTimeout(resolve, 180));
+      return await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      lastError = error;
+      console.warn(`[MILITOPO V2 Auth] login fallback ${mode}`, error);
+      if (String(error?.code || "") !== "auth/internal-error") throw error;
+    }
+  }
+  throw lastError || new Error("auth/internal-error");
 }
 
 function authReturnUrl() {
