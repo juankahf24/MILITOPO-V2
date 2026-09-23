@@ -1,12 +1,11 @@
 /* MILITOPO V2 · Fase B3 · Auth + perfil/cuenta en Firebase Spark.
    Sin Cloud Functions ni Storage. Roles privilegiados siguen administrándose
    exclusivamente con Firebase Admin SDK desde Cloud Shell. */
-import "../bootstrap.js?v=v2-f3b-session-realtimefix-20260923";
+import "../bootstrap.js?v=v2-f3b-recovery-signals-20260924";
 import {
   browserLocalPersistence,
   browserSessionPersistence,
   inMemoryPersistence,
-  indexedDBLocalPersistence,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   reload,
@@ -114,8 +113,8 @@ function rememberPersistenceMode(mode) {
 
 async function applyCompatiblePersistence(auth, remember) {
   const attempts = remember
-    ? [[indexedDBLocalPersistence, "indexeddb"], [browserLocalPersistence, "local"], [browserSessionPersistence, "session"], [inMemoryPersistence, "memory"]]
-    : [[browserSessionPersistence, "session"], [indexedDBLocalPersistence, "indexeddb"], [browserLocalPersistence, "local"], [inMemoryPersistence, "memory"]];
+    ? [[browserLocalPersistence, "local"], [browserSessionPersistence, "session"], [inMemoryPersistence, "memory"]]
+    : [[browserSessionPersistence, "session"], [browserLocalPersistence, "local"], [inMemoryPersistence, "memory"]];
   let lastError = null;
   for (const [persistence, mode] of attempts) {
     try {
@@ -137,7 +136,7 @@ async function signInCompatible(auth, email, password) {
     if (String(error?.code || "") !== "auth/internal-error") throw error;
     console.warn("[MILITOPO V2 Auth] internal-error; probando persistencias alternativas", error);
   }
-  const retries = [[indexedDBLocalPersistence, "indexeddb"], [browserSessionPersistence, "session"], [browserLocalPersistence, "local"], [inMemoryPersistence, "memory"]];
+  const retries = [[browserLocalPersistence, "local"], [browserSessionPersistence, "session"], [inMemoryPersistence, "memory"]];
   let lastError = null;
   for (const [persistence, mode] of retries) {
     try {
@@ -883,6 +882,15 @@ async function init() {
       showMainView();
       setMessage("No se ha podido preparar tu sesión. Vuelve a iniciar sesión.", "error");
     }
+  });
+
+  globalThis.addEventListener("militopo:v2-auth-recovery-failed", () => {
+    clearAuthSnapshot();
+    try { localStorage.removeItem("militopo_v2_last_role"); } catch (_) {}
+    closeAccountPanel();
+    showMainView();
+    setMode("login");
+    setMessage("Tu sesión anterior no pudo restaurarse. Inicia sesión una vez para guardar la sesión con el modo estable.", "error");
   });
 }
 
