@@ -1,7 +1,7 @@
 /* MILITOPO V2 · Fase B3 · Auth + perfil/cuenta en Firebase Spark.
    Sin Cloud Functions ni Storage. Roles privilegiados siguen administrándose
    exclusivamente con Firebase Admin SDK desde Cloud Shell. */
-import "../bootstrap.js?v=v2-f3a-runner-root-shell-20260923";
+import "../bootstrap.js?v=v2-f3b-session-realtimefix-20260923";
 import {
   browserLocalPersistence,
   browserSessionPersistence,
@@ -30,12 +30,36 @@ const ROOT_ICON_URL = new URL("../../../icons/militopo-512.png", import.meta.url
 const TRUSTED_DEVICE_KEY = "militopo_v2_trusted_device";
 const KEEP_SESSION_KEY = "militopo_v2_keep_session";
 const POST_LOGIN_SELECTOR_KEY = "militopo_v2_post_login_selector";
+const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
 // F3A: el runner permanece en la shell principal ya autenticada.
 // Evitamos inicializar Firebase una segunda vez en /orientacion/participante/,
 // que era la causa de los fallos de carga ESM en algunos móviles antiguos.
 function routeRunnerToParticipant() {
   clearPostLoginSelector();
   return false;
+}
+
+
+function readAuthSnapshot(uid = "") {
+  try {
+    const raw = localStorage.getItem(AUTH_SNAPSHOT_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (uid && String(data?.uid || "") !== String(uid)) return null;
+    return data && typeof data === "object" ? data : null;
+  } catch (_) { return null; }
+}
+function writeAuthSnapshot(value) {
+  try { localStorage.setItem(AUTH_SNAPSHOT_KEY, JSON.stringify(value || {})); } catch (_) {}
+}
+function clearAuthSnapshot() {
+  try { localStorage.removeItem(AUTH_SNAPSHOT_KEY); } catch (_) {}
+}
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+  ]);
 }
 
 function markPostLoginSelector() {
@@ -474,6 +498,7 @@ function publishAuthState(user, displayName) {
     role: state.role,
     emailVerified: Boolean(user.emailVerified)
   });
+  writeAuthSnapshot(globalThis.MILITOPO_V2_AUTH);
   globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-ready", {
     detail: globalThis.MILITOPO_V2_AUTH
   }));
@@ -507,18 +532,38 @@ function paintAccount(user, displayName) {
 }
 
 async function enterApp(user) {
-  const profile = await ensureRunnerProfile(user);
-  const token = await user.getIdTokenResult(true);
-  state.role = normalizeRole(token?.claims?.role);
+  const cached = readAuthSnapshot(user.uid);
   state.currentUser = user;
-  state.profile = profile;
-  const displayName = profile?.displayName || user.displayName || null;
 
-  // Un corredor no necesita elegir entre ramas ni entrar en el área Organizador.
-  // Su destino normal es directamente MILITOPO Participante.
-  if (state.role === "runner" && routeRunnerToParticipant()) {
-    return;
+  // Si ya conocemos que esta cuenta es runner, restauramos inmediatamente una
+  // vista de mínimo privilegio. Firestore/Functions siguen aplicando los permisos reales.
+  if (cached?.role === "runner") {
+    state.role = "runner";
+    state.profile = {
+      displayName: cached.displayName || user.displayName || null,
+      username: cached.username || null,
+      usernameKey: cached.username || null
+    };
+    const quickName = state.profile.displayName || user.displayName || user.email || null;
+    paintAccount(user, quickName);
+    if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
+    if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
+    publishAuthState(user, quickName);
+    try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-runner-dashboard", { detail: globalThis.MILITOPO_V2_AUTH })); } catch (_) {}
   }
+
+  const [tokenResult, profileResult] = await Promise.all([
+    withTimeout(user.getIdTokenResult(false).catch(() => null), 6000, null),
+    withTimeout(ensureRunnerProfile(user).catch(() => null), 6000, null)
+  ]);
+
+  state.role = normalizeRole(tokenResult?.claims?.role || cached?.role || "runner");
+  state.profile = profileResult || state.profile || {
+    displayName: cached?.displayName || user.displayName || null,
+    username: cached?.username || null,
+    usernameKey: cached?.username || null
+  };
+  const displayName = state.profile?.displayName || cached?.displayName || user.displayName || null;
 
   paintAccount(user, displayName);
   if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
@@ -528,7 +573,6 @@ async function enterApp(user) {
     try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-runner-dashboard", { detail: globalThis.MILITOPO_V2_AUTH })); } catch (_) {}
   }
 
-  // organizer/super_admin conservan el selector de ramas tras un login manual.
   if (state.role !== "runner" && consumePostLoginSelector()) {
     queueMicrotask(requestBranchSelectorAfterLogin);
   } else if (state.role === "runner") {
@@ -823,6 +867,7 @@ async function init() {
         state.profile = null;
         closeAccountPanel();
         if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = true;
+        clearAuthSnapshot();
         try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-signed-out")); } catch (_) {}
         showMainView();
         return;
