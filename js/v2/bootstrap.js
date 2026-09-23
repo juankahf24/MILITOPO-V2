@@ -13,7 +13,7 @@ globalThis.MILITOPO_V2 = Object.freeze({
   get status() { return { ...status }; },
   async firebase() {
     if (!status.configured) throw new Error("MILITOPO V2 Firebase todavía no está configurado.");
-    const module = await import("./firebase/client.js");
+    const module = await import("./firebase/client.js?v=v2-f3a-runner-homefix2-20260923");
     const services = module.getMilitopoFirebase();
     status.ready = true;
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-backend-ready", { detail: { environment: status.environment } }));
