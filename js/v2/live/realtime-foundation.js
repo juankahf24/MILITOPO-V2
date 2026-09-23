@@ -17,7 +17,10 @@ const state = {
   message: "",
   timer: null,
   lastSyncedKey: "",
-  runMessage: ""
+  runMessage: "",
+  membersUnsub: null,
+  membersActive: null,
+  membersRemoved: null
 };
 
 function roleOf() {
@@ -117,6 +120,38 @@ async function readEvent(eventId) {
   if (roleOf() !== "super_admin" && String(data.ownerUid || "") !== String(state.auth?.uid || "")) throw new Error("EVENT_NOT_OWNED");
   return data;
 }
+
+function stopMembersWatch() {
+  try { state.membersUnsub?.(); } catch (_) {}
+  state.membersUnsub = null;
+  state.membersActive = null;
+  state.membersRemoved = null;
+}
+async function bindMembersWatch() {
+  stopMembersWatch();
+  if (!state.eventId || !state.event?.ownerUid || !canManage()) return;
+  try {
+    const svc = await services();
+    const api = svc.databaseApi;
+    if (!api) return;
+    const ref = api.ref(`v2/live/${state.event.ownerUid}/${state.eventId}/members`);
+    state.membersUnsub = api.onValue(ref, snap => {
+      const rows = snap.exists() ? (snap.val() || {}) : {};
+      let active = 0, removed = 0;
+      for (const row of Object.values(rows)) {
+        if (row?.active === true && String(row?.status || "active").toLowerCase() === "active") active += 1;
+        else removed += 1;
+      }
+      state.membersActive = active;
+      state.membersRemoved = removed;
+      state.message = `✅ Backend Live V2 al día · ${active} corredor${active === 1 ? "" : "es"} autorizado${active === 1 ? "" : "s"}${removed ? ` · ${removed} retirado${removed === 1 ? "" : "s"}` : ""}.`;
+      paint();
+    }, error => console.warn("[MILITOPO Live V2] members watch", error));
+  } catch (error) {
+    console.warn("[MILITOPO Live V2] bind members watch", error);
+  }
+}
+
 async function sync(userRequested = false) {
   const eventId = eventIdNow();
   state.eventId = eventId;
@@ -154,12 +189,14 @@ async function refreshFromEventStatus(detail = {}, forceSync = false) {
     state.message = "";
     state.runMessage = "";
     state.lastSyncedKey = "";
+    stopMembersWatch();
     paint("Cargando estado Live V2 del evento…");
   }
   state.eventId = eventId;
-  if (!eventId || !canManage()) { state.event = null; state.message = ""; state.runMessage = ""; paint(); return; }
+  if (!eventId || !canManage()) { stopMembersWatch(); state.event = null; state.message = ""; state.runMessage = ""; paint(); return; }
   try {
     state.event = await readEvent(eventId);
+    await bindMembersWatch();
     const status = String(state.event.status || "draft");
     if (!new Set(["live", "finished"]).has(status)) state.runMessage = "";
     paint();
@@ -180,6 +217,7 @@ async function refreshFromEventStatus(detail = {}, forceSync = false) {
 
 function onAuthReady(event) {
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
+  if (!state.auth?.uid) stopMembersWatch();
   paint();
   const detail = globalThis.MILITOPO_V2_EVENT_STATUS || {};
   if (detail.eventId) refreshFromEventStatus(detail, true);
@@ -207,6 +245,7 @@ function init() {
   });
   globalThis.addEventListener("online", () => { if (state.eventId) refreshFromEventStatus({ eventId: state.eventId }, true); });
   globalThis.addEventListener("offline", () => paint("📴 Sin conexión. Live V2 conserva la última configuración del servidor."));
+  globalThis.addEventListener("militopo:v2-auth-signed-out", stopMembersWatch);
   if (globalThis.MILITOPO_V2_AUTH) onAuthReady({ detail: globalThis.MILITOPO_V2_AUTH });
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once:true }); else init();

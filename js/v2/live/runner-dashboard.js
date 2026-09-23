@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-f3b-session-realtimefix-20260923";
-  const state = { auth:null, services:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map() };
+  const VERSION = "v2-f3b-recovery-signals-20260924";
+  const state = { auth:null, services:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
 
@@ -27,6 +27,44 @@
       activate({uid:user.uid,email:user.email||snap?.email||null,displayName:snap?.displayName||user.displayName||null,username:snap?.username||null,role:"runner",emailVerified:true},true);
       return true;
     }catch(error){console.warn("[MILITOPO runner dashboard] auth recovery",error);return false;}
+  }
+
+  function cleanupInviteSignals(){
+    try{state.unsubInviteSignals?.();}catch(_){}
+    state.unsubInviteSignals=null;
+    state.inviteSignalSignature="";
+  }
+
+  async function bindInviteSignals(){
+    cleanupInviteSignals();
+    if(!state.auth?.uid) return;
+    try{
+      const svc=await services(), api=svc.databaseApi;
+      if(!api) return;
+      const signalRef=api.ref(`v2/userSignals/${state.auth.uid}/invitations`);
+      state.unsubInviteSignals=api.onValue(signalRef,snap=>{
+        const rows=snap.exists()?(snap.val()||{}):{};
+        const pending=Object.entries(rows).filter(([,row])=>String(row?.status||"pending")==="pending").map(([id])=>id).sort();
+        const signature=pending.join("|");
+        if(signature && signature!==state.inviteSignalSignature){
+          state.inviteSignalSignature=signature;
+          try{globalThis.dispatchEvent(new CustomEvent("militopo:v2-invitation-refresh",{detail:{source:"rtdb-signal",pending:pending.length}}));}catch(_){}
+          setTimeout(()=>document.getElementById("m2AuthAccountBtn")?.click(),180);
+        } else if(!signature){
+          state.inviteSignalSignature="";
+        }
+      },error=>console.warn("[MILITOPO runner dashboard] invitation signals",error));
+    }catch(error){
+      console.warn("[MILITOPO runner dashboard] bind invitation signals",error);
+    }
+  }
+
+  function failClosedRecovery(){
+    if(state.auth?.uid) return;
+    hide();
+    cleanupInviteSignals();
+    try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);}catch(_){}
+    try{globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-recovery-failed"));}catch(_){}
   }
 
   function installStyle(){
@@ -181,14 +219,16 @@
     if(!auth||auth.role!=="runner"){hide();return;}
     const changedUid=String(state.auth?.uid||"")!==String(auth.uid||"");
     state.auth=auth;
+    clearTimeout(state.recoveryDeadline); state.recoveryDeadline=null;
     try{localStorage.setItem(LAST_ROLE_KEY,"runner");localStorage.setItem(AUTH_SNAPSHOT_KEY,JSON.stringify(auth));}catch(_){}
     reveal(); paintIdentity(auth);
+    if(changedUid || !state.unsubInviteSignals) bindInviteSignals();
     if(changedUid||!state.events.length) loadEvents(false,silent);
   }
   addEventListener("militopo:v2-auth-ready",e=>activate(e.detail));
   addEventListener("militopo:v2-runner-dashboard",e=>activate(e.detail));
   addEventListener("militopo:v2-auth-signed-out",()=>{
-    state.auth=null;state.events=[];cleanupLive();cleanupEventWatchers();hide();
+    state.auth=null;state.events=[];cleanupLive();cleanupEventWatchers();cleanupInviteSignals();hide();
     try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);}catch(_){}
   });
   addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
@@ -204,6 +244,13 @@
       if(snap) paintIdentity(snap);
       setStatus("Recuperando tu sesión de corredor…");
       setTimeout(()=>recoverRunnerAuth(),120);
+      clearTimeout(state.recoveryDeadline);
+      state.recoveryDeadline=setTimeout(async()=>{
+        if(state.auth?.uid) return;
+        setStatus("La sesión no se restauró. Volviendo al acceso seguro…","err");
+        const ok=await recoverRunnerAuth();
+        if(!ok) setTimeout(failClosedRecovery,650);
+      },5200);
     }
   }catch(_){}
   let bootTries=0;
