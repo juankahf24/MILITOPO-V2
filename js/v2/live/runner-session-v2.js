@@ -1,6 +1,6 @@
 /* MILITOPO V2 · F3A · Sesión Live autenticada del corredor.
    Conecta la cuenta runner a la sesión V2 sin tocar todavía la lógica GPS/offline de la Fase G. */
-import "../bootstrap.js";
+import "../bootstrap.js?v=v2-f3a-runner-homefix2-20260923";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { ref, get, onValue, update, onDisconnect, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
