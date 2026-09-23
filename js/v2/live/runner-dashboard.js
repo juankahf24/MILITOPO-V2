@@ -3,7 +3,7 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-f3a-runner-root-shell-20260923";
+  const VERSION = "v2-f3a-membership-fix-20260923";
   const state = { auth:null, services:null, events:[], active:null, runId:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null };
 
   const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -79,7 +79,7 @@
   }
   function renderEvents(){
     const holder=el("m2rdEvents"); holder.innerHTML="";
-    if(!state.events.length){setStatus("No tienes carreras preparadas, publicadas o en directo asociadas a tu cuenta.","ok");return;}
+    if(!state.events.length){setStatus("No tienes carreras activas asociadas a tu cuenta ahora mismo. Las carreras finalizadas no se muestran aquí.","ok");return;}
     holder.innerHTML=state.events.map(ev=>{
       const live=String(ev.status)==="live"&&String(ev.liveRunId||"").trim();
       const isConnected=state.active?.eventId===ev.eventId&&state.runId;
