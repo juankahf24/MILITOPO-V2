@@ -1,7 +1,14 @@
 /* MILITOPO V2 · F2A Blaze · Firebase client singleton.
    Añade Cloud Functions 2nd gen en europe-west1 manteniendo Auth, Firestore y RTDB. */
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getAuth, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import {
+  initializeAuth,
+  getAuth,
+  indexedDBLocalPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  connectAuthEmulator
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   initializeFirestore,
   memoryLocalCache,
@@ -34,7 +41,15 @@ export function getMilitopoFirebase() {
   if (services) return services;
   const cfg = requireClientConfig();
   const app = findApp() || initializeApp(cfg.firebase, APP_NAME);
-  const auth = getAuth(app);
+  let auth;
+  try {
+    auth = initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence]
+    });
+  } catch (error) {
+    if (String(error?.code || "").includes("already-initialized")) auth = getAuth(app);
+    else throw error;
+  }
 
   let trustedDevice = false;
   try { trustedDevice = localStorage.getItem("militopo_v2_trusted_device") === "1"; } catch (_) {}
