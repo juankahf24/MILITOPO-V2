@@ -38,7 +38,8 @@ const state = {
   realtimeMembersUnsub: null,
   realtimeInvitesUnsub: null,
   realtimeEventId: "",
-  realtimeSeq: 0
+  realtimeSeq: 0,
+  lastRealtimeMemberSignature: ""
 };
 
 function roleOf() {
@@ -385,6 +386,7 @@ function stopRealtimeRoster() {
   state.realtimeMembersUnsub = null;
   state.realtimeInvitesUnsub = null;
   state.realtimeEventId = "";
+  state.lastRealtimeMemberSignature = "";
   state.realtimeSeq += 1;
 }
 function refreshRosterUi() {
@@ -410,8 +412,14 @@ async function startRealtimeRoster(eventId) {
       snap.forEach(d => members.push({ id:d.id, ...(d.data() || {}), uid:String((d.data() || {}).uid || d.id) }));
       await resolveDirectory(members.map(row => row.uid));
       if (seq !== state.realtimeSeq) return;
+      const signature = members.map(row => `${row.uid}:${String(row.status || "active")}`).sort().join("|");
+      const changed = signature !== state.lastRealtimeMemberSignature;
+      state.lastRealtimeMemberSignature = signature;
       state.members = members;
       refreshRosterUi();
+      if (changed) {
+        try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-roster-changed", { detail: { eventId, members: members.length } })); } catch (_) {}
+      }
     }, error => console.warn("[MILITOPO roster realtime members]", error));
 
     const inviteQuery = roleOf() === "super_admin"

@@ -1,6 +1,6 @@
 /* MILITOPO V2 · Invitaciones en la cuenta del corredor.
    Muestra invitaciones dirigidas al correo autenticado y permite unirse con una escritura atómica. */
-import "../bootstrap.js";
+import "../bootstrap.js?v=v2-f3b-session-realtimefix-20260923";
 import {
   collection,
   doc,
@@ -27,7 +27,9 @@ const state = {
   realtimeEmailRows: new Map(),
   realtimeUidRows: new Map(),
   realtimeStartedFor: "",
-  lastPendingSignature: ""
+  lastPendingSignature: "",
+  authProbeTimer: null,
+  listenerWatchdog: null
 };
 
 function esc(value) {
@@ -353,13 +355,54 @@ function onAuth(detail) {
   }
   setTimeout(() => startRealtimeInvitations({ force: true }), 80);
 }
+
+async function recoverAuthFromFirebase() {
+  if (state.auth?.uid) return true;
+  try {
+    const svc = await services();
+    if (typeof svc.auth?.authStateReady === "function") {
+      await Promise.race([svc.auth.authStateReady(), new Promise(resolve => setTimeout(resolve, 5000))]);
+    }
+    const user = svc.auth?.currentUser;
+    if (!user || !user.emailVerified) return false;
+    const known = globalThis.MILITOPO_V2_AUTH;
+    onAuth(known?.uid === user.uid ? known : {
+      uid: user.uid,
+      email: user.email || null,
+      displayName: user.displayName || null,
+      username: null,
+      role: "runner",
+      emailVerified: true
+    });
+    return true;
+  } catch (error) {
+    console.warn("[MILITOPO inbox] auth recovery", error);
+    return false;
+  }
+}
+
 function init() {
   ensureUi();
   globalThis.addEventListener("militopo:v2-auth-ready", event => onAuth(event?.detail));
   globalThis.addEventListener("militopo:v2-invitation-refresh", () => startRealtimeInvitations({ force: true }));
   globalThis.addEventListener("online", () => startRealtimeInvitations({ force: true }));
-  globalThis.addEventListener("militopo:v2-auth-signed-out", () => { stopRealtimeInvitations(); state.rows = []; render(); });
+  globalThis.addEventListener("focus", () => { if (state.auth?.uid) startRealtimeInvitations(); else recoverAuthFromFirebase(); });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) { if (state.auth?.uid) startRealtimeInvitations(); else recoverAuthFromFirebase(); }
+  });
+  globalThis.addEventListener("militopo:v2-auth-signed-out", () => {
+    stopRealtimeInvitations(); state.rows = []; render();
+    clearInterval(state.authProbeTimer); clearInterval(state.listenerWatchdog);
+  });
   if (globalThis.MILITOPO_V2_AUTH) onAuth(globalThis.MILITOPO_V2_AUTH);
+  else recoverAuthFromFirebase();
+
+  state.authProbeTimer = setInterval(() => {
+    if (!state.auth?.uid) recoverAuthFromFirebase();
+  }, 1200);
+  state.listenerWatchdog = setInterval(() => {
+    if (state.auth?.uid && !state.realtimeUnsubs.length) startRealtimeInvitations({ force: true });
+  }, 4000);
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
