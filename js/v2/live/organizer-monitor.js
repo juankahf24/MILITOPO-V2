@@ -38,8 +38,10 @@ const state = {
   runId: "",
   runStatus: "",
   participants: {},
+  roster: {},
   unsubActive: null,
   unsubParticipants: null,
+  unsubRoster: null,
   panel: null,
   lastError: "",
   profileCache: new Map(),
@@ -144,14 +146,19 @@ function ensurePanel() {
   return panel;
 }
 function participantRows() {
-  return Object.values(state.participants || {}).filter(Boolean).sort((a,b) => {
+  const source = state.runId ? state.participants : state.roster;
+  return Object.values(source || {}).filter(row => row && row.active !== false).map(row => {
+    if (state.runId) return row;
+    return { ...row, status: "ready", online: false };
+  }).sort((a,b) => {
     const an = String(a.displayName || a.username || a.uid || "").toLowerCase();
     const bn = String(b.displayName || b.username || b.uid || "").toLowerCase();
     return an.localeCompare(bn, "es");
   });
 }
 async function hydrateParticipantProfiles() {
-  const rows = Object.values(state.participants || {}).filter(Boolean);
+  const source = state.runId ? state.participants : state.roster;
+  const rows = Object.values(source || {}).filter(Boolean);
   const pending = rows.filter(row => {
     const uid = String(row?.uid || "").trim();
     if (!uid) return false;
@@ -175,6 +182,7 @@ async function hydrateParticipantProfiles() {
       };
       state.profileCache.set(uid, hydrated);
       if (state.participants?.[uid]) Object.assign(state.participants[uid], hydrated);
+      if (state.roster?.[uid]) Object.assign(state.roster[uid], hydrated);
     } catch (error) {
       console.warn("[MILITOPO F2C] perfil participante", uid, error);
       state.profileCache.set(uid, {});
@@ -216,19 +224,21 @@ function render() {
 
   if (state.lastError) message.textContent = state.lastError;
   else if (!state.eventId) message.textContent = "Carga un evento para conectar el seguimiento V2.";
-  else if (!state.runId) message.textContent = state.eventStatus === "published"
-    ? "Evento PUBLICADO. El monitor se activará automáticamente al iniciar la carrera."
-    : `Evento ${eventLabel}. No hay una sesión Live V2 activa.`;
+  else if (!state.runId) message.textContent = rows.length
+    ? `${rows.length} corredor${rows.length === 1 ? "" : "es"} autorizado${rows.length === 1 ? "" : "s"}. El seguimiento de carrera se activará al iniciar el evento.`
+    : (state.eventStatus === "published"
+      ? "Evento PUBLICADO. No hay corredores autorizados todavía."
+      : `Evento ${eventLabel}. No hay corredores autorizados todavía.`);
   else message.textContent = state.runStatus === "finished"
     ? "Sesión Live V2 finalizada. Se conserva la última tabla recibida."
     : "Monitor conectado a Realtime Database V2.";
 
   run.textContent = state.runId
     ? `Sesión: ${state.runId} · ${runLabel} · ${rows.length} participante${rows.length === 1 ? "" : "s"}`
-    : "Sin sesión Live V2 cargada.";
+    : `Pre-salida · ${rows.length} corredor${rows.length === 1 ? "" : "es"} autorizado${rows.length === 1 ? "" : "s"}`;
 
-  if (!state.runId) {
-    body.innerHTML = `<tr><td colspan="6">Todavía no hay una sesión Live V2 activa.</td></tr>`;
+  if (!state.runId && !rows.length) {
+    body.innerHTML = `<tr><td colspan="6">Todavía no hay corredores autorizados para Live V2.</td></tr>`;
     return;
   }
   if (!rows.length) {
@@ -245,7 +255,7 @@ function render() {
     return `<tr>
       <td><strong>${esc(name)}</strong><br><span style="opacity:.62">${esc(sub)}</span></td>
       <td><span class="m2-f2c-state ${cls}">${esc(label)}</span></td>
-      <td><span class="m2-f2c-online ${online ? "ok" : "off"}">${online ? "● ONLINE" : "○ OFFLINE"}</span></td>
+      <td><span class="m2-f2c-online ${online ? "ok" : "off"}">${state.runId ? (online ? "● ONLINE" : "○ OFFLINE") : "— ESPERANDO"}</span></td>
       <td>${esc(fmtTime(row.startedAt))}</td>
       <td>${esc(fmtTime(row.finishedAt))}</td>
       <td>${esc(fmtAgo(row.lastSeen || row.updatedAt))}</td>
@@ -255,8 +265,10 @@ function render() {
 function clearListeners() {
   try { state.unsubActive?.(); } catch (_) {}
   try { state.unsubParticipants?.(); } catch (_) {}
+  try { state.unsubRoster?.(); } catch (_) {}
   state.unsubActive = null;
   state.unsubParticipants = null;
+  state.unsubRoster = null;
 }
 async function resolveOwner(eventId) {
   const { firestore } = await services();
@@ -269,6 +281,28 @@ async function resolveOwner(eventId) {
   state.eventStatus = String(data.status || "draft").toLowerCase();
   return ownerUid;
 }
+async function bindRoster() {
+  try { state.unsubRoster?.(); } catch (_) {}
+  state.unsubRoster = null;
+  state.roster = {};
+  if (!state.ownerUid || !state.eventId) { render(); return; }
+  const { database } = await services();
+  const path = `v2/live/${state.ownerUid}/${state.eventId}/members`;
+  state.unsubRoster = onValue(ref(database, path), snap => {
+    state.roster = snap.exists() ? (snap.val() || {}) : {};
+    for (const [uid, cached] of state.profileCache.entries()) {
+      if (state.roster?.[uid]) Object.assign(state.roster[uid], cached);
+    }
+    state.lastError = "";
+    render();
+    hydrateParticipantProfiles();
+  }, error => {
+    console.error("[MILITOPO F2C] roster", error);
+    state.lastError = "No se pudo leer el censo Live V2 del organizador.";
+    render();
+  });
+}
+
 async function bindParticipants() {
   try { state.unsubParticipants?.(); } catch (_) {}
   state.unsubParticipants = null;
@@ -301,10 +335,12 @@ async function bindEvent(eventId) {
   state.runId = "";
   state.runStatus = "";
   state.participants = {};
+  state.roster = {};
   state.lastError = "";
   render();
   try {
     state.ownerUid = await resolveOwner(nextId);
+    await bindRoster();
     const { database } = await services();
     const activePath = `v2/live/${state.ownerUid}/${state.eventId}/activeRun`;
     state.unsubActive = onValue(ref(database, activePath), snap => {

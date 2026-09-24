@@ -3,10 +3,11 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-f3b-recovery-signals-20260924";
+  const VERSION = "v2-f3b-stability-20260924";
   const state = { auth:null, services:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
+  const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
 
   const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusES = s => ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"})[String(s||"").toLowerCase()] || String(s||"").toUpperCase();
@@ -59,13 +60,13 @@
     }
   }
 
-  function failClosedRecovery(){
-    if(state.auth?.uid) return;
-    hide();
-    cleanupInviteSignals();
-    try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);}catch(_){}
-    try{globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-recovery-failed"));}catch(_){}
+  function readEventsSnapshot(){
+    try{const raw=localStorage.getItem(EVENTS_SNAPSHOT_KEY);if(!raw)return [];const rows=JSON.parse(raw);return Array.isArray(rows)?rows:[];}catch(_){return [];}
   }
+  function writeEventsSnapshot(rows){
+    try{localStorage.setItem(EVENTS_SNAPSHOT_KEY,JSON.stringify(Array.isArray(rows)?rows:[]));}catch(_){}
+  }
+
 
   function installStyle(){
     if(document.getElementById("m2RunnerDashboardStyle")) return;
@@ -93,7 +94,10 @@
     </div>`;
     document.body.appendChild(root); state.root=root;
     root.querySelector("#m2rdAccount")?.addEventListener("click",()=>document.getElementById("m2AuthAccountBtn")?.click());
-    root.querySelector("#m2rdRetry")?.addEventListener("click",()=>loadEvents(true));
+    root.querySelector("#m2rdRetry")?.addEventListener("click",async()=>{
+      if(!state.auth?.uid){ setStatus("Reintentando recuperación de sesión…"); const ok=await recoverRunnerAuth(); if(!ok)setStatus("Todavía no se ha restaurado la sesión. Espera unos segundos y vuelve a intentar.","err"); return; }
+      loadEvents(true);
+    });
     root.addEventListener("click",e=>{const btn=e.target.closest("[data-enter-event]"); if(!btn)return; const id=btn.dataset.enterEvent||""; const event=state.events.find(row=>row.eventId===id); if(!event||!state.runId)return; window.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{event:{...event},runId:state.runId,auth:{...state.auth}}}));});
     return root;
   }
@@ -205,7 +209,7 @@
     try{
       const svc=await services(); if(!svc.callable) throw new Error("Backend Live V2 no disponible.");
       const result=await svc.callable("getRunnerLiveEvents",{clientVersion:VERSION});
-      state.events=Array.isArray(result?.data?.events)?result.data.events:[]; renderEvents();
+      state.events=Array.isArray(result?.data?.events)?result.data.events:[]; writeEventsSnapshot(state.events); renderEvents();
       await bindEventWatchers();
       const live=state.events.filter(e=>String(e.status)==="live"&&String(e.liveRunId||"").trim());
       if(live.length===1&&(!state.active||state.active.eventId!==live[0].eventId)) setTimeout(()=>connectLive(live[0]),250);
@@ -222,6 +226,7 @@
     clearTimeout(state.recoveryDeadline); state.recoveryDeadline=null;
     try{localStorage.setItem(LAST_ROLE_KEY,"runner");localStorage.setItem(AUTH_SNAPSHOT_KEY,JSON.stringify(auth));}catch(_){}
     reveal(); paintIdentity(auth);
+    const retry=el("m2rdRetry"); retry.textContent="REINTENTAR"; retry.hidden=true;
     if(changedUid || !state.unsubInviteSignals) bindInviteSignals();
     if(changedUid||!state.events.length) loadEvents(false,silent);
   }
@@ -229,7 +234,7 @@
   addEventListener("militopo:v2-runner-dashboard",e=>activate(e.detail));
   addEventListener("militopo:v2-auth-signed-out",()=>{
     state.auth=null;state.events=[];cleanupLive();cleanupEventWatchers();cleanupInviteSignals();hide();
-    try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);}catch(_){}
+    try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);localStorage.removeItem(EVENTS_SNAPSHOT_KEY);}catch(_){}
   });
   addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
   document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner")loadEvents(false,true);});
@@ -242,15 +247,20 @@
       reveal();
       const snap=cachedAuth();
       if(snap) paintIdentity(snap);
+      const cachedEvents=readEventsSnapshot();
+      if(cachedEvents.length){ state.events=cachedEvents; renderEvents(); }
       setStatus("Recuperando tu sesión de corredor…");
       setTimeout(()=>recoverRunnerAuth(),120);
       clearTimeout(state.recoveryDeadline);
       state.recoveryDeadline=setTimeout(async()=>{
         if(state.auth?.uid) return;
-        setStatus("La sesión no se restauró. Volviendo al acceso seguro…","err");
         const ok=await recoverRunnerAuth();
-        if(!ok) setTimeout(failClosedRecovery,650);
-      },5200);
+        if(!ok){
+          const retry=el("m2rdRetry");
+          retry.hidden=false; retry.textContent="REINTENTAR SESIÓN";
+          setStatus("La sesión está tardando en restaurarse. Puedes reintentar sin salir del Área del Corredor.","err");
+        }
+      },12000);
     }
   }catch(_){}
   let bootTries=0;
