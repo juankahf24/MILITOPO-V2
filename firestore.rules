@@ -244,6 +244,13 @@ service cloud.firestore {
         allow read: if signedIn() && (request.auth.uid == uid || managesEvent(eventId));
         allow create, update: if verified() && managesEvent(eventId);
         allow delete: if false;
+
+        // H1: el track histórico se escribe únicamente desde Cloud Functions
+        // (Admin SDK) y puede leerlo su corredor o el gestor del evento.
+        match /trackChunks/{chunkId} {
+          allow read: if signedIn() && (request.auth.uid == uid || managesEvent(eventId));
+          allow write: if false;
+        }
       }
 
       match /audit/{logId} {
