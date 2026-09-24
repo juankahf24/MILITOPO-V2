@@ -10,7 +10,6 @@ import {
   getDocs,
   limit,
   orderBy,
-  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -20,7 +19,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
-const ALLOWED_EVENT_STATES = new Set(["prepared", "published"]);
+const ALLOWED_EVENT_STATES = new Set(["published"]);
 const state = {
   auth: globalThis.MILITOPO_V2_AUTH || null,
   services: null,
@@ -42,9 +41,7 @@ const state = {
   directoryCache: new Map(),
   directorySearchTimer: null,
   loadedEventId: "",
-  loading: false,
-  realtimeUnsub: null,
-  realtimeEventId: ""
+  loading: false
 };
 
 function roleOf() {
@@ -87,7 +84,6 @@ function statusLabel(row) {
   const status = String(row.status || "pending");
   if (status === "accepted") return "ACEPTADA";
   if (status === "revoked") return "REVOCADA";
-  if (status === "removed") return "RETIRADA";
   return "PENDIENTE";
 }
 function targetLabel(row) {
@@ -151,7 +147,7 @@ function ensurePanel() {
       <small>Para listas externas puedes pegar usuarios o correos separados por líneas, espacios, comas o punto y coma. MILITOPO elimina duplicados y omite los que ya tengan invitación pendiente.</small>
       <button id="m2InviteBulkCreate" type="button" disabled>INVITAR A TODOS</button>
     </div>
-    <div id="m2InviteStatus" class="m2-invites-status">Carga un evento PREPARADO o PUBLICADO.</div>
+    <div id="m2InviteStatus" class="m2-invites-status">Publica el evento para habilitar las invitaciones.</div>
     <div id="m2InviteList" class="m2-invites-list"></div>`;
   const lifecycle = document.getElementById("m2EventLifecycle");
   if (lifecycle) lifecycle.insertAdjacentElement("afterend", panel);
@@ -193,64 +189,28 @@ function paint(message = "") {
   renderSelectedUsers();
   if (!state.event) {
     chip.textContent = currentEventId() ? "COMPROBANDO" : "SIN EVENTO";
-    state.status.textContent = message || "Carga un evento PREPARADO o PUBLICADO."; state.create.disabled = true; state.bulkCreate.disabled = true; state.selectedCreate.disabled = true; return;
+    state.status.textContent = message || "Publica el evento para habilitar las invitaciones."; state.create.disabled = true; state.bulkCreate.disabled = true; state.selectedCreate.disabled = true; return;
   }
   const status = String(state.event.status || "draft"); chip.textContent = status.toUpperCase();
   const allowed = ALLOWED_EVENT_STATES.has(status);
   state.create.disabled = state.busy || !allowed || !navigator.onLine;
   state.bulkCreate.disabled = state.busy || !allowed || !navigator.onLine;
   state.selectedCreate.disabled = state.busy || !allowed || !navigator.onLine || state.selectedUsers.size === 0;
-  state.status.textContent = message || (allowed ? "Busca por @usuario si ya tiene cuenta MILITOPO, o usa su correo si todavía no está registrado." : `Las invitaciones solo se crean con el evento PREPARADO o PUBLICADO. Estado actual: ${status.toUpperCase()}.`);
+  state.status.textContent = message || (allowed ? "Busca por @usuario si ya tiene cuenta MILITOPO, o usa su correo si todavía no está registrado." : `Primero publica el evento. Las invitaciones solo se habilitan cuando el estado es PUBLICADO. Estado actual: ${status.toUpperCase()}.`);
 }
-
-function stopRealtimeInvitations() {
-  try { state.realtimeUnsub?.(); } catch (_) {}
-  state.realtimeUnsub = null;
-  state.realtimeEventId = "";
-}
-async function startRealtimeInvitations() {
-  if (!state.event || !canManage()) return;
-  const eventId = String(state.event.eventId || "");
-  if (!eventId) return;
-  if (state.realtimeUnsub && state.realtimeEventId === eventId) return;
-  stopRealtimeInvitations();
-  try {
-    const { firestore } = await services();
-    const liveQuery = roleOf() === "super_admin"
-      ? query(collection(firestore, "invitations"), where("eventId", "==", eventId))
-      : query(collection(firestore, "invitations"), where("createdBy", "==", state.auth.uid));
-    state.realtimeEventId = eventId;
-    state.realtimeUnsub = onSnapshot(liveQuery, snap => {
-      const rows = [];
-      snap.forEach(d => {
-        const data = d.data() || {};
-        if (String(data.eventId || "") === eventId) rows.push({ id:d.id, ...data });
-      });
-      rows.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-      state.rows = rows;
-      renderList(rows);
-    }, error => {
-      console.warn("[MILITOPO invitations realtime]", error);
-    });
-  } catch (error) {
-    console.warn("[MILITOPO invitations realtime] start", error);
-  }
-}
-
 async function loadEvent({ force = false } = {}) {
   ensurePanel(); const eventId = currentEventId();
   if (!canManage() || !eventId || !navigator.onLine) { paint(); return false; }
   if (!force && state.event?.eventId === eventId && state.loadedEventId === eventId) return true;
   if (state.loading) return false;
   const changedEvent = state.loadedEventId && state.loadedEventId !== eventId; state.loading = true;
-  if (changedEvent) stopRealtimeInvitations();
   if (changedEvent) { state.event = null; state.rows = []; state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Cargando invitaciones…</div>`; paint("Cargando el evento seleccionado…"); }
   try {
     const { firestore } = await services(); const snap = await getDoc(doc(firestore, "events", eventId));
     if (!snap.exists()) { if (changedEvent) state.list.innerHTML = ""; paint("El evento todavía no existe en Firestore."); return false; }
     const data = snap.data() || {};
     if (roleOf() !== "super_admin" && String(data.ownerUid || "") !== String(state.auth.uid || "")) { if (changedEvent) state.list.innerHTML = ""; paint("Este evento no pertenece a esta cuenta."); return false; }
-    state.event = { ...data, eventId: snap.id }; state.loadedEventId = eventId; paint(); await loadInvitations(); await startRealtimeInvitations(); return true;
+    state.event = { ...data, eventId: snap.id }; state.loadedEventId = eventId; paint(); await loadInvitations(); return true;
   } catch (error) { console.error("[MILITOPO E2] load event", error); paint("No se pudo leer el evento. La aplicación local sigue intacta."); return false; }
   finally { state.loading = false; }
 }
@@ -268,7 +228,7 @@ async function loadInvitations() {
 function renderList(rows) {
   if (!rows.length) { state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Aún no hay invitaciones para este evento.</div>`; return; }
   state.list.innerHTML = rows.map(row => {
-    const status = String(row.status || "pending"), revoked = status === "revoked" || status === "removed", accepted = status === "accepted", url = invitationUrl(row.id);
+    const status = String(row.status || "pending"), revoked = status === "revoked", accepted = status === "accepted", url = invitationUrl(row.id);
     return `<article class="m2-invite-item ${revoked ? "m2-invite-revoked" : ""} ${accepted ? "m2-invite-accepted" : ""}">
       <div><div class="m2-invite-email">${esc(targetLabel(row))}</div><div class="m2-invite-meta">${esc(statusLabel(row))} · ${esc(formatDate(row.createdAt))}</div><div class="m2-invite-link">${esc(url)}</div></div>
       <div class="m2-invite-actions"><button type="button" data-whatsapp="${esc(row.id)}">WHATSAPP</button><button type="button" data-share="${esc(row.id)}">COMPARTIR</button><button type="button" data-copy-link="${esc(row.id)}">COPIAR ENLACE</button>${row.targetEmail ? `<button type="button" data-email="${esc(row.id)}">EMAIL</button>` : ""}${status === "pending" ? `<button type="button" data-revoke="${esc(row.id)}">REVOCAR</button>` : ""}</div>
@@ -413,17 +373,11 @@ async function createTargets(rawTargets, bulkMode, origin = bulkMode ? "bulk" : 
     }
     const notMembers = [];
     let alreadyJoined = 0;
-    let removedMembers = 0;
     const { firestore } = await services();
     for (const target of resolved) {
       if (target.kind === "user") {
         const memberSnap = await getDoc(doc(firestore, "events", state.event.eventId, "members", target.targetUid));
-        if (memberSnap.exists()) {
-          const memberStatus = String(memberSnap.data()?.status || "active");
-          if (memberStatus === "removed") removedMembers += 1;
-          else alreadyJoined += 1;
-          continue;
-        }
+        if (memberSnap.exists()) { alreadyJoined += 1; continue; }
       }
       notMembers.push(target);
     }
@@ -437,7 +391,6 @@ async function createTargets(rawTargets, bulkMode, origin = bulkMode ? "bulk" : 
     await loadInvitations();
     const pieces = [`✅ ${created} invitación${created === 1 ? "" : "es"} creada${created === 1 ? "" : "s"}`];
     if (alreadyJoined) pieces.push(`ℹ️ ${alreadyJoined} ya estaba${alreadyJoined === 1 ? "" : "n"} unido${alreadyJoined === 1 ? "" : "s"} al evento`);
-    if (removedMembers) pieces.push(`ℹ️ ${removedMembers} está${removedMembers === 1 ? "" : "n"} retirado${removedMembers === 1 ? "" : "s"}; restáuralo${removedMembers === 1 ? "" : "s"} desde CENSO DEL EVENTO`);
     if (skipped) pieces.push(`ℹ️ ${skipped} ya tenía${skipped === 1 ? "" : "n"} invitación pendiente`);
     if (errors.length) {
       pieces.push(`⚠️ ${errors.length} entrada${errors.length === 1 ? "" : "s"} no válida${errors.length === 1 ? "" : "s"}`);
@@ -445,14 +398,13 @@ async function createTargets(rawTargets, bulkMode, origin = bulkMode ? "bulk" : 
       if (errors.length > 5) pieces.push(`   • …y ${errors.length - 5} más`);
     }
     paint(pieces.join("\n"));
-    globalThis.dispatchEvent(new CustomEvent("militopo:v2-roster-refresh"));
   } catch (error) { console.error("[MILITOPO E2] create", error); paint(`No se pudieron crear las invitaciones: ${String(error?.message || error)}`); }
   finally { state.busy = false; paint(state.status.textContent); }
 }
 async function revokeInvitation(id) {
   if (!id || state.busy) return; if (!confirm("¿Revocar esta invitación? El participante ya no podrá utilizar este enlace.")) return;
   state.busy = true; paint("Revocando invitación…");
-  try { const { firestore } = await services(); await updateDoc(doc(firestore, "invitations", id), { status:"revoked", revokedAt:serverTimestamp(), updatedAt:serverTimestamp() }); await loadInvitations(); globalThis.dispatchEvent(new CustomEvent("militopo:v2-roster-refresh")); paint("✅ Invitación revocada."); }
+  try { const { firestore } = await services(); await updateDoc(doc(firestore, "invitations", id), { status:"revoked", revokedAt:serverTimestamp(), updatedAt:serverTimestamp() }); await loadInvitations(); paint("✅ Invitación revocada."); }
   catch (error) { console.error("[MILITOPO E2] revoke", error); paint(`No se pudo revocar: ${String(error?.message || error)}`); }
   finally { state.busy = false; paint(state.status.textContent); }
 }
@@ -480,14 +432,12 @@ function scheduleLoad(delay = 250, force = false) {
 }
 function init() {
   ensurePanel();
-  globalThis.addEventListener("militopo:v2-auth-ready", event => { state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null; stopRealtimeInvitations(); state.loadedEventId = ""; state.directoryCache.clear(); state.selectedUsers.clear(); renderSelectedUsers(); scheduleLoad(150, true); });
+  globalThis.addEventListener("militopo:v2-auth-ready", event => { state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null; state.loadedEventId = ""; state.directoryCache.clear(); state.selectedUsers.clear(); renderSelectedUsers(); scheduleLoad(150, true); });
   globalThis.addEventListener("militopo:v2-orientation-header", () => scheduleLoad(250, false));
   globalThis.addEventListener("militopo:v2-cloud-event-applied", event => { if (event?.detail?.ok) scheduleLoad(180, true); });
   globalThis.addEventListener("militopo:v2-event-status-changed", () => scheduleLoad(180, true));
-  globalThis.addEventListener("militopo:v2-invitation-refresh", () => scheduleLoad(120, true));
   globalThis.addEventListener("online", () => scheduleLoad(100, true));
   globalThis.addEventListener("offline", () => paint("📴 Sin conexión: no se pueden crear invitaciones ahora."));
-  globalThis.addEventListener("militopo:v2-auth-signed-out", stopRealtimeInvitations);
   if (globalThis.MILITOPO_V2_AUTH) scheduleLoad(120, true);
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once:true }); else init();
