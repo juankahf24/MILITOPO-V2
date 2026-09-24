@@ -267,8 +267,7 @@ service cloud.firestore {
                     && !request.resource.data.keys().hasAny(["acceptedAt", "revokedAt"])
                     && validInvitationTarget(request.resource.data)
                     && managesEvent(request.resource.data.eventId)
-                    && (eventDoc(request.resource.data.eventId).data.status == "prepared" ||
-                        eventDoc(request.resource.data.eventId).data.status == "published");
+                    && eventDoc(request.resource.data.eventId).data.status == "published";
       allow update: if managerRevokesInvitation() || runnerAcceptsInvitation() || managerChangesAcceptedInvitation();
       allow delete: if false;
     }
