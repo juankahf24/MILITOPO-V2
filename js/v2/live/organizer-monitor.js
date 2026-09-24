@@ -96,14 +96,14 @@ function hideLegacyOrganizerLive() {
     .m2-f2c-metric strong{display:block;font-size:1.08rem}.m2-f2c-metric span{display:block;margin-top:3px;font-size:.58rem;opacity:.68}
     .m2-f2c-run{padding:9px 11px;border-radius:13px;background:rgba(0,0,0,.16);font-size:.68rem;line-height:1.4;word-break:break-word}
     .m2-f2c-table-wrap{margin-top:12px;overflow-x:auto;border:1px solid rgba(255,255,255,.08);border-radius:15px}
-    .m2-f2c-table{width:100%;border-collapse:collapse;min-width:620px;background:rgba(0,0,0,.11)}
+    .m2-f2c-table{width:100%;border-collapse:collapse;min-width:760px;background:rgba(0,0,0,.11)}
     .m2-f2c-table th,.m2-f2c-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.64rem;text-align:left;vertical-align:middle}
     .m2-f2c-table th{font-size:.57rem;color:#f5d18b;letter-spacing:.04em}
     .m2-f2c-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.12);font-size:.56rem;font-weight:900}
     .m2-f2c-state.racing{color:#d7ecff;border-color:rgba(102,172,242,.35);background:rgba(76,136,197,.14)}
     .m2-f2c-state.finished{color:#e8ffd7;border-color:rgba(126,220,150,.34);background:rgba(96,160,77,.14)}
     .m2-f2c-state.pending{color:#ffe6a7;border-color:rgba(245,204,121,.34);background:rgba(170,121,43,.12)}
-    .m2-f2c-online{font-weight:900}.m2-f2c-online.ok{color:#bde99c}.m2-f2c-online.off{opacity:.58}
+    .m2-f2c-online{font-weight:900}.m2-f2c-online.ok{color:#bde99c}.m2-f2c-online.off{opacity:.58}.m2-f2c-gps{font-weight:900}.m2-f2c-gps.ok{color:#c9e9ff}.m2-f2c-gps.off{opacity:.58}
     @media(max-width:600px){.m2-f2c-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
   `;
   document.head.appendChild(style);
@@ -132,8 +132,8 @@ function ensurePanel() {
     <div id="m2F2CRun" class="m2-f2c-run">Sin sesión Live V2 cargada.</div>
     <div class="m2-f2c-table-wrap">
       <table class="m2-f2c-table">
-        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>CONEXIÓN</th><th>SALIDA</th><th>LLEGADA</th><th>ÚLTIMA SYNC</th></tr></thead>
-        <tbody id="m2F2CBody"><tr><td colspan="6">Todavía no hay una sesión Live V2 activa.</td></tr></tbody>
+        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>CONEXIÓN</th><th>GPS</th><th>SALIDA</th><th>LLEGADA</th><th>ÚLTIMA SYNC</th></tr></thead>
+        <tbody id="m2F2CBody"><tr><td colspan="7">Todavía no hay una sesión Live V2 activa.</td></tr></tbody>
       </table>
     </div>`;
   if (foundation?.parentNode) foundation.insertAdjacentElement("afterend", panel);
@@ -238,11 +238,11 @@ function render() {
     : `Pre-salida · ${rows.length} corredor${rows.length === 1 ? "" : "es"} autorizado${rows.length === 1 ? "" : "s"}`;
 
   if (!state.runId && !rows.length) {
-    body.innerHTML = `<tr><td colspan="6">Todavía no hay corredores autorizados para Live V2.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7">Todavía no hay corredores autorizados para Live V2.</td></tr>`;
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="6">La sesión no tiene corredores autorizados.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7">La sesión no tiene corredores autorizados.</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(row => {
@@ -252,10 +252,17 @@ function render() {
     const name = String(row.displayName || row.username || row.email || row.uid || "Corredor");
     const sub = row.username ? `@${String(row.username).replace(/^@/,"")}` : String(row.email || row.uid || "");
     const online = row.online === true;
+    const gps = row.gps || {};
+    const hasGps = Number.isFinite(Number(gps.lat)) && Number.isFinite(Number(gps.lng)) && Number(gps.updatedAt || 0) > 0;
+    const gpsActive = gps.active === true;
+    const gpsLabel = !state.runId ? "—" : hasGps
+      ? `${gpsActive ? "● GPS" : "○ ÚLTIMO"} ±${Math.round(Number(gps.accuracy || 0))}m · ${fmtAgo(gps.updatedAt)}`
+      : "SIN GPS";
     return `<tr>
       <td><strong>${esc(name)}</strong><br><span style="opacity:.62">${esc(sub)}</span></td>
       <td><span class="m2-f2c-state ${cls}">${esc(label)}</span></td>
       <td><span class="m2-f2c-online ${online ? "ok" : "off"}">${state.runId ? (online ? "● ONLINE" : "○ OFFLINE") : "— ESPERANDO"}</span></td>
+      <td><span class="m2-f2c-gps ${gpsActive ? "ok" : "off"}">${esc(gpsLabel)}</span></td>
       <td>${esc(fmtTime(row.startedAt))}</td>
       <td>${esc(fmtTime(row.finishedAt))}</td>
       <td>${esc(fmtAgo(row.lastSeen || row.updatedAt))}</td>
