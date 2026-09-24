@@ -1,9 +1,9 @@
-/* MILITOPO V2 · G2 · GPS Live + track persistente del corredor.
+/* MILITOPO V2 · G3 · GPS Live + reanudación tras recarga.
    Captura una única posición en vivo durante la carrera y la publica en RTDB.
    El track se guarda localmente y se sincroniza al recuperar conexión. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-g2-track-offline-20260924";
+const VERSION = "v2-g3-recovery-wakelock-20260924";
 const MIN_WRITE_MS = 4000;
 const FORCE_WRITE_MS = 12000;
 const MIN_MOVE_M = 3;
@@ -177,14 +177,21 @@ async function stop(reason = "manual") {
 }
 
 async function resumeIfGranted(context) {
-  if (!navigator.geolocation || !navigator.permissions?.query) return false;
+  if (!navigator.geolocation) return false;
   try {
-    const permission = await navigator.permissions.query({ name: "geolocation" });
-    if (permission.state !== "granted") {
-      emit("idle", { message: "GPS disponible. Pulsa ACTIVAR GPS para compartir tu posición." });
-      return false;
+    if (navigator.permissions?.query) {
+      try {
+        const permission = await navigator.permissions.query({ name: "geolocation" });
+        if (permission.state === "denied") {
+          emit("error", { message: "El permiso de ubicación está desactivado para MILITOPO." });
+          return false;
+        }
+      } catch (_) {}
     }
+    // En Safari/iPhone Permissions API puede no estar disponible aunque el permiso GPS sí lo esté.
+    // Se intenta recuperar una posición directamente; si el sistema ya concedió permiso no muestra un diálogo nuevo.
     const fix = await prepare();
+    if (!fix) return false;
     return start(context, fix);
   } catch (_) {
     return false;
