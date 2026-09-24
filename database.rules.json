@@ -39,6 +39,10 @@
                     "updatedAt": {
                       ".write": "auth != null && auth.uid === $uid && root.child('v2/live').child($ownerUid).child($eventId).child('members').child(auth.uid).child('active').val() === true",
                       ".validate": "newData.isNumber()"
+                    },
+                    "gps": {
+                      ".write": "auth != null && auth.uid === $uid && root.child('v2/live').child($ownerUid).child($eventId).child('members').child(auth.uid).child('active').val() === true && root.child('v2/live').child($ownerUid).child($eventId).child('runs').child($runId).child('participants').child($uid).child('status').val() === 'racing'",
+                      ".validate": "newData.hasChildren(['active','lat','lng','accuracy','updatedAt']) && newData.child('active').isBoolean() && newData.child('lat').isNumber() && newData.child('lat').val() >= -90 && newData.child('lat').val() <= 90 && newData.child('lng').isNumber() && newData.child('lng').val() >= -180 && newData.child('lng').val() <= 180 && newData.child('accuracy').isNumber() && newData.child('accuracy').val() >= 0 && newData.child('accuracy').val() <= 5000 && newData.child('updatedAt').isNumber() && newData.child('updatedAt').val() <= now + 30000 && newData.child('updatedAt').val() >= now - 300000"
                     }
                   }
                 }
