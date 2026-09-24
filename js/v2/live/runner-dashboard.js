@@ -3,7 +3,7 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-f3b-runtimefix-20260924";
+  const VERSION = "v2-g3-live-start-realtime-20260924";
   const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
@@ -165,15 +165,40 @@
     try{
       const svc=await services(), api=svc.databaseApi;
       if(!api) return;
+
       for(const event of state.events){
         if(!event?.ownerUid || !event?.eventId) continue;
+
+        const memberRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/members/${state.auth.uid}`);
         const activeRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/activeRun`);
-        const unsubscribe=api.onValue(activeRef,snap=>{
+
+        let disposed=false;
+        let memberUnsub=null;
+        let activeUnsub=null;
+        let retryTimer=null;
+        let retryCount=0;
+
+        const cleanupActive=()=>{
+          try{activeUnsub?.();}catch(_){}
+          activeUnsub=null;
+        };
+        const scheduleRetry=()=>{
+          if(disposed || retryTimer || retryCount>=12) return;
+          const delay=Math.min(5000,700+(retryCount*350));
+          retryCount+=1;
+          retryTimer=setTimeout(()=>{
+            retryTimer=null;
+            bindActiveRun();
+          },delay);
+        };
+        const applyActiveRun=snap=>{
+          retryCount=0;
           const active=snap.exists()?(snap.val()||{}):{};
           const runId=String(active.runId||"").trim();
           const runStatus=String(active.status||"").toLowerCase();
           const target=state.events.find(row=>row.eventId===event.eventId);
           if(!target) return;
+
           if(runId && runStatus==="active"){
             target.status="live";
             target.liveRunId=runId;
@@ -192,8 +217,54 @@
             }
             setTimeout(()=>loadEvents(false,true),500);
           }
-        },error=>console.warn("[MILITOPO runner dashboard] activeRun watcher",event.eventId,error));
-        state.eventWatchers.set(event.eventId,unsubscribe);
+        };
+        const bindActiveRun=()=>{
+          if(disposed || activeUnsub) return;
+          try{
+            activeUnsub=api.onValue(
+              activeRef,
+              applyActiveRun,
+              error=>{
+                console.warn("[MILITOPO runner dashboard] activeRun watcher",event.eventId,error);
+                cleanupActive();
+                scheduleRetry();
+              }
+            );
+          }catch(error){
+            console.warn("[MILITOPO runner dashboard] activeRun bind",event.eventId,error);
+            cleanupActive();
+            scheduleRetry();
+          }
+        };
+
+        // La autorización RTDB puede llegar unos milisegundos después de aceptar
+        // la invitación. Escuchamos primero el nodo propio del corredor (siempre
+        // legible por su UID) y solo entonces abrimos el listener de activeRun.
+        // Así evitamos que un PERMISSION_DENIED inicial cancele el listener para
+        // siempre y obligue a recargar cuando el organizador pone EN DIRECTO.
+        memberUnsub=api.onValue(
+          memberRef,
+          snap=>{
+            const member=snap.exists()?(snap.val()||{}):{};
+            if(member.active===true){
+              bindActiveRun();
+            }else{
+              cleanupActive();
+            }
+          },
+          error=>{
+            console.warn("[MILITOPO runner dashboard] member watcher",event.eventId,error);
+            scheduleRetry();
+          }
+        );
+
+        state.eventWatchers.set(event.eventId,()=>{
+          disposed=true;
+          if(retryTimer){clearTimeout(retryTimer);retryTimer=null;}
+          cleanupActive();
+          try{memberUnsub?.();}catch(_){}
+          memberUnsub=null;
+        });
       }
     }catch(error){
       console.warn("[MILITOPO runner dashboard] watchers",error);
