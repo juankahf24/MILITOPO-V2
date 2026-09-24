@@ -11042,7 +11042,7 @@ function affineForTriangles(s0,s1,s2,d0,d1,d2){const den=s0.x*(s1.y-s2.y)+s1.x*(
 function drawWarpTriangle(ctx,img,s0,s1,s2,d0,d1,d2){const m=affineForTriangles(s0,s1,s2,d0,d1,d2);if(!m)return;ctx.save();ctx.beginPath();ctx.moveTo(d0.x,d0.y);ctx.lineTo(d1.x,d1.y);ctx.lineTo(d2.x,d2.y);ctx.closePath();ctx.clip();ctx.setTransform(...m);ctx.drawImage(img,0,0);ctx.restore()}
 async function kmzImageToNorthUp(blob,points,maxDim=4096){const img=await imageFromBlob(blob),q=kmlQuadCorners(points),west=Math.min(...points.map(p=>p.lng)),east=Math.max(...points.map(p=>p.lng)),south=Math.min(...points.map(p=>p.lat)),north=Math.max(...points.map(p=>p.lat)),latScale=Math.max(.2,Math.cos(((north+south)/2)*Math.PI/180)),geoRatio=((east-west)*latScale)/Math.max(1e-9,north-south),w=geoRatio>=1?maxDim:Math.max(1,Math.round(maxDim*geoRatio)),h=geoRatio>=1?Math.max(1,Math.round(maxDim/geoRatio)):maxDim,canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");ctx.clearRect(0,0,w,h);const toPix=p=>({x:(p.lng-west)/(east-west)*w,y:(north-p.lat)/(north-south)*h}),D={tl:toPix(q.tl),tr:toPix(q.tr),br:toPix(q.br),bl:toPix(q.bl)},steps=28;for(let iy=0;iy<steps;iy++)for(let ix=0;ix<steps;ix++){const u0=ix/steps,u1=(ix+1)/steps,v0=iy/steps,v1=(iy+1)/steps,bilerp=(u,v)=>({x:(1-u)*(1-v)*D.tl.x+u*(1-v)*D.tr.x+u*v*D.br.x+(1-u)*v*D.bl.x,y:(1-u)*(1-v)*D.tl.y+u*(1-v)*D.tr.y+u*v*D.br.y+(1-u)*v*D.bl.y}),s00={x:u0*img.naturalWidth,y:v0*img.naturalHeight},s10={x:u1*img.naturalWidth,y:v0*img.naturalHeight},s11={x:u1*img.naturalWidth,y:v1*img.naturalHeight},s01={x:u0*img.naturalWidth,y:v1*img.naturalHeight},d00=bilerp(u0,v0),d10=bilerp(u1,v0),d11=bilerp(u1,v1),d01=bilerp(u0,v1);drawWarpTriangle(ctx,img,s00,s10,s11,d00,d10,d11);drawWarpTriangle(ctx,img,s00,s11,s01,d00,d11,d01)}const pngBlob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error("No se pudo preparar la imagen del KMZ")),"image/png"));return {blob:pngBlob,dataUrl:canvas.toDataURL("image/png"),width:w,height:h,sourceWidth:img.naturalWidth,sourceHeight:img.naturalHeight,bounds:[[south,west],[north,east]]}}
 async function parseOrientationKmz(file){if(typeof JSZip==="undefined")throw new Error("JSZip no está disponible");const zip=await JSZip.loadAsync(file),kmlEntry=Object.values(zip.files).find(e=>!e.dir&&e.name.toLowerCase().endsWith(".kml"));if(!kmlEntry)throw new Error("El KMZ no contiene un archivo KML");const xml=new DOMParser().parseFromString(await kmlEntry.async("text"),"application/xml");if(xml.querySelector("parsererror"))throw new Error("El KML del KMZ no es válido");const href=(xml.querySelector("GroundOverlay Icon href")||xml.querySelector("Icon href"))?.textContent?.trim();if(!href)throw new Error("El KMZ no indica la imagen del plano");let points=[];const quad=xml.getElementsByTagNameNS("http://www.google.com/kml/ext/2.2","LatLonQuad")[0]||[...xml.getElementsByTagName("gx:LatLonQuad")][0];if(quad){const c=quad.getElementsByTagName("coordinates")[0];if(c)points=kmzParseCoordinates(c.textContent)}if(points.length!==4){const box=xml.querySelector("GroundOverlay LatLonBox");if(box){const north=Number(box.querySelector("north")?.textContent),south=Number(box.querySelector("south")?.textContent),east=Number(box.querySelector("east")?.textContent),west=Number(box.querySelector("west")?.textContent);if([north,south,east,west].every(Number.isFinite))points=[{lng:west,lat:south},{lng:east,lat:south},{lng:east,lat:north},{lng:west,lat:north}]}}if(points.length!==4)throw new Error("No se encontraron las cuatro esquinas del plano en el KMZ");const cleanHref=decodeURIComponent(href).replace(/^\.\//,""),imageEntry=zip.file(cleanHref)||Object.values(zip.files).find(e=>!e.dir&&e.name.split("/").pop()===cleanHref.split("/").pop());if(!imageEntry)throw new Error("No se encontró la imagen referenciada dentro del KMZ");const ext=imageEntry.name.toLowerCase().split(".").pop(),mime=ext==="png"?"image/png":ext==="webp"?"image/webp":"image/jpeg",blob=await imageEntry.async("blob");return kmzImageToNorthUp(new Blob([blob],{type:mime}),points,4096)}
-function applyOrientationGeoTiffRecord(record){if(orientationGeoTiffRuntime.url)URL.revokeObjectURL(orientationGeoTiffRuntime.url);orientationGeoTiffRuntime.ready=true;orientationGeoTiffRuntime.url=URL.createObjectURL(record.pngBlob);orientationGeoTiffRuntime.dataUrl=record.dataUrl||null;orientationGeoTiffRuntime.bounds=record.bounds;orientationGeoTiffRuntime.imageWidth=record.width;orientationGeoTiffRuntime.imageHeight=record.height;orientationGeoTiffRuntime.name=record.name;orientationGeoTiffRuntime.epsg=record.epsg||null;orientationGeoTiffRuntime.id=record.id;orientationGeoTiffRuntime.format=record.format||"geotiff";orientationGeoTiffRuntime.builtin=!!record.builtin;state.customGeoTiffMeta={id:record.id,name:record.name,format:record.format||"geotiff",epsg:record.epsg||null,bounds:record.bounds,width:record.width,height:record.height,sourceWidth:record.sourceWidth,sourceHeight:record.sourceHeight,importedAt:record.importedAt};updateOrientationGeoTiffUi();refreshOrientationMapLibrary(record.id);if(state.selectedMapLayer==="custom")showOrientationGeoTiffOverlay()}
+function applyOrientationGeoTiffRecord(record){if(orientationGeoTiffRuntime.url)URL.revokeObjectURL(orientationGeoTiffRuntime.url);orientationGeoTiffRuntime.ready=true;orientationGeoTiffRuntime.url=URL.createObjectURL(record.pngBlob);orientationGeoTiffRuntime.dataUrl=record.dataUrl||null;orientationGeoTiffRuntime.bounds=record.bounds;orientationGeoTiffRuntime.imageWidth=record.width;orientationGeoTiffRuntime.imageHeight=record.height;orientationGeoTiffRuntime.name=record.name;orientationGeoTiffRuntime.epsg=record.epsg||null;orientationGeoTiffRuntime.id=record.id;orientationGeoTiffRuntime.format=record.format||"geotiff";orientationGeoTiffRuntime.builtin=!!record.builtin;state.customGeoTiffMeta={id:record.id,name:record.name,format:record.format||"geotiff",epsg:record.epsg||null,bounds:record.bounds,width:record.width,height:record.height,sourceWidth:record.sourceWidth,sourceHeight:record.sourceHeight,importedAt:record.importedAt};updateOrientationGeoTiffUi();refreshOrientationMapLibrary(record.id);if(state.selectedMapLayer==="custom")showOrientationGeoTiffOverlay();notifyOrientationCustomMapChanged()}
 async function detectOrientationCustomMapType(file){
   if(!file)throw new Error("No se ha seleccionado ningún archivo");
   const header=new Uint8Array(await file.slice(0,16).arrayBuffer());
@@ -11074,6 +11074,89 @@ async function importOrientationCustomMap(file){
 }
 async function importOrientationGeoTiff(file){if(!file)return;setOrientationGeoTiffStatus("⏳ Leyendo y preparando el GeoTIFF. En planos grandes puede tardar...","warn");try{const GeoTIFF=await ensureOrientationGeoTiffLib(),tiff=await GeoTIFF.fromArrayBuffer(await file.arrayBuffer()),image=await tiff.getImage(),bbox=image.getBoundingBox(),epsg=orientationGeoTiffEpsg(image);if(!bbox||bbox.length!==4||!epsg)throw new Error("El archivo no contiene georreferenciación EPSG legible");const bounds=orientationBoundsFromProjected(bbox,epsg),png=await orientationRasterToPng(image,4096),record={id:orientationMapId(),name:file.name,format:"geotiff",epsg,bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString()};await saveOrientationGeoTiffRecord(record);applyOrientationGeoTiffRecord(record);state.customGeoTiffOpacity=1;switchLayer("custom");fitOrientationGeoTiff();saveState();toast("Plano GeoTIFF guardado en la biblioteca")}catch(err){console.error(err);setOrientationGeoTiffStatus(`⚠️ No se pudo cargar el GeoTIFF.<br><b>Motivo:</b> ${escapeHtml(err&&err.message?err.message:(err==null?"Error interno sin detalle":String(err)))}`,"err")}finally{const input=document.getElementById("orientationGeoTiffInput");if(input)input.value=""}}
 async function importOrientationKmz(file){setOrientationGeoTiffStatus("⏳ Abriendo el KMZ y preparando su imagen georreferenciada...","warn");try{const png=await parseOrientationKmz(file),record={id:orientationMapId(),name:file.name,format:"kmz",epsg:null,bounds:png.bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString()};await saveOrientationGeoTiffRecord(record);applyOrientationGeoTiffRecord(record);state.customGeoTiffOpacity=1;switchLayer("custom");fitOrientationGeoTiff();saveState();toast("Plano KMZ guardado en la biblioteca")}catch(err){console.error(err);setOrientationGeoTiffStatus(`⚠️ No se pudo cargar el KMZ.<br><b>Motivo:</b> ${escapeHtml(err&&err.message?err.message:(err==null?"Error interno sin detalle":String(err)))}`,"err")}finally{const input=document.getElementById("orientationGeoTiffInput");if(input)input.value=""}}
+
+function orientationCustomMapDescriptor(){
+    if(!orientationGeoTiffRuntime.ready||!orientationGeoTiffRuntime.bounds)return null;
+    return {
+        id:orientationGeoTiffRuntime.id||"",
+        name:orientationGeoTiffRuntime.name||"Plano carrera",
+        format:orientationGeoTiffRuntime.format||"geotiff",
+        epsg:orientationGeoTiffRuntime.epsg||null,
+        bounds:safeJsonClone(orientationGeoTiffRuntime.bounds,null),
+        url:orientationGeoTiffRuntime.url||null,
+        builtin:!!orientationGeoTiffRuntime.builtin,
+        eventId:String(state.eventId||"")
+    };
+}
+function notifyOrientationCustomMapChanged(){
+    try{window.dispatchEvent(new CustomEvent("militopo:v2-orientation-custom-map",{detail:{eventId:String(state.eventId||""),map:orientationCustomMapDescriptor()}}))}catch(_){ }
+}
+async function ensureOrientationIntegratedRecord(meta){
+    if(!meta||!meta.id||!meta.file)throw new Error("Plano integrado no válido");
+    const id=`builtin:${meta.id}`;
+    let record=await orientationDbGet(id);
+    const expectedFormat=String(meta.format||"").toLowerCase();
+    const storedFormat=String(record&&record.format||"").toLowerCase();
+    const sourceChanged=!!record&&String(record.sourceFile||"")!==String(meta.file||"");
+    const formatChanged=!!record&&storedFormat!==expectedFormat;
+    if(record&&(!record.pngBlob||!Array.isArray(record.bounds)||record.bounds.length!==2||sourceChanged||formatChanged)){
+        await orientationDbDelete(id);
+        record=null;
+    }
+    if(record)return record;
+    const response=await fetch(meta.file,{cache:"force-cache"});
+    if(!response.ok)throw new Error(`No se pudo descargar el plano integrado (${response.status})`);
+    const blob=await response.blob();
+    const format=String(meta.format||"").toLowerCase();
+    if(format==="image"||format==="png"||format==="jpg"||format==="jpeg"||format==="webp"){
+        if(!Array.isArray(meta.bounds)||meta.bounds.length!==2)throw new Error("El catálogo no contiene los límites geográficos del plano");
+        const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("No se pudo preparar la imagen integrada"));reader.readAsDataURL(blob)});
+        record={id,name:meta.name,format:"image",epsg:null,bounds:meta.bounds,pngBlob:blob,dataUrl,width:Number(meta.width)||0,height:Number(meta.height)||0,sourceWidth:Number(meta.width)||0,sourceHeight:Number(meta.height)||0,importedAt:new Date().toISOString(),builtin:true,sourceFile:meta.file};
+    }else if(format==="kmz"){
+        const png=await parseOrientationKmz(blob);
+        record={id,name:meta.name,format:"kmz",epsg:null,bounds:png.bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString(),builtin:true,sourceFile:meta.file};
+    }else if(format==="geotiff"||format==="tif"||format==="tiff"){
+        const GeoTIFF=await ensureOrientationGeoTiffLib();
+        const tiff=await GeoTIFF.fromArrayBuffer(await blob.arrayBuffer());
+        const image=await tiff.getImage();
+        const bbox=image.getBoundingBox();
+        const epsg=orientationGeoTiffEpsg(image);
+        if(!bbox||bbox.length!==4||!epsg)throw new Error("El GeoTIFF integrado no contiene georreferenciación EPSG legible");
+        const bounds=orientationBoundsFromProjected(bbox,epsg);
+        const png=await orientationRasterToPng(image,4096);
+        record={id,name:meta.name,format:"geotiff",epsg,bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString(),builtin:true,sourceFile:meta.file};
+    }else throw new Error("Formato integrado no compatible");
+    await orientationDbPut(record,id);
+    return record;
+}
+async function orientationCustomMapForLive(options={}){
+    const requestedEventId=String(options.eventId||"").trim();
+    const currentEventId=String(state.eventId||"").trim();
+    if(requestedEventId&&currentEventId&&requestedEventId!==currentEventId)return null;
+    const active=orientationCustomMapDescriptor();
+    if(active)return active;
+    if(!orientationBuiltinMaps.length)await loadOrientationBuiltinMaps();
+    const fallbackId=String(options.fallbackBuiltinId||"el-valle-matizado");
+    const meta=orientationBuiltinMaps.find(m=>String(m.id)===fallbackId);
+    if(!meta)return null;
+    const record=await ensureOrientationIntegratedRecord(meta);
+    return {
+        id:record.id||`builtin:${fallbackId}`,
+        name:record.name||meta.name||"Plano carrera",
+        format:record.format||meta.format||"geotiff",
+        epsg:record.epsg||null,
+        bounds:safeJsonClone(record.bounds,null),
+        blob:record.pngBlob||null,
+        builtin:true,
+        fallback:true,
+        eventId:currentEventId
+    };
+}
+window.MILITOPO_ORIENTATION_CUSTOM_MAP={
+    getActive:orientationCustomMapDescriptor,
+    getForLive:orientationCustomMapForLive
+};
+
 async function activateIntegratedOrientationMap(mapId){
     const cleanId=String(mapId||"").trim();
     if(!cleanId)return;
@@ -11087,42 +11170,7 @@ async function activateOrientationCustomMap(id){
         if(!meta)return toast("No se encontró el plano integrado");
         setOrientationGeoTiffStatus(`⏳ Cargando <b>${escapeHtml(meta.name)}</b> desde MILITOPO...`,"warn");
         try{
-            let record=await orientationDbGet(id);
-            const expectedFormat=String(meta.format||"").toLowerCase();
-            const storedFormat=String(record&&record.format||"").toLowerCase();
-            const sourceChanged=!!record&&String(record.sourceFile||"")!==String(meta.file||"");
-            const formatChanged=!!record&&storedFormat!==expectedFormat;
-            if(record&&(!record.pngBlob||!Array.isArray(record.bounds)||record.bounds.length!==2||sourceChanged||formatChanged)){
-                await orientationDbDelete(id);
-                record=null;
-            }
-            if(!record){
-                const response=await fetch(meta.file,{cache:"force-cache"});
-                if(!response.ok)throw new Error(`No se pudo descargar el plano integrado (${response.status})`);
-                const blob=await response.blob();
-                const format=String(meta.format||"").toLowerCase();
-                if(format==="image"||format==="png"||format==="jpg"||format==="jpeg"||format==="webp"){
-                    if(!Array.isArray(meta.bounds)||meta.bounds.length!==2)throw new Error("El catálogo no contiene los límites geográficos del plano");
-                    const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("No se pudo preparar la imagen integrada"));reader.readAsDataURL(blob)});
-                    record={id,name:meta.name,format:"image",epsg:null,bounds:meta.bounds,pngBlob:blob,dataUrl,width:Number(meta.width)||0,height:Number(meta.height)||0,sourceWidth:Number(meta.width)||0,sourceHeight:Number(meta.height)||0,importedAt:new Date().toISOString(),builtin:true,sourceFile:meta.file};
-                }else if(format==="kmz"){
-                    const png=await parseOrientationKmz(blob);
-                    record={id,name:meta.name,format:"kmz",epsg:null,bounds:png.bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString(),builtin:true,sourceFile:meta.file};
-                }else if(format==="geotiff"||format==="tif"||format==="tiff"){
-                    const GeoTIFF=await ensureOrientationGeoTiffLib();
-                    const tiff=await GeoTIFF.fromArrayBuffer(await blob.arrayBuffer());
-                    const image=await tiff.getImage();
-                    const bbox=image.getBoundingBox();
-                    const epsg=orientationGeoTiffEpsg(image);
-                    if(!bbox||bbox.length!==4||!epsg)throw new Error("El GeoTIFF integrado no contiene georreferenciación EPSG legible");
-                    const bounds=orientationBoundsFromProjected(bbox,epsg);
-                    const png=await orientationRasterToPng(image,4096);
-                    record={id,name:meta.name,format:"geotiff",epsg,bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString(),builtin:true,sourceFile:meta.file};
-                }else{
-                    throw new Error("Formato integrado no compatible");
-                }
-                await orientationDbPut(record,id);
-            }
+            const record=await ensureOrientationIntegratedRecord(meta);
             await orientationDbPut(id,ORIENTATION_MAP_ACTIVE_KEY);
             hideOrientationGeoTiffOverlay();applyOrientationGeoTiffRecord(record);switchLayer("custom");fitOrientationGeoTiff();saveState();toast(`Plano integrado activado: ${meta.name}`);
         }catch(err){
@@ -11137,7 +11185,7 @@ function bringOrientationLayerToFront(layer){if(!layer)return;try{if(typeof laye
 function hideOrientationGeoTiffOverlay(){if(map&&orientationGeoTiffRuntime.overlay&&map.hasLayer(orientationGeoTiffRuntime.overlay))map.removeLayer(orientationGeoTiffRuntime.overlay)}
 function setOrientationGeoTiffOpacity(value){state.customGeoTiffOpacity=Math.max(0,Math.min(1,Number(value)/100));if(orientationGeoTiffRuntime.overlay)orientationGeoTiffRuntime.overlay.setOpacity(state.customGeoTiffOpacity);const label=document.getElementById("orientationGeoTiffOpacityValue");if(label)label.textContent=Math.round(state.customGeoTiffOpacity*100)+" %";saveState()}
 function fitOrientationGeoTiff(){if(map&&orientationGeoTiffRuntime.bounds){map.fitBounds(orientationGeoTiffRuntime.bounds,{padding:[18,18]});setTimeout(()=>map.invalidateSize(),80)}}
-async function removeOrientationGeoTiff(){if(!orientationGeoTiffRuntime.ready)return;if(!confirm(`¿Eliminar "${orientationGeoTiffRuntime.name}" de la biblioteca local de este dispositivo?`))return;const removedId=orientationGeoTiffRuntime.id;hideOrientationGeoTiffOverlay();await deleteOrientationGeoTiffRecord(removedId);if(orientationGeoTiffRuntime.url)URL.revokeObjectURL(orientationGeoTiffRuntime.url);Object.assign(orientationGeoTiffRuntime,{ready:false,url:null,dataUrl:null,bounds:null,imageWidth:0,imageHeight:0,overlay:null,name:"",epsg:null,id:null,format:null,builtin:false});state.customGeoTiffMeta=null;const records=await listOrientationMapRecords();if(records.length){await saveOrientationGeoTiffRecord(records[0]);applyOrientationGeoTiffRecord(records[0])}else{if(state.selectedMapLayer==="custom")switchLayer("mapant");await refreshOrientationMapLibrary();updateOrientationGeoTiffUi();setOrientationGeoTiffStatus("No hay ningún plano propio cargado.","warn")}saveState()}
+async function removeOrientationGeoTiff(){if(!orientationGeoTiffRuntime.ready)return;if(!confirm(`¿Eliminar "${orientationGeoTiffRuntime.name}" de la biblioteca local de este dispositivo?`))return;const removedId=orientationGeoTiffRuntime.id;hideOrientationGeoTiffOverlay();await deleteOrientationGeoTiffRecord(removedId);if(orientationGeoTiffRuntime.url)URL.revokeObjectURL(orientationGeoTiffRuntime.url);Object.assign(orientationGeoTiffRuntime,{ready:false,url:null,dataUrl:null,bounds:null,imageWidth:0,imageHeight:0,overlay:null,name:"",epsg:null,id:null,format:null,builtin:false});state.customGeoTiffMeta=null;const records=await listOrientationMapRecords();if(records.length){await saveOrientationGeoTiffRecord(records[0]);applyOrientationGeoTiffRecord(records[0])}else{if(state.selectedMapLayer==="custom")switchLayer("mapant");await refreshOrientationMapLibrary();updateOrientationGeoTiffUi();setOrientationGeoTiffStatus("No hay ningún plano propio cargado.","warn");notifyOrientationCustomMapChanged()}saveState()}
 async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orientationGeoTiffRuntime.ready)throw new Error("No hay plano propio cargado");let src=orientationGeoTiffRuntime.dataUrl;if(!src){const record=await orientationDbGet(orientationGeoTiffRuntime.id);src=record&&record.dataUrl;if(!src)throw new Error("No se pudo leer la imagen guardada")}const b=orientationGeoTiffRuntime.bounds,sw=b[0],ne=b[1],west=sw[1],south=sw[0],east=ne[1],north=ne[0],inter={west:Math.max(west,bounds.west),east:Math.min(east,bounds.east),south:Math.max(south,bounds.south),north:Math.min(north,bounds.north)};if(inter.west>=inter.east||inter.south>=inter.north)throw new Error("El marco PDF queda fuera del plano importado");const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error("No se pudo abrir el plano para el PDF"));i.src=src});const sx=(inter.west-west)/(east-west)*img.naturalWidth,sy=(north-inter.north)/(north-south)*img.naturalHeight,swp=(inter.east-inter.west)/(east-west)*img.naturalWidth,shp=(inter.north-inter.south)/(north-south)*img.naturalHeight,c=document.createElement("canvas");c.width=width;c.height=height;const ctx=c.getContext("2d");ctx.fillStyle="#ffffff";ctx.fillRect(0,0,width,height);const dx=(inter.west-bounds.west)/(bounds.east-bounds.west)*width,dy=(bounds.north-inter.north)/(bounds.north-bounds.south)*height,dw=(inter.east-inter.west)/(bounds.east-bounds.west)*width,dh=(inter.north-inter.south)/(bounds.north-bounds.south)*height;ctx.drawImage(img,sx,sy,swp,shp,dx,dy,dw,dh);return c.toDataURL("image/png")}
 /* ===== FIN BIBLIOTECA DE PLANOS GEOTIFF / KMZ V2 ===== */
 
