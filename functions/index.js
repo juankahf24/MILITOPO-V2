@@ -314,7 +314,175 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
   return { ok: true, eventId, ownerUid, runId, status: "live", participantCount: live.activeMembers.length };
 });
 
-exports.finishLiveRun = onCall({ enforceAppCheck: false }, async request => {
+
+const RESULT_SCHEMA_VERSION = 1;
+const RESULT_TRACK_CHUNK_SIZE = 250;
+
+function normalizeTrackPoints(raw) {
+  const rows = raw && typeof raw === "object" ? Object.values(raw) : [];
+  return rows.map(row => {
+    const lat = Number(row?.lat);
+    const lng = Number(row?.lng);
+    const accuracy = Math.max(0, Number(row?.accuracy || 0));
+    const at = Math.max(0, Number(row?.at || 0));
+    const seq = Math.max(0, Number(row?.seq || 0));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(at) || !Number.isFinite(seq)) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180 || at <= 0 || seq <= 0) return null;
+    return { lat, lng, accuracy: Math.round(accuracy * 10) / 10, at, seq };
+  }).filter(Boolean).sort((a, b) => a.seq - b.seq || a.at - b.at);
+}
+
+function haversineMeters(a, b) {
+  if (!a || !b) return 0;
+  const R = 6371000;
+  const rad = Math.PI / 180;
+  const p1 = a.lat * rad;
+  const p2 = b.lat * rad;
+  const dp = (b.lat - a.lat) * rad;
+  const dl = (b.lng - a.lng) * rad;
+  const h = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(Math.max(0, 1 - h)));
+}
+
+function trackDistanceMeters(points) {
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    const d = haversineMeters(points[i - 1], points[i]);
+    // Filtra saltos GPS claramente imposibles para no falsear el resumen.
+    if (Number.isFinite(d) && d >= 0 && d <= 5000) total += d;
+  }
+  return Math.round(total);
+}
+
+function resultStatus(participantStatus) {
+  const value = String(participantStatus || "not_started").toLowerCase();
+  if (value === "finished") return "finished";
+  if (value === "racing" || value === "started") return "incomplete";
+  return "not_started";
+}
+
+async function replaceResultTrackChunks(resultRef, points) {
+  const chunksRef = resultRef.collection("trackChunks");
+  const existing = await chunksRef.get();
+  const writes = [];
+  existing.forEach(docSnap => writes.push({ type: "delete", ref: docSnap.ref }));
+
+  for (let i = 0; i < points.length; i += RESULT_TRACK_CHUNK_SIZE) {
+    const chunk = points.slice(i, i + RESULT_TRACK_CHUNK_SIZE);
+    const index = Math.floor(i / RESULT_TRACK_CHUNK_SIZE);
+    writes.push({
+      type: "set",
+      ref: chunksRef.doc(`chunk_${String(index).padStart(4, "0")}`),
+      data: {
+        index,
+        pointCount: chunk.length,
+        firstSeq: chunk[0]?.seq || null,
+        lastSeq: chunk[chunk.length - 1]?.seq || null,
+        firstAtMs: chunk[0]?.at || null,
+        lastAtMs: chunk[chunk.length - 1]?.at || null,
+        points: chunk,
+        schemaVersion: RESULT_SCHEMA_VERSION,
+        updatedAt: FieldValue.serverTimestamp()
+      }
+    });
+  }
+
+  for (let offset = 0; offset < writes.length; offset += 400) {
+    const batch = db.batch();
+    for (const item of writes.slice(offset, offset + 400)) {
+      if (item.type === "delete") batch.delete(item.ref);
+      else batch.set(item.ref, item.data);
+    }
+    await batch.commit();
+  }
+}
+
+async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, baseRef, runId, uid, participant = null, cutoffAt = null, source = "runner_finish" }) {
+  const participantRef = baseRef.child(`runs/${runId}/participants/${uid}`);
+  let row = participant || null;
+  if (!row) {
+    const snap = await participantRef.get();
+    row = snap.exists() ? (snap.val() || {}) : {};
+  }
+
+  const trackSnap = await baseRef.child(`runs/${runId}/tracks/${uid}`).get();
+  const points = normalizeTrackPoints(trackSnap.exists() ? trackSnap.val() : null);
+  const memberSnap = await eventRef.collection("members").doc(uid).get();
+  const member = memberSnap.exists ? (memberSnap.data() || {}) : {};
+  const profileSnap = await db.collection("users").doc(uid).get();
+  const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
+
+  const participantState = String(row.status || "not_started").toLowerCase();
+  const finalStatus = resultStatus(participantState);
+  const startedAtMs = Math.max(0, Number(row.startedAt || 0)) || null;
+  let finishedAtMs = Math.max(0, Number(row.finishedAt || 0)) || null;
+  if (!finishedAtMs && finalStatus === "incomplete" && cutoffAt) finishedAtMs = Math.max(0, Number(cutoffAt || 0)) || null;
+  const durationMs = startedAtMs && finishedAtMs ? Math.max(0, finishedAtMs - startedAtMs) : null;
+  const resultRef = eventRef.collection("results").doc(uid);
+  const existing = await resultRef.get();
+  const first = points[0] || null;
+  const last = points[points.length - 1] || null;
+
+  const result = {
+    schemaVersion: RESULT_SCHEMA_VERSION,
+    eventId,
+    eventName: String(eventData.eventName || "Carrera de orientación").slice(0, 140),
+    ownerUid,
+    runId,
+    runnerUid: uid,
+    username: String(profile.usernameKey || profile.username || row.username || "").replace(/^@/, "").slice(0, 40) || null,
+    displayName: String(profile.displayName || row.displayName || "").slice(0, 120) || null,
+    email: String(profile.email || row.email || "").slice(0, 180) || null,
+    membershipStatus: String(member.status || "active").toLowerCase(),
+    invitationId: String(member.invitationId || "").slice(0, 160) || null,
+    status: finalStatus,
+    liveParticipantStatus: participantState,
+    startedAtMs,
+    finishedAtMs,
+    durationMs,
+    startedAt: startedAtMs ? new Date(startedAtMs) : null,
+    finishedAt: finishedAtMs ? new Date(finishedAtMs) : null,
+    trackPointCount: points.length,
+    trackChunkCount: Math.ceil(points.length / RESULT_TRACK_CHUNK_SIZE),
+    trackDistanceM: trackDistanceMeters(points),
+    trackStart: first ? { lat: first.lat, lng: first.lng, at: first.at, seq: first.seq } : null,
+    trackEnd: last ? { lat: last.lat, lng: last.lng, at: last.at, seq: last.seq } : null,
+    source,
+    livePath: `v2/live/${ownerUid}/${eventId}/runs/${runId}`,
+    consolidatedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  };
+  if (!existing.exists) result.createdAt = FieldValue.serverTimestamp();
+
+  await resultRef.set(result, { merge: true });
+  await replaceResultTrackChunks(resultRef, points);
+  return { uid, status: finalStatus, trackPointCount: points.length, durationMs };
+}
+
+async function consolidateRunResults({ eventRef, eventData, ownerUid, eventId, baseRef, runId, cutoffAt, source }) {
+  const participantsSnap = await baseRef.child(`runs/${runId}/participants`).get();
+  const participants = participantsSnap.exists() ? (participantsSnap.val() || {}) : {};
+  const entries = Object.entries(participants);
+  const rows = [];
+  const concurrency = 6;
+  for (let offset = 0; offset < entries.length; offset += concurrency) {
+    const group = entries.slice(offset, offset + concurrency);
+    const saved = await Promise.all(group.map(([uid, participant]) => persistRunnerResult({
+      eventRef, eventData, ownerUid, eventId, baseRef, runId, uid,
+      participant: participant || {}, cutoffAt, source
+    })));
+    rows.push(...saved);
+  }
+  const summary = { total: rows.length, finished: 0, incomplete: 0, notStarted: 0 };
+  for (const row of rows) {
+    if (row.status === "finished") summary.finished += 1;
+    else if (row.status === "incomplete") summary.incomplete += 1;
+    else summary.notStarted += 1;
+  }
+  return { rows, summary };
+}
+
+exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
   const eventRef = db.collection("events").doc(eventId);
@@ -337,10 +505,22 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false }, async request => {
   const runId = String(eventData.liveRunId || active.runId || "").trim();
   if (!runId) throw new HttpsError("failed-precondition", "No existe una sesión Live V2 activa para este evento.");
   const now = Date.now();
+
+  // H1: antes de cerrar Live, consolida todos los participantes en Firestore.
+  // Los que terminaron quedan FINISHED; quien seguía corriendo queda INCOMPLETE;
+  // quien no salió queda NOT_STARTED. Así el histórico no depende de RTDB.
+  const consolidation = await consolidateRunResults({
+    eventRef, eventData, ownerUid, eventId, baseRef, runId,
+    cutoffAt: now,
+    source: "event_finish"
+  });
+
   await baseRef.update({
     [`runs/${runId}/meta/status`]: "finished",
     [`runs/${runId}/meta/finishedAt`]: now,
     [`runs/${runId}/meta/updatedAt`]: now,
+    [`runs/${runId}/meta/resultsConsolidatedAt`]: now,
+    [`runs/${runId}/meta/resultCount`]: consolidation.summary.total,
     "activeRun/status": "finished",
     "activeRun/finishedAt": now,
     "activeRun/updatedAt": now,
@@ -351,10 +531,21 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false }, async request => {
     status: "finished",
     finishedAt: FieldValue.serverTimestamp(),
     liveRunId: runId,
+    resultsConsolidatedAt: FieldValue.serverTimestamp(),
+    resultCount: consolidation.summary.total,
+    resultFinishedCount: consolidation.summary.finished,
+    resultIncompleteCount: consolidation.summary.incomplete,
+    resultNotStartedCount: consolidation.summary.notStarted,
     updatedAt: FieldValue.serverTimestamp()
   }, { merge: true });
-  await appendAudit("LIVE_RUN_FINISHED", identity.uid, null, { eventId, ownerUid, runId });
-  return { ok: true, eventId, ownerUid, runId, status: "finished" };
+  await appendAudit("LIVE_RUN_FINISHED", identity.uid, null, {
+    eventId, ownerUid, runId,
+    resultCount: consolidation.summary.total,
+    finished: consolidation.summary.finished,
+    incomplete: consolidation.summary.incomplete,
+    notStarted: consolidation.summary.notStarted
+  });
+  return { ok: true, eventId, ownerUid, runId, status: "finished", results: consolidation.summary };
 });
 
 
@@ -433,13 +624,57 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   const ctx = await resolveRunnerLiveContext(identity, eventId);
   const current = String(ctx.participant.status || "").toLowerCase();
   if (current === "finished") {
-    return { ok: true, recovered: true, eventId, runId: ctx.runId, status: "finished", finishedAt: ctx.participant.finishedAt || null };
+    // Idempotente: si RTDB ya marcaba llegada pero Firestore falló o no existía aún,
+    // reconstruimos el resultado oficial al reintentar.
+    const saved = await persistRunnerResult({
+      eventRef: ctx.eventRef,
+      eventData: ctx.eventData,
+      ownerUid: ctx.ownerUid,
+      eventId,
+      baseRef: ctx.baseRef,
+      runId: ctx.runId,
+      uid: ctx.uid,
+      participant: ctx.participant,
+      cutoffAt: ctx.participant.finishedAt || Date.now(),
+      source: "runner_finish_recovery"
+    });
+    return {
+      ok: true, recovered: true, eventId, runId: ctx.runId, status: "finished",
+      finishedAt: ctx.participant.finishedAt || null,
+      resultPersisted: true,
+      trackPointCount: saved.trackPointCount,
+      durationMs: saved.durationMs
+    };
   }
   if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes iniciar el recorrido antes de finalizarlo.");
   const now = Date.now();
+  const finishedParticipant = { ...ctx.participant, status: "finished", online: true, finishedAt: now, lastSeen: now, updatedAt: now };
   await ctx.participantRef.update({ status: "finished", online: true, finishedAt: now, lastSeen: now, updatedAt: now });
-  await appendAudit("RUNNER_FINISHED", identity.uid, identity.uid, { eventId, ownerUid: ctx.ownerUid, runId: ctx.runId });
-  return { ok: true, eventId, runId: ctx.runId, status: "finished", finishedAt: now };
+
+  const saved = await persistRunnerResult({
+    eventRef: ctx.eventRef,
+    eventData: ctx.eventData,
+    ownerUid: ctx.ownerUid,
+    eventId,
+    baseRef: ctx.baseRef,
+    runId: ctx.runId,
+    uid: ctx.uid,
+    participant: finishedParticipant,
+    cutoffAt: now,
+    source: "runner_finish"
+  });
+
+  await appendAudit("RUNNER_FINISHED", identity.uid, identity.uid, {
+    eventId, ownerUid: ctx.ownerUid, runId: ctx.runId,
+    trackPointCount: saved.trackPointCount,
+    durationMs: saved.durationMs
+  });
+  return {
+    ok: true, eventId, runId: ctx.runId, status: "finished", finishedAt: now,
+    resultPersisted: true,
+    trackPointCount: saved.trackPointCount,
+    durationMs: saved.durationMs
+  };
 });
 
 // F3A · Contexto Live del corredor autenticado.
