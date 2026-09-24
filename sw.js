@@ -1,15 +1,9 @@
-/* MILITOPO PWA · v2-f3b-stability-20260924 · nueva interfaz de carrera Live V2 */
-const CACHE_NAME="militopo-v2-pwa-v2-f3b-stability-20260924";
-const RUNTIME_CACHE="militopo-v2-pwa-runtime-v2-f3b-stability-20260924";
-const APP_SHELL=["./","./index.html","./styles.css","./styles.css?v=v2-f3b-stability-20260924","./app.js","./app.js?v=v2-f3b-stability-20260924","./manifest.webmanifest","./icons/militopo-192.png","./icons/militopo-512.png","./icons/militopo-startup-1536.png","./icons/militopo-startup-premium-2048x3072.jpg","./js/v2/firebase-config.js","./js/v2/bootstrap.js","./js/v2/firebase/client.js?v=v2-f3b-stability-20260924","./js/v2/auth/roles.js","./js/v2/auth/auth-ui.css?v=v2-f3b-stability-20260924","./js/v2/auth/auth-ui.js?v=v2-f3b-stability-20260924","./js/v2/data/invitation-inbox.js?v=v2-f3b-stability-20260924","./js/v2/live/runner-dashboard.js?v=v2-f3b-stability-20260924","./js/v2/live/runner-race-v2.js?v=v2-f3b-stability-20260924"];
-const REMOTE_ASSETS=[
-"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css","https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
-"https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-"https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js","https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js","https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js",
-"https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js","https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js","https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js","https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
-"https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js","https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js","https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js","https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js","https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js","https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js"
-];
-const TRUSTED_RUNTIME_ORIGINS=new Set(["https://unpkg.com","https://cdnjs.cloudflare.com","https://cdn.sheetjs.com","https://cdn.jsdelivr.net","https://tile.openstreetmap.org","https://www.ign.es","https://mapant.es","https://www.gstatic.com"]);
+/* MILITOPO PWA · v2-f3b-runtimefix-20260924 · nueva interfaz de carrera Live V2 */
+const CACHE_NAME="militopo-v2-pwa-v2-f3b-runtimefix-20260924";
+const RUNTIME_CACHE="militopo-v2-pwa-runtime-v2-f3b-runtimefix-20260924";
+const APP_SHELL=["./","./index.html","./styles.css","./styles.css?v=v2-f3b-runtimefix-20260924","./app.js","./app.js?v=v2-f3b-runtimefix-20260924","./manifest.webmanifest","./icons/militopo-192.png","./icons/militopo-512.png","./icons/militopo-startup-1536.png","./icons/militopo-startup-premium-2048x3072.jpg","./js/v2/firebase-config.js","./js/v2/bootstrap.js","./js/v2/firebase/client.js?v=v2-f3b-runtimefix-20260924","./js/v2/auth/roles.js","./js/v2/auth/auth-ui.css?v=v2-f3b-runtimefix-20260924","./js/v2/auth/auth-ui.js?v=v2-f3b-runtimefix-20260924","./js/v2/data/invitation-inbox.js?v=v2-f3b-runtimefix-20260924","./js/v2/live/runner-dashboard.js?v=v2-f3b-runtimefix-20260924","./js/v2/live/runner-race-v2.js?v=v2-f3b-runtimefix-20260924"];
+const REMOTE_ASSETS=["https://unpkg.com/leaflet@1.9.4/dist/leaflet.css","https://unpkg.com/leaflet@1.9.4/dist/leaflet.js","https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png","https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js","https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js","https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js","https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js","https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js","https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js","https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"];
+const TRUSTED_RUNTIME_ORIGINS=new Set(["https://unpkg.com","https://cdnjs.cloudflare.com","https://cdn.sheetjs.com","https://cdn.jsdelivr.net","https://tile.openstreetmap.org","https://www.ign.es","https://mapant.es"]);
 async function cacheRemote(cache,url){try{const r=await fetch(new Request(url,{mode:"no-cors",cache:"reload"}));if(r)await cache.put(url,r.clone())}catch(_){}}
 async function trimCache(name,max=450){try{const c=await caches.open(name),keys=await c.keys();await Promise.all(keys.slice(0,Math.max(0,keys.length-max)).map(k=>c.delete(k)))}catch(_){}}
 self.addEventListener("install",event=>{self.skipWaiting();event.waitUntil((async()=>{const c=await caches.open(CACHE_NAME);await Promise.allSettled(APP_SHELL.map(u=>c.add(new Request(u,{cache:"reload"}))));await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(c,u)))})())});
@@ -22,7 +16,10 @@ function isAppCode(url,req){
 }
 self.addEventListener("fetch",event=>{
   const req=event.request;if(req.method!=="GET")return;
-  const url=new URL(req.url),same=url.origin===self.location.origin,isRemote=TRUSTED_RUNTIME_ORIGINS.has(url.origin);
+  const url=new URL(req.url);
+  // Firebase ESM debe ir directo a red. Cachear respuestas opacas de gstatic rompe los imports en algunos móviles.
+  if(url.origin==="https://www.gstatic.com")return;
+  const same=url.origin===self.location.origin,isRemote=TRUSTED_RUNTIME_ORIGINS.has(url.origin);
   if(!same&&!isRemote)return;
   event.respondWith((async()=>{
     const cache=await caches.open(same?CACHE_NAME:RUNTIME_CACHE),cached=await cachedResponse(req),isNav=same&&req.mode==="navigate";
