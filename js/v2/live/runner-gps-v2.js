@@ -1,9 +1,9 @@
-/* MILITOPO V2 · G1 · GPS Live del corredor.
+/* MILITOPO V2 · G2 · GPS Live + track persistente del corredor.
    Captura una única posición en vivo durante la carrera y la publica en RTDB.
-   El historial/offline profundo se añadirá en G2. */
+   El track se guarda localmente y se sincroniza al recuperar conexión. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-g1-gps-live-20260924";
+const VERSION = "v2-g2-track-offline-20260924";
 const MIN_WRITE_MS = 4000;
 const FORCE_WRITE_MS = 12000;
 const MIN_MOVE_M = 3;
@@ -17,6 +17,8 @@ const state = {
   seedFix: null,
   lastError: ""
 };
+
+function trackApi() { return globalThis.MILITOPO_RUNNER_TRACK_V2 || null; }
 
 async function services() {
   if (!state.services) state.services = await globalThis.MILITOPO_V2.firebase();
@@ -66,6 +68,7 @@ async function writeFix(fix, force = false) {
   if (!force && elapsed < MIN_WRITE_MS) return;
   if (!force && elapsed < FORCE_WRITE_MS && moved < MIN_MOVE_M) return;
 
+  trackApi()?.record?.(fix);
   const path = contextPath();
   if (!path) return;
   try {
@@ -131,6 +134,7 @@ async function start(context, seedFix = null) {
   stopWatchOnly();
   state.context = { ...context };
   state.active = true;
+  await trackApi()?.start?.(state.context);
   state.lastSent = null;
   const first = seedFix || state.seedFix;
   if (first) await writeFix(first, true);
@@ -168,6 +172,7 @@ async function stop(reason = "manual") {
       });
     } catch (_) {}
   }
+  await trackApi()?.stop?.({ flushPending: true });
   emit("stopped", { reason, fix: state.lastSent ? { ...state.lastSent } : null });
 }
 
