@@ -1,7 +1,7 @@
-/* MILITOPO PWA · v2-f3b-recovery-signals-20260924 · nueva interfaz de carrera Live V2 */
-const CACHE_NAME="militopo-v2-pwa-v2-f3b-recovery-signals-20260924";
-const RUNTIME_CACHE="militopo-v2-pwa-runtime-v2-f3b-recovery-signals-20260924";
-const APP_SHELL=["./","./index.html","./styles.css","./styles.css?v=v2-f3b-recovery-signals-20260924","./app.js","./app.js?v=v2-f3b-recovery-signals-20260924","./manifest.webmanifest","./icons/militopo-192.png","./icons/militopo-512.png","./icons/militopo-startup-1536.png","./icons/militopo-startup-premium-2048x3072.jpg","./js/v2/firebase-config.js","./js/v2/bootstrap.js","./js/v2/firebase/client.js?v=v2-f3b-recovery-signals-20260924","./js/v2/auth/roles.js","./js/v2/auth/auth-ui.css?v=v2-f3b-recovery-signals-20260924","./js/v2/auth/auth-ui.js?v=v2-f3b-recovery-signals-20260924","./js/v2/data/invitation-inbox.js?v=v2-f3b-recovery-signals-20260924","./js/v2/live/runner-dashboard.js?v=v2-f3b-recovery-signals-20260924","./js/v2/live/runner-race-v2.js?v=v2-f3b-recovery-signals-20260924"];
+/* MILITOPO PWA · v2-f3b-stability-20260924 · nueva interfaz de carrera Live V2 */
+const CACHE_NAME="militopo-v2-pwa-v2-f3b-stability-20260924";
+const RUNTIME_CACHE="militopo-v2-pwa-runtime-v2-f3b-stability-20260924";
+const APP_SHELL=["./","./index.html","./styles.css","./styles.css?v=v2-f3b-stability-20260924","./app.js","./app.js?v=v2-f3b-stability-20260924","./manifest.webmanifest","./icons/militopo-192.png","./icons/militopo-512.png","./icons/militopo-startup-1536.png","./icons/militopo-startup-premium-2048x3072.jpg","./js/v2/firebase-config.js","./js/v2/bootstrap.js","./js/v2/firebase/client.js?v=v2-f3b-stability-20260924","./js/v2/auth/roles.js","./js/v2/auth/auth-ui.css?v=v2-f3b-stability-20260924","./js/v2/auth/auth-ui.js?v=v2-f3b-stability-20260924","./js/v2/data/invitation-inbox.js?v=v2-f3b-stability-20260924","./js/v2/live/runner-dashboard.js?v=v2-f3b-stability-20260924","./js/v2/live/runner-race-v2.js?v=v2-f3b-stability-20260924"];
 const REMOTE_ASSETS=[
 "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css","https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
 "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png","https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
@@ -15,4 +15,31 @@ async function trimCache(name,max=450){try{const c=await caches.open(name),keys=
 self.addEventListener("install",event=>{self.skipWaiting();event.waitUntil((async()=>{const c=await caches.open(CACHE_NAME);await Promise.allSettled(APP_SHELL.map(u=>c.add(new Request(u,{cache:"reload"}))));await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(c,u)))})())});
 self.addEventListener("activate",event=>event.waitUntil((async()=>{if(self.registration.navigationPreload)try{await self.registration.navigationPreload.enable()}catch(_){}const keys=await caches.keys();await Promise.all(keys.filter(k=>(k.startsWith("militopo-v2-pwa-")||k.startsWith("militopo-v2-pwa-runtime-"))&&k!==CACHE_NAME&&k!==RUNTIME_CACHE).map(k=>caches.delete(k)));await self.clients.claim()})()));
 async function cachedResponse(req){return await caches.match(req,{ignoreSearch:false})}
-self.addEventListener("fetch",event=>{const req=event.request;if(req.method!=="GET")return;const url=new URL(req.url),same=url.origin===self.location.origin,isRemote=TRUSTED_RUNTIME_ORIGINS.has(url.origin);if(!same&&!isRemote)return;event.respondWith((async()=>{const cache=await caches.open(same?CACHE_NAME:RUNTIME_CACHE),cached=await cachedResponse(req);const isNav=same&&req.mode==="navigate";if(cached&&!isNav){event.waitUntil(fetch(req).then(r=>{if(r&&r.status!==206)cache.put(req,r.clone()).catch(()=>{})}).catch(()=>{}));return cached}try{const preload=isNav?await event.preloadResponse:null,r=preload||await fetch(req);if(r&&r.status!==206){cache.put(req,r.clone()).catch(()=>{});if(!same)event.waitUntil(trimCache(RUNTIME_CACHE))}return r}catch(_){if(cached)return cached;if(isNav)return(await cachedResponse(new Request("./index.html")))||(await cachedResponse(new Request("./")))||new Response("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO offline</title><body style='background:#0a0e0a;color:#f5e6c8;font-family:monospace;padding:24px'><h1>MILITOPO sin cobertura</h1><p>La aplicación está offline. Los datos locales se conservan; los mapas no visitados previamente pueden no estar disponibles.</p></body>",{headers:{"Content-Type":"text/html;charset=utf-8"}});return new Response("",{status:503,statusText:"Offline"})}})())});
+function isAppCode(url,req){
+  if(req.mode==="navigate")return true;
+  if(url.origin!==self.location.origin)return false;
+  return /\.(?:js|css|html?)$/i.test(url.pathname) || url.pathname.endsWith("/MILITOPO-V2/");
+}
+self.addEventListener("fetch",event=>{
+  const req=event.request;if(req.method!=="GET")return;
+  const url=new URL(req.url),same=url.origin===self.location.origin,isRemote=TRUSTED_RUNTIME_ORIGINS.has(url.origin);
+  if(!same&&!isRemote)return;
+  event.respondWith((async()=>{
+    const cache=await caches.open(same?CACHE_NAME:RUNTIME_CACHE),cached=await cachedResponse(req),isNav=same&&req.mode==="navigate";
+    // Código propio: red primero. Evita mezclar index nuevo con JS antiguo tras deploy.
+    if(same&&isAppCode(url,req)){
+      try{
+        const preload=isNav?await event.preloadResponse:null;
+        const r=preload||await fetch(new Request(req,{cache:"no-store"}));
+        if(r&&r.ok&&r.status!==206)cache.put(req,r.clone()).catch(()=>{});
+        return r;
+      }catch(_){
+        if(cached)return cached;
+        if(isNav)return(await cachedResponse(new Request("./index.html")))||(await cachedResponse(new Request("./")))||new Response("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO offline</title><body style='background:#0a0e0a;color:#f5e6c8;font-family:monospace;padding:24px'><h1>MILITOPO sin cobertura</h1><p>La aplicación está offline. Los datos locales se conservan.</p></body>",{headers:{"Content-Type":"text/html;charset=utf-8"}});
+        return new Response("",{status:503,statusText:"Offline"});
+      }
+    }
+    if(cached){event.waitUntil(fetch(req).then(r=>{if(r&&r.status!==206)cache.put(req,r.clone()).catch(()=>{})}).catch(()=>{}));return cached}
+    try{const r=await fetch(req);if(r&&r.status!==206){cache.put(req,r.clone()).catch(()=>{});if(!same)event.waitUntil(trimCache(RUNTIME_CACHE))}return r}catch(_){return new Response("",{status:503,statusText:"Offline"})}
+  })());
+});

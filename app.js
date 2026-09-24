@@ -4523,7 +4523,32 @@ function openMapModal() {
         overlay.dataset.closeTimer = String(timerId);
     }
 
+    function isRunnerSessionContext() {
+        try {
+            if (globalThis.MILITOPO_V2_AUTH?.role === "runner") return true;
+            const dashboard = document.getElementById("m2RunnerDashboard");
+            if (dashboard && dashboard.hidden === false) return true;
+            return localStorage.getItem("militopo_v2_last_role") === "runner";
+        } catch (_) { return false; }
+    }
+
+    function returnToRunnerShell() {
+        try {
+            const dashboard = document.getElementById("m2RunnerDashboard");
+            if (dashboard) dashboard.hidden = false;
+            const overlay = document.getElementById("startupModeOverlay");
+            if (overlay) { overlay.hidden = true; overlay.style.display = "none"; }
+            if (globalThis.MILITOPO_V2_AUTH?.role === "runner") {
+                globalThis.dispatchEvent(new CustomEvent("militopo:v2-runner-dashboard", { detail: globalThis.MILITOPO_V2_AUTH }));
+            }
+        } catch (_) {}
+    }
+
     function enterStartupMode(mode) {
+        if (mode === "orientacion" && isRunnerSessionContext()) {
+            returnToRunnerShell();
+            return;
+        }
         if (mode === "orientacion") {
             const overlay = document.getElementById("startupModeOverlay");
             overlay?.querySelectorAll(".startup-seq-btn").forEach(btn => { btn.disabled = true; });
@@ -4587,9 +4612,9 @@ function openMapModal() {
     }
 
     window.addEventListener("beforeunload", (e) => {
-        // El cambio automático de un runner hacia su área personal es una
-        // navegación controlada por Auth, no una salida accidental.
-        if (globalThis.MILITOPO_V2_AUTH_NAVIGATION === true) return;
+        // El área Runner V2 es una shell sincronizada con backend: no debe heredar
+        // el aviso de cambios sin guardar de Topografía al recargar la página.
+        if (isRunnerSessionContext()) return;
         if (!hasUnsavedChanges) return;
         e.preventDefault();
         e.returnValue = "";
@@ -4624,6 +4649,17 @@ function openMapModal() {
         //   /MILITOPO/                  -> selector inicial
         //   /MILITOPO/?modo=topografia -> Topografía y recarga estable dentro de la rama
         const finalizeInitialMode = () => {
+            if (isRunnerSessionContext()) {
+                setStartupVisualState(false);
+                if (overlay) {
+                    overlay.classList.remove("is-open", "is-closing", "startup-sequence-run", "startup-buttons-ready");
+                    overlay.hidden = true;
+                    overlay.style.display = "none";
+                    overlay.setAttribute("aria-hidden", "true");
+                    if ("inert" in overlay) overlay.inert = true;
+                }
+                return;
+            }
             if (openTopografia) {
                 resetAppContentEntrance();
                 setStartupVisualState(false);
