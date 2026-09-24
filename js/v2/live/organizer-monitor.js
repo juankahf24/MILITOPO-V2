@@ -2,7 +2,7 @@
    Solo lectura sobre Realtime Database V2.
    El Live heredado queda oculto en el organizador y se mantiene intacto como respaldo hasta F3. */
 import "../bootstrap.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
@@ -285,22 +285,45 @@ async function bindRoster() {
   try { state.unsubRoster?.(); } catch (_) {}
   state.unsubRoster = null;
   state.roster = {};
-  if (!state.ownerUid || !state.eventId) { render(); return; }
-  const { database } = await services();
-  const path = `v2/live/${state.ownerUid}/${state.eventId}/members`;
-  state.unsubRoster = onValue(ref(database, path), snap => {
-    state.roster = snap.exists() ? (snap.val() || {}) : {};
-    for (const [uid, cached] of state.profileCache.entries()) {
-      if (state.roster?.[uid]) Object.assign(state.roster[uid], cached);
-    }
-    state.lastError = "";
+  if (!state.eventId) { render(); return; }
+  try {
+    const { firestore } = await services();
+    // Antes de iniciar una sesión, la fuente de verdad es el censo Firestore.
+    // Esto evita depender de que el espejo RTDB haya terminado de sincronizar.
+    state.unsubRoster = onSnapshot(collection(firestore, "events", state.eventId, "members"), snap => {
+      const next = {};
+      snap.forEach(memberDoc => {
+        const row = memberDoc.data() || {};
+        const uid = String(row.uid || memberDoc.id || "").trim();
+        if (!uid) return;
+        const status = String(row.status || "active").toLowerCase();
+        next[uid] = {
+          uid,
+          active: status === "active",
+          status,
+          displayName: String(row.displayName || row.name || "").trim(),
+          username: String(row.username || row.usernameKey || "").replace(/^@/, "").trim(),
+          email: String(row.email || "").trim(),
+          updatedAt: row.updatedAt?.toMillis?.() || Date.now()
+        };
+      });
+      state.roster = next;
+      for (const [uid, cached] of state.profileCache.entries()) {
+        if (state.roster?.[uid]) Object.assign(state.roster[uid], cached);
+      }
+      state.lastError = "";
+      render();
+      hydrateParticipantProfiles();
+    }, error => {
+      console.error("[MILITOPO F2C] roster firestore", error);
+      state.lastError = "No se pudo leer el censo del evento en tiempo real.";
+      render();
+    });
+  } catch (error) {
+    console.error("[MILITOPO F2C] bindRoster", error);
+    state.lastError = "No se pudo preparar el censo Live V2.";
     render();
-    hydrateParticipantProfiles();
-  }, error => {
-    console.error("[MILITOPO F2C] roster", error);
-    state.lastError = "No se pudo leer el censo Live V2 del organizador.";
-    render();
-  });
+  }
 }
 
 async function bindParticipants() {
@@ -328,7 +351,10 @@ async function bindParticipants() {
 async function bindEvent(eventId) {
   const nextId = String(eventId || "").trim();
   if (!nextId || !canManage()) return;
-  if (nextId === state.eventId && state.unsubActive) return;
+  if (nextId === state.eventId && state.unsubActive) {
+    if (!state.unsubRoster) await bindRoster();
+    return;
+  }
   clearListeners();
   state.eventId = nextId;
   state.ownerUid = "";
@@ -397,6 +423,10 @@ function init() {
     if (id) bindEvent(id);
     render();
   });
+  globalThis.addEventListener("militopo:v2-roster-changed", () => { const id = eventIdNow(); if (id) bindRoster(); });
+  globalThis.addEventListener("militopo:v2-roster-refresh", () => { const id = eventIdNow(); if (id) bindRoster(); });
+  globalThis.addEventListener("militopo:v2-invitation-accepted", () => { const id = eventIdNow(); if (id) bindRoster(); });
+  globalThis.addEventListener("militopo:v2-live-foundation-ready", () => { const id = eventIdNow(); if (id) bindRoster(); });
   globalThis.addEventListener("online", () => { const id = eventIdNow(); if (id) bindEvent(id); });
   globalThis.addEventListener("offline", () => { state.lastError = "Sin conexión. Se mantiene la última tabla Live V2 recibida."; render(); });
   if (globalThis.MILITOPO_V2_AUTH) onAuth({ detail: globalThis.MILITOPO_V2_AUTH });

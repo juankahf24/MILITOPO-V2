@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-f3b-stability-20260924";
-  const state = { auth:null, services:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
+  const VERSION = "v2-f3b-runtimefix-20260924";
+  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
   const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
@@ -19,15 +19,28 @@
   }
   async function recoverRunnerAuth(){
     if(state.auth?.uid)return true;
-    try{
-      const svc=await services();
-      if(typeof svc.auth?.authStateReady==="function") await Promise.race([svc.auth.authStateReady(),new Promise(resolve=>setTimeout(resolve,5000))]);
-      const user=svc.auth?.currentUser;
-      if(!user||!user.emailVerified)return false;
-      const snap=cachedAuth();
-      activate({uid:user.uid,email:user.email||snap?.email||null,displayName:snap?.displayName||user.displayName||null,username:snap?.username||null,role:"runner",emailVerified:true},true);
-      return true;
-    }catch(error){console.warn("[MILITOPO runner dashboard] auth recovery",error);return false;}
+    if(state.recoveryPromise)return state.recoveryPromise;
+    state.recoveryPromise=(async()=>{
+      try{
+        const svc=await services();
+        if(typeof svc.auth?.authStateReady==="function"){
+          await Promise.race([svc.auth.authStateReady(),new Promise(resolve=>setTimeout(resolve,8000))]);
+        } else {
+          await new Promise(resolve=>setTimeout(resolve,600));
+        }
+        const user=svc.auth?.currentUser;
+        if(!user||!user.emailVerified)return false;
+        const snap=cachedAuth();
+        activate({uid:user.uid,email:user.email||snap?.email||null,displayName:snap?.displayName||user.displayName||null,username:snap?.username||null,role:"runner",emailVerified:true},true);
+        return true;
+      }catch(error){
+        console.warn("[MILITOPO runner dashboard] auth recovery",error);
+        return false;
+      }finally{
+        state.recoveryPromise=null;
+      }
+    })();
+    return state.recoveryPromise;
   }
 
   function cleanupInviteSignals(){
@@ -93,7 +106,15 @@
       <section class="m2rd-card"><h2 class="m2rd-kicker">📡 LIVE V2 · MIS CARRERAS</h2><div id="m2rdStatus" class="m2rd-status">Cargando tus carreras…</div><div id="m2rdEvents" class="m2rd-events"></div><button id="m2rdRetry" class="m2rd-btn" type="button" hidden>REINTENTAR</button><div class="m2rd-small">El acceso a Organizador está reservado a organizer/super_admin. Tu cuenta runner entra directamente aquí.</div></section>
     </div>`;
     document.body.appendChild(root); state.root=root;
-    root.querySelector("#m2rdAccount")?.addEventListener("click",()=>document.getElementById("m2AuthAccountBtn")?.click());
+    root.querySelector("#m2rdAccount")?.addEventListener("click",()=>{
+      const accountBtn=document.getElementById("m2AuthAccountBtn");
+      if(state.auth?.uid&&accountBtn){accountBtn.click();return;}
+      recoverRunnerAuth().then(ok=>{
+        if(ok){document.getElementById("m2AuthAccountBtn")?.click();return;}
+        try{globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-recovery-failed"));}catch(_){}
+        hide();
+      });
+    });
     root.querySelector("#m2rdRetry")?.addEventListener("click",async()=>{
       if(!state.auth?.uid){ setStatus("Reintentando recuperación de sesión…"); const ok=await recoverRunnerAuth(); if(!ok)setStatus("Todavía no se ha restaurado la sesión. Espera unos segundos y vuelve a intentar.","err"); return; }
       loadEvents(true);
@@ -122,7 +143,22 @@
     for(const unsubscribe of state.eventWatchers.values()){try{unsubscribe?.();}catch(_){}}
     state.eventWatchers.clear();
   }
-  async function services(){ if(!state.services) state.services=await globalThis.MILITOPO_V2.firebase(); return state.services; }
+  async function services(){
+    if(state.services)return state.services;
+    if(state.servicesPromise)return state.servicesPromise;
+    state.servicesPromise=(async()=>{
+      const started=Date.now();
+      while(typeof globalThis.MILITOPO_V2?.firebase!=="function"){
+        if(Date.now()-started>8000)throw new Error("FIREBASE_BOOT_TIMEOUT");
+        await new Promise(resolve=>setTimeout(resolve,120));
+      }
+      return await Promise.race([
+        Promise.resolve(globalThis.MILITOPO_V2.firebase()),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error("FIREBASE_SERVICES_TIMEOUT")),9000))
+      ]);
+    })();
+    try{state.services=await state.servicesPromise;return state.services;}finally{state.servicesPromise=null;}
+  }
   async function bindEventWatchers(){
     cleanupEventWatchers();
     if(!state.auth?.uid || !state.events.length) return;
@@ -258,7 +294,12 @@
         if(!ok){
           const retry=el("m2rdRetry");
           retry.hidden=false; retry.textContent="REINTENTAR SESIÓN";
-          setStatus("La sesión está tardando en restaurarse. Puedes reintentar sin salir del Área del Corredor.","err");
+          setStatus("No se ha podido restaurar la sesión todavía. Reintenta; si Firebase no responde, MILITOPO volverá al acceso seguro.","err");
+          setTimeout(()=>{
+            if(state.auth?.uid)return;
+            try{globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-recovery-failed"));}catch(_){}
+            hide();
+          },7000);
         }
       },12000);
     }
