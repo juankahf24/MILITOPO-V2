@@ -1247,7 +1247,7 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
   if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes estar EN CARRERA para validar balizas.");
 
   const plan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
-  const batch = Array.isArray(rawPasses) ? rawPasses.slice(0, 80) : [];
+  const batch = Array.isArray(rawPasses) ? rawPasses.slice(0, 200).map(row => ({ ...(row || {}) })).sort((a,b) => Number(a?.order || 9999) - Number(b?.order || 9999)) : [];
   const now = Date.now();
   const startedAt = Math.max(0, Number(ctx.participant.startedAt || 0));
   const progressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
@@ -1276,17 +1276,33 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
       if (seenAttempts.has(attemptId)) continue;
 
       const isFinish = checkpointId === "FINISH";
-      const expected = completedCount < plan.expectedCount ? plan.controls[completedCount] : plan.finish;
-      const expectedId = completedCount < plan.expectedCount ? canonicalControlId(expected?.checkpointId) : "FINISH";
-      if (checkpointId !== expectedId) {
-        transactionError = `La siguiente validación es ${expectedId || "LLEGADA"}.`;
-        return;
+      let expected = null;
+      if (isFinish) {
+        if (finishValidated) { seenAttempts.add(attemptId); continue; }
+        if (completedCount < plan.expectedCount) {
+          transactionError = `La siguiente validación es ${plan.controls[completedCount]?.checkpointId || "LLEGADA"}.`;
+          return;
+        }
+        expected = plan.finish;
+      } else {
+        const routeIndex = plan.controls.findIndex(row => canonicalControlId(row?.checkpointId) === checkpointId);
+        if (routeIndex < 0) { transactionError = "Esta baliza no pertenece a tu recorrido asignado."; return; }
+
+        // H6.6: un diario completo puede reenviar B1 aunque el servidor ya la tenga.
+        // Si esa posición ya está consolidada con la misma baliza, la tratamos como
+        // idempotente aunque el attemptId local sea distinto y seguimos con B2/B3.
+        if (routeIndex < completedCount) {
+          const stored = passes[`c${String(routeIndex + 1).padStart(3, "0")}`];
+          if (canonicalControlId(stored?.checkpointId) === checkpointId) { seenAttempts.add(attemptId); continue; }
+          transactionError = `El progreso guardado no coincide con ${checkpointId}.`;
+          return;
+        }
+        if (routeIndex > completedCount) {
+          transactionError = `La siguiente validación es ${plan.controls[completedCount]?.checkpointId || "LLEGADA"}.`;
+          return;
+        }
+        expected = plan.controls[routeIndex];
       }
-      if (isFinish && completedCount < plan.expectedCount) {
-        transactionError = `La siguiente validación es ${plan.controls[completedCount]?.checkpointId || "LLEGADA"}.`;
-        return;
-      }
-      if (isFinish && finishValidated) continue;
 
       let passedAtMs = Math.max(0, Number(raw?.passedAtMs || now));
       if (!passedAtMs || passedAtMs > now + 60000 || (startedAt && passedAtMs < startedAt - 60000)) passedAtMs = now;
