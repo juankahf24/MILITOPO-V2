@@ -747,6 +747,88 @@ exports.getRunnerLiveEvents = onCall({ enforceAppCheck: false }, async request =
   }
 });
 
+
+// H3 · Histórico permanente del corredor autenticado.
+// Consulta Firestore desde backend y devuelve únicamente documentos cuyo runnerUid
+// coincide con la cuenta autenticada. RTDB no interviene en esta vista.
+exports.getRunnerHistory = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const uid = String(identity.uid || "").trim();
+  const requestedLimit = Math.max(1, Math.min(200, Number(request.data?.limit || 100)));
+
+  try {
+    // Igual que getRunnerLiveEvents, evitamos depender de índices collectionGroup.
+    // Recorremos únicamente estados capaces de contener un resultado H1 y leemos
+    // exactamente results/{uid}; así nunca se consultan resultados de otros runners.
+    const statuses = ["live", "finished", "archived"];
+    const eventSnaps = await Promise.all(
+      statuses.map(status => db.collection("events").where("status", "==", status).limit(250).get())
+    );
+    const events = new Map();
+    for (const querySnap of eventSnaps) {
+      querySnap.forEach(eventSnap => events.set(eventSnap.id, eventSnap));
+    }
+
+    const eventRows = Array.from(events.values());
+    const results = [];
+    const batchSize = 150;
+    for (let offset = 0; offset < eventRows.length; offset += batchSize) {
+      const slice = eventRows.slice(offset, offset + batchSize);
+      const refs = slice.map(eventSnap => eventSnap.ref.collection("results").doc(uid));
+      const resultSnaps = refs.length ? await db.getAll(...refs) : [];
+      resultSnaps.forEach((docSnap, index) => {
+        if (!docSnap.exists) return;
+        const row = docSnap.data() || {};
+        if (String(row.runnerUid || uid) !== uid) return;
+        const eventSnap = slice[index];
+        const eventData = eventSnap?.data() || {};
+        const status = String(row.status || "not_started").toLowerCase();
+        results.push({
+          eventId: String(row.eventId || eventSnap?.id || "").slice(0, 120),
+          eventName: String(row.eventName || eventData.eventName || "Carrera de orientación").slice(0, 140),
+          eventStatus: String(eventData.status || "").toLowerCase(),
+          ownerUid: String(row.ownerUid || eventData.ownerUid || "").slice(0, 160),
+          runId: String(row.runId || "").slice(0, 180),
+          status: ["finished", "incomplete", "not_started"].includes(status) ? status : "not_started",
+          startedAtMs: Math.max(0, Number(row.startedAtMs || 0)) || null,
+          finishedAtMs: Math.max(0, Number(row.finishedAtMs || 0)) || null,
+          durationMs: row.durationMs == null ? null : Math.max(0, Number(row.durationMs || 0)),
+          trackDistanceM: Math.max(0, Number(row.trackDistanceM || 0)),
+          trackPointCount: Math.max(0, Number(row.trackPointCount || 0)),
+          trackChunkCount: Math.max(0, Number(row.trackChunkCount || 0)),
+          consolidatedAtMs: typeof row.consolidatedAt?.toMillis === "function" ? row.consolidatedAt.toMillis() : null
+        });
+      });
+    }
+
+    results.sort((a, b) => {
+      const at = Number(a.finishedAtMs || a.startedAtMs || a.consolidatedAtMs || 0);
+      const bt = Number(b.finishedAtMs || b.startedAtMs || b.consolidatedAtMs || 0);
+      if (at !== bt) return bt - at;
+      return String(a.eventName || "").localeCompare(String(b.eventName || ""), "es");
+    });
+    if (results.length > requestedLimit) results.length = requestedLimit;
+
+    const summary = results.reduce((acc, row) => {
+      acc.total += 1;
+      if (row.status === "finished") acc.finished += 1;
+      else if (row.status === "incomplete") acc.incomplete += 1;
+      else acc.notStarted += 1;
+      return acc;
+    }, { total: 0, finished: 0, incomplete: 0, notStarted: 0 });
+
+    return { ok: true, uid, results, summary };
+  } catch (error) {
+    console.error("[MILITOPO getRunnerHistory]", {
+      uid,
+      code: error?.code || null,
+      message: error?.message || String(error)
+    });
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "No se pudo consultar tu histórico de carreras.");
+  }
+});
+
 // F3B hardening · sincronización servidor-servidor de membresías e invitaciones.
 // Evita depender de eventos CustomEvent entre dispositivos y mantiene RTDB al día
 // aunque ningún organizador tenga la página abierta.
