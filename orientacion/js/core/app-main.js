@@ -10208,16 +10208,28 @@ async function prepareFreshOrganizerEvent(previousEventId, options={}){
     try{if(String(window.name||"").startsWith(WINDOW_NAME_PREFIX))window.name=""}catch(e){}
 
     resetStateToFreshEvent();
-    __militopoCloudHeaderArmed=false;
-    publishMilitopoCloudHeader(reason);
-    publishMilitopoCloudStructure(reason);
 
+    // IMPORTANTE: actualizar primero los campos visibles con el NUEVO eventId.
+    // Antes se publicaba el paquete V2 mientras el input todavía contenía el id
+    // de la carrera FINALIZADA; los módulos de ciclo de vida volvían a leer el
+    // evento antiguo y parecía que había que pulsar CREAR/BORRAR una segunda vez.
     const eventIdInput=document.getElementById("eventId");
     if(eventIdInput)eventIdInput.value=state.eventId;
     const eventNameInput=document.getElementById("eventName");
     if(eventNameInput)eventNameInput.value=state.eventName;
     const iofEventName=document.getElementById("iofEventName");
     if(iofEventName)iofEventName.value=state.eventName;
+
+    __militopoCloudHeaderArmed=false;
+    // Desbloqueo inmediato del ciclo de vida local: este id todavía no existe
+    // en Firestore y por definición vuelve a BORRADOR editable.
+    try{
+        const detail={eventId:String(state.eventId||""),status:"draft",exists:false,lockedDesign:false,label:"BORRADOR"};
+        window.MILITOPO_V2_EVENT_STATUS=detail;
+        window.dispatchEvent(new CustomEvent("militopo:v2-event-status",{detail}));
+    }catch(_){ }
+    publishMilitopoCloudHeader(reason);
+    publishMilitopoCloudStructure(reason);
 
     syncConfigToUi();
     rebuildPointsFromConfig(true);
