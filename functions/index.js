@@ -670,9 +670,10 @@ function trackDistanceMeters(points) {
 // Es una evidencia automática, no una descalificación oficial: un fallo GPS no
 // cambia por sí solo el estado FINISHED del corredor. La búsqueda respeta el
 // orden del recorrido y guarda también la aproximación mínima a cada control.
-const CONTROL_ANALYSIS_VERSION = 2;
-const CONTROL_BASE_RADIUS_M = 25;
-const CONTROL_MAX_RADIUS_M = 45;
+const CONTROL_ANALYSIS_VERSION = 3;
+const CONTROL_BASE_RADIUS_M = 10;
+const CONTROL_MAX_RADIUS_M = 10;
+const CONTROL_MAX_GPS_ACCURACY_M = 10;
 
 function canonicalControlId(value) {
   const raw = String(value || "").trim();
@@ -696,7 +697,7 @@ function analyzeControlPasses(points, routePoints, checkpoints, startedAtMs = nu
   const expectedIds = route.filter(id => !["START", "FINISH"].includes(id));
   if (!expectedIds.length) {
     return {
-      version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_proximity_v1",
+      version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_strict_10m_v2",
       expectedCount: 0, detectedCount: 0, missingCount: 0, completionPct: null,
       validation: "unavailable", passes: []
     };
@@ -728,9 +729,10 @@ function analyzeControlPasses(points, routePoints, checkpoints, startedAtMs = nu
           bestAccuracyM = accuracy > 0 ? accuracy : null;
           bestAtMs = Math.max(0, Number(point.at || 0)) || null;
         }
-        const allowedRadius = Math.min(CONTROL_MAX_RADIUS_M, Math.max(CONTROL_BASE_RADIUS_M, 20 + Math.min(25, accuracy)));
-        if (d <= allowedRadius) {
-          detected = { point, distanceM: d, allowedRadiusM: allowedRadius, accuracyM: accuracy > 0 ? accuracy : null };
+        const allowedRadius = CONTROL_MAX_RADIUS_M;
+        const accuracyOk = accuracy > 0 && accuracy <= CONTROL_MAX_GPS_ACCURACY_M;
+        if (accuracyOk && d <= allowedRadius) {
+          detected = { point, distanceM: d, allowedRadiusM: allowedRadius, accuracyM: accuracy };
           detectedIndex = i;
           break;
         }
@@ -763,8 +765,8 @@ function analyzeControlPasses(points, routePoints, checkpoints, startedAtMs = nu
   const completionPct = expectedCount ? Math.round((detectedCount / expectedCount) * 1000) / 10 : null;
   const validation = !track.length ? "unavailable" : missingCount === 0 ? "complete" : detectedCount ? "partial" : "none_detected";
   return {
-    version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_proximity_v1",
-    baseRadiusM: CONTROL_BASE_RADIUS_M, maxRadiusM: CONTROL_MAX_RADIUS_M,
+    version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_strict_10m_v2",
+    baseRadiusM: CONTROL_BASE_RADIUS_M, maxRadiusM: CONTROL_MAX_RADIUS_M, maxGpsAccuracyM: CONTROL_MAX_GPS_ACCURACY_M,
     expectedCount, detectedCount, missingCount, completionPct, validation,
     startedAtMs: startMs, finishedAtMs: endMs, passes
   };
@@ -797,7 +799,7 @@ function normalizeLiveControlPasses(raw) {
 
 function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
   const base = trackAnalysis && typeof trackAnalysis === "object" ? trackAnalysis : {
-    version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_proximity_v1",
+    version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_strict_10m_v2",
     expectedCount: 0, detectedCount: 0, missingCount: 0, completionPct: null,
     validation: "unavailable", passes: []
   };
@@ -839,7 +841,7 @@ function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
   }, {});
   return {
     ...base,
-    method: "live_gps_qr_with_track_recovery_v1",
+    method: "live_gps_qr_strict_10m_with_track_recovery_v2",
     expectedCount,
     detectedCount,
     missingCount,
@@ -875,6 +877,7 @@ async function buildRunnerControlPlan(eventRef, member, eventId) {
     expectedCount: expectedIds.length,
     baseRadiusM: CONTROL_BASE_RADIUS_M,
     maxRadiusM: CONTROL_MAX_RADIUS_M,
+    maxGpsAccuracyM: CONTROL_MAX_GPS_ACCURACY_M,
     controls: expectedIds.map((checkpointId, index) => {
       const cp = checkpointMap.get(checkpointId) || {};
       return {
@@ -1250,10 +1253,13 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
       throw new HttpsError("failed-precondition", "No hay coordenadas GPS válidas para comprobar esta baliza.");
     }
     distanceM = haversineMeters({ lat, lng }, { lat: expected.lat, lng: expected.lng });
-    allowedRadiusM = Math.min(CONTROL_MAX_RADIUS_M, Math.max(CONTROL_BASE_RADIUS_M, 20 + Math.min(25, accuracy)));
+    allowedRadiusM = CONTROL_MAX_RADIUS_M;
     gpsAccuracyM = accuracy > 0 ? Math.round(accuracy * 10) / 10 : null;
-    if (!Number.isFinite(distanceM) || distanceM > allowedRadiusM) {
-      throw new HttpsError("failed-precondition", "Todavía no estás dentro de la zona GPS de la siguiente baliza.");
+    if (!(accuracy > 0 && accuracy <= CONTROL_MAX_GPS_ACCURACY_M)) {
+      throw new HttpsError("failed-precondition", `Precisión GPS insuficiente (±${Math.round(accuracy || 0)} m). Para validar por GPS se exige ±10 m o mejor.`);
+    }
+    if (!Number.isFinite(distanceM) || distanceM > CONTROL_MAX_RADIUS_M) {
+      throw new HttpsError("failed-precondition", "Debes estar físicamente a 10 metros o menos de la siguiente baliza para validarla por GPS.");
     }
   } else {
     const rawQr = String(request.data?.qrRaw || "").trim().toUpperCase();
