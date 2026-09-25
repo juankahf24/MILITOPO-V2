@@ -10187,19 +10187,19 @@ function bindStrongAutosave(){
     setInterval(saveState,4000);
 }
 
-async function resetSavedEvent(){
-    if(!window.__militopoDeleteExerciseInProgress && typeof window.MILITOPO_LIVE_DELETE_EXERCISE==="function"){
-        await window.MILITOPO_LIVE_DELETE_EXERCISE();
-        return;
-    }
-    if(!window.__militopoDeleteExerciseResetConfirmed&&!confirm("¿Borrar el evento guardado y empezar un evento totalmente nuevo? Se borrarán puntos, recorridos, descripciones IOF, QR, resultados y registros guardados."))return false;
-    const deletedEventId=String(state.eventId||"");
+async function prepareFreshOrganizerEvent(previousEventId, options={}){
+    const oldEventId=String(previousEventId||state.eventId||"").trim();
+    const reason=String(options.reason||"fresh-reset");
+    const purgeLocalRuntime=options.purgeLocalRuntime!==false;
+    const toastPrefix=String(options.toastPrefix||"Evento nuevo creado");
 
     __militopoOrganizerStateEpoch++;
     clearTimeout(__autoSaveTimer);
     clearTimeout(__durableSaveTimer);
-    try{await withOrganizerTimeout(deleteDurableOrganizerState(deletedEventId),2200,"Borrado duradero")}catch(error){console.warn("No se pudo borrar la copia duradera",error)}
-    try{await window.MILITOPO_LIVE_PURGE_LOCAL_EVENT?.(deletedEventId)}catch(error){console.warn("No se pudo purgar el seguimiento local del evento",error)}
+    try{await withOrganizerTimeout(deleteDurableOrganizerState(oldEventId),2200,"Borrado duradero")}catch(error){console.warn("No se pudo borrar la copia duradera",error)}
+    if(purgeLocalRuntime){
+        try{await window.MILITOPO_LIVE_PURGE_LOCAL_EVENT?.(oldEventId)}catch(error){console.warn("No se pudo purgar el seguimiento local del evento",error)}
+    }
     localStorage.removeItem(STORAGE_KEY_MAIN);
     localStorage.removeItem(STORAGE_KEY_BACKUP);
     localStorage.removeItem(STORAGE_KEY_LEGACY);
@@ -10209,8 +10209,8 @@ async function resetSavedEvent(){
 
     resetStateToFreshEvent();
     __militopoCloudHeaderArmed=false;
-    publishMilitopoCloudHeader("fresh-reset");
-    publishMilitopoCloudStructure("fresh-reset");
+    publishMilitopoCloudHeader(reason);
+    publishMilitopoCloudStructure(reason);
 
     const eventIdInput=document.getElementById("eventId");
     if(eventIdInput)eventIdInput.value=state.eventId;
@@ -10247,9 +10247,55 @@ async function resetSavedEvent(){
 
     saveState();
     goStep(1,{silent:true});
-    toast("Evento nuevo creado: "+state.eventId);
+    try{window.dispatchEvent(new CustomEvent("militopo:v2-fresh-organizer-event",{detail:{previousEventId:oldEventId,eventId:state.eventId,reason}}))}catch(_){ }
+    toast(`${toastPrefix}: ${state.eventId}`);
     return true;
-}let step5ResultQrCameraStream=null;
+}
+
+async function createNewRace(){
+    const lock=currentMilitopoCloudDesignLock();
+    const lockStatus=String(lock?.status||"").trim().toLowerCase();
+    if(lockStatus==="live"){
+        const msg="Finaliza primero la carrera EN DIRECTO antes de crear una carrera nueva.";
+        try{toast(msg)}catch(_){ }
+        try{setRestoreStatus(msg,"warn")}catch(_){ }
+        return false;
+    }
+    const previousEventId=String(state.eventId||"");
+    if(!confirm("¿Crear una carrera nueva?\n\nLa carrera actual permanecerá guardada en Firebase y en su histórico. MILITOPO abrirá ahora un borrador nuevo con otro identificador."))return false;
+    return prepareFreshOrganizerEvent(previousEventId,{
+        reason:"new-race",
+        purgeLocalRuntime:true,
+        toastPrefix:"Carrera nueva preparada"
+    });
+}
+
+async function resetSavedEvent(){
+    const previousEventId=String(state.eventId||"");
+    if(!window.__militopoDeleteExerciseInProgress && typeof window.MILITOPO_LIVE_DELETE_EXERCISE==="function"){
+        const ok=await window.MILITOPO_LIVE_DELETE_EXERCISE();
+        if(ok===false)return false;
+        // Salvaguarda: el borrado Live debe terminar creando el evento fresco en
+        // esta misma pulsación. Si por orden de carga no pudo llamar a resetSavedEvent,
+        // hacemos el reset local aquí en vez de obligar al usuario a pulsar dos veces.
+        if(String(state.eventId||"")===previousEventId){
+            return prepareFreshOrganizerEvent(previousEventId,{
+                reason:"fresh-reset-fallback",
+                purgeLocalRuntime:true,
+                toastPrefix:"Evento nuevo creado"
+            });
+        }
+        return true;
+    }
+    if(!window.__militopoDeleteExerciseResetConfirmed&&!confirm("¿Borrar el evento guardado y empezar un evento totalmente nuevo? Se borrarán puntos, recorridos, descripciones IOF, QR, resultados y registros locales/Live de esta carrera. El histórico permanente ya consolidado en Firestore se conserva."))return false;
+    return prepareFreshOrganizerEvent(previousEventId,{
+        reason:"fresh-reset",
+        purgeLocalRuntime:true,
+        toastPrefix:"Evento nuevo creado"
+    });
+}
+window.createNewRace=createNewRace;
+window.resetSavedEvent=resetSavedEvent;let step5ResultQrCameraStream=null;
 let step5ResultQrCameraRunning=false;
 let step5ResultQrDetector=null;
 let step5ResultQrUseJsQr=false;
