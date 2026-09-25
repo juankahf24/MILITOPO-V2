@@ -1,4 +1,4 @@
-/* MILITOPO V2 · H2 · resultados persistentes visibles para el organizador.
+/* MILITOPO V2 · H6 · resultados persistentes + paso GPS por balizas para el organizador.
    Fuente exclusiva: Firestore events/{eventId}/results. No depende del Live RTDB. */
 import "../bootstrap.js";
 import {
@@ -68,7 +68,7 @@ function injectStyle() {
     .m2-h2-metric strong{display:block;font-size:1.02rem}.m2-h2-metric span{display:block;margin-top:2px;font-size:.56rem;opacity:.66}
     .m2-h2-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0 9px;flex-wrap:wrap}.m2-h2-source{font-size:.64rem;opacity:.62}
     .m2-h2-refresh{min-height:34px;padding:6px 10px;border-radius:10px;border:1px solid rgba(111,184,229,.30);background:rgba(111,184,229,.10);color:inherit;font:inherit;font-size:.65rem;font-weight:900;cursor:pointer}
-    .m2-h2-table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:14px;max-height:390px}.m2-h2-table{width:100%;border-collapse:collapse;min-width:850px;background:rgba(0,0,0,.10)}
+    .m2-h2-table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:14px;max-height:390px}.m2-h2-table{width:100%;border-collapse:collapse;min-width:930px;background:rgba(0,0,0,.10)}
     .m2-h2-table th,.m2-h2-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.62rem;text-align:left;white-space:nowrap}.m2-h2-table th{font-size:.55rem;color:#cfeaff;letter-spacing:.045em;position:sticky;top:0;background:#0a1921;z-index:1}
     .m2-h2-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.14);font-size:.54rem;font-weight:900}.m2-h2-state.finished{color:#dcffd0;border-color:rgba(126,220,150,.35);background:rgba(82,145,66,.15)}.m2-h2-state.incomplete{color:#ffe4a8;border-color:rgba(245,204,121,.34);background:rgba(160,114,43,.14)}.m2-h2-state.not_started{color:#d2d8dc;opacity:.72}
     .m2-h2-empty{padding:18px;text-align:center;font-size:.72rem;opacity:.68}.m2-h2-num{font-variant-numeric:tabular-nums}
@@ -96,7 +96,7 @@ function ensurePanel() {
       <div class="m2-h2-metric"><strong id="m2H2NotStarted">0</strong><span>NO SALIERON</span></div>
     </div>
     <div class="m2-h2-tools"><div class="m2-h2-source">Fuente: Firestore · histórico permanente H1/H2</div><button id="m2H2Refresh" class="m2-h2-refresh" type="button">ACTUALIZAR</button></div>
-    <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>CORREDOR</th><th>ESTADO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO</th><th>DISTANCIA</th><th>GPS</th><th>RUN</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="8" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
+    <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>CORREDOR</th><th>ESTADO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO</th><th>DISTANCIA</th><th>BALIZAS GPS</th><th>GPS</th><th>RUN</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="9" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
     <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">🏆 CLASIFICACIÓN H5</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes independientemente del recorrido. POR RECORRIDO compara únicamente corredores con el mismo Rxx.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="8" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>`;
   if (mapPanel?.parentNode) mapPanel.insertAdjacentElement("afterend", panel);
   else if (monitor?.parentNode) monitor.insertAdjacentElement("afterend", panel);
@@ -267,7 +267,7 @@ function render() {
 
   if (!body) return;
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="8" class="m2-h2-empty">${state.error ? "No se pudieron leer los resultados." : "Sin resultados guardados para este evento."}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="9" class="m2-h2-empty">${state.error ? "No se pudieron leer los resultados." : "Sin resultados guardados para este evento."}</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(row => {
@@ -280,6 +280,7 @@ function render() {
       <td class="m2-h2-num">${esc(formatDateTime(row.finishedAtMs))}</td>
       <td class="m2-h2-num"><strong>${esc(formatDuration(row.durationMs))}</strong></td>
       <td class="m2-h2-num">${esc(formatDistance(row.trackDistanceM))}</td>
+      <td class="m2-h2-num">${Number(row.controlExpectedCount||0)>0?`${esc(Number(row.controlDetectedCount||0))} / ${esc(Number(row.controlExpectedCount||0))}`:"—"}</td>
       <td class="m2-h2-num">${esc(Number(row.trackPointCount || 0))} pts · ${esc(Number(row.trackChunkCount || 0))} bloques</td>
       <td title="${esc(run)}">${esc(run ? run.slice(0,18) + (run.length > 18 ? "…" : "") : "—")}</td>
     </tr>`;
