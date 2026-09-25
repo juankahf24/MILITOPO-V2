@@ -144,7 +144,8 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
       status: String(row.status || "active").toLowerCase(),
       username: String(row.username || "").slice(0, 40),
       displayName: String(row.displayName || row.name || "").slice(0, 120),
-      email: String(row.email || "").slice(0, 180)
+      email: String(row.email || "").slice(0, 180),
+      ...memberRouteSummary(row)
     });
   });
 
@@ -167,6 +168,17 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
         member.email = String(profile.email || "").slice(0, 180);
       }
     });
+  }
+
+  // Migración H4.2: si un miembro antiguo llegó a PUBLICADO/LIVE sin routeId,
+  // se le asigna ahora una plaza real antes de entrar en Live. Los nuevos miembros
+  // ya salen asignados directamente desde acceptInvitationV2.
+  if ((status === "published" || status === "live") && members.some(row => row.status === "active" && (!row.participantId || !row.routeId))) {
+    for (const member of members) {
+      if (member.status !== "active" || (member.participantId && member.routeId)) continue;
+      const assignment = await ensureMemberRouteAssignment(eventRef, eventData, member.uid, { allowLive: true });
+      Object.assign(member, assignment);
+    }
   }
 
   const baseRef = rtdb.ref(`v2/live/${ownerUid}/${eventId}`);
@@ -196,6 +208,15 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
       username: member.username || null,
       displayName: member.displayName || null,
       email: member.email || null,
+      participantId: member.participantId || null,
+      routeId: member.routeId || null,
+      routeDesignIndex: Number(member.routeDesignIndex || 0),
+      routeDistanceKm: member.routeDistanceKm ?? null,
+      routePositiveM: member.routePositiveM ?? null,
+      routeNegativeM: member.routeNegativeM ?? null,
+      routeDifficulty: member.routeDifficulty || null,
+      routeControlCount: Number(member.routeControlCount || 0),
+      routePoints: Array.isArray(member.routePoints) ? member.routePoints : [],
       updatedAt: Date.now()
     };
     // Si la sesión ya está en directo, refresca solo los datos de identidad.
@@ -204,6 +225,13 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
       updates[`runs/${currentRunId}/participants/${member.uid}/username`] = member.username || null;
       updates[`runs/${currentRunId}/participants/${member.uid}/displayName`] = member.displayName || null;
       updates[`runs/${currentRunId}/participants/${member.uid}/email`] = member.email || null;
+      updates[`runs/${currentRunId}/participants/${member.uid}/participantId`] = member.participantId || null;
+      updates[`runs/${currentRunId}/participants/${member.uid}/routeId`] = member.routeId || null;
+      updates[`runs/${currentRunId}/participants/${member.uid}/routeDistanceKm`] = member.routeDistanceKm ?? null;
+      updates[`runs/${currentRunId}/participants/${member.uid}/routePositiveM`] = member.routePositiveM ?? null;
+      updates[`runs/${currentRunId}/participants/${member.uid}/routeDifficulty`] = member.routeDifficulty || null;
+      updates[`runs/${currentRunId}/participants/${member.uid}/routeControlCount`] = Number(member.routeControlCount || 0);
+      updates[`runs/${currentRunId}/participants/${member.uid}/routePoints`] = Array.isArray(member.routePoints) ? member.routePoints : [];
     }
   }
   for (const uid of Object.keys(currentMembers)) {
@@ -219,6 +247,277 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
 function newRunId() {
   return `run_${Date.now()}_${randomUUID().replace(/-/g, "").slice(0, 10)}`;
 }
+
+
+// H4.2/H4.3 · Asignación persistente corredor → plaza → recorrido.
+// El diseño publicado ya contiene recorridos y, cuando existen, participantIds Pxx.
+// La asignación se realiza en backend para que dos aceptaciones simultáneas no puedan
+// quedarse con la misma plaza. Una plaza permanece reservada aunque el corredor sea
+// retirado temporalmente del censo.
+function participantOrder(value) {
+  const text = String(value || "").trim();
+  const number = Number((text.match(/\d+/) || [])[0] || 0);
+  return Number.isFinite(number) && number > 0 ? number : Number.MAX_SAFE_INTEGER;
+}
+
+function normalizeRouteMetric(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function routeControlCount(points) {
+  return (Array.isArray(points) ? points : []).filter(value => {
+    const key = String(value || "").trim().toUpperCase();
+    return key && !["START", "FINISH", "SALIDA", "LLEGADA"].includes(key);
+  }).length;
+}
+
+function routeSlotPayload(slot) {
+  return {
+    participantId: String(slot?.participantId || "").slice(0, 80) || null,
+    routeId: String(slot?.routeId || "").slice(0, 80) || null,
+    routeDesignIndex: Math.max(0, Number(slot?.routeDesignIndex || 0)),
+    routeDistanceKm: normalizeRouteMetric(slot?.metrics?.distanceKm),
+    routePositiveM: normalizeRouteMetric(slot?.metrics?.positiveM),
+    routeNegativeM: normalizeRouteMetric(slot?.metrics?.negativeM),
+    routeDifficulty: String(slot?.metrics?.difficulty || "").slice(0, 40) || null,
+    routeControlCount: routeControlCount(slot?.points),
+    routePoints: Array.isArray(slot?.points) ? slot.points.map(x => String(x || "").slice(0, 80)).filter(Boolean).slice(0, 120) : []
+  };
+}
+
+async function loadRouteCatalog(eventRef, eventData = {}) {
+  const coursesSnap = await eventRef.collection("courses").get();
+  const courses = [];
+  coursesSnap.forEach(docSnap => {
+    const row = docSnap.data() || {};
+    const routeId = String(row.routeId || row.courseId || docSnap.id || "").trim();
+    if (!routeId) return;
+    courses.push({
+      routeId,
+      routeDesignIndex: Math.max(0, Number(row.routeDesignIndex || 0)),
+      points: Array.isArray(row.points) ? row.points.map(x => String(x || "").trim()).filter(Boolean).slice(0, 120) : [],
+      assignedParticipantIds: Array.isArray(row.assignedParticipantIds)
+        ? [...new Set(row.assignedParticipantIds.map(x => String(x || "").trim()).filter(Boolean))].slice(0, 500)
+        : [],
+      metrics: row.metrics && typeof row.metrics === "object" ? {
+        distanceKm: normalizeRouteMetric(row.metrics.distanceKm),
+        positiveM: normalizeRouteMetric(row.metrics.positiveM),
+        negativeM: normalizeRouteMetric(row.metrics.negativeM),
+        difficulty: String(row.metrics.difficulty || "").slice(0, 40),
+        routeMode: String(row.metrics.routeMode || "").slice(0, 40)
+      } : {}
+    });
+  });
+  courses.sort((a, b) => a.routeDesignIndex - b.routeDesignIndex || a.routeId.localeCompare(b.routeId, "es", { numeric: true }));
+  if (!courses.length) throw new HttpsError("failed-precondition", "El evento no tiene recorridos publicados.");
+
+  const slots = [];
+  const seen = new Set();
+  for (const course of courses) {
+    for (const rawParticipantId of course.assignedParticipantIds) {
+      const participantId = String(rawParticipantId || "").trim();
+      if (!participantId || seen.has(participantId)) continue;
+      seen.add(participantId);
+      slots.push({ participantId, ...course });
+    }
+  }
+
+  // Compatibilidad con estructuras antiguas: si Firestore no llevaba todavía
+  // assignedParticipantIds completos, reconstruimos P01..PN con el mismo reparto
+  // round-robin que ya utiliza la recuperación cloud de Orientación.
+  const participantCount = Math.max(1, Math.trunc(Number(eventData.participantCount || slots.length || courses.length || 1)));
+  for (let i = 0; i < participantCount; i += 1) {
+    const participantId = `P${String(i + 1).padStart(2, "0")}`;
+    if (seen.has(participantId)) continue;
+    const course = courses[i % courses.length];
+    seen.add(participantId);
+    slots.push({ participantId, ...course });
+  }
+  slots.sort((a, b) => participantOrder(a.participantId) - participantOrder(b.participantId) || String(a.participantId).localeCompare(String(b.participantId), "es", { numeric: true }));
+  return { courses, slots };
+}
+
+function memberRouteSummary(member = {}) {
+  return {
+    participantId: String(member.participantId || member.webParticipantId || "").slice(0, 80) || null,
+    routeId: String(member.routeId || member.courseId || "").slice(0, 80) || null,
+    routeDesignIndex: Math.max(0, Number(member.routeDesignIndex || 0)),
+    routeDistanceKm: normalizeRouteMetric(member.routeDistanceKm),
+    routePositiveM: normalizeRouteMetric(member.routePositiveM),
+    routeNegativeM: normalizeRouteMetric(member.routeNegativeM),
+    routeDifficulty: String(member.routeDifficulty || "").slice(0, 40) || null,
+    routeControlCount: Math.max(0, Number(member.routeControlCount || 0)),
+    routePoints: Array.isArray(member.routePoints) ? member.routePoints.map(x => String(x || "").slice(0, 80)).filter(Boolean).slice(0, 120) : []
+  };
+}
+
+async function existingParticipantReservations(eventRef, excludeUid = "") {
+  const snap = await eventRef.collection("members").get();
+  const reserved = new Map();
+  snap.forEach(docSnap => {
+    const uid = String(docSnap.id || "").trim();
+    if (excludeUid && uid === excludeUid) return;
+    const row = docSnap.data() || {};
+    const participantId = String(row.participantId || row.webParticipantId || "").trim();
+    if (participantId) reserved.set(participantId, uid);
+  });
+  return reserved;
+}
+
+async function ensureMemberRouteAssignment(eventRef, eventData, uid, { allowLive = true } = {}) {
+  const catalog = await loadRouteCatalog(eventRef, eventData);
+  const reserved = await existingParticipantReservations(eventRef, uid);
+  const memberRef = eventRef.collection("members").doc(uid);
+  const stateRef = eventRef.collection("system").doc("routeAssignments");
+
+  const result = await db.runTransaction(async tx => {
+    const [freshEventSnap, memberSnap, assignmentSnap] = await Promise.all([
+      tx.get(eventRef), tx.get(memberRef), tx.get(stateRef)
+    ]);
+    if (!freshEventSnap.exists) throw new HttpsError("not-found", "El evento no existe.");
+    if (!memberSnap.exists) throw new HttpsError("permission-denied", "No estás inscrito en esta carrera.");
+    const freshEvent = freshEventSnap.data() || {};
+    const status = String(freshEvent.status || "").toLowerCase();
+    if (!(status === "published" || (allowLive && status === "live"))) {
+      throw new HttpsError("failed-precondition", "El recorrido se asigna cuando el evento está PUBLICADO.");
+    }
+    const member = memberSnap.data() || {};
+    if (String(member.status || "active").toLowerCase() !== "active") {
+      throw new HttpsError("failed-precondition", "Tu inscripción no está activa.");
+    }
+
+    const currentParticipantId = String(member.participantId || member.webParticipantId || "").trim();
+    const currentRouteId = String(member.routeId || member.courseId || "").trim();
+    const stateData = assignmentSnap.exists ? (assignmentSnap.data() || {}) : {};
+    const assignments = stateData.assignments && typeof stateData.assignments === "object" ? { ...stateData.assignments } : {};
+
+    if (currentParticipantId && currentRouteId) {
+      const slot = catalog.slots.find(x => x.participantId === currentParticipantId && x.routeId === currentRouteId)
+        || catalog.slots.find(x => x.routeId === currentRouteId)
+        || null;
+      const summary = slot ? routeSlotPayload(slot) : memberRouteSummary(member);
+      assignments[currentParticipantId] = { uid, routeId: currentRouteId };
+      tx.set(stateRef, { schemaVersion: 1, assignments, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      // Completa métricas si la membresía viene de una versión anterior.
+      if (slot) tx.set(memberRef, { ...summary, routeAssignedAt: member.routeAssignedAt || FieldValue.serverTimestamp(), routeAssignmentSource: member.routeAssignmentSource || "legacy_backfill", updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      return summary;
+    }
+
+    const slot = catalog.slots.find(candidate => {
+      const occupiedByMember = reserved.get(candidate.participantId);
+      const occupiedByState = assignments[candidate.participantId]?.uid;
+      return !occupiedByMember && (!occupiedByState || occupiedByState === uid);
+    });
+    if (!slot) throw new HttpsError("resource-exhausted", "No quedan plazas/recorridos disponibles en este evento.");
+
+    const summary = routeSlotPayload(slot);
+    assignments[summary.participantId] = { uid, routeId: summary.routeId };
+    tx.set(memberRef, {
+      ...summary,
+      routeAssignedAt: FieldValue.serverTimestamp(),
+      routeAssignmentSource: "automatic",
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+    tx.set(stateRef, { schemaVersion: 1, assignments, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return summary;
+  });
+  return result;
+}
+
+exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const uid = String(identity.uid || "").trim();
+  const invitationId = String(request.data?.invitationId || "").trim();
+  if (!/^[A-Za-z0-9_-]{1,180}$/.test(invitationId)) throw new HttpsError("invalid-argument", "Invitación no válida.");
+
+  const inviteRef = db.collection("invitations").doc(invitationId);
+  const initialInviteSnap = await inviteRef.get();
+  if (!initialInviteSnap.exists) throw new HttpsError("not-found", "La invitación ya no existe.");
+  const initialInvite = initialInviteSnap.data() || {};
+  const eventId = cleanEventId(initialInvite.eventId);
+  const eventRef = db.collection("events").doc(eventId);
+  const [eventSnap, profileSnap] = await Promise.all([eventRef.get(), db.collection("users").doc(uid).get()]);
+  if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera ya no existe.");
+  const eventData = eventSnap.data() || {};
+  const catalog = await loadRouteCatalog(eventRef, eventData);
+  const reserved = await existingParticipantReservations(eventRef, uid);
+  const memberRef = eventRef.collection("members").doc(uid);
+  const stateRef = eventRef.collection("system").doc("routeAssignments");
+  const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
+  const tokenEmail = String(identity.token.email || "").trim().toLowerCase();
+
+  const assignment = await db.runTransaction(async tx => {
+    const [freshInviteSnap, freshEventSnap, memberSnap, assignmentSnap] = await Promise.all([
+      tx.get(inviteRef), tx.get(eventRef), tx.get(memberRef), tx.get(stateRef)
+    ]);
+    if (!freshInviteSnap.exists) throw new HttpsError("not-found", "La invitación ya no existe.");
+    if (!freshEventSnap.exists) throw new HttpsError("not-found", "La carrera ya no existe.");
+    const invite = freshInviteSnap.data() || {};
+    const freshEvent = freshEventSnap.data() || {};
+    if (String(invite.eventId || "") !== eventId) throw new HttpsError("failed-precondition", "La invitación no corresponde a este evento.");
+    if (String(freshEvent.status || "").toLowerCase() !== "published") {
+      throw new HttpsError("failed-precondition", "Solo puedes unirte mientras la carrera está PUBLICADA.");
+    }
+    const uidMatches = String(invite.targetUid || "") === uid;
+    const emailMatches = tokenEmail && String(invite.targetEmail || "").trim().toLowerCase() === tokenEmail;
+    if (!uidMatches && !emailMatches) throw new HttpsError("permission-denied", "La invitación no corresponde a esta cuenta.");
+    const inviteStatus = String(invite.status || "pending").toLowerCase();
+    if (inviteStatus === "revoked") throw new HttpsError("failed-precondition", "La invitación ha sido revocada.");
+    if (!new Set(["pending", "accepted"]).has(inviteStatus)) throw new HttpsError("failed-precondition", "La invitación ya no está disponible.");
+
+    const member = memberSnap.exists ? (memberSnap.data() || {}) : {};
+    if (memberSnap.exists && String(member.status || "active").toLowerCase() === "removed") {
+      throw new HttpsError("failed-precondition", "El organizador ha retirado temporalmente tu inscripción.");
+    }
+    const currentParticipantId = String(member.participantId || member.webParticipantId || "").trim();
+    const currentRouteId = String(member.routeId || member.courseId || "").trim();
+    const stateData = assignmentSnap.exists ? (assignmentSnap.data() || {}) : {};
+    const assignments = stateData.assignments && typeof stateData.assignments === "object" ? { ...stateData.assignments } : {};
+
+    let summary = null;
+    if (currentParticipantId && currentRouteId) {
+      const slot = catalog.slots.find(x => x.participantId === currentParticipantId && x.routeId === currentRouteId)
+        || catalog.slots.find(x => x.routeId === currentRouteId)
+        || null;
+      summary = slot ? routeSlotPayload(slot) : memberRouteSummary(member);
+    } else {
+      const slot = catalog.slots.find(candidate => {
+        const occupiedByMember = reserved.get(candidate.participantId);
+        const occupiedByState = assignments[candidate.participantId]?.uid;
+        return !occupiedByMember && (!occupiedByState || occupiedByState === uid);
+      });
+      if (!slot) throw new HttpsError("resource-exhausted", "No quedan plazas/recorridos disponibles en esta carrera.");
+      summary = routeSlotPayload(slot);
+    }
+
+    assignments[summary.participantId] = { uid, routeId: summary.routeId };
+    const memberPayload = {
+      uid,
+      email: tokenEmail || String(profile.email || "").slice(0, 180) || null,
+      username: String(profile.usernameKey || profile.username || invite.targetUsername || "").replace(/^@/, "").slice(0, 40) || null,
+      displayName: String(profile.displayName || invite.targetDisplayName || "").slice(0, 120) || null,
+      role: "runner",
+      status: "active",
+      invitationId,
+      ...summary,
+      routeAssignedAt: member.routeAssignedAt || FieldValue.serverTimestamp(),
+      routeAssignmentSource: member.routeAssignmentSource || "automatic",
+      updatedAt: FieldValue.serverTimestamp()
+    };
+    if (!memberSnap.exists) memberPayload.joinedAt = FieldValue.serverTimestamp();
+    tx.set(memberRef, memberPayload, { merge: true });
+    tx.set(stateRef, { schemaVersion: 1, assignments, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    if (inviteStatus === "pending" || !uidMatches) {
+      const inviteUpdate = { status: "accepted", targetUid: uid, acceptedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
+      tx.set(inviteRef, inviteUpdate, { merge: true });
+    }
+    return summary;
+  });
+
+  await appendAudit("RUNNER_ROUTE_ASSIGNED", uid, uid, { eventId, invitationId, participantId: assignment.participantId, routeId: assignment.routeId });
+  return { ok: true, eventId, eventName: String(eventData.eventName || "Carrera de orientación").slice(0, 140), ...assignment };
+});
 
 exports.syncLiveAccess = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
@@ -263,11 +562,23 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
   const now = Date.now();
   const participants = {};
   for (const member of live.activeMembers) {
+    if (!member.participantId || !member.routeId) {
+      throw new HttpsError("failed-precondition", `El corredor ${member.displayName || member.username || member.uid} no tiene recorrido asignado.`);
+    }
     participants[member.uid] = {
       uid: member.uid,
       username: member.username || null,
       displayName: member.displayName || null,
       email: member.email || null,
+      participantId: member.participantId,
+      routeId: member.routeId,
+      routeDesignIndex: Number(member.routeDesignIndex || 0),
+      routeDistanceKm: member.routeDistanceKm ?? null,
+      routePositiveM: member.routePositiveM ?? null,
+      routeNegativeM: member.routeNegativeM ?? null,
+      routeDifficulty: member.routeDifficulty || null,
+      routeControlCount: Number(member.routeControlCount || 0),
+      routePoints: Array.isArray(member.routePoints) ? member.routePoints : [],
       status: "not_started",
       online: false,
       startedAt: null,
@@ -565,6 +876,10 @@ async function resolveRunnerLiveContext(identity, eventId) {
   if (!memberSnap.exists || String(memberSnap.data()?.status || "active").toLowerCase() !== "active") {
     throw new HttpsError("permission-denied", "Tu cuenta no está activa en esta carrera.");
   }
+  const member = memberSnap.data() || {};
+  if (!member.participantId || !member.routeId) {
+    throw new HttpsError("failed-precondition", "Tu inscripción todavía no tiene un recorrido asignado.");
+  }
   if (String(eventData.status || "").toLowerCase() !== "live") {
     throw new HttpsError("failed-precondition", "La carrera no está EN DIRECTO.");
   }
@@ -579,7 +894,7 @@ async function resolveRunnerLiveContext(identity, eventId) {
   const participantRef = baseRef.child(`runs/${runId}/participants/${uid}`);
   const participantSnap = await participantRef.get();
   if (!participantSnap.exists) throw new HttpsError("permission-denied", "No estás incluido en esta sesión Live V2.");
-  return { uid, eventId, eventRef, eventData, ownerUid, baseRef, runId, participantRef, participant: participantSnap.val() || {} };
+  return { uid, eventId, eventRef, eventData, ownerUid, baseRef, runId, participantRef, participant: participantSnap.val() || {}, member };
 }
 
 exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
@@ -591,17 +906,19 @@ exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
   const profileSnap = await db.collection("users").doc(ctx.uid).get();
   const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
   const now = Date.now();
+  const route = memberRouteSummary(ctx.member);
   await ctx.participantRef.update({
     uid: ctx.uid,
     displayName: String(profile.displayName || ctx.participant.displayName || "").slice(0, 120) || null,
     username: String(profile.usernameKey || profile.username || ctx.participant.username || "").replace(/^@/, "").slice(0, 40) || null,
     email: String(profile.email || ctx.participant.email || identity.token.email || "").slice(0, 180) || null,
+    ...route,
     status,
     online: true,
     lastSeen: now,
     updatedAt: now
   });
-  return { ok: true, eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, status };
+  return { ok: true, eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, status, ...route };
 });
 
 exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
@@ -609,6 +926,7 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
   const eventId = cleanEventId(request.data?.eventId);
   const ctx = await resolveRunnerLiveContext(identity, eventId);
   const current = String(ctx.participant.status || "not_started").toLowerCase();
+  if (!ctx.member?.participantId || !ctx.member?.routeId) throw new HttpsError("failed-precondition", "No puedes iniciar sin un recorrido asignado.");
   if (current === "finished") throw new HttpsError("failed-precondition", "Este recorrido ya está finalizado.");
   if (["racing", "started"].includes(current)) {
     return { ok: true, recovered: true, eventId, runId: ctx.runId, status: "racing", startedAt: ctx.participant.startedAt || null };
@@ -706,12 +1024,25 @@ exports.getRunnerLiveEvents = onCall({ enforceAppCheck: false }, async request =
       const memberSnap = await eventSnap.ref.collection("members").doc(uid).get();
       if (!memberSnap.exists) return null;
 
-      const memberData = memberSnap.data() || {};
+      let memberData = memberSnap.data() || {};
       if (String(memberData.status || "active").toLowerCase() !== "active") return null;
 
       const status = String(data.status || "draft").toLowerCase();
       const ownerUid = String(data.ownerUid || "").trim();
       if (!ownerUid || !wantedStatuses.includes(status)) return null;
+
+      // H4.2: miembros aceptados antes de esta fase reciben su recorrido al
+      // consultar una carrera ya PUBLICADA/EN DIRECTO. Los nuevos se asignan al aceptar.
+      if ((status === "published" || status === "live") && (!memberData.participantId || !memberData.routeId)) {
+        try {
+          const assignment = await ensureMemberRouteAssignment(eventSnap.ref, data, uid, { allowLive: true });
+          memberData = { ...memberData, ...assignment };
+        } catch (assignmentError) {
+          console.error("[MILITOPO getRunnerLiveEvents assignment]", { eventId, uid, message: assignmentError?.message || String(assignmentError) });
+          if (assignmentError instanceof HttpsError) throw assignmentError;
+          throw new HttpsError("internal", "No se pudo asignar tu recorrido.");
+        }
+      }
 
       let activeRun = {};
       // Solo consultamos RTDB si la carrera está realmente EN DIRECTO.
@@ -727,7 +1058,8 @@ exports.getRunnerLiveEvents = onCall({ enforceAppCheck: false }, async request =
         status,
         liveRunId: String(activeRun.runId || data.liveRunId || ""),
         liveStatus: String(activeRun.status || ""),
-        participantCount: Math.max(0, Number(activeRun.participantCount || 0))
+        participantCount: Math.max(0, Number(activeRun.participantCount || 0)),
+        ...memberRouteSummary(memberData)
       };
     }));
 
