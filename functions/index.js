@@ -859,7 +859,10 @@ async function buildRunnerControlPlan(eventRef, member, eventId) {
   const checkpointMap = new Map();
   checkpointsSnap.forEach(docSnap => {
     const row = docSnap.data() || {};
-    const checkpointId = canonicalControlId(row.checkpointId || docSnap.id);
+    let checkpointId = canonicalControlId(row.checkpointId || docSnap.id);
+    const type = String(row.type || "").toUpperCase();
+    if (type === "SALIDA" || type === "START") checkpointId = "START";
+    if (type === "LLEGADA" || type === "FINISH" || type === "META") checkpointId = "FINISH";
     const lat = Number(row.lat);
     const lng = Number(row.lng ?? row.lon);
     if (!checkpointId) return;
@@ -867,9 +870,10 @@ async function buildRunnerControlPlan(eventRef, member, eventId) {
       checkpointId,
       lat: Number.isFinite(lat) ? lat : null,
       lng: Number.isFinite(lng) ? lng : null,
-      description: String(row.description || "").slice(0, 180) || null
+      description: String(row.description || row.desc || "").slice(0, 180) || null
     });
   });
+  const finishCp = checkpointMap.get("FINISH") || {};
   return {
     eventId,
     routeId: String(member?.routeId || member?.courseId || "").slice(0, 80) || null,
@@ -882,13 +886,23 @@ async function buildRunnerControlPlan(eventRef, member, eventId) {
       const cp = checkpointMap.get(checkpointId) || {};
       return {
         order: index + 1,
+        kind: "control",
         checkpointId,
         lat: cp.lat ?? null,
         lng: cp.lng ?? null,
         description: cp.description || null,
         qrFormat: `ORI|CONTROL|${eventId}|${checkpointId}`
       };
-    })
+    }),
+    finish: {
+      order: expectedIds.length + 1,
+      kind: "finish",
+      checkpointId: "FINISH",
+      lat: finishCp.lat ?? null,
+      lng: finishCp.lng ?? null,
+      description: finishCp.description || "LLEGADA",
+      qrFormat: `ORI|CONTROL|${eventId}|FINISH`
+    }
   };
 }
 
@@ -1010,6 +1024,11 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     controlQrCount: Math.max(0, Number(controlAnalysis.sourceCounts?.qr || 0)),
     controlTrackRecoveryCount: Math.max(0, Number(controlAnalysis.sourceCounts?.gps_track_recovery || 0)),
     controlAnalyzedAt: FieldValue.serverTimestamp(),
+    arrivalValidated: Boolean(controlProgress.finishValidated),
+    arrivalValidatedAtMs: Math.max(0, Number(controlProgress.arrivalAt || controlProgress.finishPass?.passedAtMs || 0)) || null,
+    arrivalValidationMethod: String(controlProgress.finishPass?.source || row.arrivalSource || "").slice(0, 20) || null,
+    arrivalGpsAccuracyM: controlProgress.finishPass?.gpsAccuracyM == null ? null : Number(controlProgress.finishPass.gpsAccuracyM),
+    arrivalDistanceM: controlProgress.finishPass?.distanceM == null ? null : Number(controlProgress.finishPass.distanceM),
     status: finalStatus,
     liveParticipantStatus: participantState,
     startedAtMs,
@@ -1206,12 +1225,13 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
   const existingProgress = await controlProgressRef.get();
   if (!existingProgress.exists()) {
     await controlProgressRef.set({
-      schemaVersion: 1,
+      schemaVersion: 2,
       eventId, runId: ctx.runId, uid: ctx.uid,
       routeId: controlPlan.routeId, participantId: controlPlan.participantId,
       expectedCount: controlPlan.expectedCount, completedCount: 0,
-      nextControlId: controlPlan.controls[0]?.checkpointId || null,
+      nextControlId: controlPlan.controls[0]?.checkpointId || "FINISH",
       lastControlId: null, lastControlAt: null,
+      finishValidated: false, finishPass: null, arrivalAt: null,
       passes: {}, createdAt: now, updatedAt: now
     });
   }
@@ -1230,13 +1250,14 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
   const source = String(request.data?.source || "gps").toLowerCase();
   if (!["gps", "qr"].includes(source)) throw new HttpsError("invalid-argument", "Método de validación no válido.");
   const checkpointId = canonicalControlId(request.data?.checkpointId);
-  if (!checkpointId || ["START", "FINISH"].includes(checkpointId)) throw new HttpsError("invalid-argument", "Baliza no válida.");
+  if (!checkpointId || checkpointId === "START") throw new HttpsError("invalid-argument", "Control no válido.");
 
   const plan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
-  const controlIndex = plan.controls.findIndex(row => row.checkpointId === checkpointId);
-  if (controlIndex < 0) throw new HttpsError("failed-precondition", "Esta baliza no pertenece a tu recorrido asignado.");
-  const expectedOrder = controlIndex + 1;
-  const expected = plan.controls[controlIndex];
+  const isFinish = checkpointId === "FINISH";
+  const controlIndex = isFinish ? -1 : plan.controls.findIndex(row => row.checkpointId === checkpointId);
+  if (!isFinish && controlIndex < 0) throw new HttpsError("failed-precondition", "Esta baliza no pertenece a tu recorrido asignado.");
+  const expectedOrder = isFinish ? plan.expectedCount + 1 : controlIndex + 1;
+  const expected = isFinish ? plan.finish : plan.controls[controlIndex];
 
   const now = Date.now();
   const startedAt = Math.max(0, Number(ctx.participant.startedAt || 0));
@@ -1249,8 +1270,8 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
   let gpsAccuracyM = null;
   if (source === "gps") {
     const lat = Number(request.data?.lat), lng = Number(request.data?.lng), accuracy = Math.max(0, Number(request.data?.accuracy || 0));
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(expected.lat) || !Number.isFinite(expected.lng)) {
-      throw new HttpsError("failed-precondition", "No hay coordenadas GPS válidas para comprobar esta baliza.");
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(expected?.lat) || !Number.isFinite(expected?.lng)) {
+      throw new HttpsError("failed-precondition", `No hay coordenadas GPS válidas para comprobar ${isFinish ? "la llegada" : "esta baliza"}.`);
     }
     distanceM = haversineMeters({ lat, lng }, { lat: expected.lat, lng: expected.lng });
     allowedRadiusM = CONTROL_MAX_RADIUS_M;
@@ -1259,12 +1280,12 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
       throw new HttpsError("failed-precondition", `Precisión GPS insuficiente (±${Math.round(accuracy || 0)} m). Para validar por GPS se exige ±10 m o mejor.`);
     }
     if (!Number.isFinite(distanceM) || distanceM > CONTROL_MAX_RADIUS_M) {
-      throw new HttpsError("failed-precondition", "Debes estar físicamente a 10 metros o menos de la siguiente baliza para validarla por GPS.");
+      throw new HttpsError("failed-precondition", `Debes estar físicamente a 10 metros o menos de ${isFinish ? "la llegada" : "la siguiente baliza"} para validarla por GPS.`);
     }
   } else {
     const rawQr = String(request.data?.qrRaw || "").trim().toUpperCase();
     const expectedQr = `ORI|CONTROL|${eventId}|${checkpointId}`.toUpperCase();
-    if (!rawQr || rawQr !== expectedQr) throw new HttpsError("invalid-argument", "El QR no corresponde a esta carrera y a esta baliza.");
+    if (!rawQr || rawQr !== expectedQr) throw new HttpsError("invalid-argument", `El QR no corresponde a esta carrera y a ${isFinish ? "la llegada" : "esta baliza"}.`);
   }
 
   const progressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
@@ -1272,11 +1293,53 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
   const txResult = await progressRef.transaction(currentValue => {
     const progress = currentValue && typeof currentValue === "object" ? currentValue : {};
     const passes = progress.passes && typeof progress.passes === "object" ? { ...progress.passes } : {};
-    const already = Object.values(passes).find(row => String(row?.attemptId || "") === attemptId);
-    if (already) return progress;
+    const alreadyNormal = Object.values(passes).find(row => String(row?.attemptId || "") === attemptId);
+    const alreadyFinish = String(progress.finishPass?.attemptId || "") === attemptId;
+    if (alreadyNormal || alreadyFinish) return progress;
+
     const completedCount = Math.max(0, Number(progress.completedCount || 0));
+    if (isFinish) {
+      if (completedCount < plan.expectedCount) {
+        transactionReason = "out_of_order";
+        return;
+      }
+      if (progress.finishValidated) return progress;
+      const previous = completedCount > 0 ? passes[`c${String(completedCount).padStart(3, "0")}`] : null;
+      const previousAt = Math.max(0, Number(previous?.passedAtMs || startedAt || passedAtMs));
+      const finishPass = {
+        order: plan.expectedCount + 1,
+        checkpointId: "FINISH",
+        source,
+        passedAtMs,
+        elapsedMs: startedAt ? Math.max(0, passedAtMs - startedAt) : null,
+        splitMs: previousAt ? Math.max(0, passedAtMs - previousAt) : null,
+        distanceM: distanceM == null ? null : Math.round(distanceM * 10) / 10,
+        allowedRadiusM: allowedRadiusM == null ? null : Math.round(allowedRadiusM * 10) / 10,
+        gpsAccuracyM,
+        receivedAtMs: now,
+        queuedOffline: now - passedAtMs > 15000,
+        attemptId
+      };
+      return {
+        ...progress,
+        schemaVersion: 2,
+        eventId, runId: ctx.runId, uid: ctx.uid,
+        routeId: plan.routeId, participantId: plan.participantId,
+        expectedCount: plan.expectedCount,
+        completedCount,
+        nextControlId: null,
+        lastControlId: "FINISH",
+        lastControlAt: passedAtMs,
+        finishValidated: true,
+        finishPass,
+        arrivalAt: passedAtMs,
+        createdAt: progress.createdAt || now,
+        updatedAt: now
+      };
+    }
+
     if (completedCount >= plan.expectedCount) {
-      transactionReason = "complete";
+      transactionReason = "controls_complete";
       return;
     }
     const next = plan.controls[completedCount];
@@ -1304,14 +1367,17 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
     passes[key] = pass;
     const newCompleted = completedCount + 1;
     return {
-      schemaVersion: 1,
+      ...progress,
+      schemaVersion: 2,
       eventId, runId: ctx.runId, uid: ctx.uid,
       routeId: plan.routeId, participantId: plan.participantId,
       expectedCount: plan.expectedCount,
       completedCount: newCompleted,
-      nextControlId: plan.controls[newCompleted]?.checkpointId || null,
+      nextControlId: plan.controls[newCompleted]?.checkpointId || "FINISH",
       lastControlId: checkpointId,
       lastControlAt: passedAtMs,
+      finishValidated: Boolean(progress.finishValidated),
+      finishPass: progress.finishPass || null,
       passes,
       createdAt: progress.createdAt || now,
       updatedAt: now
@@ -1321,34 +1387,54 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
   const progressSnap = await progressRef.get();
   const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
   const passes = normalizeLiveControlPasses(progress.passes);
-  const accepted = passes.find(row => row.order === expectedOrder && row.checkpointId === checkpointId);
+  const accepted = isFinish
+    ? (progress.finishValidated && canonicalControlId(progress.finishPass?.checkpointId) === "FINISH" ? progress.finishPass : null)
+    : passes.find(row => row.order === expectedOrder && row.checkpointId === checkpointId);
+
   if (!txResult.committed && !accepted) {
-    if (transactionReason === "complete") return { ok: true, recovered: true, eventId, runId: ctx.runId, progress };
-    throw new HttpsError("failed-precondition", `La siguiente baliza es ${plan.controls[Math.max(0, Number(progress.completedCount || 0))]?.checkpointId || "LLEGADA"}.`);
+    if (transactionReason === "controls_complete" && !isFinish) {
+      throw new HttpsError("failed-precondition", "Todas las balizas están validadas. La siguiente validación es LLEGADA.");
+    }
+    const completed = Math.max(0, Number(progress.completedCount || 0));
+    const nextId = completed < plan.expectedCount ? plan.controls[completed]?.checkpointId : "FINISH";
+    throw new HttpsError("failed-precondition", `La siguiente validación es ${nextId || "LLEGADA"}.`);
   }
 
   const completedCount = Math.max(0, Number(progress.completedCount || 0));
-  await ctx.participantRef.update({
+  const commonUpdate = {
     controlExpectedCount: plan.expectedCount,
     controlCompletedCount: completedCount,
-    nextControlId: progress.nextControlId || null,
+    nextControlId: progress.nextControlId ?? (completedCount < plan.expectedCount ? plan.controls[completedCount]?.checkpointId : "FINISH"),
     lastControlId: progress.lastControlId || checkpointId,
     lastControlAt: progress.lastControlAt || passedAtMs,
     lastControlSource: accepted?.source || source,
     updatedAt: now,
     lastSeen: now
+  };
+  if (isFinish) {
+    commonUpdate.arrivalValidated = true;
+    commonUpdate.arrivalValidatedAt = Math.max(0, Number(progress.arrivalAt || accepted?.passedAtMs || passedAtMs));
+    commonUpdate.arrivalSource = String(accepted?.source || source);
+    commonUpdate.nextControlId = null;
+  }
+  await ctx.participantRef.update(commonUpdate);
+
+  await appendAudit(isFinish ? "RUNNER_ARRIVAL_VALIDATED" : "RUNNER_CONTROL_PASSED", identity.uid, identity.uid, {
+    eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, checkpointId, order: expectedOrder, source: accepted?.source || source
   });
-  await appendAudit("RUNNER_CONTROL_PASSED", identity.uid, identity.uid, { eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, checkpointId, order: expectedOrder, source: accepted?.source || source });
+
   return {
     ok: true,
     eventId,
     runId: ctx.runId,
     checkpointId,
     order: expectedOrder,
-    source,
+    source: accepted?.source || source,
     completedCount,
     expectedCount: plan.expectedCount,
     nextControlId: progress.nextControlId || null,
+    arrivalValidated: Boolean(progress.finishValidated),
+    arrivalAt: progress.arrivalAt || null,
     progress
   };
 });
@@ -1382,9 +1468,39 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     };
   }
   if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes iniciar el recorrido antes de finalizarlo.");
+
+  const plan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
+  const progressSnap = await ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`).get();
+  const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
+  if (plan?.finish && !progress.finishValidated) {
+    throw new HttpsError("failed-precondition", "Debes validar la LLEGADA por GPS o QR. La carrera se cerrará automáticamente después.");
+  }
+
   const now = Date.now();
-  const finishedParticipant = { ...ctx.participant, status: "finished", online: true, finishedAt: now, lastSeen: now, updatedAt: now };
-  await ctx.participantRef.update({ status: "finished", online: true, finishedAt: now, lastSeen: now, updatedAt: now });
+  const arrivalAt = Math.max(0, Number(progress.arrivalAt || progress.finishPass?.passedAtMs || 0));
+  const startedAt = Math.max(0, Number(ctx.participant.startedAt || 0));
+  const finishedAt = arrivalAt && (!startedAt || arrivalAt >= startedAt) && arrivalAt <= now + 60000 ? arrivalAt : now;
+  const finishedParticipant = {
+    ...ctx.participant,
+    status: "finished",
+    online: true,
+    finishedAt,
+    arrivalValidated: Boolean(progress.finishValidated),
+    arrivalValidatedAt: arrivalAt || finishedAt,
+    arrivalSource: String(progress.finishPass?.source || ctx.participant.arrivalSource || ""),
+    lastSeen: now,
+    updatedAt: now
+  };
+  await ctx.participantRef.update({
+    status: "finished",
+    online: true,
+    finishedAt,
+    arrivalValidated: Boolean(progress.finishValidated),
+    arrivalValidatedAt: arrivalAt || finishedAt,
+    arrivalSource: String(progress.finishPass?.source || ctx.participant.arrivalSource || ""),
+    lastSeen: now,
+    updatedAt: now
+  });
 
   const saved = await persistRunnerResult({
     eventRef: ctx.eventRef,
@@ -1395,8 +1511,8 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     runId: ctx.runId,
     uid: ctx.uid,
     participant: finishedParticipant,
-    cutoffAt: now,
-    source: "runner_finish"
+    cutoffAt: finishedAt,
+    source: "runner_finish_after_arrival"
   });
 
   await appendAudit("RUNNER_FINISHED", identity.uid, identity.uid, {
@@ -1405,7 +1521,7 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     durationMs: saved.durationMs
   });
   return {
-    ok: true, eventId, runId: ctx.runId, status: "finished", finishedAt: now,
+    ok: true, eventId, runId: ctx.runId, status: "finished", finishedAt,
     resultPersisted: true,
     trackPointCount: saved.trackPointCount,
     durationMs: saved.durationMs
