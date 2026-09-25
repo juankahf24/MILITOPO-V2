@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-g3-live-start-realtime-20260924";
-  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
+  const VERSION = "v2-h3-runner-history-20260925";
+  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
   const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
@@ -91,7 +91,8 @@
       .m2rd-id{display:grid;grid-template-columns:54px minmax(0,1fr);gap:12px;align-items:center}.m2rd-avatar{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:#cee99a;color:#172511;font-weight:900;font-size:1rem;border:2px solid rgba(240,193,106,.45)}.m2rd-name{font-weight:900;overflow-wrap:anywhere}.m2rd-meta{margin-top:4px;color:#b7ad99;font-size:.75rem;overflow-wrap:anywhere}
       .m2rd-account{width:100%;min-height:44px;margin-top:12px;border-radius:13px;border:1px solid rgba(240,193,106,.38);background:rgba(240,193,106,.10);color:#fff1d2;font:inherit;font-weight:900}.m2rd-status{padding:10px 11px;border-radius:13px;background:rgba(255,255,255,.035);color:#c7bda8;font-size:.78rem;line-height:1.45}.m2rd-status.ok{border:1px solid rgba(126,220,150,.25);color:#dcf4cf}.m2rd-status.err{border:1px solid rgba(255,142,122,.28);color:#ffd0c8}
       .m2rd-events{display:grid;gap:10px;margin-top:10px}.m2rd-event{border:1px solid rgba(255,255,255,.10);border-radius:16px;background:rgba(255,255,255,.035);padding:13px}.m2rd-event strong{display:block;font-size:.94rem}.m2rd-event-meta{margin-top:4px;color:#b7ad99;font-size:.72rem}.m2rd-pill{display:inline-block;margin-top:8px;padding:5px 9px;border-radius:999px;border:1px solid rgba(126,220,150,.36);color:#e0f6d4;font-size:.68rem;font-weight:900}.m2rd-note{margin-top:9px;padding:9px 10px;border-radius:12px;background:rgba(240,193,106,.08);color:#eadbbf;font-size:.75rem;line-height:1.4}.m2rd-live{margin-top:9px;padding:9px 10px;border-radius:12px;border:1px solid rgba(126,220,150,.28);background:rgba(126,220,150,.10);color:#ddf6d2;font-size:.75rem;font-weight:900}.m2rd-btn{width:100%;min-height:45px;margin-top:9px;border-radius:13px;border:1px solid rgba(126,220,150,.40);background:rgba(126,220,150,.15);color:#efffe8;font:inherit;font-weight:900}.m2rd-btn:disabled{opacity:.48}.m2rd-small{margin-top:10px;color:#978e7e;font-size:.68rem;line-height:1.45}
-      @media(max-width:430px){#m2RunnerDashboard{padding-left:9px;padding-right:9px}.m2rd-card{border-radius:22px}}
+      .m2rd-history-head{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0}.m2rd-history-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);text-align:center}.m2rd-history-stat strong{display:block;font-size:1rem;color:#f4e7c8}.m2rd-history-stat span{display:block;margin-top:2px;font-size:.58rem;letter-spacing:.06em;color:#9f9889}.m2rd-history{display:grid;gap:9px}.m2rd-history-row{padding:12px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09)}.m2rd-history-top{display:flex;gap:8px;justify-content:space-between;align-items:flex-start}.m2rd-history-title{min-width:0}.m2rd-history-title strong{display:block;font-size:.9rem}.m2rd-history-date{margin-top:3px;color:#a9a18f;font-size:.68rem}.m2rd-history-state{flex:0 0 auto;padding:4px 7px;border-radius:999px;font-size:.61rem;font-weight:900;border:1px solid rgba(126,220,150,.30);color:#daf3cf}.m2rd-history-state.incomplete{border-color:rgba(240,193,106,.34);color:#f5dfaf}.m2rd-history-state.not_started{border-color:rgba(170,170,170,.25);color:#c4c4c4}.m2rd-history-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:9px}.m2rd-history-metric{padding:7px;border-radius:10px;background:rgba(0,0,0,.12)}.m2rd-history-metric span{display:block;font-size:.56rem;color:#8f978d;letter-spacing:.05em}.m2rd-history-metric strong{display:block;margin-top:3px;font-size:.76rem;color:#edf2e8}.m2rd-history-refresh{min-height:40px;margin-top:9px}
+      @media(max-width:430px){#m2RunnerDashboard{padding-left:9px;padding-right:9px}.m2rd-card{border-radius:22px}.m2rd-history-head{grid-template-columns:1fr 1fr}.m2rd-history-metrics{grid-template-columns:1fr 1fr 1fr}}
     `;
     document.head.appendChild(style);
   }
@@ -104,6 +105,7 @@
       <section class="m2rd-card m2rd-hero"><img class="m2rd-logo" src="icons/militopo-512.png" alt="MILITOPO"><h1 class="m2rd-title">MILITOPO</h1><p class="m2rd-sub"><strong>ÁREA DEL CORREDOR</strong><br>Tus carreras, invitaciones y sesiones Live V2.</p></section>
       <section class="m2rd-card"><h2 class="m2rd-kicker">👤 MI CUENTA</h2><div class="m2rd-id"><div id="m2rdAvatar" class="m2rd-avatar">R</div><div><div id="m2rdName" class="m2rd-name">Corredor</div><div id="m2rdMeta" class="m2rd-meta">runner</div></div></div><button id="m2rdAccount" class="m2rd-account" type="button">MI CUENTA</button></section>
       <section class="m2rd-card"><h2 class="m2rd-kicker">📡 LIVE V2 · MIS CARRERAS</h2><div id="m2rdStatus" class="m2rd-status">Cargando tus carreras…</div><div id="m2rdEvents" class="m2rd-events"></div><button id="m2rdRetry" class="m2rd-btn" type="button" hidden>REINTENTAR</button><div class="m2rd-small">El acceso a Organizador está reservado a organizer/super_admin. Tu cuenta runner entra directamente aquí.</div></section>
+      <section class="m2rd-card"><h2 class="m2rd-kicker">🏁 MI HISTÓRICO</h2><div id="m2rdHistoryStatus" class="m2rd-status">Cargando tus resultados…</div><div class="m2rd-history-head"><div class="m2rd-history-stat"><strong id="m2rdHistoryTotal">0</strong><span>RESULTADOS</span></div><div class="m2rd-history-stat"><strong id="m2rdHistoryFinished">0</strong><span>FINALIZADOS</span></div><div class="m2rd-history-stat"><strong id="m2rdHistoryIncomplete">0</strong><span>INCOMPLETOS</span></div><div class="m2rd-history-stat"><strong id="m2rdHistoryNotStarted">0</strong><span>NO SALIÓ</span></div></div><div id="m2rdHistory" class="m2rd-history"></div><button id="m2rdHistoryRefresh" class="m2rd-btn m2rd-history-refresh" type="button">ACTUALIZAR HISTÓRICO</button><div class="m2rd-small">Resultados permanentes guardados en Firestore. No dependen de que siga existiendo la sesión Live.</div></section>
     </div>`;
     document.body.appendChild(root); state.root=root;
     root.querySelector("#m2rdAccount")?.addEventListener("click",()=>{
@@ -119,6 +121,7 @@
       if(!state.auth?.uid){ setStatus("Reintentando recuperación de sesión…"); const ok=await recoverRunnerAuth(); if(!ok)setStatus("Todavía no se ha restaurado la sesión. Espera unos segundos y vuelve a intentar.","err"); return; }
       loadEvents(true);
     });
+    root.querySelector("#m2rdHistoryRefresh")?.addEventListener("click",()=>loadHistory(false));
     root.addEventListener("click",e=>{const btn=e.target.closest("[data-enter-event]"); if(!btn)return; const id=btn.dataset.enterEvent||""; const event=state.events.find(row=>row.eventId===id); if(!event||!state.runId)return; window.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{event:{...event},runId:state.runId,auth:{...state.auth}}}));});
     return root;
   }
@@ -290,6 +293,61 @@
       state.unsubRun=api.onValue(activeRef,snap=>{const row=snap.val()||{};if(String(row.status||"")==="finished"){setStatus("🏁 La sesión Live V2 ha finalizado.","ok");cleanupLive();renderEvents();}});
     }catch(error){console.error("[MILITOPO runner dashboard live]",error);setStatus(`⚠️ ${String(error?.message||error)}`,"err");}
   }
+  function historyStatusES(status){
+    return ({finished:"FINALIZADO",incomplete:"INCOMPLETO",not_started:"NO SALIÓ"})[String(status||"").toLowerCase()] || "NO SALIÓ";
+  }
+  function fmtHistoryDate(ms){
+    const value=Number(ms||0); if(!value)return "—";
+    try{return new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(value));}catch(_){return new Date(value).toLocaleString();}
+  }
+  function fmtDuration(ms){
+    const value=Number(ms); if(!Number.isFinite(value)||value<0)return "—";
+    const total=Math.floor(value/1000),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),sec=total%60;
+    return h>0?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  }
+  function fmtDistance(meters){
+    const value=Math.max(0,Number(meters||0));
+    return value>=1000?`${(value/1000).toFixed(value>=10000?1:2)} km`:`${Math.round(value)} m`;
+  }
+  function setHistoryStatus(message,type=""){
+    const node=el("m2rdHistoryStatus");node.textContent=message;node.className=`m2rd-status${type?` ${type}`:""}`;
+  }
+  function renderHistory(){
+    const holder=el("m2rdHistory"),summary=state.historySummary||{};
+    el("m2rdHistoryTotal").textContent=String(summary.total||0);
+    el("m2rdHistoryFinished").textContent=String(summary.finished||0);
+    el("m2rdHistoryIncomplete").textContent=String(summary.incomplete||0);
+    el("m2rdHistoryNotStarted").textContent=String(summary.notStarted||0);
+    const refresh=el("m2rdHistoryRefresh"); if(refresh)refresh.disabled=state.historyLoading||!navigator.onLine;
+    if(state.historyLoading){setHistoryStatus("Consultando tus resultados permanentes…");}
+    else if(state.historyError){setHistoryStatus(`⚠️ ${state.historyError}`,"err");}
+    else if(!state.history.length){setHistoryStatus("Todavía no tienes resultados históricos guardados.","ok");}
+    else setHistoryStatus(`✅ ${state.history.length} resultado${state.history.length===1?"":"s"} guardado${state.history.length===1?"":"s"} en tu histórico.`,"ok");
+    if(!holder)return;
+    holder.innerHTML=state.history.map(row=>{
+      const status=["finished","incomplete","not_started"].includes(String(row.status))?String(row.status):"not_started";
+      const date=fmtHistoryDate(row.finishedAtMs||row.startedAtMs||row.consolidatedAtMs);
+      const points=Math.max(0,Number(row.trackPointCount||0));
+      return `<article class="m2rd-history-row"><div class="m2rd-history-top"><div class="m2rd-history-title"><strong>${esc(row.eventName||"Carrera de orientación")}</strong><div class="m2rd-history-date">${esc(date)} · ${esc(row.eventId||"")}</div></div><span class="m2rd-history-state ${esc(status)}">${esc(historyStatusES(status))}</span></div><div class="m2rd-history-metrics"><div class="m2rd-history-metric"><span>TIEMPO</span><strong>${esc(fmtDuration(row.durationMs))}</strong></div><div class="m2rd-history-metric"><span>DISTANCIA</span><strong>${esc(fmtDistance(row.trackDistanceM))}</strong></div><div class="m2rd-history-metric"><span>GPS</span><strong>${esc(points)} pts</strong></div></div></article>`;
+    }).join("");
+  }
+  async function loadHistory(silent=false){
+    if(!state.auth||state.auth.role!=="runner"||state.historyLoading)return;
+    state.historyLoading=true;state.historyError="";renderHistory();
+    try{
+      const svc=await services(); if(!svc.callable)throw new Error("Backend de histórico no disponible.");
+      const response=await svc.callable("getRunnerHistory",{clientVersion:VERSION,limit:100});
+      state.history=Array.isArray(response?.data?.results)?response.data.results:[];
+      state.historySummary=response?.data?.summary||{total:state.history.length,finished:0,incomplete:0,notStarted:0};
+    }catch(error){
+      console.error("[MILITOPO runner history]",error);
+      state.history=[];state.historySummary={total:0,finished:0,incomplete:0,notStarted:0};
+      state.historyError=String(error?.message||"No se pudo consultar tu histórico.");
+    }finally{
+      state.historyLoading=false;renderHistory();
+    }
+  }
+
   function renderEvents(){
     const holder=el("m2rdEvents"); holder.innerHTML="";
     if(!state.events.length){setStatus("No tienes carreras activas asociadas a tu cuenta ahora mismo. Las carreras finalizadas no se muestran aquí.","ok");return;}
@@ -336,17 +394,19 @@
     const retry=el("m2rdRetry"); retry.textContent="REINTENTAR"; retry.hidden=true;
     if(changedUid || !state.unsubInviteSignals) bindInviteSignals();
     if(changedUid||!state.events.length) loadEvents(false,silent);
+    if(changedUid||!state.history.length) loadHistory(silent);
   }
   addEventListener("militopo:v2-auth-ready",e=>activate(e.detail));
   addEventListener("militopo:v2-runner-dashboard",e=>activate(e.detail));
   addEventListener("militopo:v2-auth-signed-out",()=>{
-    state.auth=null;state.events=[];cleanupLive();cleanupEventWatchers();cleanupInviteSignals();hide();
+    state.auth=null;state.events=[];state.history=[];state.historySummary={total:0,finished:0,incomplete:0,notStarted:0};state.historyError="";cleanupLive();cleanupEventWatchers();cleanupInviteSignals();hide();
     try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);localStorage.removeItem(EVENTS_SNAPSHOT_KEY);}catch(_){}
   });
   addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner")loadEvents(false,true);});
-  addEventListener("focus",()=>{if(state.auth?.role==="runner")loadEvents(false,true);});
-  addEventListener("online",()=>{if(state.auth?.role==="runner")loadEvents(true,true);});
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner"){loadEvents(false,true);loadHistory(true);}});
+  addEventListener("focus",()=>{if(state.auth?.role==="runner"){loadEvents(false,true);loadHistory(true);}});
+  addEventListener("online",()=>{if(state.auth?.role==="runner"){loadEvents(true,true);loadHistory(true);}});
+  addEventListener("militopo:v2-runner-race-closed",event=>{if(state.auth?.role==="runner"){loadEvents(true,true);if(String(event?.detail?.status||"").toLowerCase()==="finished")setTimeout(()=>loadHistory(false),350);}});
   addEventListener("militopo:v2-invitation-accepted",()=>{if(state.auth?.role==="runner")loadEvents(true,false);});
   addEventListener("militopo:v2-inbox-updated",event=>{if(state.auth?.role==="runner" && Number(event?.detail?.pending||0)===0) loadEvents(true,true);});
   try{
