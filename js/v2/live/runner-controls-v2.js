@@ -6,7 +6,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-h6-2-1-qr-camera-hotfix-20260925";
+  const VERSION="v2-h6-2-2-qr-button-hardfix-20260925";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -194,6 +194,36 @@
     if(state.scanner?.running)state.scannerFrame=requestAnimationFrame(scanLoop);
   }
 
+  async function scanImageFile(file,{canvas,statusEl}={}){
+    if(!file)return {ok:false,message:"No se recibió ninguna imagen."};
+    const workCanvas=canvas||document.createElement("canvas");
+    let source=null,revoke="";
+    try{
+      if("createImageBitmap" in window){source=await createImageBitmap(file);}
+      else{
+        revoke=URL.createObjectURL(file);
+        source=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("No se pudo abrir la foto."));img.src=revoke;});
+      }
+      const sw=Number(source.width||source.naturalWidth||0),sh=Number(source.height||source.naturalHeight||0);
+      if(!sw||!sh)throw new Error("La imagen de la cámara no es válida.");
+      const maxSide=1800,scale=Math.min(1,maxSide/Math.max(sw,sh));
+      const w=Math.max(1,Math.round(sw*scale)),h=Math.max(1,Math.round(sh*scale));
+      workCanvas.width=w;workCanvas.height=h;
+      const ctx=workCanvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(source,0,0,w,h);
+      let raw="";
+      if("BarcodeDetector" in window){
+        try{const detector=new BarcodeDetector({formats:["qr_code"]});const codes=await detector.detect(workCanvas);if(codes?.length)raw=String(codes[0].rawValue||"").trim();}catch(_){}
+      }
+      if(!raw){
+        const ready=await preloadQrReader();
+        if(ready&&window.jsQR){const img=ctx.getImageData(0,0,w,h);const code=window.jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});if(code?.data)raw=String(code.data).trim();}
+      }
+      if(!raw){const msg="No se ha detectado ningún QR en la imagen. Acerca más la cámara y vuelve a intentarlo.";if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}
+      const result=submitQr(raw);if(statusEl)statusEl.textContent=result.ok?"QR validado correctamente.":result.message;return result;
+    }catch(error){const msg=String(error?.message||error||"No se pudo leer el QR.");if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}
+    finally{try{source?.close?.();}catch(_){}if(revoke)try{URL.revokeObjectURL(revoke);}catch(_){}}
+  }
+
   function closeScanner(options={}){const silent=Boolean(options&&options.silent);const sc=state.scanner;if(sc){sc.running=false;try{sc.stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}try{sc.video.srcObject=null;}catch(_){}}if(state.scannerFrame)cancelAnimationFrame(state.scannerFrame);state.scannerFrame=0;state.scanner=null;if(!silent)emit("qr_closed");}
   function snapshot(){return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:expectedCount(),nextControl:nextControl()?{...nextControl()}:null,pending:state.queue.length,lastFix:state.lastFix?{...state.lastFix}:null};}
   function stop(){closeScanner();persist();state.raceStatus="finished";emit("stopped");}
@@ -202,5 +232,5 @@
   window.addEventListener("online",()=>flush().catch(()=>{}));
   window.addEventListener("pagehide",persist);
 
-  globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,refreshFromServer,openScanner,closeScanner,submitQr,snapshot,stop,version:VERSION});
+  globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,snapshot,stop,version:VERSION});
 })();
