@@ -5,7 +5,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-h6-6-journal-sync-20260925";
+  const VERSION="v2-h6-7-arrival-synced-autofinish-20260925";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -192,10 +192,23 @@
         try{
           const result=await svc.callable("runnerSyncControlPasses",{eventId:state.context.eventId,clientVersion:VERSION,passes:batch});
           const data=result?.data||{};
+          const finishWasServerValidated=state.serverFinishValidated;
           progressFromServer(data.progress||null);
           reconcile();
           state.lastSyncError="";state.syncFailureCount=0;
-          emit(state.queue.length?"syncing":"synced",{syncedCount:Math.max(0,before-state.queue.length),pending:state.queue.length,server:data});
+          if(!finishWasServerValidated&&state.serverFinishValidated){
+            // H6.7: la interfaz de carrera escucha arrival_synced para ejecutar
+            // runnerFinishRace automáticamente. Antes solo emitíamos "synced",
+            // por eso la LLEGADA quedaba validada pero la carrera no se cerraba.
+            emit("arrival_synced",{
+              pass:state.finishPass?{...state.finishPass}:null,
+              arrivalAt:Number(data.arrivalAt||state.finishPass?.passedAtMs||Date.now()),
+              syncedCount:Math.max(0,before-state.queue.length),
+              pending:state.queue.length,server:data
+            });
+          }else{
+            emit(state.queue.length?"syncing":"synced",{syncedCount:Math.max(0,before-state.queue.length),pending:state.queue.length,server:data});
+          }
           if(state.queue.length>=before&&state.queue.length){
             // El servidor no avanzó: refrescamos una vez su progreso real antes de reintentar.
             await refreshFromServer();
