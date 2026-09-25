@@ -6,9 +6,11 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-h6-1-live-controls-qr-20260925";
+  const VERSION="v2-h6-2-manual-live-strictgps-progress-reset-20260925";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
+  const GPS_MAX_ACCURACY_M=10;
+  const GPS_CAPTURE_RADIUS_M=10;
 
   const state={
     services:null,context:null,plan:null,raceStatus:"ready",completedCount:0,
@@ -23,7 +25,7 @@
   function controlList(){return Array.isArray(state.plan?.controls)?state.plan.controls:[];}
   function nextControl(){return controlList()[state.completedCount]||null;}
   function expectedCount(){return Math.max(0,Number(state.plan?.expectedCount||controlList().length||0));}
-  function allowedRadius(accuracy){return Math.min(Number(state.plan?.maxRadiusM||45),Math.max(Number(state.plan?.baseRadiusM||25),20+Math.min(25,Math.max(0,Number(accuracy||0)))));}
+  function allowedRadius(){return GPS_CAPTURE_RADIUS_M;}
   function makeAttemptId(){try{return crypto.randomUUID().replace(/-/g,"");}catch(_){return `a_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;}}
   function contextKey(ctx=state.context){if(!ctx?.uid||!ctx?.eventId||!ctx?.runId)return "";return `militopo_v2_controls_${ctx.uid}_${ctx.eventId}_${ctx.runId}`;}
   function emit(status,detail={}){const next=nextControl();window.dispatchEvent(new CustomEvent("militopo:v2-control-status",{detail:{status,version:VERSION,raceStatus:state.raceStatus,completedCount:state.completedCount,expectedCount:expectedCount(),nextControl:next?{...next}:null,lastFix:state.lastFix?{...state.lastFix}:null,pending:state.queue.length,...detail}}));}
@@ -116,10 +118,13 @@
     state.lastFix={lat,lng,accuracy,updatedAt:Number(fix.updatedAt||Date.now())};
     const next=nextControl();if(!next||!["racing","started"].includes(state.raceStatus)){emit("gps",{distanceM:null});return;}
     if(!Number.isFinite(Number(next.lat))||!Number.isFinite(Number(next.lng))){emit("gps",{distanceM:null,message:"Esta baliza no tiene coordenadas. Usa QR si es necesario."});return;}
-    const distanceM=haversine({lat,lng},{lat:Number(next.lat),lng:Number(next.lng)});const radius=allowedRadius(accuracy);
-    emit("gps",{distanceM:Math.round(distanceM),allowedRadiusM:Math.round(radius)});
+    const distanceM=haversine({lat,lng},{lat:Number(next.lat),lng:Number(next.lng)});const radius=allowedRadius();
+    const accuracyOk=Number.isFinite(accuracy)&&accuracy>0&&accuracy<=GPS_MAX_ACCURACY_M;
+    emit("gps",{distanceM:Math.round(distanceM),allowedRadiusM:radius,accuracyM:Math.round(accuracy*10)/10,accuracyOk,maxAccuracyM:GPS_MAX_ACCURACY_M,captureRadiusM:GPS_CAPTURE_RADIUS_M});
     if(Date.now()-state.lastAutoAt<PASS_COOLDOWN_MS)return;
-    if(distanceM<=radius){registerLocal(next.checkpointId,"gps",{passedAtMs:state.lastFix.updatedAt,distanceM,allowedRadiusM:radius,accuracy,lat,lng});}
+    // GPS solo valida si la posición es suficientemente fiable (±10 m o mejor)
+    // y el dispositivo está físicamente a 10 m o menos del control.
+    if(accuracyOk&&distanceM<=GPS_CAPTURE_RADIUS_M){registerLocal(next.checkpointId,"gps",{passedAtMs:state.lastFix.updatedAt,distanceM,allowedRadiusM:GPS_CAPTURE_RADIUS_M,accuracy,lat,lng});}
   }
 
   function parseQr(raw){const value=String(raw||"").trim().toUpperCase(),parts=value.split("|");if(parts.length<4||parts[0]!=="ORI"||parts[1]!=="CONTROL")return {ok:false,message:"QR no válido de MILITOPO."};if(String(parts[2])!==String(state.context?.eventId||"").toUpperCase())return {ok:false,message:"Este QR pertenece a otra carrera."};const id=canonical(parts[3]);const next=nextControl();if(!next)return {ok:false,message:"Ya has completado todas las balizas."};if(id!==canonical(next.checkpointId))return {ok:false,message:`QR de ${id}. La siguiente baliza es ${next.checkpointId}.`};return {ok:true,id,raw:value};}

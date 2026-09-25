@@ -132,8 +132,8 @@ function ensurePanel() {
     <div id="m2F2CRun" class="m2-f2c-run">Sin sesión Live V2 cargada.</div>
     <div class="m2-f2c-table-wrap">
       <table class="m2-f2c-table">
-        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>CONEXIÓN</th><th>GPS</th><th>SALIDA</th><th>LLEGADA</th><th>ÚLTIMA SYNC</th></tr></thead>
-        <tbody id="m2F2CBody"><tr><td colspan="7">Todavía no hay una sesión Live V2 activa.</td></tr></tbody>
+        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>PROGRESO</th><th>CONEXIÓN</th><th>GPS</th><th>SALIDA</th><th>LLEGADA</th><th>ÚLTIMA SYNC</th></tr></thead>
+        <tbody id="m2F2CBody"><tr><td colspan="8">Todavía no hay una sesión Live V2 activa.</td></tr></tbody>
       </table>
     </div>`;
   if (foundation?.parentNode) foundation.insertAdjacentElement("afterend", panel);
@@ -238,11 +238,11 @@ function render() {
     : `Pre-salida · ${rows.length} corredor${rows.length === 1 ? "" : "es"} autorizado${rows.length === 1 ? "" : "s"}`;
 
   if (!state.runId && !rows.length) {
-    body.innerHTML = `<tr><td colspan="7">Todavía no hay corredores autorizados para Live V2.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8">Todavía no hay corredores autorizados para Live V2.</td></tr>`;
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="7">La sesión no tiene corredores autorizados.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="8">La sesión no tiene corredores autorizados.</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(row => {
@@ -258,9 +258,14 @@ function render() {
     const gpsLabel = !state.runId ? "—" : hasGps
       ? `${gpsActive ? "● GPS" : "○ ÚLTIMO"} ±${Math.round(Number(gps.accuracy || 0))}m · ${fmtAgo(gps.updatedAt)}`
       : "SIN GPS";
+    const expectedControls = Math.max(0, Number(row.controlExpectedCount || row.routeControlCount || 0));
+    const completedControls = Math.min(expectedControls || Number.MAX_SAFE_INTEGER, Math.max(0, Number(row.controlCompletedCount || 0)));
+    const progressLabel = expectedControls > 0 ? `${completedControls}/${expectedControls}` : "—";
+    const progressDone = expectedControls > 0 && completedControls >= expectedControls;
     return `<tr>
       <td><strong>${esc(name)}</strong><br><span style="opacity:.62">${esc(sub)}</span></td>
       <td><span class="m2-f2c-state ${cls}">${esc(label)}</span></td>
+      <td><strong style="color:${progressDone ? "#bde99c" : "#f5d18b"}">${esc(progressLabel)}</strong></td>
       <td><span class="m2-f2c-online ${online ? "ok" : "off"}">${state.runId ? (online ? "● ONLINE" : "○ OFFLINE") : "— ESPERANDO"}</span></td>
       <td><span class="m2-f2c-gps ${gpsActive ? "ok" : "off"}">${esc(gpsLabel)}</span></td>
       <td>${esc(fmtTime(row.startedAt))}</td>
@@ -311,6 +316,9 @@ async function bindRoster() {
           displayName: String(row.displayName || row.name || "").trim(),
           username: String(row.username || row.usernameKey || "").replace(/^@/, "").trim(),
           email: String(row.email || "").trim(),
+          routeControlCount: Math.max(0, Number(row.routeControlCount || row.controlCount || 0)),
+          controlExpectedCount: Math.max(0, Number(row.controlExpectedCount || row.routeControlCount || row.controlCount || 0)),
+          controlCompletedCount: Math.max(0, Number(row.controlCompletedCount || 0)),
           updatedAt: row.updatedAt?.toMillis?.() || Date.now()
         };
       });
