@@ -1,7 +1,7 @@
 /* MILITOPO Orientación · cargador modular seguro fase 2
    No contiene lógica de la app: carga los bloques en orden clásico para mantener compatibilidad. */
 (function(){
-  var VERSION = "v2-h5-classification-newrace-20260925";
+  var VERSION = "v2-h6-2-manual-live-strictgps-progress-reset-20260925";
   var files = [
     "js/config/iof-symbols-baked.js",
     "js/core/app-main.js",
