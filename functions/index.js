@@ -261,6 +261,7 @@ function participantOrder(value) {
 }
 
 function normalizeRouteMetric(value) {
+  if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
@@ -665,6 +666,110 @@ function trackDistanceMeters(points) {
   return Math.round(total);
 }
 
+// H6 · Detección histórica de paso por balizas a partir del track GPS.
+// Es una evidencia automática, no una descalificación oficial: un fallo GPS no
+// cambia por sí solo el estado FINISHED del corredor. La búsqueda respeta el
+// orden del recorrido y guarda también la aproximación mínima a cada control.
+const CONTROL_ANALYSIS_VERSION = 1;
+const CONTROL_BASE_RADIUS_M = 25;
+const CONTROL_MAX_RADIUS_M = 45;
+
+function canonicalControlId(value) {
+  const raw = String(value || "").trim();
+  const upper = raw.toUpperCase();
+  if (["START", "SALIDA", "S"].includes(upper)) return "START";
+  if (["FINISH", "LLEGADA", "META", "L"].includes(upper)) return "FINISH";
+  return upper;
+}
+
+function analyzeControlPasses(points, routePoints, checkpoints, startedAtMs = null, finishedAtMs = null) {
+  const track = Array.isArray(points) ? points : [];
+  const route = (Array.isArray(routePoints) ? routePoints : []).map(canonicalControlId).filter(Boolean);
+  const checkpointMap = new Map();
+  for (const row of (Array.isArray(checkpoints) ? checkpoints : [])) {
+    const id = canonicalControlId(row?.checkpointId || row?.id);
+    const lat = Number(row?.lat);
+    const lng = Number(row?.lng ?? row?.lon);
+    if (!id || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    checkpointMap.set(id, { checkpointId: id, lat, lng });
+  }
+  const expectedIds = route.filter(id => !["START", "FINISH"].includes(id));
+  if (!expectedIds.length) {
+    return {
+      version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_proximity_v1",
+      expectedCount: 0, detectedCount: 0, missingCount: 0, completionPct: null,
+      validation: "unavailable", passes: []
+    };
+  }
+
+  const startMs = Math.max(0, Number(startedAtMs || 0)) || (track[0]?.at || null);
+  const endMs = Math.max(0, Number(finishedAtMs || 0)) || (track[track.length - 1]?.at || null);
+  let cursor = 0;
+  let previousPassAt = startMs;
+  const passes = [];
+
+  for (let order = 0; order < expectedIds.length; order += 1) {
+    const checkpointId = expectedIds[order];
+    const cp = checkpointMap.get(checkpointId);
+    let bestDistanceM = Infinity;
+    let bestAccuracyM = null;
+    let bestAtMs = null;
+    let detected = null;
+    let detectedIndex = -1;
+
+    if (cp) {
+      for (let i = cursor; i < track.length; i += 1) {
+        const point = track[i];
+        const d = haversineMeters({ lat: point.lat, lng: point.lng }, cp);
+        if (!Number.isFinite(d)) continue;
+        const accuracy = Math.max(0, Number(point.accuracy || 0));
+        if (d < bestDistanceM) {
+          bestDistanceM = d;
+          bestAccuracyM = accuracy > 0 ? accuracy : null;
+          bestAtMs = Math.max(0, Number(point.at || 0)) || null;
+        }
+        const allowedRadius = Math.min(CONTROL_MAX_RADIUS_M, Math.max(CONTROL_BASE_RADIUS_M, 20 + Math.min(25, accuracy)));
+        if (d <= allowedRadius) {
+          detected = { point, distanceM: d, allowedRadiusM: allowedRadius, accuracyM: accuracy > 0 ? accuracy : null };
+          detectedIndex = i;
+          break;
+        }
+      }
+    }
+
+    const passedAtMs = detected ? (Math.max(0, Number(detected.point.at || 0)) || null) : null;
+    const elapsedMs = passedAtMs && startMs ? Math.max(0, passedAtMs - startMs) : null;
+    const splitMs = passedAtMs && previousPassAt ? Math.max(0, passedAtMs - previousPassAt) : null;
+    if (detectedIndex >= 0) {
+      cursor = detectedIndex + 1;
+      previousPassAt = passedAtMs || previousPassAt;
+    }
+    passes.push({
+      order: order + 1, checkpointId, detected: Boolean(detected),
+      passedAtMs, elapsedMs, splitMs,
+      distanceM: detected ? Math.round(detected.distanceM * 10) / 10 : null,
+      allowedRadiusM: detected ? Math.round(detected.allowedRadiusM * 10) / 10 : null,
+      gpsAccuracyM: detected?.accuracyM == null ? null : Math.round(detected.accuracyM * 10) / 10,
+      closestDistanceM: Number.isFinite(bestDistanceM) ? Math.round(bestDistanceM * 10) / 10 : null,
+      closestAccuracyM: bestAccuracyM == null ? null : Math.round(bestAccuracyM * 10) / 10,
+      closestAtMs: bestAtMs,
+      checkpointAvailable: Boolean(cp)
+    });
+  }
+
+  const detectedCount = passes.filter(row => row.detected).length;
+  const expectedCount = passes.length;
+  const missingCount = expectedCount - detectedCount;
+  const completionPct = expectedCount ? Math.round((detectedCount / expectedCount) * 1000) / 10 : null;
+  const validation = !track.length ? "unavailable" : missingCount === 0 ? "complete" : detectedCount ? "partial" : "none_detected";
+  return {
+    version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_proximity_v1",
+    baseRadiusM: CONTROL_BASE_RADIUS_M, maxRadiusM: CONTROL_MAX_RADIUS_M,
+    expectedCount, detectedCount, missingCount, completionPct, validation,
+    startedAtMs: startMs, finishedAtMs: endMs, passes
+  };
+}
+
 function resultStatus(participantStatus) {
   const value = String(participantStatus || "not_started").toLowerCase();
   if (value === "finished") return "finished";
@@ -716,12 +821,24 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     row = snap.exists() ? (snap.val() || {}) : {};
   }
 
-  const trackSnap = await baseRef.child(`runs/${runId}/tracks/${uid}`).get();
+  const [trackSnap, memberSnap, profileSnap, checkpointsSnap] = await Promise.all([
+    baseRef.child(`runs/${runId}/tracks/${uid}`).get(),
+    eventRef.collection("members").doc(uid).get(),
+    db.collection("users").doc(uid).get(),
+    eventRef.collection("checkpoints").get()
+  ]);
   const points = normalizeTrackPoints(trackSnap.exists() ? trackSnap.val() : null);
-  const memberSnap = await eventRef.collection("members").doc(uid).get();
   const member = memberSnap.exists ? (memberSnap.data() || {}) : {};
-  const profileSnap = await db.collection("users").doc(uid).get();
   const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
+  const checkpoints = [];
+  checkpointsSnap.forEach(docSnap => {
+    const data = docSnap.data() || {};
+    checkpoints.push({
+      checkpointId: String(data.checkpointId || docSnap.id || ""),
+      lat: Number(data.lat),
+      lng: Number(data.lng ?? data.lon)
+    });
+  });
 
   const participantState = String(row.status || "not_started").toLowerCase();
   const finalStatus = resultStatus(participantState);
@@ -729,6 +846,8 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   let finishedAtMs = Math.max(0, Number(row.finishedAt || 0)) || null;
   if (!finishedAtMs && finalStatus === "incomplete" && cutoffAt) finishedAtMs = Math.max(0, Number(cutoffAt || 0)) || null;
   const durationMs = startedAtMs && finishedAtMs ? Math.max(0, finishedAtMs - startedAtMs) : null;
+  const routePoints = Array.isArray(member.routePoints) ? member.routePoints.map(x => String(x || "").slice(0, 80)).filter(Boolean).slice(0, 120) : [];
+  const controlAnalysis = analyzeControlPasses(points, routePoints, checkpoints, startedAtMs, finishedAtMs);
   const resultRef = eventRef.collection("results").doc(uid);
   const existing = await resultRef.get();
   const first = points[0] || null;
@@ -753,6 +872,16 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     routeNegativeM: normalizeRouteMetric(member.routeNegativeM ?? row.routeNegativeM),
     routeDifficulty: String(member.routeDifficulty || row.routeDifficulty || "").slice(0, 40) || null,
     routeControlCount: Math.max(0, Number(member.routeControlCount ?? row.routeControlCount ?? 0)),
+    routePoints,
+    controlAnalysisVersion: controlAnalysis.version,
+    controlDetectionMethod: controlAnalysis.method,
+    controlExpectedCount: controlAnalysis.expectedCount,
+    controlDetectedCount: controlAnalysis.detectedCount,
+    controlMissingCount: controlAnalysis.missingCount,
+    controlCompletionPct: controlAnalysis.completionPct,
+    controlValidation: controlAnalysis.validation,
+    controlPasses: controlAnalysis.passes,
+    controlAnalyzedAt: FieldValue.serverTimestamp(),
     status: finalStatus,
     liveParticipantStatus: participantState,
     startedAtMs,
@@ -1337,6 +1466,26 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
     const finishedAtMs = Math.max(0, Number(result.finishedAtMs || 0)) || timestampMs(result.finishedAt);
     const durationMs = result.durationMs == null ? (startedAtMs && finishedAtMs ? Math.max(0, finishedAtMs - startedAtMs) : null) : Math.max(0, Number(result.durationMs || 0));
     const distanceM = Math.max(0, Number(result.trackDistanceM || 0));
+    const effectiveRoutePoints = (Array.isArray(result.routePoints) && result.routePoints.length)
+      ? result.routePoints
+      : (Array.isArray(member.routePoints) && member.routePoints.length)
+        ? member.routePoints
+        : (Array.isArray(selectedCourse?.points) ? selectedCourse.points : []);
+    const controlAnalysis = analyzeControlPasses(track, effectiveRoutePoints, checkpoints, startedAtMs, finishedAtMs);
+    if (Number(result.controlAnalysisVersion || 0) !== CONTROL_ANALYSIS_VERSION) {
+      await resultSnap.ref.set({
+        routePoints: effectiveRoutePoints.slice(0, 120),
+        controlAnalysisVersion: controlAnalysis.version,
+        controlDetectionMethod: controlAnalysis.method,
+        controlExpectedCount: controlAnalysis.expectedCount,
+        controlDetectedCount: controlAnalysis.detectedCount,
+        controlMissingCount: controlAnalysis.missingCount,
+        controlCompletionPct: controlAnalysis.completionPct,
+        controlValidation: controlAnalysis.validation,
+        controlPasses: controlAnalysis.passes,
+        controlAnalyzedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
     const hours = durationMs && durationMs > 0 ? durationMs / 3600000 : 0;
     const avgSpeedKmh = hours > 0 ? Math.round(((distanceM / 1000) / hours) * 100) / 100 : null;
     const paceMinKm = durationMs && distanceM > 0 ? Math.round(((durationMs / 60000) / (distanceM / 1000)) * 100) / 100 : null;
@@ -1371,8 +1520,15 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
         avgSpeedKmh,
         paceMinKm,
         gpsAccuracy: accuracy,
+        controlExpectedCount: controlAnalysis.expectedCount,
+        controlDetectedCount: controlAnalysis.detectedCount,
+        controlMissingCount: controlAnalysis.missingCount,
+        controlCompletionPct: controlAnalysis.completionPct,
+        controlValidation: controlAnalysis.validation,
+        controlDetectionMethod: controlAnalysis.method,
         source: String(result.source || "").slice(0, 80)
       },
+      controlPasses: controlAnalysis.passes,
       checkpoints,
       courses,
       track: mapTrack,
@@ -1456,16 +1612,19 @@ function h5PublicRow(row = {}) {
     displayName: String(row.displayName || "").slice(0, 120) || null,
     username: String(row.username || "").replace(/^@/, "").slice(0, 40) || null,
     status: h5ResultStatus(row.status),
-    rank: Number.isFinite(Number(row.rank)) ? Number(row.rank) : null,
+    rank: row.rank == null ? null : (Number.isFinite(Number(row.rank)) ? Number(row.rank) : null),
     durationMs: h5Duration(row),
-    gapToLeaderMs: Number.isFinite(Number(row.gapToLeaderMs)) ? Number(row.gapToLeaderMs) : null,
+    gapToLeaderMs: row.gapToLeaderMs == null ? null : (Number.isFinite(Number(row.gapToLeaderMs)) ? Number(row.gapToLeaderMs) : null),
     startedAtMs: Math.max(0, Number(row.startedAtMs || 0)) || null,
     finishedAtMs: Math.max(0, Number(row.finishedAtMs || 0)) || null,
     trackDistanceM: Math.max(0, Number(row.trackDistanceM || 0)),
     routeDistanceKm: normalizeRouteMetric(row.routeDistanceKm),
     routePositiveM: normalizeRouteMetric(row.routePositiveM),
     routeDifficulty: String(row.routeDifficulty || "").slice(0, 40) || null,
-    routeControlCount: Math.max(0, Number(row.routeControlCount || 0))
+    routeControlCount: Math.max(0, Number(row.routeControlCount || 0)),
+    controlExpectedCount: Math.max(0, Number(row.controlExpectedCount || 0)),
+    controlDetectedCount: Math.max(0, Number(row.controlDetectedCount || 0)),
+    controlValidation: String(row.controlValidation || "").slice(0, 40) || null
   };
 }
 
@@ -1527,7 +1686,10 @@ async function buildEventClassification(eventRef, eventData) {
       routePositiveM: normalizeRouteMetric(result.routePositiveM ?? member.routePositiveM ?? course.routePositiveM),
       routeNegativeM: normalizeRouteMetric(result.routeNegativeM ?? member.routeNegativeM ?? course.routeNegativeM),
       routeDifficulty: String(result.routeDifficulty || member.routeDifficulty || course.routeDifficulty || "").slice(0, 40) || null,
-      routeControlCount: Math.max(0, Number(result.routeControlCount ?? member.routeControlCount ?? course.routeControlCount ?? 0))
+      routeControlCount: Math.max(0, Number(result.routeControlCount ?? member.routeControlCount ?? course.routeControlCount ?? 0)),
+      controlExpectedCount: Math.max(0, Number(result.controlExpectedCount || 0)),
+      controlDetectedCount: Math.max(0, Number(result.controlDetectedCount || 0)),
+      controlValidation: String(result.controlValidation || "").slice(0, 40) || null
     });
   }
 
@@ -1600,15 +1762,15 @@ exports.getEventClassification = onCall({ enforceAppCheck: false, timeoutSeconds
       general: publicGeneral,
       byRoute: publicByRoute,
       my: myGeneral ? {
-        generalRank: Number.isFinite(Number(myGeneral.rank)) ? Number(myGeneral.rank) : null,
+        generalRank: myGeneral.rank == null ? null : (Number.isFinite(Number(myGeneral.rank)) ? Number(myGeneral.rank) : null),
         generalCount: built.general.length,
         generalFinishedCount: built.general.filter(row => row.status === "finished").length,
-        generalGapMs: Number.isFinite(Number(myGeneral.gapToLeaderMs)) ? Number(myGeneral.gapToLeaderMs) : null,
+        generalGapMs: myGeneral.gapToLeaderMs == null ? null : (Number.isFinite(Number(myGeneral.gapToLeaderMs)) ? Number(myGeneral.gapToLeaderMs) : null),
         routeId: myGeneral.routeId || null,
-        routeRank: Number.isFinite(Number(myRoute?.rank)) ? Number(myRoute.rank) : null,
+        routeRank: myRoute?.rank == null ? null : (Number.isFinite(Number(myRoute.rank)) ? Number(myRoute.rank) : null),
         routeCount: myRouteRows.length,
         routeFinishedCount: myRouteRows.filter(row => row.status === "finished").length,
-        routeGapMs: Number.isFinite(Number(myRoute?.gapToLeaderMs)) ? Number(myRoute.gapToLeaderMs) : null
+        routeGapMs: myRoute?.gapToLeaderMs == null ? null : (Number.isFinite(Number(myRoute.gapToLeaderMs)) ? Number(myRoute.gapToLeaderMs) : null)
       } : null
     };
   } catch (error) {
