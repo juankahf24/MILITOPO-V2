@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2-h6-4-batch-sync-manual-finish-20260925";
+  const VERSION="v2-h6-5-sync-authority-finish-modal-20260925";
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,localArrivalAt:0,autoFinishing:false};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
@@ -111,6 +111,7 @@
     const raceStatus=String(state.participant?.status||snap.raceStatus||"").toLowerCase(),active=["racing","started"].includes(raceStatus);
     card.hidden=!active;if(!active)return;
     const completed=Math.max(0,Number(detail.completedCount??snap.completedCount??0)),expected=Math.max(0,Number(detail.expectedCount??snap.expectedCount??0)),next=detail.nextControl??snap.nextControl??null,finishValidated=Boolean(detail.finishValidated??snap.finishValidated),pending=Math.max(0,Number(detail.pending??snap.pending??0));
+    const syncError=String(detail.message&&status==="sync_error"?detail.message:(snap.lastSyncError||""));
     progressEl.textContent=`${completed} / ${expected}`;
     if(!next){
       nextEl.textContent=finishValidated?"LLEGADA ✓":"LLEGADA";
@@ -130,6 +131,7 @@
     if(status==="passed"||status==="qr_passed"){const pass=detail.pass||{};statusEl.className="m2race-control-status ok";statusEl.textContent=`✅ ${pass.checkpointId||"Baliza"} validada por ${String(pass.source||"").toUpperCase()==="QR"?"QR":"GPS"}. Siguiente: ${String(detail.nextAfter?.checkpointId||snap.nextControl?.checkpointId||"FINISH").toUpperCase()==="FINISH"?"LLEGADA":detail.nextAfter?.checkpointId||snap.nextControl?.checkpointId}.`;}
     else if(status==="arrival_local"||status==="arrival_qr"){statusEl.className="m2race-control-status ok";statusEl.textContent="🏁 LLEGADA registrada. Parando tiempo y sincronizando automáticamente…";}
     else if(status==="arrival_synced"){statusEl.className="m2race-control-status ok";statusEl.textContent="🏁 LLEGADA sincronizada. Cerrando carrera con el organizador…";}
+    else if(pending>0&&!(["passed","qr_passed","arrival_local","arrival_qr"].includes(status))){statusEl.className="m2race-control-status warn";statusEl.textContent=syncError?`Sincronización pendiente · ${pending} validación${pending===1?"":"es"}. Reintentando automáticamente…`:`Sincronizando ${pending} validación${pending===1?"":"es"} con el organizador…`;return;}
     else if(status==="offline"){statusEl.className="m2race-control-status warn";statusEl.textContent=detail.message||"Validación guardada localmente. Se sincronizará al volver la cobertura.";}
     else if(status==="sync_error"||status==="qr_error"){statusEl.className="m2race-control-status warn";statusEl.textContent=detail.message||"No se pudo sincronizar. El registro local se conserva y se reintentará.";}
     else if(status==="syncing"){statusEl.className="m2race-control-status";statusEl.textContent=pending?`Sincronizando ${pending} validación${pending===1?"":"es"}…`:isFinish?"Sincronizando llegada…":"Sincronizando paso por baliza…";}
@@ -177,7 +179,7 @@
     el("m2raceFinish").hidden=!["racing","started"].includes(st);
     el("m2raceActionNote").textContent=hasFinishTarget?"LLEGADA finaliza automáticamente por GPS/QR. El botón TERMINAR CARRERA permanece disponible como salida manual.":"Puedes terminar manualmente la carrera cuando lo necesites.";
     const resultText=el("m2raceResultText");if(resultText)resultText.textContent=row.manualFinishIncomplete?"Carrera terminada manualmente. El resultado queda como INCOMPLETO porque faltaban balizas o LLEGADA.":"La llegada/fin de carrera ha quedado registrada y sincronizada con el organizador.";
-    el("m2raceResult").hidden=st!=="finished";el("m2raceActionCard").hidden=st==="finished";el("m2raceConfirm").classList.remove("open");updateTimer();
+    el("m2raceResult").hidden=st!=="finished";el("m2raceActionCard").hidden=st==="finished";if(st==="finished")el("m2raceConfirm").classList.remove("open");updateTimer();
     controlsApi()?.setRaceStatus?.(st);updateControlUi("status");
     try{window.dispatchEvent(new CustomEvent("militopo:v2-race-participant",{detail:{event:state.event?{...state.event}:null,auth:state.auth?{...state.auth}:null,runId:state.runId,participant:{...row},status:st}}));}catch(_){}
     if(st==="finished"){gpsApi()?.stop?.("finished").catch?.(()=>{});controlsApi()?.stop?.();}

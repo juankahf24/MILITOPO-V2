@@ -5,7 +5,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-h6-4-batch-sync-manual-finish-20260925";
+  const VERSION="v2-h6-5-authoritative-sync-modal-fix-20260925";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -15,7 +15,8 @@
     services:null,context:null,plan:null,raceStatus:"ready",completedCount:0,
     serverCompletedCount:0,queue:[],passes:[],lastFix:null,lastAutoAt:0,
     finishValidated:false,serverFinishValidated:false,finishPass:null,serverAttemptIds:new Set(),
-    flushing:false,flushAgain:false,retryTimer:0,storageKey:"",scanner:null,scannerFrame:0,qrLoading:null
+    flushing:false,flushAgain:false,retryTimer:0,storageKey:"",scanner:null,scannerFrame:0,qrLoading:null,
+    localHydrated:false,lastSyncError:"",syncFailureCount:0
   };
 
   async function services(){if(!state.services)state.services=await globalThis.MILITOPO_V2.firebase();return state.services;}
@@ -34,34 +35,73 @@
   function scheduleRetry(ms=1200){clearRetry();if(navigator.onLine===false||!state.queue.length)return;state.retryTimer=setTimeout(()=>{state.retryTimer=0;flush().catch(()=>{});},ms);}
 
   function progressFromServer(progress){
-    const n=Math.max(0,Number(progress?.completedCount||0));
-    state.serverCompletedCount=Math.max(state.serverCompletedCount,n);
-    const serverPasses=progress?.passes&&typeof progress.passes==="object"?Object.values(progress.passes):[];
+    const server = progress && typeof progress === "object" ? progress : {};
+    const n=Math.max(0,Number(server.completedCount||0));
+    // El servidor es la única autoridad sobre lo que ya está sincronizado.
+    // Nunca usamos Math.max con una copia local antigua: si el servidor dice 0, es 0.
+    state.serverCompletedCount=Math.min(n,expectedCount());
+    state.serverAttemptIds=new Set();
+    const serverPasses=server.passes&&typeof server.passes==="object"?Object.values(server.passes):[];
     for(const row of serverPasses){if(row?.attemptId)state.serverAttemptIds.add(String(row.attemptId));}
-    if(progress?.finishPass?.attemptId)state.serverAttemptIds.add(String(progress.finishPass.attemptId));
-    if(serverPasses.length){
-      const localByOrder=new Map(state.passes.map(row=>[Number(row.order||0),row]));
-      for(const row of serverPasses)localByOrder.set(Number(row.order||0),{...row});
-      state.passes=Array.from(localByOrder.values()).filter(row=>canonical(row.checkpointId)!=="FINISH").sort((a,b)=>Number(a.order||0)-Number(b.order||0));
+    if(server?.finishPass?.attemptId)state.serverAttemptIds.add(String(server.finishPass.attemptId));
+
+    // Conservamos el historial local completo y superponemos la versión confirmada por servidor.
+    const localByOrder=new Map((state.passes||[]).map(row=>[Number(row.order||0),{...row}]));
+    for(const row of serverPasses)localByOrder.set(Number(row.order||0),{...row});
+    state.passes=Array.from(localByOrder.values())
+      .filter(row=>canonical(row.checkpointId)!=="FINISH")
+      .sort((a,b)=>Number(a.order||0)-Number(b.order||0));
+
+    state.serverFinishValidated=Boolean(server.finishValidated);
+    if(state.serverFinishValidated){
+      state.finishValidated=true;
+      state.finishPass=server.finishPass?{...server.finishPass}:(state.finishPass||null);
     }
-    if(progress?.finishValidated){state.serverFinishValidated=true;state.finishValidated=true;state.finishPass=progress.finishPass?{...progress.finishPass}:(state.finishPass||null);}
+    rebuildPendingQueue();
+  }
+
+  function hydrateLocalOnce(){
+    if(state.localHydrated)return;
+    state.localHydrated=true;
+    const local=safeLoad();
+    if(!local)return;
+    state.passes=Array.isArray(local.passes)?local.passes:[];
+    state.completedCount=Math.max(0,Number(local.completedCount||0));
+    state.queue=Array.isArray(local.queue)?local.queue:[];
+    if(local.finishValidated){state.finishValidated=true;state.finishPass=local.finishPass||null;}
+  }
+
+  function rebuildPendingQueue(){
+    const pending=[];
+    const seen=new Set();
+    const normal=(state.passes||[]).slice().sort((a,b)=>Number(a.order||0)-Number(b.order||0));
+    for(const item of normal){
+      const attempt=String(item?.attemptId||"");
+      const order=Math.max(0,Number(item?.order||0));
+      if(!attempt||seen.has(attempt)||state.serverAttemptIds.has(attempt))continue;
+      if(order<=state.serverCompletedCount)continue;
+      pending.push({...item});seen.add(attempt);
+    }
+    if(state.finishValidated&&!state.serverFinishValidated&&state.finishPass){
+      const attempt=String(state.finishPass.attemptId||"");
+      if(attempt&&!seen.has(attempt)&&!state.serverAttemptIds.has(attempt)){pending.push({...state.finishPass});seen.add(attempt);}
+    }
+    // Conserva cualquier elemento legado de cola que no exista aún en passes, pero sin saltar controles anteriores.
+    for(const item of state.queue||[]){
+      const attempt=String(item?.attemptId||"");
+      if(!attempt||seen.has(attempt)||state.serverAttemptIds.has(attempt))continue;
+      const order=Math.max(0,Number(item?.order||0));
+      if(canonical(item?.checkpointId)!=="FINISH"&&order<=state.serverCompletedCount)continue;
+      pending.push({...item});seen.add(attempt);
+    }
+    pending.sort((a,b)=>Number(a.order||9999)-Number(b.order||9999));
+    state.queue=pending;
+    const localCompleted=normal.reduce((m,row)=>Math.max(m,Math.max(0,Number(row.order||0))),0);
+    state.completedCount=Math.min(Math.max(state.serverCompletedCount,localCompleted),expectedCount());
   }
 
   function reconcile(){
-    const local=safeLoad();
-    if(local){
-      state.queue=Array.isArray(local.queue)?local.queue:[];
-      state.passes=Array.isArray(local.passes)&&local.passes.length?local.passes:state.passes;
-      state.completedCount=Math.max(state.completedCount,Math.max(0,Number(local.completedCount||0)));
-      state.serverCompletedCount=Math.max(state.serverCompletedCount,Math.max(0,Number(local.serverCompletedCount||0)));
-      if(local.finishValidated){state.finishValidated=true;state.finishPass=local.finishPass||state.finishPass;}if(local.serverFinishValidated)state.serverFinishValidated=true;
-    }
-    state.completedCount=Math.min(Math.max(state.completedCount,state.serverCompletedCount),expectedCount());
-    state.queue=state.queue.filter(item=>{
-      if(state.serverAttemptIds.has(String(item.attemptId||"")))return false;
-      if(canonical(item.checkpointId)==="FINISH")return !state.serverFinishValidated;
-      return Number(item.order||0)>state.serverCompletedCount;
-    });
+    rebuildPendingQueue();
     persist();
   }
 
@@ -81,8 +121,9 @@
     state.context=context?{...context}:null;
     state.plan=plan&&typeof plan==="object"?JSON.parse(JSON.stringify(plan)):null;
     state.raceStatus=String(status||"ready").toLowerCase();
-    state.completedCount=0;state.serverCompletedCount=0;state.queue=[];state.passes=[];state.lastFix=null;state.lastAutoAt=0;state.finishValidated=false;state.serverFinishValidated=false;state.finishPass=null;state.serverAttemptIds=new Set();state.flushing=false;state.flushAgain=false;
+    state.completedCount=0;state.serverCompletedCount=0;state.queue=[];state.passes=[];state.lastFix=null;state.lastAutoAt=0;state.finishValidated=false;state.serverFinishValidated=false;state.finishPass=null;state.serverAttemptIds=new Set();state.flushing=false;state.flushAgain=false;state.localHydrated=false;state.lastSyncError="";state.syncFailureCount=0;
     state.storageKey=contextKey();
+    hydrateLocalOnce();
     progressFromServer(progress||null);reconcile();
     preloadQrReader().catch(()=>{});
     if(navigator.onLine!==false)flush().catch(()=>{});
@@ -98,47 +139,56 @@
   }
 
   async function flush(){
+    rebuildPendingQueue();
     if(navigator.onLine===false||!state.context?.eventId){emit("offline",{message:"Validación guardada en el dispositivo. Se sincronizará al recuperar cobertura."});return state.queue.length===0;}
     if(state.flushing){state.flushAgain=true;return false;}
-    if(!state.queue.length)return true;
+    if(!state.queue.length){state.lastSyncError="";state.syncFailureCount=0;return true;}
     clearRetry();state.flushing=true;emit("syncing",{pending:state.queue.length});
     try{
       const svc=await services();
       let guard=0;
-      while(state.queue.length&&navigator.onLine!==false&&guard<8){
+      while(state.queue.length&&navigator.onLine!==false&&guard<5){
         guard+=1;
+        // Antes de enviar, reconstruimos desde TODO el historial local. Así una baliza
+        // no puede desaparecer de la cola mientras el servidor todavía la espera.
+        rebuildPendingQueue();
         const batch=state.queue.slice(0,60).map(item=>({...item}));
         const before=state.queue.length;
+        if(!batch.length)break;
         try{
           const result=await svc.callable("runnerSyncControlPasses",{eventId:state.context.eventId,clientVersion:VERSION,passes:batch});
           const data=result?.data||{};
           progressFromServer(data.progress||null);
           reconcile();
-          if(state.queue.length>=before){
-            // Respaldo: si el servidor no devolvió todos los attemptId, eliminamos solo los que confirma explícitamente.
-            const acceptedIds=new Set(Array.isArray(data.acceptedAttemptIds)?data.acceptedAttemptIds.map(String):[]);
-            if(acceptedIds.size)state.queue=state.queue.filter(item=>!acceptedIds.has(String(item.attemptId||"")));
-            reconcile();
-          }
+          state.lastSyncError="";state.syncFailureCount=0;
           emit(state.queue.length?"syncing":"synced",{syncedCount:Math.max(0,before-state.queue.length),pending:state.queue.length,server:data});
-          if(state.queue.length>=before)break;
+          if(state.queue.length>=before&&state.queue.length){
+            // El servidor no avanzó: refrescamos una vez su progreso real antes de reintentar.
+            await refreshFromServer();
+            rebuildPendingQueue();
+            if(state.queue.length>=before)break;
+          }
         }catch(error){
           const msg=String(error?.message||error||"");
-          const ok=await refreshFromServer();
-          if(ok){
-            const afterRefresh=state.queue.length;
-            reconcile();
-            if(state.queue.length<before||state.queue.length<afterRefresh)continue;
+          state.lastSyncError=msg;state.syncFailureCount+=1;
+          // Si el servidor dice que espera una baliza anterior, releemos su estado y
+          // reconstruimos la cola completa desde passes locales (B1+B2+...).
+          await refreshFromServer();
+          rebuildPendingQueue();
+          if(state.queue.length&&guard<3){
+            const first=String(state.queue[0]?.checkpointId||"");
+            const expectedMatch=/siguiente validaci[oó]n es\s+([^\.\[]+)/i.exec(msg);
+            if(expectedMatch&&canonical(expectedMatch[1])===canonical(first))continue;
           }
           emit(navigator.onLine===false?"offline":"sync_error",{message:msg,pending:state.queue.length});
-          scheduleRetry(1800);
+          scheduleRetry(Math.min(6000,1800+state.syncFailureCount*900));
           break;
         }
       }
       return state.queue.length===0;
     }finally{
       state.flushing=false;persist();
-      if((state.flushAgain||state.queue.length)&&navigator.onLine!==false){state.flushAgain=false;scheduleRetry(state.queue.length?900:180);}
+      if((state.flushAgain||state.queue.length)&&navigator.onLine!==false){state.flushAgain=false;scheduleRetry(state.queue.length?Math.min(5000,1200+state.syncFailureCount*700):250);}
     }
   }
 
@@ -193,7 +243,7 @@
   async function scanImageFile(file,{canvas,statusEl}={}){if(!file)return {ok:false,message:"No se recibió ninguna imagen."};const workCanvas=canvas||document.createElement("canvas");let source=null,revoke="";try{if("createImageBitmap" in window){source=await createImageBitmap(file);}else{revoke=URL.createObjectURL(file);source=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("No se pudo abrir la foto."));img.src=revoke;});}const sw=Number(source.width||source.naturalWidth||0),sh=Number(source.height||source.naturalHeight||0);if(!sw||!sh)throw new Error("La imagen de la cámara no es válida.");const maxSide=1800,scale=Math.min(1,maxSide/Math.max(sw,sh)),w=Math.max(1,Math.round(sw*scale)),h=Math.max(1,Math.round(sh*scale));workCanvas.width=w;workCanvas.height=h;const ctx=workCanvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(source,0,0,w,h);let raw="";if("BarcodeDetector" in window){try{const detector=new BarcodeDetector({formats:["qr_code"]});const codes=await detector.detect(workCanvas);if(codes?.length)raw=String(codes[0].rawValue||"").trim();}catch(_){}}if(!raw){const ready=await preloadQrReader();if(ready&&window.jsQR){const img=ctx.getImageData(0,0,w,h),code=window.jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});if(code?.data)raw=String(code.data).trim();}}if(!raw){const msg="No se ha detectado ningún QR en la imagen. Acerca más la cámara y vuelve a intentarlo.";if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}const result=submitQr(raw);if(statusEl)statusEl.textContent=result.ok?"QR validado correctamente.":result.message;return result;}catch(error){const msg=String(error?.message||error||"No se pudo leer el QR.");if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}finally{try{source?.close?.();}catch(_){}if(revoke)try{URL.revokeObjectURL(revoke);}catch(_){}}}
 
   function closeScanner(options={}){const silent=Boolean(options&&options.silent),sc=state.scanner;if(sc){sc.running=false;try{sc.stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}try{sc.video.srcObject=null;}catch(_){}}if(state.scannerFrame)cancelAnimationFrame(state.scannerFrame);state.scannerFrame=0;state.scanner=null;if(!silent)emit("qr_closed");}
-  function snapshot(){return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:expectedCount(),nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,syncing:state.flushing,lastFix:state.lastFix?{...state.lastFix}:null};}
+  function snapshot(){return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:expectedCount(),nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,syncing:state.flushing,lastSyncError:state.lastSyncError,syncFailureCount:state.syncFailureCount,lastFix:state.lastFix?{...state.lastFix}:null};}
   function pendingPasses(){return state.queue.map(item=>({...item}));}
   function stop(){closeScanner({silent:true});clearRetry();persist();state.raceStatus="finished";emit("stopped");}
 
