@@ -748,6 +748,11 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     invitationId: String(member.invitationId || "").slice(0, 160) || null,
     participantId: String(member.participantId || member.webParticipantId || row.participantId || "").slice(0, 80) || null,
     routeId: String(member.routeId || member.courseId || row.routeId || row.courseId || "").slice(0, 80) || null,
+    routeDistanceKm: normalizeRouteMetric(member.routeDistanceKm ?? row.routeDistanceKm),
+    routePositiveM: normalizeRouteMetric(member.routePositiveM ?? row.routePositiveM),
+    routeNegativeM: normalizeRouteMetric(member.routeNegativeM ?? row.routeNegativeM),
+    routeDifficulty: String(member.routeDifficulty || row.routeDifficulty || "").slice(0, 40) || null,
+    routeControlCount: Math.max(0, Number(member.routeControlCount ?? row.routeControlCount ?? 0)),
     status: finalStatus,
     liveParticipantStatus: participantState,
     startedAtMs,
@@ -1381,6 +1386,235 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
     console.error("[MILITOPO getRunnerResultDetail]", { uid, eventId, code: error?.code || null, message: error?.message || String(error) });
     if (error instanceof HttpsError) throw error;
     throw new HttpsError("internal", "No se pudo cargar el detalle histórico de esta carrera.");
+  }
+});
+
+
+// H5 · Clasificación oficial V2.
+// Una misma fuente genera la clasificación GENERAL y POR RECORRIDO para
+// organizador y corredores. Los puestos se asignan únicamente a FINALIZADOS;
+// incompletos y no salieron permanecen visibles, pero sin puesto competitivo.
+function h5ResultStatus(value) {
+  const status = String(value || "not_started").toLowerCase();
+  return ["finished", "incomplete", "not_started"].includes(status) ? status : "not_started";
+}
+function h5RunnerLabel(row = {}) {
+  const displayName = String(row.displayName || "").trim();
+  const username = String(row.username || "").replace(/^@/, "").trim();
+  if (displayName && username) return `${displayName} (@${username})`;
+  if (displayName) return displayName;
+  if (username) return `@${username}`;
+  return String(row.participantId || "Corredor");
+}
+function h5Duration(row = {}) {
+  const value = Number(row.durationMs);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+function h5RankRows(rows) {
+  const statusOrder = { finished: 0, incomplete: 1, not_started: 2 };
+  const sorted = [...rows].sort((a, b) => {
+    const sa = statusOrder[h5ResultStatus(a.status)] ?? 9;
+    const sb = statusOrder[h5ResultStatus(b.status)] ?? 9;
+    if (sa !== sb) return sa - sb;
+    if (sa === 0) {
+      const da = h5Duration(a), dbb = h5Duration(b);
+      if (da !== dbb) return (da ?? Number.MAX_SAFE_INTEGER) - (dbb ?? Number.MAX_SAFE_INTEGER);
+    }
+    const pa = participantOrder(a.participantId), pb = participantOrder(b.participantId);
+    if (pa !== pb) return pa - pb;
+    return h5RunnerLabel(a).localeCompare(h5RunnerLabel(b), "es", { numeric: true });
+  });
+
+  const leaderDuration = h5Duration(sorted.find(row => h5ResultStatus(row.status) === "finished"));
+  let previousDuration = null;
+  let previousRank = 0;
+  let finishedOrdinal = 0;
+  return sorted.map(row => {
+    const status = h5ResultStatus(row.status);
+    const duration = h5Duration(row);
+    let rank = null;
+    if (status === "finished" && duration != null) {
+      finishedOrdinal += 1;
+      if (previousDuration !== null && duration === previousDuration) rank = previousRank;
+      else rank = finishedOrdinal;
+      previousDuration = duration;
+      previousRank = rank;
+    }
+    return {
+      ...row,
+      status,
+      rank,
+      gapToLeaderMs: rank != null && leaderDuration != null && duration != null ? Math.max(0, duration - leaderDuration) : null
+    };
+  });
+}
+function h5PublicRow(row = {}) {
+  return {
+    runnerUid: String(row.runnerUid || row.uid || "").slice(0, 180),
+    participantId: String(row.participantId || "").slice(0, 80) || null,
+    routeId: String(row.routeId || "").slice(0, 80) || null,
+    displayName: String(row.displayName || "").slice(0, 120) || null,
+    username: String(row.username || "").replace(/^@/, "").slice(0, 40) || null,
+    status: h5ResultStatus(row.status),
+    rank: Number.isFinite(Number(row.rank)) ? Number(row.rank) : null,
+    durationMs: h5Duration(row),
+    gapToLeaderMs: Number.isFinite(Number(row.gapToLeaderMs)) ? Number(row.gapToLeaderMs) : null,
+    startedAtMs: Math.max(0, Number(row.startedAtMs || 0)) || null,
+    finishedAtMs: Math.max(0, Number(row.finishedAtMs || 0)) || null,
+    trackDistanceM: Math.max(0, Number(row.trackDistanceM || 0)),
+    routeDistanceKm: normalizeRouteMetric(row.routeDistanceKm),
+    routePositiveM: normalizeRouteMetric(row.routePositiveM),
+    routeDifficulty: String(row.routeDifficulty || "").slice(0, 40) || null,
+    routeControlCount: Math.max(0, Number(row.routeControlCount || 0))
+  };
+}
+
+async function buildEventClassification(eventRef, eventData) {
+  const [resultsSnap, membersSnap, coursesSnap] = await Promise.all([
+    eventRef.collection("results").get(),
+    eventRef.collection("members").get(),
+    eventRef.collection("courses").get()
+  ]);
+  const courseById = new Map();
+  coursesSnap.forEach(docSnap => {
+    const row = docSnap.data() || {};
+    const routeId = String(row.routeId || row.courseId || docSnap.id || "").trim();
+    if (!routeId) return;
+    const metrics = row.metrics && typeof row.metrics === "object" ? row.metrics : {};
+    courseById.set(routeId, {
+      routeId,
+      routeDistanceKm: normalizeRouteMetric(metrics.distanceKm),
+      routePositiveM: normalizeRouteMetric(metrics.positiveM),
+      routeNegativeM: normalizeRouteMetric(metrics.negativeM),
+      routeDifficulty: String(metrics.difficulty || "").slice(0, 40) || null,
+      routeControlCount: routeControlCount(row.points)
+    });
+  });
+
+  const resultByUid = new Map();
+  resultsSnap.forEach(docSnap => resultByUid.set(docSnap.id, { runnerUid: docSnap.id, ...(docSnap.data() || {}) }));
+  const members = new Map();
+  membersSnap.forEach(docSnap => members.set(docSnap.id, { uid: docSnap.id, ...(docSnap.data() || {}) }));
+  const uids = new Set([...members.keys(), ...resultByUid.keys()]);
+  const profileRefs = [...uids].map(uid => db.collection("users").doc(uid));
+  const profileSnaps = profileRefs.length ? await db.getAll(...profileRefs) : [];
+  const profiles = new Map();
+  profileSnaps.forEach(docSnap => { if (docSnap.exists) profiles.set(docSnap.id, docSnap.data() || {}); });
+
+  const rows = [];
+  for (const uid of uids) {
+    const member = members.get(uid) || {};
+    const result = resultByUid.get(uid) || {};
+    // Un miembro retirado que nunca participó no entra en la clasificación.
+    const memberStatus = String(member.status || "active").toLowerCase();
+    if (!resultByUid.has(uid) && memberStatus !== "active") continue;
+    const profile = profiles.get(uid) || {};
+    const routeId = String(result.routeId || member.routeId || member.courseId || "").trim();
+    const course = courseById.get(routeId) || {};
+    const hasResult = resultByUid.has(uid);
+    rows.push({
+      runnerUid: uid,
+      participantId: String(result.participantId || member.participantId || member.webParticipantId || "").slice(0, 80) || null,
+      routeId: routeId || null,
+      displayName: String(result.displayName || member.displayName || profile.displayName || "").slice(0, 120) || null,
+      username: String(result.username || member.username || profile.usernameKey || profile.username || "").replace(/^@/, "").slice(0, 40) || null,
+      status: hasResult ? h5ResultStatus(result.status) : "not_started",
+      durationMs: hasResult && result.durationMs != null ? Math.max(0, Number(result.durationMs || 0)) : null,
+      startedAtMs: hasResult ? (Math.max(0, Number(result.startedAtMs || 0)) || null) : null,
+      finishedAtMs: hasResult ? (Math.max(0, Number(result.finishedAtMs || 0)) || null) : null,
+      trackDistanceM: hasResult ? Math.max(0, Number(result.trackDistanceM || 0)) : 0,
+      routeDistanceKm: normalizeRouteMetric(result.routeDistanceKm ?? member.routeDistanceKm ?? course.routeDistanceKm),
+      routePositiveM: normalizeRouteMetric(result.routePositiveM ?? member.routePositiveM ?? course.routePositiveM),
+      routeNegativeM: normalizeRouteMetric(result.routeNegativeM ?? member.routeNegativeM ?? course.routeNegativeM),
+      routeDifficulty: String(result.routeDifficulty || member.routeDifficulty || course.routeDifficulty || "").slice(0, 40) || null,
+      routeControlCount: Math.max(0, Number(result.routeControlCount ?? member.routeControlCount ?? course.routeControlCount ?? 0))
+    });
+  }
+
+  const general = h5RankRows(rows);
+  const routeIds = [...new Set(rows.map(row => String(row.routeId || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
+  const byRoute = {};
+  const routeSummary = [];
+  for (const routeId of routeIds) {
+    const ranked = h5RankRows(rows.filter(row => String(row.routeId || "") === routeId));
+    byRoute[routeId] = ranked;
+    const course = courseById.get(routeId) || {};
+    routeSummary.push({
+      routeId,
+      participantCount: ranked.length,
+      finishedCount: ranked.filter(row => row.status === "finished").length,
+      routeDistanceKm: normalizeRouteMetric(course.routeDistanceKm ?? ranked[0]?.routeDistanceKm),
+      routePositiveM: normalizeRouteMetric(course.routePositiveM ?? ranked[0]?.routePositiveM),
+      routeDifficulty: String(course.routeDifficulty || ranked[0]?.routeDifficulty || "").slice(0, 40) || null,
+      routeControlCount: Math.max(0, Number(course.routeControlCount ?? ranked[0]?.routeControlCount ?? 0))
+    });
+  }
+  return { general, byRoute, routes: routeSummary };
+}
+
+exports.getEventClassification = onCall({ enforceAppCheck: false, timeoutSeconds: 120, memory: "512MiB" }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  try {
+    const eventRef = db.collection("events").doc(eventId);
+    const [eventSnap, memberSnap, ownResultSnap] = await Promise.all([
+      eventRef.get(),
+      eventRef.collection("members").doc(identity.uid).get(),
+      eventRef.collection("results").doc(identity.uid).get()
+    ]);
+    if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera ya no existe.");
+    const eventData = eventSnap.data() || {};
+    const role = String(identity.token.role || "runner");
+    const manager = role === "super_admin" || (role === "organizer" && String(eventData.ownerUid || "") === identity.uid);
+    if (!manager && !memberSnap.exists && !ownResultSnap.exists) {
+      throw new HttpsError("permission-denied", "No perteneces a esta carrera.");
+    }
+
+    const built = await buildEventClassification(eventRef, eventData);
+    const publicGeneral = built.general.map(h5PublicRow);
+    const publicByRoute = {};
+    for (const [routeId, rows] of Object.entries(built.byRoute)) publicByRoute[routeId] = rows.map(h5PublicRow);
+    const myGeneral = built.general.find(row => row.runnerUid === identity.uid) || null;
+    const myRouteRows = myGeneral?.routeId ? (built.byRoute[myGeneral.routeId] || []) : [];
+    const myRoute = myRouteRows.find(row => row.runnerUid === identity.uid) || null;
+
+    const counts = publicGeneral.reduce((acc, row) => {
+      acc.total += 1;
+      if (row.status === "finished") acc.finished += 1;
+      else if (row.status === "incomplete") acc.incomplete += 1;
+      else acc.notStarted += 1;
+      return acc;
+    }, { total: 0, finished: 0, incomplete: 0, notStarted: 0 });
+
+    return {
+      ok: true,
+      event: {
+        eventId,
+        eventName: String(eventData.eventName || "Carrera de orientación").slice(0, 140),
+        status: String(eventData.status || "").toLowerCase(),
+        provisional: String(eventData.status || "").toLowerCase() === "live"
+      },
+      summary: counts,
+      routes: built.routes,
+      general: publicGeneral,
+      byRoute: publicByRoute,
+      my: myGeneral ? {
+        generalRank: Number.isFinite(Number(myGeneral.rank)) ? Number(myGeneral.rank) : null,
+        generalCount: built.general.length,
+        generalFinishedCount: built.general.filter(row => row.status === "finished").length,
+        generalGapMs: Number.isFinite(Number(myGeneral.gapToLeaderMs)) ? Number(myGeneral.gapToLeaderMs) : null,
+        routeId: myGeneral.routeId || null,
+        routeRank: Number.isFinite(Number(myRoute?.rank)) ? Number(myRoute.rank) : null,
+        routeCount: myRouteRows.length,
+        routeFinishedCount: myRouteRows.filter(row => row.status === "finished").length,
+        routeGapMs: Number.isFinite(Number(myRoute?.gapToLeaderMs)) ? Number(myRoute.gapToLeaderMs) : null
+      } : null
+    };
+  } catch (error) {
+    console.error("[MILITOPO H5 getEventClassification]", { uid: identity.uid, eventId, code: error?.code || null, message: error?.message || String(error) });
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "No se pudo construir la clasificación de esta carrera.");
   }
 });
 
