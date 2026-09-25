@@ -6,7 +6,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-h6-2-manual-live-strictgps-progress-reset-20260925";
+  const VERSION="v2-h6-2-1-qr-camera-hotfix-20260925";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -133,18 +133,51 @@
   async function openScanner({video,canvas,statusEl}={}){
     if(!video||!canvas)return false;
     if(!navigator.mediaDevices?.getUserMedia){if(statusEl)statusEl.textContent="Este navegador no permite acceder a la cámara.";emit("qr_error",{message:"Cámara no disponible."});return false;}
-    closeScanner();
-    let detector=null;let useJsQr=false;
-    if("BarcodeDetector" in window){try{detector=new BarcodeDetector({formats:["qr_code"]});}catch(_){} }
-    if(!detector){const ready=await preloadQrReader();useJsQr=ready&&Boolean(window.jsQR);}
-    if(!detector&&!useJsQr){if(statusEl)statusEl.textContent="No se pudo preparar el lector QR.";emit("qr_error",{message:"Lector QR no disponible."});return false;}
+    // IMPORTANTE (iPhone/Safari): no emitimos qr_closed aquí y pedimos la cámara
+    // inmediatamente dentro del gesto del botón. El lector QR se prepara después.
+    closeScanner({silent:true});
+    if(statusEl)statusEl.textContent="Solicitando cámara…";
+    let stream=null;
     try{
-      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
-      video.srcObject=stream;await video.play();
-      state.scanner={stream,video,canvas,statusEl,detector,useJsQr,running:true,lastRaw:"",lastAt:0};
-      if(statusEl)statusEl.textContent=`Cámara activa. Apunta al QR de ${nextControl()?.checkpointId||"la siguiente baliza"}.`;
-      emit("qr_scanning");scanLoop();return true;
-    }catch(error){if(statusEl)statusEl.textContent="No se pudo abrir la cámara. Revisa el permiso de cámara.";emit("qr_error",{message:String(error?.message||error)});closeScanner();return false;}
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
+      }catch(firstError){
+        // Algunos iPhone/webviews rechazan constraints concretas aunque la cámara exista.
+        stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+      }
+      video.setAttribute("playsinline","");
+      video.setAttribute("webkit-playsinline","");
+      video.setAttribute("autoplay","");
+      video.muted=true;video.autoplay=true;video.srcObject=stream;
+      await video.play();
+    }catch(error){
+      try{stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}
+      const name=String(error?.name||"");
+      const msg=/NotAllowed|Permission/i.test(name)?"Permiso de cámara denegado. Actívalo para MILITOPO en los ajustes del navegador.":"No se pudo abrir la cámara. Revisa el permiso de cámara.";
+      if(statusEl)statusEl.textContent=msg;
+      emit("qr_error",{message:msg,detail:String(error?.message||error)});
+      return false;
+    }
+
+    let detector=null,useJsQr=false;
+    if("BarcodeDetector" in window){try{detector=new BarcodeDetector({formats:["qr_code"]});}catch(_){} }
+    if(!detector){
+      if(statusEl)statusEl.textContent="Cámara activa · preparando lector QR…";
+      const ready=await preloadQrReader();useJsQr=ready&&Boolean(window.jsQR);
+    }
+    if(!detector&&!useJsQr){
+      try{stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}
+      try{video.srcObject=null;}catch(_){}
+      if(statusEl)statusEl.textContent="La cámara funciona, pero no se pudo preparar el lector QR. Comprueba la conexión y vuelve a intentarlo.";
+      emit("qr_error",{message:"Lector QR no disponible."});
+      return false;
+    }
+
+    state.scanner={stream,video,canvas,statusEl,detector,useJsQr,running:true,lastRaw:"",lastAt:0};
+    if(statusEl)statusEl.textContent=`Cámara activa. Apunta al QR de ${nextControl()?.checkpointId||"la siguiente baliza"}.`;
+    emit("qr_scanning");
+    setTimeout(()=>{try{video.play();}catch(_){}},250);
+    scanLoop();return true;
   }
 
   async function scanLoop(){
@@ -161,7 +194,7 @@
     if(state.scanner?.running)state.scannerFrame=requestAnimationFrame(scanLoop);
   }
 
-  function closeScanner(){const sc=state.scanner;if(sc){sc.running=false;try{sc.stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}try{sc.video.srcObject=null;}catch(_){}}if(state.scannerFrame)cancelAnimationFrame(state.scannerFrame);state.scannerFrame=0;state.scanner=null;emit("qr_closed");}
+  function closeScanner(options={}){const silent=Boolean(options&&options.silent);const sc=state.scanner;if(sc){sc.running=false;try{sc.stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}try{sc.video.srcObject=null;}catch(_){}}if(state.scannerFrame)cancelAnimationFrame(state.scannerFrame);state.scannerFrame=0;state.scanner=null;if(!silent)emit("qr_closed");}
   function snapshot(){return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:expectedCount(),nextControl:nextControl()?{...nextControl()}:null,pending:state.queue.length,lastFix:state.lastFix?{...state.lastFix}:null};}
   function stop(){closeScanner();persist();state.raceStatus="finished";emit("stopped");}
 

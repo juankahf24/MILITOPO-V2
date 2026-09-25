@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2-h6-2-manual-live-strictgps-progress-reset-20260925";
+  const VERSION="v2-h6-2-1-qr-camera-hotfix-20260925";
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
@@ -118,9 +118,18 @@
     else{statusEl.className="m2race-control-status";statusEl.textContent=`Siguiente ${next.checkpointId}. GPS solo valida con precisión ±10 m o mejor y a 10 m o menos. El QR puede usarse en cualquier ubicación.`;}
   }
   async function openQrScanner(){
-    const api=controlsApi(),panel=el("m2raceQrPanel"),status=el("m2raceQrStatus");if(!api||!panel)return;
-    panel.hidden=false;if(status)status.textContent="Preparando cámara…";
-    const ok=await api.openScanner({video:el("m2raceQrVideo"),canvas:el("m2raceQrCanvas"),statusEl:status});if(!ok&&status)status.textContent=status.textContent||"No se pudo abrir el lector QR.";
+    const api=controlsApi(),panel=el("m2raceQrPanel"),status=el("m2raceQrStatus"),btn=el("m2raceQrOpen");
+    if(!panel)return;
+    panel.hidden=false;
+    if(status)status.textContent="Solicitando cámara…";
+    panel.scrollIntoView?.({behavior:"smooth",block:"center"});
+    if(!api?.openScanner){if(status)status.textContent="El módulo lector QR no está disponible. Recarga MILITOPO e inténtalo de nuevo.";return;}
+    if(btn)btn.disabled=true;
+    try{
+      const ok=await api.openScanner({video:el("m2raceQrVideo"),canvas:el("m2raceQrCanvas"),statusEl:status});
+      if(!ok&&status&&!status.textContent)status.textContent="No se pudo abrir el lector QR.";
+    }catch(error){if(status)status.textContent=`No se pudo abrir la cámara: ${String(error?.message||error)}`;}
+    finally{if(btn)btn.disabled=false;}
   }
   function closeQrScanner(){controlsApi()?.closeScanner?.();const panel=el("m2raceQrPanel");if(panel)panel.hidden=true;}
 
