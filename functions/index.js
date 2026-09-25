@@ -435,6 +435,8 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     email: String(profile.email || row.email || "").slice(0, 180) || null,
     membershipStatus: String(member.status || "active").toLowerCase(),
     invitationId: String(member.invitationId || "").slice(0, 160) || null,
+    participantId: String(member.participantId || member.webParticipantId || row.participantId || "").slice(0, 80) || null,
+    routeId: String(member.routeId || member.courseId || row.routeId || row.courseId || "").slice(0, 80) || null,
     status: finalStatus,
     liveParticipantStatus: participantState,
     startedAtMs,
@@ -867,15 +869,17 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
 
   try {
     const eventRef = db.collection("events").doc(eventId);
-    const [eventSnap, resultSnap] = await Promise.all([
+    const [eventSnap, resultSnap, memberSnap] = await Promise.all([
       eventRef.get(),
-      eventRef.collection("results").doc(uid).get()
+      eventRef.collection("results").doc(uid).get(),
+      eventRef.collection("members").doc(uid).get()
     ]);
     if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera ya no existe.");
     if (!resultSnap.exists) throw new HttpsError("not-found", "No existe un resultado histórico tuyo para esta carrera.");
 
     const eventData = eventSnap.data() || {};
     const result = resultSnap.data() || {};
+    const member = memberSnap.exists ? (memberSnap.data() || {}) : {};
     if (String(result.runnerUid || uid) !== uid) {
       throw new HttpsError("permission-denied", "Este resultado no pertenece a tu cuenta.");
     }
@@ -937,6 +941,9 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
       courses.push({
         courseId: String(row.courseId || row.routeId || docSnap.id || "").slice(0, 80),
         points: Array.isArray(row.points) ? row.points.map(x => String(x).slice(0, 80)).slice(0, 120) : [],
+        assignedParticipantIds: Array.isArray(row.assignedParticipantIds)
+          ? [...new Set(row.assignedParticipantIds.map(x => String(x || "").trim()).filter(Boolean))].slice(0, 300)
+          : [],
         metrics: row.metrics && typeof row.metrics === "object" ? {
           distanceKm: Number.isFinite(Number(row.metrics.distanceKm)) ? Number(row.metrics.distanceKm) : null,
           positiveM: Number.isFinite(Number(row.metrics.positiveM)) ? Number(row.metrics.positiveM) : null,
@@ -946,6 +953,48 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
         } : null
       });
     });
+
+    // H4.1 · Resolver el recorrido del corredor sin adivinar.
+    // Preferimos una asignación explícita; después una coincidencia con
+    // assignedParticipantIds; solo usamos el único recorrido del evento cuando
+    // no existe ninguna ambigüedad.
+    const cleanKey = value => String(value || "").trim().toLowerCase();
+    const explicitCourseId = String(
+      result.routeId || result.courseId || member.routeId || member.courseId || ""
+    ).trim();
+    let selectedCourse = explicitCourseId
+      ? courses.find(course => String(course.courseId || "") === explicitCourseId) || null
+      : null;
+    let courseMatch = selectedCourse ? "explicit" : "";
+
+    if (!selectedCourse) {
+      const username = String(result.username || "").replace(/^@/, "").trim();
+      const candidates = new Set([
+        result.participantId,
+        member.participantId,
+        member.webParticipantId,
+        uid,
+        username,
+        username ? `@${username}` : "",
+        result.email,
+        result.displayName
+      ].map(cleanKey).filter(Boolean));
+      const matched = courses.filter(course =>
+        (course.assignedParticipantIds || []).some(value => candidates.has(cleanKey(value)))
+      );
+      if (matched.length === 1) {
+        selectedCourse = matched[0];
+        courseMatch = "assigned";
+      }
+    }
+    if (!selectedCourse && courses.length === 1) {
+      selectedCourse = courses[0];
+      courseMatch = "single_course";
+    }
+
+    const reducedDistanceKm = Number.isFinite(Number(selectedCourse?.metrics?.distanceKm))
+      ? Number(selectedCourse.metrics.distanceKm)
+      : null;
 
     const startedAtMs = Math.max(0, Number(result.startedAtMs || 0)) || timestampMs(result.startedAt);
     const finishedAtMs = Math.max(0, Number(result.finishedAtMs || 0)) || timestampMs(result.finishedAt);
@@ -975,6 +1024,11 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
         finishedAtMs: finishedAtMs || null,
         durationMs: durationMs == null ? null : durationMs,
         trackDistanceM: distanceM,
+        reducedDistanceKm,
+        courseId: selectedCourse?.courseId || explicitCourseId || null,
+        courseDifficulty: String(selectedCourse?.metrics?.difficulty || "").slice(0, 40) || null,
+        coursePositiveM: Number.isFinite(Number(selectedCourse?.metrics?.positiveM)) ? Number(selectedCourse.metrics.positiveM) : null,
+        courseMatch: courseMatch || null,
         trackPointCount: Math.max(0, Number(result.trackPointCount || track.length)),
         trackChunkCount: Math.max(0, Number(result.trackChunkCount || chunks.length)),
         avgSpeedKmh,
