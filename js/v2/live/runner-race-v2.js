@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2-h6-3-arrival-auto-finish-20260925";
+  const VERSION="v2-h6-4-batch-sync-manual-finish-20260925";
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,localArrivalAt:0,autoFinishing:false};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
@@ -40,9 +40,9 @@
       <section class="m2race-card"><div class="m2race-gps"><div class="m2race-gps-icon">◎</div><div><div class="m2race-gps-title">GPS DE CARRERA</div><div id="m2raceGpsText" class="m2race-gps-text">El GPS se activa al iniciar el recorrido.</div></div><span id="m2raceGpsPill" class="m2race-gps-pill">ESPERANDO</span><button id="m2raceGpsActivate" class="m2race-gps-btn" type="button" hidden>ACTIVAR GPS</button></div></section>
       <section class="m2race-card"><div class="m2race-track"><div class="m2race-track-icon">↝</div><div><div class="m2race-track-title">TRACK DEL RECORRIDO</div><div id="m2raceTrackText" class="m2race-track-text">Preparado para guardar tu recorrido.</div></div><span id="m2raceTrackPill" class="m2race-track-pill">LISTO</span></div></section>
       <section class="m2race-card"><div class="m2race-resilience"><div class="m2race-resilience-icon">⟳</div><div><div class="m2race-resilience-title">CONTINUIDAD DE CARRERA</div><div id="m2raceResilienceText" class="m2race-resilience-text">MILITOPO puede recuperar esta carrera si recargas la aplicación.</div></div><span id="m2raceResiliencePill" class="m2race-resilience-pill">PROTEGIDO</span></div></section>
-      <section id="m2raceActionCard" class="m2race-card"><button id="m2raceStart" class="m2race-action m2race-start" type="button">INICIAR RECORRIDO</button><button id="m2raceFinish" class="m2race-action m2race-finish" type="button" hidden>FINALIZAR RECORRIDO</button><div id="m2raceConfirm" class="m2race-confirm"><p>Este botón solo se usa como respaldo en recorridos antiguos sin LLEGADA configurada.</p><div class="m2race-confirm-actions"><button id="m2raceCancelFinish" class="m2race-mini" type="button">CANCELAR</button><button id="m2raceConfirmFinish" class="m2race-mini primary" type="button">CONFIRMAR LLEGADA</button></div></div><div id="m2raceActionNote" class="m2race-note">Cuando estés en la salida, pulsa INICIAR RECORRIDO. La llegada finalizará la carrera automáticamente por GPS o QR.</div></section>
+      <section id="m2raceActionCard" class="m2race-card"><button id="m2raceStart" class="m2race-action m2race-start" type="button">INICIAR RECORRIDO</button><button id="m2raceFinish" class="m2race-action m2race-finish" type="button" hidden>TERMINAR CARRERA</button><div id="m2raceConfirm" class="m2race-confirm"><p>¿Quieres terminar la carrera ahora? Si faltan balizas o no has validado LLEGADA, el resultado quedará registrado como INCOMPLETO.</p><div class="m2race-confirm-actions"><button id="m2raceCancelFinish" class="m2race-mini" type="button">SEGUIR CORRIENDO</button><button id="m2raceConfirmFinish" class="m2race-mini primary" type="button">SÍ · TERMINAR</button></div></div><div id="m2raceActionNote" class="m2race-note">La llegada puede finalizar automáticamente por GPS o QR. También puedes terminar manualmente la carrera cuando lo necesites.</div></section>
       <section class="m2race-card"><div class="m2race-sync"><span class="m2race-sync-dot"></span><div><strong id="m2raceSyncTitle">Sincronización activa</strong><br><span id="m2raceSyncText">Conectado a Realtime Database V2.</span></div></div></section>
-      <section id="m2raceResult" class="m2race-card m2race-result" hidden><div class="m2race-result-icon">✓</div><h2>Recorrido finalizado</h2><p>La llegada ha quedado registrada y sincronizada con el organizador.</p></section>
+      <section id="m2raceResult" class="m2race-card m2race-result" hidden><div class="m2race-result-icon">✓</div><h2>Recorrido finalizado</h2><p id="m2raceResultText">La llegada ha quedado registrada y sincronizada con el organizador.</p></section>
     </div>
     <div id="m2raceStartConfirm" class="m2race-start-confirm" role="dialog" aria-modal="true" aria-labelledby="m2raceStartConfirmTitle"><div class="m2race-start-sheet"><div class="m2race-start-icon">🏁</div><h2 id="m2raceStartConfirmTitle">¿Estás preparado para iniciar?</h2><p>Al confirmar empieza tu tiempo oficial, se activa el GPS de carrera y el organizador recibe tu salida.</p><div class="m2race-start-choice"><button id="m2raceStartNo" class="m2race-start-no" type="button">TODAVÍA NO</button><button id="m2raceStartYes" class="m2race-start-yes" type="button">SÍ · INICIAR AHORA</button></div></div></div>
     <div id="m2raceBusy" class="m2race-busy"><div class="m2race-busy-card"><div class="m2race-spinner"></div><strong id="m2raceBusyTitle">Procesando…</strong><span id="m2raceBusyText">Sincronizando con Live V2.</span></div></div>`;
@@ -110,7 +110,7 @@
     if(!card)return;
     const raceStatus=String(state.participant?.status||snap.raceStatus||"").toLowerCase(),active=["racing","started"].includes(raceStatus);
     card.hidden=!active;if(!active)return;
-    const completed=Math.max(0,Number(detail.completedCount??snap.completedCount??0)),expected=Math.max(0,Number(detail.expectedCount??snap.expectedCount??0)),next=detail.nextControl??snap.nextControl??null,finishValidated=Boolean(detail.finishValidated??snap.finishValidated);
+    const completed=Math.max(0,Number(detail.completedCount??snap.completedCount??0)),expected=Math.max(0,Number(detail.expectedCount??snap.expectedCount??0)),next=detail.nextControl??snap.nextControl??null,finishValidated=Boolean(detail.finishValidated??snap.finishValidated),pending=Math.max(0,Number(detail.pending??snap.pending??0));
     progressEl.textContent=`${completed} / ${expected}`;
     if(!next){
       nextEl.textContent=finishValidated?"LLEGADA ✓":"LLEGADA";
@@ -132,9 +132,10 @@
     else if(status==="arrival_synced"){statusEl.className="m2race-control-status ok";statusEl.textContent="🏁 LLEGADA sincronizada. Cerrando carrera con el organizador…";}
     else if(status==="offline"){statusEl.className="m2race-control-status warn";statusEl.textContent=detail.message||"Validación guardada localmente. Se sincronizará al volver la cobertura.";}
     else if(status==="sync_error"||status==="qr_error"){statusEl.className="m2race-control-status warn";statusEl.textContent=detail.message||"No se pudo sincronizar. El registro local se conserva y se reintentará.";}
-    else if(status==="syncing"){statusEl.className="m2race-control-status";statusEl.textContent=isFinish?"Sincronizando llegada…":"Sincronizando paso por baliza…";}
+    else if(status==="syncing"){statusEl.className="m2race-control-status";statusEl.textContent=pending?`Sincronizando ${pending} validación${pending===1?"":"es"}…`:isFinish?"Sincronizando llegada…":"Sincronizando paso por baliza…";}
     else if(status==="gps"){
       statusEl.className="m2race-control-status";
+      if(pending>0){statusEl.textContent=`Sincronizando ${pending} validación${pending===1?"":"es"} con el organizador…`;return;}
       if(detail.distanceM==null){statusEl.textContent=isFinish?"Esperando coordenadas de LLEGADA. Puedes usar su QR desde cualquier ubicación.":"Esperando coordenadas de la siguiente baliza. Puedes usar el QR en cualquier ubicación si necesitas respaldo.";}
       else if(detail.accuracyOk===false){statusEl.className="m2race-control-status warn";statusEl.textContent=`Precisión GPS insuficiente: ±${Math.round(Number(detail.accuracyM||0))} m. Para validar necesitas ±10 m o mejor y estar a 10 m o menos. El QR sigue disponible.`;}
       else if(Number(detail.distanceM)>10){statusEl.textContent=`${isFinish?"LLEGADA":"Siguiente "+next.checkpointId} · GPS ±${Math.round(Number(detail.accuracyM||0))} m · estás a ${Math.round(Number(detail.distanceM))} m. Acércate hasta 10 m o menos, o usa el QR.`;}
@@ -173,8 +174,9 @@
     el("m2raceStart").disabled=!row.routeId||!row.participantId;
     el("m2raceStart").hidden=!["ready","not_started"].includes(st);
     const hasFinishTarget=Boolean(state.controlPlan?.finish);
-    el("m2raceFinish").hidden=hasFinishTarget||!["racing","started"].includes(st);
-    el("m2raceActionNote").textContent=hasFinishTarget?"La carrera finalizará automáticamente al validar LLEGADA por GPS o QR.":"Recorrido antiguo sin llegada automática: usa FINALIZAR RECORRIDO al terminar.";
+    el("m2raceFinish").hidden=!["racing","started"].includes(st);
+    el("m2raceActionNote").textContent=hasFinishTarget?"LLEGADA finaliza automáticamente por GPS/QR. El botón TERMINAR CARRERA permanece disponible como salida manual.":"Puedes terminar manualmente la carrera cuando lo necesites.";
+    const resultText=el("m2raceResultText");if(resultText)resultText.textContent=row.manualFinishIncomplete?"Carrera terminada manualmente. El resultado queda como INCOMPLETO porque faltaban balizas o LLEGADA.":"La llegada/fin de carrera ha quedado registrada y sincronizada con el organizador.";
     el("m2raceResult").hidden=st!=="finished";el("m2raceActionCard").hidden=st==="finished";el("m2raceConfirm").classList.remove("open");updateTimer();
     controlsApi()?.setRaceStatus?.(st);updateControlUi("status");
     try{window.dispatchEvent(new CustomEvent("militopo:v2-race-participant",{detail:{event:state.event?{...state.event}:null,auth:state.auth?{...state.auth}:null,runId:state.runId,participant:{...row},status:st}}));}catch(_){}
@@ -239,7 +241,30 @@
     }
   }
 
-  async function finishRace(){if(state.busy)return;busy("Registrando llegada","Sincronizando balizas, GPS y cerrando tu recorrido…");try{await controlsApi()?.flush?.();const controlSnap=controlsApi()?.snapshot?.()||{};if(Number(controlSnap.pending||0)>0)throw new Error(`Hay ${Number(controlSnap.pending||0)} paso${Number(controlSnap.pending||0)===1?"":"s"} por baliza pendiente${Number(controlSnap.pending||0)===1?"":"s"} de sincronizar. Recupera cobertura antes de finalizar para no perder la validación QR/GPS.`);await gpsApi()?.stop?.("runner_finish");const svc=await services();await svc.callable("runnerFinishRace",{eventId:state.event.eventId,clientVersion:VERSION});await new Promise(r=>setTimeout(r,650));el("m2raceBusyTitle").textContent="Llegada registrada";el("m2raceBusyText").textContent="Recorrido finalizado y sincronizado correctamente.";await new Promise(r=>setTimeout(r,950));}catch(error){el("m2raceBusyTitle").textContent="No se pudo finalizar";el("m2raceBusyText").textContent=String(error?.message||error);await new Promise(r=>setTimeout(r,1600));}finally{unbusy();}}
+  async function finishRace(){
+    if(state.busy)return;
+    el("m2raceConfirm").classList.remove("open");
+    const api=controlsApi();
+    busy("Terminando carrera","Consolidando balizas, track y resultado…");
+    try{
+      try{await api?.flush?.();}catch(_){}
+      const pendingPasses=api?.pendingPasses?.()||[];
+      try{await gpsApi()?.stop?.("runner_manual_finish");}catch(_){}
+      const svc=await services();
+      const result=await svc.callable("runnerFinishRace",{eventId:state.event.eventId,clientVersion:VERSION,manualFinish:true,pendingPasses});
+      const data=result?.data||{};
+      state.participant={...(state.participant||{}),status:"finished",finishedAt:Number(data.finishedAt||Date.now()),manualFinish:true,manualFinishIncomplete:Boolean(data.manualFinishIncomplete)};
+      render();
+      el("m2raceBusyTitle").textContent=data.manualFinishIncomplete?"Carrera terminada · INCOMPLETA":"Carrera terminada";
+      el("m2raceBusyText").textContent=data.manualFinishIncomplete?"Se ha cerrado cuando lo has solicitado. El resultado queda INCOMPLETO porque faltaban balizas o LLEGADA.":"Resultado y recorrido sincronizados correctamente.";
+      await new Promise(r=>setTimeout(r,1100));
+    }catch(error){
+      el("m2raceBusyTitle").textContent="No se pudo terminar";
+      el("m2raceBusyText").textContent=String(error?.message||error);
+      await new Promise(r=>setTimeout(r,1600));
+    }finally{unbusy();}
+  }
+
   // H6.2.2: el botón vive dentro de una interfaz dinámica. Capturamos el toque en fase capture
   // para que ningún re-render/listener externo pueda dejarlo sin respuesta.
   if(!globalThis.__MILITOPO_QR_BUTTON_CAPTURE_V2){

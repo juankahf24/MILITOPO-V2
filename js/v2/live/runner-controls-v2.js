@@ -5,7 +5,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-h6-3-arrival-sync-20260925";
+  const VERSION="v2-h6-4-batch-sync-manual-finish-20260925";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -101,38 +101,44 @@
     if(navigator.onLine===false||!state.context?.eventId){emit("offline",{message:"Validación guardada en el dispositivo. Se sincronizará al recuperar cobertura."});return state.queue.length===0;}
     if(state.flushing){state.flushAgain=true;return false;}
     if(!state.queue.length)return true;
-    clearRetry();state.flushing=true;emit("syncing");
+    clearRetry();state.flushing=true;emit("syncing",{pending:state.queue.length});
     try{
       const svc=await services();
-      while(state.queue.length&&navigator.onLine!==false){
-        const item=state.queue[0];
+      let guard=0;
+      while(state.queue.length&&navigator.onLine!==false&&guard<8){
+        guard+=1;
+        const batch=state.queue.slice(0,60).map(item=>({...item}));
+        const before=state.queue.length;
         try{
-          const result=await svc.callable("runnerRegisterControlPass",{eventId:state.context.eventId,clientVersion:VERSION,...item});
+          const result=await svc.callable("runnerSyncControlPasses",{eventId:state.context.eventId,clientVersion:VERSION,passes:batch});
           const data=result?.data||{};
-          progressFromServer(data.progress||{completedCount:data.completedCount,finishValidated:data.arrivalValidated,arrivalAt:data.arrivalAt});
-          state.queue=state.queue.filter(q=>String(q.attemptId||"")!==String(item.attemptId||""));
+          progressFromServer(data.progress||null);
           reconcile();
-          if(canonical(item.checkpointId)==="FINISH")emit("arrival_synced",{pass:item,server:data});
-          else emit("synced",{pass:item,server:data});
+          if(state.queue.length>=before){
+            // Respaldo: si el servidor no devolvió todos los attemptId, eliminamos solo los que confirma explícitamente.
+            const acceptedIds=new Set(Array.isArray(data.acceptedAttemptIds)?data.acceptedAttemptIds.map(String):[]);
+            if(acceptedIds.size)state.queue=state.queue.filter(item=>!acceptedIds.has(String(item.attemptId||"")));
+            reconcile();
+          }
+          emit(state.queue.length?"syncing":"synced",{syncedCount:Math.max(0,before-state.queue.length),pending:state.queue.length,server:data});
+          if(state.queue.length>=before)break;
         }catch(error){
           const msg=String(error?.message||error||"");
-          if(/siguiente|already|ya est|orden|failed-precondition|validaci/i.test(msg)){
-            const ok=await refreshFromServer();
-            if(ok){
-              const before=state.queue.length;
-              reconcile();
-              if(state.queue.length<before)continue;
-            }
+          const ok=await refreshFromServer();
+          if(ok){
+            const afterRefresh=state.queue.length;
+            reconcile();
+            if(state.queue.length<before||state.queue.length<afterRefresh)continue;
           }
-          emit(navigator.onLine===false?"offline":"sync_error",{message:msg});
-          scheduleRetry(1400);
+          emit(navigator.onLine===false?"offline":"sync_error",{message:msg,pending:state.queue.length});
+          scheduleRetry(1800);
           break;
         }
       }
       return state.queue.length===0;
     }finally{
       state.flushing=false;persist();
-      if((state.flushAgain||state.queue.length)&&navigator.onLine!==false){state.flushAgain=false;scheduleRetry(120);}
+      if((state.flushAgain||state.queue.length)&&navigator.onLine!==false){state.flushAgain=false;scheduleRetry(state.queue.length?900:180);}
     }
   }
 
@@ -167,7 +173,7 @@
   }
 
   function parseQr(raw){const value=String(raw||"").trim().toUpperCase(),parts=value.split("|");if(parts.length<4||parts[0]!=="ORI"||parts[1]!=="CONTROL")return {ok:false,message:"QR no válido de MILITOPO."};if(String(parts[2])!==String(state.context?.eventId||"").toUpperCase())return {ok:false,message:"Este QR pertenece a otra carrera."};const id=canonical(parts[3]);const next=nextTarget();if(!next)return {ok:false,message:"El recorrido y la llegada ya están validados."};if(id!==canonical(next.checkpointId))return {ok:false,message:`QR de ${id==="FINISH"?"LLEGADA":id}. La siguiente validación es ${canonical(next.checkpointId)==="FINISH"?"LLEGADA":next.checkpointId}.`};return {ok:true,id,raw:value};}
-  function submitQr(raw){const parsed=parseQr(raw);if(!parsed.ok){emit("qr_error",{message:parsed.message,qrRaw:String(raw||"")});return parsed;}const res=registerLocal(parsed.id,"qr",{passedAtMs:Date.now(),qrRaw:parsed.raw});if(res.ok){emit(parsed.id==="FINISH"?"arrival_qr":"qr_passed",{pass:res.pass});closeScanner({silent:true});}return res;}
+  function submitQr(raw){const parsed=parseQr(raw);if(!parsed.ok){emit("qr_error",{message:parsed.message,qrRaw:String(raw||"")});return parsed;}const res=registerLocal(parsed.id,"qr",{passedAtMs:Date.now(),qrRaw:parsed.raw});if(res.ok){emit(parsed.id==="FINISH"?"arrival_qr":"qr_passed",{pass:res.pass});closeScanner();}return res;}
 
   async function openScanner({video,canvas,statusEl}={}){
     if(!video||!canvas)return false;
@@ -187,12 +193,13 @@
   async function scanImageFile(file,{canvas,statusEl}={}){if(!file)return {ok:false,message:"No se recibió ninguna imagen."};const workCanvas=canvas||document.createElement("canvas");let source=null,revoke="";try{if("createImageBitmap" in window){source=await createImageBitmap(file);}else{revoke=URL.createObjectURL(file);source=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("No se pudo abrir la foto."));img.src=revoke;});}const sw=Number(source.width||source.naturalWidth||0),sh=Number(source.height||source.naturalHeight||0);if(!sw||!sh)throw new Error("La imagen de la cámara no es válida.");const maxSide=1800,scale=Math.min(1,maxSide/Math.max(sw,sh)),w=Math.max(1,Math.round(sw*scale)),h=Math.max(1,Math.round(sh*scale));workCanvas.width=w;workCanvas.height=h;const ctx=workCanvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(source,0,0,w,h);let raw="";if("BarcodeDetector" in window){try{const detector=new BarcodeDetector({formats:["qr_code"]});const codes=await detector.detect(workCanvas);if(codes?.length)raw=String(codes[0].rawValue||"").trim();}catch(_){}}if(!raw){const ready=await preloadQrReader();if(ready&&window.jsQR){const img=ctx.getImageData(0,0,w,h),code=window.jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});if(code?.data)raw=String(code.data).trim();}}if(!raw){const msg="No se ha detectado ningún QR en la imagen. Acerca más la cámara y vuelve a intentarlo.";if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}const result=submitQr(raw);if(statusEl)statusEl.textContent=result.ok?"QR validado correctamente.":result.message;return result;}catch(error){const msg=String(error?.message||error||"No se pudo leer el QR.");if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}finally{try{source?.close?.();}catch(_){}if(revoke)try{URL.revokeObjectURL(revoke);}catch(_){}}}
 
   function closeScanner(options={}){const silent=Boolean(options&&options.silent),sc=state.scanner;if(sc){sc.running=false;try{sc.stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}try{sc.video.srcObject=null;}catch(_){}}if(state.scannerFrame)cancelAnimationFrame(state.scannerFrame);state.scannerFrame=0;state.scanner=null;if(!silent)emit("qr_closed");}
-  function snapshot(){return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:expectedCount(),nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,lastFix:state.lastFix?{...state.lastFix}:null};}
+  function snapshot(){return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:expectedCount(),nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,syncing:state.flushing,lastFix:state.lastFix?{...state.lastFix}:null};}
+  function pendingPasses(){return state.queue.map(item=>({...item}));}
   function stop(){closeScanner({silent:true});clearRetry();persist();state.raceStatus="finished";emit("stopped");}
 
   window.addEventListener("militopo:v2-gps-fix",event=>{const fix=event.detail?.fix;if(fix)handleFix(fix);});
   window.addEventListener("online",()=>{state.flushAgain=true;flush().catch(()=>{});});
   window.addEventListener("pagehide",persist);
 
-  globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,snapshot,stop,version:VERSION});
+  globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,snapshot,pendingPasses,stop,version:VERSION});
 })();
