@@ -829,6 +829,175 @@ exports.getRunnerHistory = onCall({ enforceAppCheck: false }, async request => {
   }
 });
 
+
+// H4 · Detalle histórico completo de una participación del corredor autenticado.
+// Devuelve solo SU resultado, el track persistente y la cartografía lógica del evento
+// necesaria para reconstruir el mapa histórico. RTDB no interviene.
+exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds: 120, memory: "512MiB" }, async request => {
+  const identity = requireVerified(request);
+  const uid = String(identity.uid || "").trim();
+  const eventId = cleanEventId(request.data?.eventId);
+
+  function timestampMs(value) {
+    if (!value) return null;
+    if (typeof value.toMillis === "function") return value.toMillis();
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  function safeTrackPoint(row) {
+    const lat = Number(row?.lat), lng = Number(row?.lng), at = Number(row?.at), seq = Number(row?.seq);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(at) || !Number.isFinite(seq)) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180 || at <= 0 || seq <= 0) return null;
+    const accuracy = Math.max(0, Number(row?.accuracy || 0));
+    return { lat, lng, at, seq, accuracy: Math.round(accuracy * 10) / 10 };
+  }
+  function sampleForMap(points, maxPoints = 6000) {
+    if (points.length <= maxPoints) return points;
+    const out = [];
+    const used = new Set();
+    const last = points.length - 1;
+    for (let i = 0; i < maxPoints; i += 1) {
+      const index = Math.round((i * last) / (maxPoints - 1));
+      if (used.has(index)) continue;
+      used.add(index);
+      out.push(points[index]);
+    }
+    return out;
+  }
+
+  try {
+    const eventRef = db.collection("events").doc(eventId);
+    const [eventSnap, resultSnap] = await Promise.all([
+      eventRef.get(),
+      eventRef.collection("results").doc(uid).get()
+    ]);
+    if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera ya no existe.");
+    if (!resultSnap.exists) throw new HttpsError("not-found", "No existe un resultado histórico tuyo para esta carrera.");
+
+    const eventData = eventSnap.data() || {};
+    const result = resultSnap.data() || {};
+    if (String(result.runnerUid || uid) !== uid) {
+      throw new HttpsError("permission-denied", "Este resultado no pertenece a tu cuenta.");
+    }
+
+    const [chunksSnap, checkpointsSnap, coursesSnap] = await Promise.all([
+      resultSnap.ref.collection("trackChunks").get(),
+      eventRef.collection("checkpoints").get(),
+      eventRef.collection("courses").get()
+    ]);
+
+    const chunks = [];
+    chunksSnap.forEach(docSnap => {
+      const data = docSnap.data() || {};
+      chunks.push({ index: Math.max(0, Number(data.index || 0)), points: Array.isArray(data.points) ? data.points : [] });
+    });
+    chunks.sort((a, b) => a.index - b.index);
+    const track = [];
+    for (const chunk of chunks) {
+      for (const raw of chunk.points) {
+        const point = safeTrackPoint(raw);
+        if (point) track.push(point);
+      }
+    }
+    track.sort((a, b) => a.seq - b.seq || a.at - b.at);
+
+    const mapTrack = sampleForMap(track, 6000);
+    let accuracyCount = 0, accuracySum = 0, accuracyBest = Infinity, accuracyWorst = 0;
+    for (const point of track) {
+      const value = Number(point.accuracy || 0);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      accuracyCount += 1; accuracySum += value;
+      if (value < accuracyBest) accuracyBest = value;
+      if (value > accuracyWorst) accuracyWorst = value;
+    }
+    const accuracy = accuracyCount ? {
+      averageM: Math.round((accuracySum / accuracyCount) * 10) / 10,
+      bestM: Math.round(accuracyBest * 10) / 10,
+      worstM: Math.round(accuracyWorst * 10) / 10,
+      sampleCount: accuracyCount
+    } : { averageM: null, bestM: null, worstM: null, sampleCount: 0 };
+
+    const checkpoints = [];
+    checkpointsSnap.forEach(docSnap => {
+      const row = docSnap.data() || {};
+      const lat = Number(row.lat), lon = Number(row.lon ?? row.lng);
+      checkpoints.push({
+        checkpointId: String(row.checkpointId || docSnap.id || "").slice(0, 80),
+        type: ["SALIDA", "LLEGADA", "BALIZA"].includes(String(row.type || "").toUpperCase()) ? String(row.type).toUpperCase() : "BALIZA",
+        description: String(row.description || "").slice(0, 240),
+        lat: Number.isFinite(lat) ? lat : null,
+        lon: Number.isFinite(lon) ? lon : null,
+        elevationM: Number.isFinite(Number(row.elevationM)) ? Number(row.elevationM) : null
+      });
+    });
+
+    const courses = [];
+    coursesSnap.forEach(docSnap => {
+      const row = docSnap.data() || {};
+      courses.push({
+        courseId: String(row.courseId || row.routeId || docSnap.id || "").slice(0, 80),
+        points: Array.isArray(row.points) ? row.points.map(x => String(x).slice(0, 80)).slice(0, 120) : [],
+        metrics: row.metrics && typeof row.metrics === "object" ? {
+          distanceKm: Number.isFinite(Number(row.metrics.distanceKm)) ? Number(row.metrics.distanceKm) : null,
+          positiveM: Number.isFinite(Number(row.metrics.positiveM)) ? Number(row.metrics.positiveM) : null,
+          negativeM: Number.isFinite(Number(row.metrics.negativeM)) ? Number(row.metrics.negativeM) : null,
+          difficulty: String(row.metrics.difficulty || "").slice(0, 40),
+          routeMode: String(row.metrics.routeMode || "").slice(0, 40)
+        } : null
+      });
+    });
+
+    const startedAtMs = Math.max(0, Number(result.startedAtMs || 0)) || timestampMs(result.startedAt);
+    const finishedAtMs = Math.max(0, Number(result.finishedAtMs || 0)) || timestampMs(result.finishedAt);
+    const durationMs = result.durationMs == null ? (startedAtMs && finishedAtMs ? Math.max(0, finishedAtMs - startedAtMs) : null) : Math.max(0, Number(result.durationMs || 0));
+    const distanceM = Math.max(0, Number(result.trackDistanceM || 0));
+    const hours = durationMs && durationMs > 0 ? durationMs / 3600000 : 0;
+    const avgSpeedKmh = hours > 0 ? Math.round(((distanceM / 1000) / hours) * 100) / 100 : null;
+    const paceMinKm = durationMs && distanceM > 0 ? Math.round(((durationMs / 60000) / (distanceM / 1000)) * 100) / 100 : null;
+
+    return {
+      ok: true,
+      event: {
+        eventId,
+        eventName: String(result.eventName || eventData.eventName || "Carrera de orientación").slice(0, 140),
+        status: String(eventData.status || "").toLowerCase(),
+        planScale: Number(eventData.planScale) || null,
+        planEquidistanceM: Number(eventData.planEquidistanceM) || null,
+        checkpointCount: checkpoints.length,
+        courseCount: courses.length,
+        participantCount: Math.max(0, Number(eventData.participantCount || 0))
+      },
+      result: {
+        runnerUid: uid,
+        runId: String(result.runId || "").slice(0, 180),
+        status: ["finished", "incomplete", "not_started"].includes(String(result.status || "")) ? String(result.status) : "not_started",
+        startedAtMs: startedAtMs || null,
+        finishedAtMs: finishedAtMs || null,
+        durationMs: durationMs == null ? null : durationMs,
+        trackDistanceM: distanceM,
+        trackPointCount: Math.max(0, Number(result.trackPointCount || track.length)),
+        trackChunkCount: Math.max(0, Number(result.trackChunkCount || chunks.length)),
+        avgSpeedKmh,
+        paceMinKm,
+        gpsAccuracy: accuracy,
+        source: String(result.source || "").slice(0, 80)
+      },
+      checkpoints,
+      courses,
+      track: mapTrack,
+      trackMeta: {
+        storedPointCount: track.length,
+        returnedPointCount: mapTrack.length,
+        downsampled: mapTrack.length < track.length
+      }
+    };
+  } catch (error) {
+    console.error("[MILITOPO getRunnerResultDetail]", { uid, eventId, code: error?.code || null, message: error?.message || String(error) });
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "No se pudo cargar el detalle histórico de esta carrera.");
+  }
+});
+
 // F3B hardening · sincronización servidor-servidor de membresías e invitaciones.
 // Evita depender de eventos CustomEvent entre dispositivos y mantiene RTDB al día
 // aunque ningún organizador tenga la página abierta.
