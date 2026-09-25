@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-h4-23-route-assignment-20260925";
-  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
+  const VERSION = "v2-h4-23-live-switch-hotfix-20260925";
+  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, autoOpenedRuns:new Set() };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
   const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
@@ -141,8 +141,10 @@
       if(detailBtn){openHistoryDetail(String(detailBtn.dataset.historyDetail||""));return;}
       const layerBtn=e.target.closest("[data-detail-layer]");
       if(layerBtn){switchHistoryDetailLayer(String(layerBtn.dataset.detailLayer||"mapant")).catch(error=>{console.error("[MILITOPO H4.1 layer]",error);state.detailRacePlanError=String(error?.message||"No se pudo cambiar el fondo cartográfico.");renderHistoryDetailLayerState();});return;}
+      const reconnectBtn=e.target.closest("[data-reconnect-event]");
+      if(reconnectBtn){const id=String(reconnectBtn.dataset.reconnectEvent||"");const event=state.events.find(row=>row.eventId===id);if(event){event.liveConnectError="";connectLive(event,{autoOpen:true});}return;}
       const btn=e.target.closest("[data-enter-event]");
-      if(!btn)return; const id=btn.dataset.enterEvent||""; const event=state.events.find(row=>row.eventId===id); if(!event||!state.runId)return; window.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{event:{...event},runId:state.runId,auth:{...state.auth}}}));
+      if(!btn)return; const id=btn.dataset.enterEvent||""; const event=state.events.find(row=>row.eventId===id); if(!event)return; const runId=state.active?.eventId===id?state.runId:String(event.liveRunId||""); if(!runId)return; window.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{event:{...event},runId,auth:{...state.auth}}}));
     });
     return root;
   }
@@ -166,6 +168,59 @@
   function cleanupEventWatchers(){
     for(const unsubscribe of state.eventWatchers.values()){try{unsubscribe?.();}catch(_){}}
     state.eventWatchers.clear();
+    if(state.liveSelectionTimer){clearTimeout(state.liveSelectionTimer);state.liveSelectionTimer=null;}
+  }
+  function participantRank(status){
+    const value=String(status||"").toLowerCase();
+    if(value==="racing"||value==="started") return 0;
+    if(value==="ready"||value==="not_started") return 1;
+    if(!value) return 2;
+    if(value==="finished") return 9;
+    return 3;
+  }
+  function liveCandidates(){
+    return state.events
+      .filter(row=>String(row?.status||"").toLowerCase()==="live" && String(row?.liveRunId||"").trim())
+      .sort((a,b)=>{
+        const ar=participantRank(a.participantLiveStatus), br=participantRank(b.participantLiveStatus);
+        if(ar!==br) return ar-br;
+        return Number(b.liveStartedAt||0)-Number(a.liveStartedAt||0);
+      });
+  }
+  function raceScreenVisible(){
+    const root=document.getElementById("m2RaceV2");
+    return Boolean(root && !root.hidden);
+  }
+  function maybeOpenRunnerRace(event, runId, status){
+    const st=String(status||"ready").toLowerCase();
+    if(!event||!runId||st==="finished"||raceScreenVisible()) return;
+    const key=`${event.eventId}:${runId}`;
+    if(state.autoOpenedRuns.has(key)) return;
+    state.autoOpenedRuns.add(key);
+    try{
+      window.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{event:{...event},runId,auth:{...state.auth},autoOpened:true}}));
+    }catch(_){}
+  }
+  function scheduleLiveSelection(delay=100){
+    if(state.liveSelectionTimer) clearTimeout(state.liveSelectionTimer);
+    state.liveSelectionTimer=setTimeout(()=>{
+      state.liveSelectionTimer=null;
+      const candidates=liveCandidates();
+      if(!candidates.length) return;
+      const current=state.active && state.events.find(row=>row.eventId===state.active.eventId);
+      const currentStatus=String(current?.participantLiveStatus||state.participantStatus||"").toLowerCase();
+      // Una carrera ya EN CARRERA nunca debe ser desplazada por otra sesión Live.
+      if(state.active?.eventId && state.runId && ["racing","started"].includes(currentStatus)){
+        maybeOpenRunnerRace(current||state.active,state.runId,currentStatus);
+        return;
+      }
+      const target=candidates[0];
+      if(state.active?.eventId===target.eventId && state.runId){
+        maybeOpenRunnerRace(target,state.runId,target.participantLiveStatus||state.participantStatus);
+        return;
+      }
+      connectLive(target,{autoOpen:true});
+    },delay);
   }
   async function services(){
     if(state.services)return state.services;
@@ -199,12 +254,41 @@
         let disposed=false;
         let memberUnsub=null;
         let activeUnsub=null;
+        let participantUnsub=null;
+        let participantRunId="";
         let retryTimer=null;
         let retryCount=0;
 
+        const cleanupParticipant=()=>{
+          try{participantUnsub?.();}catch(_){}
+          participantUnsub=null;
+          participantRunId="";
+        };
         const cleanupActive=()=>{
           try{activeUnsub?.();}catch(_){}
           activeUnsub=null;
+          cleanupParticipant();
+        };
+        const bindParticipant=(runId)=>{
+          const cleanRunId=String(runId||"").trim();
+          if(disposed||!cleanRunId||participantRunId===cleanRunId) return;
+          cleanupParticipant();
+          participantRunId=cleanRunId;
+          const participantRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/runs/${cleanRunId}/participants/${state.auth.uid}`);
+          try{
+            participantUnsub=api.onValue(participantRef,snap=>{
+              const target=state.events.find(row=>row.eventId===event.eventId);
+              if(!target) return;
+              const row=snap.exists()?(snap.val()||{}):{};
+              target.participantLiveStatus=String(row.status||"ready").toLowerCase();
+              renderEvents();
+              scheduleLiveSelection(60);
+            },error=>{
+              console.warn("[MILITOPO runner dashboard] participant watcher",event.eventId,error);
+            });
+          }catch(error){
+            console.warn("[MILITOPO runner dashboard] participant bind",event.eventId,error);
+          }
         };
         const scheduleRetry=()=>{
           if(disposed || retryTimer || retryCount>=12) return;
@@ -227,18 +311,23 @@
             target.status="live";
             target.liveRunId=runId;
             target.liveStatus=runStatus;
+            target.liveStartedAt=Number(active.startedAt||0);
+            bindParticipant(runId);
             renderEvents();
-            if(!state.active || state.active.eventId!==target.eventId || !state.runId){
-              connectLive(target);
-            }
+            // No conectamos cada watcher por su cuenta: si hay varias carreras
+            // EN DIRECTO, una selección central evita que se pisen entre sí.
+            scheduleLiveSelection(80);
           } else if(runStatus==="finished"){
             target.status="finished";
             target.liveStatus="finished";
+            target.participantLiveStatus="finished";
+            cleanupParticipant();
             renderEvents();
             if(state.active?.eventId===target.eventId){
               cleanupLive();
               setStatus("🏁 La sesión Live V2 ha finalizado.","ok");
             }
+            scheduleLiveSelection(80);
             setTimeout(()=>loadEvents(false,true),500);
           }
         };
@@ -295,24 +384,74 @@
     }
   }
 
-  async function connectLive(event){
-    cleanupLive(); state.active=event; setStatus(`Conectando con ${event.eventName}…`);
-    try{
-      const svc=await services(), api=svc.databaseApi;
-      if(!api) throw new Error("Realtime Database no está preparado en esta versión.");
-      const activeRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/activeRun`);
-      const activeSnap=await api.get(activeRef); const active=activeSnap.exists()?(activeSnap.val()||{}):{};
-      if(!active.runId||String(active.status)!=="active") throw new Error("La carrera todavía no está en directo.");
-      const joined=await svc.callable("runnerJoinLive",{eventId:event.eventId,clientVersion:VERSION});
-      state.runId=String(joined?.data?.runId||active.runId||"");
-      if(!state.runId) throw new Error("No se pudo resolver la sesión Live V2.");
-      const pRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/runs/${state.runId}/participants/${state.auth.uid}`);
-      await api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});
-      try{await api.onDisconnect(pRef).update({online:false,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});}catch(_){}
-      state.heartbeat=setInterval(()=>api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()}).catch(()=>{}),20000);
-      state.unsubParticipant=api.onValue(pRef,snap=>{const row=snap.val()||{}; state.participantStatus=String(row.status||"ready").toLowerCase(); const label=state.participantStatus==="ready"?"PREPARADO":state.participantStatus==="racing"?"EN CARRERA":state.participantStatus==="finished"?"FINALIZADO":statusES(state.participantStatus); setStatus(`✅ Conectado a Live V2 · ${event.eventName} · ${label}`,"ok"); renderEvents();});
-      state.unsubRun=api.onValue(activeRef,snap=>{const row=snap.val()||{};if(String(row.status||"")==="finished"){setStatus("🏁 La sesión Live V2 ha finalizado.","ok");cleanupLive();renderEvents();}});
-    }catch(error){console.error("[MILITOPO runner dashboard live]",error);setStatus(`⚠️ ${String(error?.message||error)}`,"err");}
+  async function connectLive(event,{autoOpen=false}={}){
+    const eventId=String(event?.eventId||"").trim();
+    if(!eventId||!state.auth?.uid) return;
+    if(state.connectingEventId===eventId && state.connectPromise) return state.connectPromise;
+    const token=++state.connectToken;
+    state.connectingEventId=eventId;
+    setStatus(`Conectando con ${event.eventName}…`);
+    state.connectPromise=(async()=>{
+      try{
+        const svc=await services(), api=svc.databaseApi;
+        if(!api) throw new Error("Realtime Database no está preparado en esta versión.");
+        const activeRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/activeRun`);
+        const activeSnap=await api.get(activeRef); const active=activeSnap.exists()?(activeSnap.val()||{}):{};
+        if(!active.runId||String(active.status)!=="active") throw new Error("La carrera todavía no está en directo.");
+        const joined=await svc.callable("runnerJoinLive",{eventId:event.eventId,clientVersion:VERSION});
+        if(token!==state.connectToken) return;
+        const nextRunId=String(joined?.data?.runId||active.runId||"");
+        if(!nextRunId) throw new Error("No se pudo resolver la sesión Live V2.");
+
+        // Solo sustituimos la conexión anterior cuando la nueva ya está validada.
+        cleanupLive();
+        state.active=event;
+        state.runId=nextRunId;
+        state.participantStatus=String(joined?.data?.status||event.participantLiveStatus||"ready").toLowerCase();
+        event.liveRunId=nextRunId;
+        event.liveStartedAt=Number(active.startedAt||event.liveStartedAt||0);
+        event.participantLiveStatus=state.participantStatus;
+
+        const pRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/runs/${state.runId}/participants/${state.auth.uid}`);
+        await api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});
+        try{await api.onDisconnect(pRef).update({online:false,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});}catch(_){}
+        state.heartbeat=setInterval(()=>api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()}).catch(()=>{}),20000);
+        state.unsubParticipant=api.onValue(pRef,snap=>{
+          const row=snap.val()||{};
+          state.participantStatus=String(row.status||"ready").toLowerCase();
+          event.participantLiveStatus=state.participantStatus;
+          const label=state.participantStatus==="ready"?"PREPARADO":state.participantStatus==="racing"?"EN CARRERA":state.participantStatus==="finished"?"FINALIZADO":statusES(state.participantStatus);
+          setStatus(`✅ Conectado a Live V2 · ${event.eventName} · ${label}`,"ok");
+          renderEvents();
+          if(autoOpen) maybeOpenRunnerRace(event,state.runId,state.participantStatus);
+          if(state.participantStatus==="finished") scheduleLiveSelection(80);
+        });
+        state.unsubRun=api.onValue(activeRef,snap=>{
+          const row=snap.val()||{};
+          if(String(row.status||"")==="finished"){
+            setStatus("🏁 La sesión Live V2 ha finalizado.","ok");
+            cleanupLive();
+            renderEvents();
+            scheduleLiveSelection(80);
+          }
+        });
+        renderEvents();
+        if(autoOpen) maybeOpenRunnerRace(event,state.runId,state.participantStatus);
+      }catch(error){
+        if(token!==state.connectToken) return;
+        console.error("[MILITOPO runner dashboard live]",error);
+        const target=state.events.find(row=>row.eventId===eventId);
+        if(target) target.liveConnectError=String(error?.message||error);
+        renderEvents();
+        setStatus(`⚠️ ${String(error?.message||error)}`,"err");
+      }finally{
+        if(token===state.connectToken){
+          state.connectingEventId="";
+          state.connectPromise=null;
+        }
+      }
+    })();
+    return state.connectPromise;
   }
   function historyStatusES(status){
     return ({finished:"FINALIZADO",incomplete:"INCOMPLETO",not_started:"NO SALIÓ"})[String(status||"").toLowerCase()] || "NO SALIÓ";
@@ -553,10 +692,16 @@
       const isConnected=state.active?.eventId===ev.eventId&&state.runId;
       let action="";
       if(live){
-        const ps=String(state.participantStatus||"ready").toLowerCase();
+        const ps=String(ev.participantLiveStatus||(isConnected?state.participantStatus:"")||"ready").toLowerCase();
         const liveLabel=ps==="racing"?"EN CARRERA":ps==="finished"?"FINALIZADO":"PREPARADO / SIN SALIR";
         const buttonLabel=ps==="finished"?"VER RESUMEN DE CARRERA":"ENTRAR EN LA CARRERA";
-        action=isConnected?`<div class="m2rd-live">✅ CONECTADO · ${liveLabel}</div><button class="m2rd-btn" type="button" data-enter-event="${esc(ev.eventId)}">${buttonLabel}</button>`:`<div class="m2rd-live">Carrera EN DIRECTO. Conectando automáticamente…</div>`;
+        if(isConnected){
+          action=`<div class="m2rd-live">✅ CONECTADO · ${liveLabel}</div><button class="m2rd-btn" type="button" data-enter-event="${esc(ev.eventId)}">${buttonLabel}</button>`;
+        }else if(ev.liveConnectError){
+          action=`<div class="m2rd-live">⚠️ No se pudo conectar automáticamente.</div><button class="m2rd-btn" type="button" data-reconnect-event="${esc(ev.eventId)}">REINTENTAR CONEXIÓN</button>`;
+        }else{
+          action=`<div class="m2rd-live">Carrera EN DIRECTO. Conectando automáticamente…</div>`;
+        }
       }
       else if(String(ev.status)==="finished") action=`<div class="m2rd-note">Carrera finalizada.</div>`;
       else if(String(ev.status)==="prepared") action=`<div class="m2rd-note">La carrera está PREPARADA. Espera a que el organizador la publique.</div>`;
@@ -576,8 +721,11 @@
       state.events=Array.isArray(result?.data?.events)?result.data.events:[]; writeEventsSnapshot(state.events); renderEvents();
       await bindEventWatchers();
       const live=state.events.filter(e=>String(e.status)==="live"&&String(e.liveRunId||"").trim());
-      if(live.length===1&&(!state.active||state.active.eventId!==live[0].eventId)) setTimeout(()=>connectLive(live[0]),250);
-      else if(!live.length){
+      if(live.length){
+        // Los watchers completan startedAt/estado por corredor y la selección
+        // central elige una sola sesión, incluso si hay varias carreras EN DIRECTO.
+        scheduleLiveSelection(220);
+      }else{
         cleanupLive();
         if(state.events.length&&!silent)setStatus(`✅ ${state.events.length} carrera${state.events.length===1?"":"s"} asociada${state.events.length===1?"":"s"} a tu cuenta.`,"ok");
       }
