@@ -670,7 +670,7 @@ function trackDistanceMeters(points) {
 // Es una evidencia automática, no una descalificación oficial: un fallo GPS no
 // cambia por sí solo el estado FINISHED del corredor. La búsqueda respeta el
 // orden del recorrido y guarda también la aproximación mínima a cada control.
-const CONTROL_ANALYSIS_VERSION = 1;
+const CONTROL_ANALYSIS_VERSION = 2;
 const CONTROL_BASE_RADIUS_M = 25;
 const CONTROL_MAX_RADIUS_M = 45;
 
@@ -770,6 +770,125 @@ function analyzeControlPasses(points, routePoints, checkpoints, startedAtMs = nu
   };
 }
 
+
+function normalizeLiveControlPasses(raw) {
+  const rows = raw && typeof raw === "object" ? Object.values(raw) : [];
+  return rows.map(row => {
+    const order = Math.max(0, Number(row?.order || 0));
+    const checkpointId = canonicalControlId(row?.checkpointId);
+    const passedAtMs = Math.max(0, Number(row?.passedAtMs || row?.at || 0)) || null;
+    if (!order || !checkpointId || !passedAtMs) return null;
+    const source = ["gps", "qr"].includes(String(row?.source || "").toLowerCase()) ? String(row.source).toLowerCase() : "gps";
+    return {
+      order,
+      checkpointId,
+      source,
+      passedAtMs,
+      elapsedMs: row?.elapsedMs == null ? null : Math.max(0, Number(row.elapsedMs || 0)),
+      splitMs: row?.splitMs == null ? null : Math.max(0, Number(row.splitMs || 0)),
+      distanceM: row?.distanceM == null ? null : Math.max(0, Number(row.distanceM || 0)),
+      allowedRadiusM: row?.allowedRadiusM == null ? null : Math.max(0, Number(row.allowedRadiusM || 0)),
+      gpsAccuracyM: row?.gpsAccuracyM == null ? null : Math.max(0, Number(row.gpsAccuracyM || 0)),
+      receivedAtMs: row?.receivedAtMs == null ? null : Math.max(0, Number(row.receivedAtMs || 0)),
+      queuedOffline: Boolean(row?.queuedOffline)
+    };
+  }).filter(Boolean).sort((a, b) => a.order - b.order || a.passedAtMs - b.passedAtMs);
+}
+
+function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
+  const base = trackAnalysis && typeof trackAnalysis === "object" ? trackAnalysis : {
+    version: CONTROL_ANALYSIS_VERSION, method: "gps_sequential_proximity_v1",
+    expectedCount: 0, detectedCount: 0, missingCount: 0, completionPct: null,
+    validation: "unavailable", passes: []
+  };
+  const livePasses = normalizeLiveControlPasses(liveProgress?.passes);
+  if (!livePasses.length) {
+    const passes = (Array.isArray(base.passes) ? base.passes : []).map(row => row.detected ? { ...row, source: "gps_track_recovery" } : row);
+    const trackRecovered = passes.filter(row => row.detected).length;
+    return { ...base, passes, sourceCounts: trackRecovered ? { gps_track_recovery: trackRecovered } : {} };
+  }
+
+  const byOrder = new Map(livePasses.map(row => [row.order, row]));
+  const mergedPasses = (Array.isArray(base.passes) ? base.passes : []).map(row => {
+    const live = byOrder.get(Number(row.order || 0));
+    if (!live || canonicalControlId(live.checkpointId) !== canonicalControlId(row.checkpointId)) {
+      return row.detected ? { ...row, source: "gps_track_recovery" } : row;
+    }
+    return {
+      ...row,
+      detected: true,
+      passedAtMs: live.passedAtMs,
+      elapsedMs: live.elapsedMs,
+      splitMs: live.splitMs,
+      distanceM: live.distanceM,
+      allowedRadiusM: live.allowedRadiusM,
+      gpsAccuracyM: live.gpsAccuracyM,
+      source: live.source,
+      receivedAtMs: live.receivedAtMs,
+      queuedOffline: live.queuedOffline
+    };
+  });
+  const detectedCount = mergedPasses.filter(row => row.detected).length;
+  const expectedCount = mergedPasses.length;
+  const missingCount = Math.max(0, expectedCount - detectedCount);
+  const completionPct = expectedCount ? Math.round((detectedCount / expectedCount) * 1000) / 10 : null;
+  const sourceCounts = mergedPasses.reduce((acc, row) => {
+    const key = String(row.source || (row.detected ? "gps_track_recovery" : "missing"));
+    acc[key] = (acc[key] || 0) + (row.detected ? 1 : 0);
+    return acc;
+  }, {});
+  return {
+    ...base,
+    method: "live_gps_qr_with_track_recovery_v1",
+    expectedCount,
+    detectedCount,
+    missingCount,
+    completionPct,
+    validation: expectedCount === 0 ? "unavailable" : missingCount === 0 ? "complete" : detectedCount ? "partial" : "none_detected",
+    passes: mergedPasses,
+    sourceCounts
+  };
+}
+
+async function buildRunnerControlPlan(eventRef, member, eventId) {
+  const route = (Array.isArray(member?.routePoints) ? member.routePoints : []).map(canonicalControlId).filter(Boolean);
+  const expectedIds = route.filter(id => !["START", "FINISH"].includes(id));
+  const checkpointsSnap = await eventRef.collection("checkpoints").get();
+  const checkpointMap = new Map();
+  checkpointsSnap.forEach(docSnap => {
+    const row = docSnap.data() || {};
+    const checkpointId = canonicalControlId(row.checkpointId || docSnap.id);
+    const lat = Number(row.lat);
+    const lng = Number(row.lng ?? row.lon);
+    if (!checkpointId) return;
+    checkpointMap.set(checkpointId, {
+      checkpointId,
+      lat: Number.isFinite(lat) ? lat : null,
+      lng: Number.isFinite(lng) ? lng : null,
+      description: String(row.description || "").slice(0, 180) || null
+    });
+  });
+  return {
+    eventId,
+    routeId: String(member?.routeId || member?.courseId || "").slice(0, 80) || null,
+    participantId: String(member?.participantId || member?.webParticipantId || "").slice(0, 80) || null,
+    expectedCount: expectedIds.length,
+    baseRadiusM: CONTROL_BASE_RADIUS_M,
+    maxRadiusM: CONTROL_MAX_RADIUS_M,
+    controls: expectedIds.map((checkpointId, index) => {
+      const cp = checkpointMap.get(checkpointId) || {};
+      return {
+        order: index + 1,
+        checkpointId,
+        lat: cp.lat ?? null,
+        lng: cp.lng ?? null,
+        description: cp.description || null,
+        qrFormat: `ORI|CONTROL|${eventId}|${checkpointId}`
+      };
+    })
+  };
+}
+
 function resultStatus(participantStatus) {
   const value = String(participantStatus || "not_started").toLowerCase();
   if (value === "finished") return "finished";
@@ -821,11 +940,12 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     row = snap.exists() ? (snap.val() || {}) : {};
   }
 
-  const [trackSnap, memberSnap, profileSnap, checkpointsSnap] = await Promise.all([
+  const [trackSnap, memberSnap, profileSnap, checkpointsSnap, controlProgressSnap] = await Promise.all([
     baseRef.child(`runs/${runId}/tracks/${uid}`).get(),
     eventRef.collection("members").doc(uid).get(),
     db.collection("users").doc(uid).get(),
-    eventRef.collection("checkpoints").get()
+    eventRef.collection("checkpoints").get(),
+    baseRef.child(`runs/${runId}/controlProgress/${uid}`).get()
   ]);
   const points = normalizeTrackPoints(trackSnap.exists() ? trackSnap.val() : null);
   const member = memberSnap.exists ? (memberSnap.data() || {}) : {};
@@ -847,7 +967,9 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   if (!finishedAtMs && finalStatus === "incomplete" && cutoffAt) finishedAtMs = Math.max(0, Number(cutoffAt || 0)) || null;
   const durationMs = startedAtMs && finishedAtMs ? Math.max(0, finishedAtMs - startedAtMs) : null;
   const routePoints = Array.isArray(member.routePoints) ? member.routePoints.map(x => String(x || "").slice(0, 80)).filter(Boolean).slice(0, 120) : [];
-  const controlAnalysis = analyzeControlPasses(points, routePoints, checkpoints, startedAtMs, finishedAtMs);
+  const trackControlAnalysis = analyzeControlPasses(points, routePoints, checkpoints, startedAtMs, finishedAtMs);
+  const controlProgress = controlProgressSnap.exists() ? (controlProgressSnap.val() || {}) : {};
+  const controlAnalysis = mergeLiveAndTrackControlAnalysis(trackControlAnalysis, controlProgress);
   const resultRef = eventRef.collection("results").doc(uid);
   const existing = await resultRef.get();
   const first = points[0] || null;
@@ -881,6 +1003,9 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     controlCompletionPct: controlAnalysis.completionPct,
     controlValidation: controlAnalysis.validation,
     controlPasses: controlAnalysis.passes,
+    controlGpsLiveCount: Math.max(0, Number(controlAnalysis.sourceCounts?.gps || 0)),
+    controlQrCount: Math.max(0, Number(controlAnalysis.sourceCounts?.qr || 0)),
+    controlTrackRecoveryCount: Math.max(0, Number(controlAnalysis.sourceCounts?.gps_track_recovery || 0)),
     controlAnalyzedAt: FieldValue.serverTimestamp(),
     status: finalStatus,
     liveParticipantStatus: participantState,
@@ -1041,6 +1166,11 @@ exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
   const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
   const now = Date.now();
   const route = memberRouteSummary(ctx.member);
+  const [controlPlan, controlProgressSnap] = await Promise.all([
+    buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId),
+    ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`).get()
+  ]);
+  const controlProgress = controlProgressSnap.exists() ? (controlProgressSnap.val() || {}) : null;
   await ctx.participantRef.update({
     uid: ctx.uid,
     displayName: String(profile.displayName || ctx.participant.displayName || "").slice(0, 120) || null,
@@ -1052,7 +1182,7 @@ exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
     lastSeen: now,
     updatedAt: now
   });
-  return { ok: true, eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, status, ...route };
+  return { ok: true, eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, status, ...route, controlPlan, controlProgress };
 });
 
 exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
@@ -1068,8 +1198,153 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
   if (!["not_started", "ready"].includes(current)) throw new HttpsError("failed-precondition", "Estado de salida no válido.");
   const now = Date.now();
   await ctx.participantRef.update({ status: "racing", online: true, startedAt: now, lastSeen: now, updatedAt: now });
+  const controlPlan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
+  const controlProgressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
+  const existingProgress = await controlProgressRef.get();
+  if (!existingProgress.exists()) {
+    await controlProgressRef.set({
+      schemaVersion: 1,
+      eventId, runId: ctx.runId, uid: ctx.uid,
+      routeId: controlPlan.routeId, participantId: controlPlan.participantId,
+      expectedCount: controlPlan.expectedCount, completedCount: 0,
+      nextControlId: controlPlan.controls[0]?.checkpointId || null,
+      lastControlId: null, lastControlAt: null,
+      passes: {}, createdAt: now, updatedAt: now
+    });
+  }
   await appendAudit("RUNNER_STARTED", identity.uid, identity.uid, { eventId, ownerUid: ctx.ownerUid, runId: ctx.runId });
   return { ok: true, eventId, runId: ctx.runId, status: "racing", startedAt: now };
+});
+
+
+exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const ctx = await resolveRunnerLiveContext(identity, eventId);
+  const current = String(ctx.participant.status || "").toLowerCase();
+  if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes estar EN CARRERA para validar balizas.");
+
+  const source = String(request.data?.source || "gps").toLowerCase();
+  if (!["gps", "qr"].includes(source)) throw new HttpsError("invalid-argument", "Método de validación no válido.");
+  const checkpointId = canonicalControlId(request.data?.checkpointId);
+  if (!checkpointId || ["START", "FINISH"].includes(checkpointId)) throw new HttpsError("invalid-argument", "Baliza no válida.");
+
+  const plan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
+  const controlIndex = plan.controls.findIndex(row => row.checkpointId === checkpointId);
+  if (controlIndex < 0) throw new HttpsError("failed-precondition", "Esta baliza no pertenece a tu recorrido asignado.");
+  const expectedOrder = controlIndex + 1;
+  const expected = plan.controls[controlIndex];
+
+  const now = Date.now();
+  const startedAt = Math.max(0, Number(ctx.participant.startedAt || 0));
+  let passedAtMs = Math.max(0, Number(request.data?.passedAtMs || now));
+  if (!passedAtMs || passedAtMs > now + 60000 || (startedAt && passedAtMs < startedAt - 60000)) passedAtMs = now;
+  const attemptId = String(request.data?.attemptId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 100) || randomUUID().replace(/-/g, "");
+
+  let distanceM = null;
+  let allowedRadiusM = null;
+  let gpsAccuracyM = null;
+  if (source === "gps") {
+    const lat = Number(request.data?.lat), lng = Number(request.data?.lng), accuracy = Math.max(0, Number(request.data?.accuracy || 0));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(expected.lat) || !Number.isFinite(expected.lng)) {
+      throw new HttpsError("failed-precondition", "No hay coordenadas GPS válidas para comprobar esta baliza.");
+    }
+    distanceM = haversineMeters({ lat, lng }, { lat: expected.lat, lng: expected.lng });
+    allowedRadiusM = Math.min(CONTROL_MAX_RADIUS_M, Math.max(CONTROL_BASE_RADIUS_M, 20 + Math.min(25, accuracy)));
+    gpsAccuracyM = accuracy > 0 ? Math.round(accuracy * 10) / 10 : null;
+    if (!Number.isFinite(distanceM) || distanceM > allowedRadiusM) {
+      throw new HttpsError("failed-precondition", "Todavía no estás dentro de la zona GPS de la siguiente baliza.");
+    }
+  } else {
+    const rawQr = String(request.data?.qrRaw || "").trim().toUpperCase();
+    const expectedQr = `ORI|CONTROL|${eventId}|${checkpointId}`.toUpperCase();
+    if (!rawQr || rawQr !== expectedQr) throw new HttpsError("invalid-argument", "El QR no corresponde a esta carrera y a esta baliza.");
+  }
+
+  const progressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
+  let transactionReason = "";
+  const txResult = await progressRef.transaction(currentValue => {
+    const progress = currentValue && typeof currentValue === "object" ? currentValue : {};
+    const passes = progress.passes && typeof progress.passes === "object" ? { ...progress.passes } : {};
+    const already = Object.values(passes).find(row => String(row?.attemptId || "") === attemptId);
+    if (already) return progress;
+    const completedCount = Math.max(0, Number(progress.completedCount || 0));
+    if (completedCount >= plan.expectedCount) {
+      transactionReason = "complete";
+      return;
+    }
+    const next = plan.controls[completedCount];
+    if (!next || next.checkpointId !== checkpointId || expectedOrder !== completedCount + 1) {
+      transactionReason = "out_of_order";
+      return;
+    }
+    const previous = completedCount > 0 ? passes[`c${String(completedCount).padStart(3, "0")}`] : null;
+    const previousAt = Math.max(0, Number(previous?.passedAtMs || startedAt || passedAtMs));
+    const pass = {
+      order: completedCount + 1,
+      checkpointId,
+      source,
+      passedAtMs,
+      elapsedMs: startedAt ? Math.max(0, passedAtMs - startedAt) : null,
+      splitMs: previousAt ? Math.max(0, passedAtMs - previousAt) : null,
+      distanceM: distanceM == null ? null : Math.round(distanceM * 10) / 10,
+      allowedRadiusM: allowedRadiusM == null ? null : Math.round(allowedRadiusM * 10) / 10,
+      gpsAccuracyM,
+      receivedAtMs: now,
+      queuedOffline: now - passedAtMs > 15000,
+      attemptId
+    };
+    const key = `c${String(completedCount + 1).padStart(3, "0")}`;
+    passes[key] = pass;
+    const newCompleted = completedCount + 1;
+    return {
+      schemaVersion: 1,
+      eventId, runId: ctx.runId, uid: ctx.uid,
+      routeId: plan.routeId, participantId: plan.participantId,
+      expectedCount: plan.expectedCount,
+      completedCount: newCompleted,
+      nextControlId: plan.controls[newCompleted]?.checkpointId || null,
+      lastControlId: checkpointId,
+      lastControlAt: passedAtMs,
+      passes,
+      createdAt: progress.createdAt || now,
+      updatedAt: now
+    };
+  });
+
+  const progressSnap = await progressRef.get();
+  const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
+  const passes = normalizeLiveControlPasses(progress.passes);
+  const accepted = passes.find(row => row.order === expectedOrder && row.checkpointId === checkpointId);
+  if (!txResult.committed && !accepted) {
+    if (transactionReason === "complete") return { ok: true, recovered: true, eventId, runId: ctx.runId, progress };
+    throw new HttpsError("failed-precondition", `La siguiente baliza es ${plan.controls[Math.max(0, Number(progress.completedCount || 0))]?.checkpointId || "LLEGADA"}.`);
+  }
+
+  const completedCount = Math.max(0, Number(progress.completedCount || 0));
+  await ctx.participantRef.update({
+    controlExpectedCount: plan.expectedCount,
+    controlCompletedCount: completedCount,
+    nextControlId: progress.nextControlId || null,
+    lastControlId: progress.lastControlId || checkpointId,
+    lastControlAt: progress.lastControlAt || passedAtMs,
+    lastControlSource: accepted?.source || source,
+    updatedAt: now,
+    lastSeen: now
+  });
+  await appendAudit("RUNNER_CONTROL_PASSED", identity.uid, identity.uid, { eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, checkpointId, order: expectedOrder, source: accepted?.source || source });
+  return {
+    ok: true,
+    eventId,
+    runId: ctx.runId,
+    checkpointId,
+    order: expectedOrder,
+    source,
+    completedCount,
+    expectedCount: plan.expectedCount,
+    nextControlId: progress.nextControlId || null,
+    progress
+  };
 });
 
 exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
@@ -1471,8 +1746,21 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
       : (Array.isArray(member.routePoints) && member.routePoints.length)
         ? member.routePoints
         : (Array.isArray(selectedCourse?.points) ? selectedCourse.points : []);
-    const controlAnalysis = analyzeControlPasses(track, effectiveRoutePoints, checkpoints, startedAtMs, finishedAtMs);
-    if (Number(result.controlAnalysisVersion || 0) !== CONTROL_ANALYSIS_VERSION) {
+    const recomputedTrackAnalysis = analyzeControlPasses(track, effectiveRoutePoints, checkpoints, startedAtMs, finishedAtMs);
+    const hasStoredLiveValidation = String(result.controlDetectionMethod || "").includes("live_gps_qr");
+    const controlAnalysis = hasStoredLiveValidation && Array.isArray(result.controlPasses)
+      ? {
+          ...recomputedTrackAnalysis,
+          method: String(result.controlDetectionMethod || "live_gps_qr_with_track_recovery_v1"),
+          expectedCount: Math.max(0, Number(result.controlExpectedCount || result.controlPasses.length || 0)),
+          detectedCount: Math.max(0, Number(result.controlDetectedCount || 0)),
+          missingCount: Math.max(0, Number(result.controlMissingCount || 0)),
+          completionPct: result.controlCompletionPct == null ? null : Number(result.controlCompletionPct),
+          validation: String(result.controlValidation || "unavailable"),
+          passes: result.controlPasses
+        }
+      : recomputedTrackAnalysis;
+    if (!hasStoredLiveValidation && Number(result.controlAnalysisVersion || 0) !== CONTROL_ANALYSIS_VERSION) {
       await resultSnap.ref.set({
         routePoints: effectiveRoutePoints.slice(0, 120),
         controlAnalysisVersion: controlAnalysis.version,
@@ -1526,6 +1814,9 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
         controlCompletionPct: controlAnalysis.completionPct,
         controlValidation: controlAnalysis.validation,
         controlDetectionMethod: controlAnalysis.method,
+        controlGpsLiveCount: Math.max(0, Number(result.controlGpsLiveCount || 0)),
+        controlQrCount: Math.max(0, Number(result.controlQrCount || 0)),
+        controlTrackRecoveryCount: Math.max(0, Number(result.controlTrackRecoveryCount || 0)),
         source: String(result.source || "").slice(0, 80)
       },
       controlPasses: controlAnalysis.passes,
