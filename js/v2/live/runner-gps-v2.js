@@ -3,7 +3,7 @@
    El track se guarda localmente y se sincroniza al recuperar conexión. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-g3-recovery-wakelock-20260924";
+const VERSION = "v2-h6-1-live-controls-qr-20260925";
 const MIN_WRITE_MS = 4000;
 const FORCE_WRITE_MS = 12000;
 const MIN_MOVE_M = 3;
@@ -62,6 +62,9 @@ function contextPath() {
 
 async function writeFix(fix, force = false) {
   if (!fix || !state.active) return;
+  // Evento local de alta frecuencia: la validación de balizas funciona aunque
+  // este punto no se publique todavía en RTDB o no haya cobertura.
+  try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-gps-fix", { detail: { fix: { ...fix }, version: VERSION } })); } catch (_) {}
   const now = Date.now();
   const elapsed = state.lastSent ? now - state.lastSent.updatedAt : Infinity;
   const moved = state.lastSent ? distanceM(state.lastSent, fix) : Infinity;

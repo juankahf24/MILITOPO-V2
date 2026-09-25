@@ -3,7 +3,7 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-h5-classification-20260925";
+  const VERSION = "v2-h6-1-live-controls-qr-20260925";
   const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, autoOpenedRuns:new Set() };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
@@ -119,7 +119,7 @@
       <section class="m2rd-card"><h3 class="m2rd-kicker">📊 RESULTADO</h3><div id="m2rdDetailMetrics" class="m2rd-detail-grid"></div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">🏆 CLASIFICACIÓN</h3><div id="m2rdClassificationStatus" class="m2rd-status">Cargando clasificación…</div><div id="m2rdClassificationSummary" class="m2rd-class-summary" style="margin-top:10px"></div><div class="m2rd-class-tabs"><button id="m2rdClassGeneralBtn" class="m2rd-class-tab active" type="button" data-class-view="general">GENERAL</button><button id="m2rdClassRouteBtn" class="m2rd-class-tab" type="button" data-class-view="route">MI RECORRIDO</button></div><div class="m2rd-class-table-wrap"><table class="m2rd-class-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO</th><th>DIF. LÍDER</th></tr></thead><tbody id="m2rdClassificationBody"><tr><td colspan="7">Cargando…</td></tr></tbody></table></div><div id="m2rdClassificationNote" class="m2rd-class-note"></div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">🗺️ TRACK Y CARTOGRAFÍA</h3><div class="m2rd-detail-maptools" role="tablist" aria-label="Cartografía del track histórico"><button class="m2rd-detail-layer active" type="button" data-detail-layer="mapant">MAPANT</button><button class="m2rd-detail-layer" type="button" data-detail-layer="ign">IGN</button><button class="m2rd-detail-layer" type="button" data-detail-layer="aerial">AÉREO</button><button class="m2rd-detail-layer" type="button" data-detail-layer="custom">PLANO CARRERA</button></div><div id="m2rdDetailLayerStatus" class="m2rd-detail-layerstatus">Fondo: MAPANT</div><div id="m2rdDetailMap" class="m2rd-detail-map"></div><div class="m2rd-detail-maplegend"><span>━ Track del corredor</span><span>◆ Baliza / salida / llegada</span></div><button id="m2rdDetailFit" class="m2rd-btn" type="button">ENCUADRAR RECORRIDO</button><div id="m2rdDetailMapNote" class="m2rd-detail-note">El track se carga desde Firestore, no desde la sesión Live.</div></section>
-      <section class="m2rd-card"><h3 class="m2rd-kicker">🎯 PASO POR BALIZAS · GPS</h3><div id="m2rdPassSummary" class="m2rd-pass-summary"></div><div id="m2rdPassNote" class="m2rd-pass-note">Análisis automático del track histórico. No sustituye una validación oficial por chip/QR.</div><div class="m2rd-pass-table-wrap"><table class="m2rd-pass-table"><thead><tr><th>#</th><th>BALIZA</th><th>DETECCIÓN</th><th>HORA</th><th>DESDE SALIDA</th><th>PARCIAL</th><th>GPS / DIST.</th></tr></thead><tbody id="m2rdPassBody"><tr><td colspan="7">Sin análisis.</td></tr></tbody></table></div></section>
+      <section class="m2rd-card"><h3 class="m2rd-kicker">🎯 PASO POR BALIZAS · GPS / QR</h3><div id="m2rdPassSummary" class="m2rd-pass-summary"></div><div id="m2rdPassNote" class="m2rd-pass-note">Validación combinada: GPS Live, QR de respaldo y recuperación histórica desde el track cuando sea necesario.</div><div class="m2rd-pass-table-wrap"><table class="m2rd-pass-table"><thead><tr><th>#</th><th>BALIZA</th><th>DETECCIÓN</th><th>HORA</th><th>DESDE SALIDA</th><th>PARCIAL</th><th>MÉTODO / DIST.</th></tr></thead><tbody id="m2rdPassBody"><tr><td colspan="7">Sin análisis.</td></tr></tbody></table></div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">◆ DATOS DE LA CARRERA</h3><div id="m2rdDetailEventMetrics" class="m2rd-detail-grid"></div><div id="m2rdDetailControls" class="m2rd-control-list"></div></section>
     </div></section>`;
     document.body.appendChild(root); state.root=root;
@@ -649,19 +649,24 @@
     const detected=Math.max(0,Number(result.controlDetectedCount||passRows.filter(row=>row.detected).length||0));
     const missing=Math.max(0,Number(result.controlMissingCount||Math.max(0,expected-detected)));
     const pct=Number.isFinite(Number(result.controlCompletionPct))?`${Number(result.controlCompletionPct).toFixed(1)}%`:(expected?`${Math.round((detected/expected)*100)}%`:"—");
-    el("m2rdPassSummary").innerHTML=[metricCell("DETECTADAS",expected?`${detected} / ${expected}`:"—"),metricCell("FALTAN",expected?String(missing):"—"),metricCell("COBERTURA GPS",pct),metricCell("MÉTODO",expected?"PROXIMIDAD GPS":"—")].join("");
+    const qrCount=Math.max(0,Number(result.controlQrCount||passRows.filter(row=>String(row.source||"")==="qr").length||0));
+    const liveGpsCount=Math.max(0,Number(result.controlGpsLiveCount||passRows.filter(row=>String(row.source||"")==="gps").length||0));
+    const recoveryCount=Math.max(0,Number(result.controlTrackRecoveryCount||passRows.filter(row=>String(row.source||"")==="gps_track_recovery").length||0));
+    const methodLabel=qrCount&&liveGpsCount?"GPS + QR":qrCount?"QR + GPS":liveGpsCount?"GPS LIVE":recoveryCount?"GPS TRACK":expected?"GPS / QR":"—";
+    el("m2rdPassSummary").innerHTML=[metricCell("VALIDADAS",expected?`${detected} / ${expected}`:"—"),metricCell("FALTAN",expected?String(missing):"—"),metricCell("COBERTURA",pct),metricCell("MÉTODO",methodLabel)].join("");
     const passNote=el("m2rdPassNote");
     if(passNote){
       const validation=String(result.controlValidation||"");
-      passNote.textContent=validation==="complete"?"✅ El track pasó por la zona GPS de todas las balizas del recorrido, respetando el orden asignado. Es una comprobación GPS, no un sistema oficial de picado.":validation==="partial"||validation==="none_detected"?`⚠️ El GPS detectó ${detected} de ${expected} balizas. Una baliza no detectada no invalida automáticamente el resultado: puede existir error de GPS o falta de muestras.`:"No hay datos suficientes para analizar el paso por balizas.";
+      passNote.textContent=validation==="complete"?`✅ Recorrido completo: ${detected} de ${expected} balizas validadas. GPS Live y QR quedan registrados con su método real.`:validation==="partial"||validation==="none_detected"?`⚠️ Hay ${missing} baliza${missing===1?"":"s"} sin validar. El histórico conserva las detecciones GPS, QR y recuperaciones por track disponibles.`:"No hay datos suficientes para analizar el paso por balizas.";
     }
     const passBody=el("m2rdPassBody");
     if(passBody){
       passBody.innerHTML=passRows.length?passRows.map(row=>{
-        const detectedRow=Boolean(row.detected);
-        const gps=detectedRow?(row.gpsAccuracyM==null?"GPS —":`±${Number(row.gpsAccuracyM).toFixed(0)} m`):(row.closestDistanceM==null?"Sin dato":`mín. ${Number(row.closestDistanceM).toFixed(0)} m`);
+        const detectedRow=Boolean(row.detected),source=String(row.source||"");
+        const sourceLabel=source==="qr"?"QR":source==="gps"?"GPS LIVE":source==="gps_track_recovery"?"GPS TRACK":"GPS";
+        const gps=source==="qr"?"QR":detectedRow?(row.gpsAccuracyM==null?sourceLabel:`${sourceLabel} ±${Number(row.gpsAccuracyM).toFixed(0)} m`):(row.closestDistanceM==null?"Sin dato":`mín. ${Number(row.closestDistanceM).toFixed(0)} m`);
         const dist=detectedRow&&row.distanceM!=null?` · ${Number(row.distanceM).toFixed(0)} m`:"";
-        return `<tr><td>${esc(row.order||"—")}</td><td><strong>${esc(row.checkpointId||"—")}</strong></td><td class="${detectedRow?"m2rd-pass-ok":"m2rd-pass-miss"}">${detectedRow?"DETECTADA":"NO DETECTADA"}</td><td>${detectedRow?esc(fmtClock(row.passedAtMs)):"—"}</td><td>${detectedRow?esc(fmtDuration(row.elapsedMs)):"—"}</td><td>${detectedRow?esc(fmtDuration(row.splitMs)):"—"}</td><td>${esc(gps+dist)}</td></tr>`;
+        return `<tr><td>${esc(row.order||"—")}</td><td><strong>${esc(row.checkpointId||"—")}</strong></td><td class="${detectedRow?"m2rd-pass-ok":"m2rd-pass-miss"}">${detectedRow?`VALIDADA · ${esc(sourceLabel)}`:"NO DETECTADA"}</td><td>${detectedRow?esc(fmtClock(row.passedAtMs)):"—"}</td><td>${detectedRow?esc(fmtDuration(row.elapsedMs)):"—"}</td><td>${detectedRow?esc(fmtDuration(row.splitMs)):"—"}</td><td>${esc(gps+dist)}</td></tr>`;
       }).join(""):'<tr><td colspan="7">No hay una secuencia de balizas analizable para este recorrido.</td></tr>';
     }
     el("m2rdDetailEventMetrics").innerHTML=[
