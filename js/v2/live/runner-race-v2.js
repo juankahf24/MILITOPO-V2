@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2-h6-5-sync-authority-finish-modal-20260925";
+  const VERSION="v2-h6-8-direct-arrival-finish-20260925";
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,localArrivalAt:0,autoFinishing:false};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
@@ -209,37 +209,61 @@
   async function autoFinishFromArrival(detail={}){
     const st=String(state.participant?.status||"").toLowerCase();
     if(state.autoFinishing||st==="finished"||!["racing","started"].includes(st))return;
-    const pass=detail.pass||controlsApi()?.snapshot?.().finishPass||null;
+    const controls=controlsApi();
+    const pass=detail.pass||controls?.snapshot?.().finishPass||null;
     state.localArrivalAt=Math.max(0,Number(pass?.passedAtMs||state.localArrivalAt||Date.now()));
     updateTimer();closeQrScanner();
     state.autoFinishing=true;
-    busy("🏁 Llegada validada","Sincronizando track y cerrando tu carrera automáticamente…");
+    busy("🏁 Llegada validada","Confirmando llegada y cerrando la carrera con el organizador…");
     try{
-      await controlsApi()?.flush?.();
-      const cs=controlsApi()?.snapshot?.()||{};
-      if(Number(cs.pending||0)>0)throw new Error(`Quedan ${Number(cs.pending)} validaciones pendientes de sincronizar.`);
-      let trackOk=true;
-      try{trackOk=await trackApi()?.flush?.({force:true});}catch(_){trackOk=false;}
-      const trackPending=Number(trackApi()?.snapshot?.().pending||0);
-      if(trackOk===false||trackPending>0)throw new Error(`Quedan ${trackPending||"algunos"} puntos GPS del track pendientes de sincronizar.`);
+      // H6.8: no dependemos de que llegue un evento arrival_synced. Enviamos al
+      // backend el diario completo de controles (incluida LLEGADA). El backend
+      // consolida idempotentemente lo que falte antes de finalizar la carrera.
+      const pendingPasses=controls?.pendingPasses?.()||[];
+
+      // Intentamos vaciar el track, pero nunca dejamos el cierre bloqueado para
+      // siempre por una petición de track lenta. Tras finalizar se hace otra pasada.
+      try{
+        const tf=trackApi()?.flush?.({force:true});
+        if(tf&&typeof tf.then==="function")await Promise.race([tf,new Promise(resolve=>setTimeout(()=>resolve(false),3500))]);
+      }catch(_){}
       try{await gpsApi()?.stop?.("arrival_validated");}catch(_){}
+
       const svc=await services();
-      const result=await svc.callable("runnerFinishRace",{eventId:state.event.eventId,clientVersion:VERSION});
-      state.participant={...(state.participant||{}),status:"finished",finishedAt:Number(result?.data?.finishedAt||state.localArrivalAt||Date.now())};
+      el("m2raceBusyText").textContent="Registrando LLEGADA y estado FINALIZADO…";
+      const result=await svc.callable("runnerFinishRace",{
+        eventId:state.event.eventId,
+        clientVersion:VERSION,
+        pendingPasses
+      });
+      const data=result?.data||{};
+      state.participant={...(state.participant||{}),status:"finished",finishedAt:Number(data.finishedAt||state.localArrivalAt||Date.now()),manualFinish:false,manualFinishIncomplete:false};
       render();
       el("m2raceBusyTitle").textContent="Carrera finalizada";
       el("m2raceBusyText").textContent="Llegada, tiempo y resultado sincronizados con el organizador.";
-      await new Promise(r=>setTimeout(r,1000));
+
+      // Segunda pasada en segundo plano: si quedaban puntos GPS por subir, los
+      // subimos y volvemos a llamar a runnerFinishRace. La función es idempotente
+      // y refresca el resultado histórico con el track ya completo.
+      setTimeout(async()=>{
+        try{
+          await trackApi()?.flush?.({force:true});
+          const svc2=await services();
+          await svc2.callable("runnerFinishRace",{eventId:state.event.eventId,clientVersion:VERSION});
+        }catch(_){}
+      },300);
+      await new Promise(r=>setTimeout(r,900));
     }catch(error){
+      const msg=String(error?.message||error||"No se pudo cerrar automáticamente.");
       el("m2raceBusyTitle").textContent="Llegada guardada";
-      el("m2raceBusyText").textContent=`La llegada está registrada. MILITOPO reintentará el cierre automáticamente. ${String(error?.message||error)}`;
-      await new Promise(r=>setTimeout(r,1400));
+      el("m2raceBusyText").textContent=`La llegada está registrada. Reintentando el cierre automáticamente… ${msg}`;
+      await new Promise(r=>setTimeout(r,1100));
       state.autoFinishing=false;
-      if(navigator.onLine!==false)setTimeout(()=>autoFinishFromArrival({pass,retry:true}),1800);
+      if(navigator.onLine!==false)setTimeout(()=>autoFinishFromArrival({pass,retry:true}),1400);
       return;
     }finally{
-      if(state.autoFinishing){state.autoFinishing=false;unbusy();}
-      else unbusy();
+      if(state.autoFinishing)state.autoFinishing=false;
+      unbusy();
     }
   }
 
@@ -295,9 +319,13 @@
       el("m2raceFinishAt").textContent=fmtTime(state.localArrivalAt);
       updateTimer();
       try{Promise.resolve(gpsApi()?.stop?.("arrival_local")).catch(()=>{});}catch(_){}
+      // H6.8: el cierre comienza desde la propia validación local de LLEGADA.
+      // runnerFinishRace recibe el diario completo y consolida la llegada en backend,
+      // por lo que ya no dependemos de un segundo evento arrival_synced.
+      setTimeout(()=>autoFinishFromArrival(d).catch(()=>{}),80);
     }
     updateControlUi(d.status||"status",d);
-    if(d.status==="arrival_synced")autoFinishFromArrival(d).catch(()=>{});
+    if(d.status==="arrival_synced")setTimeout(()=>autoFinishFromArrival(d).catch(()=>{}),40);
   });
   window.addEventListener("online",()=>{const cs=controlsApi()?.snapshot?.()||{};if(cs.finishValidated&&["racing","started"].includes(String(state.participant?.status||"").toLowerCase()))setTimeout(()=>autoFinishFromArrival({pass:cs.finishPass,retry:true}),350);});
   window.addEventListener("militopo:v2-resilience-status",e=>{const d=e.detail||{},pill=el("m2raceResiliencePill"),text=el("m2raceResilienceText");if(!pill||!text)return;pill.className="m2race-resilience-pill";if(d.status==="awake"){pill.textContent="PANTALLA ACTIVA";pill.classList.add("ok");text.textContent="Wake Lock activo mientras corres. Si recargas, MILITOPO recuperará la sesión.";}else if(d.status==="restoring"){pill.textContent="RECUPERANDO";pill.classList.add("warn");text.textContent="Reconectando carrera, GPS y track local…";}else if(d.status==="unsupported"){pill.textContent="RECUPERACIÓN ACTIVA";pill.classList.add("ok");text.textContent="La recuperación de carrera está activa. Este navegador no ofrece Wake Lock de pantalla.";}else if(d.status==="released"){pill.textContent="RECUPERACIÓN ACTIVA";pill.classList.add("ok");text.textContent="La sesión queda protegida aunque la pantalla pueda apagarse.";}else{pill.textContent="PROTEGIDO";pill.classList.add("ok");text.textContent=d.message||"MILITOPO puede recuperar esta carrera si recargas la aplicación.";}});
