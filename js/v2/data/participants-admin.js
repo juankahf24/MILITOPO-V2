@@ -1,5 +1,4 @@
-/* MILITOPO V2 · Fase E3 · censo y administración de participantes.
-   Spark-safe: Firestore + Auth. Sin Functions ni Storage. */
+/* MILITOPO V2 · Fase E3 + H4.2 · censo y asignación visible de recorridos. */
 import "../bootstrap.js";
 import {
   collection,
@@ -331,6 +330,9 @@ function render() {
     const handle = row.username ? `@${row.username}` : "";
     const secondary = [handle, row.email].filter(Boolean).join(" · ");
     const dateLabel = row.type === "pending" ? `Invitada: ${formatDate(row.date)}` : `Unido: ${formatDate(row.date)}`;
+    const routeMeta = row.type !== "pending" && row.member?.participantId && row.member?.routeId
+      ? `${row.member.participantId} · ${row.member.routeId}${Number.isFinite(Number(row.member.routeDistanceKm)) ? ` · ${Number(row.member.routeDistanceKm).toFixed(2)} km` : ""}${row.member.routeControlCount != null ? ` · ${Number(row.member.routeControlCount)} balizas` : ""}`
+      : "";
     const disabled = state.busy || !editable || !navigator.onLine;
     const action = row.type === "active"
       ? `<button type="button" data-remove-member="${esc(row.uid)}" ${disabled ? "disabled" : ""}>QUITAR</button>`
@@ -339,7 +341,7 @@ function render() {
         : `<button type="button" data-revoke-invite="${esc(row.inviteId)}" ${disabled ? "disabled" : ""}>REVOCAR</button>`;
     return `<article class="m2-roster-row is-${esc(row.type)}">
       <input class="m2-roster-check" type="checkbox" data-roster-select="${esc(row.key)}" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""} aria-label="Seleccionar ${esc(row.displayName)}">
-      <div><div class="m2-roster-name">${esc(row.displayName)}</div>${secondary ? `<div class="m2-roster-handle">${esc(secondary)}</div>` : ""}<div class="m2-roster-meta">${esc(dateLabel)}</div><span class="m2-roster-badge">${actionLabel(row.type)}</span></div>
+      <div><div class="m2-roster-name">${esc(row.displayName)}</div>${secondary ? `<div class="m2-roster-handle">${esc(secondary)}</div>` : ""}<div class="m2-roster-meta">${esc(dateLabel)}</div>${routeMeta ? `<div class="m2-roster-meta" style="color:#f0c16a;font-weight:900;opacity:.95">🧭 ${esc(routeMeta)}</div>` : ""}<span class="m2-roster-badge">${actionLabel(row.type)}</span></div>
       <div class="m2-roster-actions">${action}</div>
     </article>`;
   }).join("");

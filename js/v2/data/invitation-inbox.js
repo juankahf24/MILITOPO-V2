@@ -288,54 +288,20 @@ async function acceptInvitation(id) {
   if (state.busy || !id || !state.auth?.uid) return;
   state.busy = true;
   render();
-  setStatus("Uniéndote a la carrera…");
+  setStatus("Asignando tu recorrido y uniéndote a la carrera…");
   try {
-    const { firestore } = await services();
-    const inviteRef = doc(firestore, "invitations", id);
-    const inviteSnap = await getDoc(inviteRef);
-    if (!inviteSnap.exists()) throw new Error("La invitación ya no existe.");
-    const invite = inviteSnap.data() || {};
-    const targetsUid = String(invite.targetUid || "") === String(state.auth.uid);
-    const targetsEmail = String(invite.targetEmail || "").toLowerCase() === emailOf();
-    if (!targetsUid && !targetsEmail) throw new Error("La invitación no corresponde a esta cuenta.");
-    if (String(invite.status || "pending") === "revoked") throw new Error("La invitación ha sido revocada.");
-    if (String(invite.status || "pending") === "accepted" && String(invite.targetUid || "") === String(state.auth.uid)) {
-      removeInviteParam();
-      await loadInvitations();
-      setStatus("✓ Ya estabas unido a esta carrera.");
-      return;
-    }
-    if (String(invite.status || "pending") !== "pending") throw new Error("La invitación ya no está disponible.");
-
-    const memberRef = doc(firestore, "events", String(invite.eventId), "members", String(state.auth.uid));
-    const memberSnap = await getDoc(memberRef);
-    const batch = writeBatch(firestore);
-    const inviteUpdate = {
-      status: "accepted",
-      acceptedAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-    if (!invite.targetUid) inviteUpdate.targetUid = state.auth.uid;
-    batch.update(inviteRef, inviteUpdate);
-    if (!memberSnap.exists()) {
-      batch.set(memberRef, {
-        uid: state.auth.uid,
-        email: emailOf(),
-        role: "runner",
-        status: "active",
-        invitationId: id,
-        joinedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    }
-    await batch.commit();
+    const svc = await services();
+    if (typeof svc.callable !== "function") throw new Error("Backend de inscripción no disponible.");
+    const response = await svc.callable("acceptInvitationV2", { invitationId: id, clientVersion: "v2-h4-23-route-assignment-20260925" });
+    const data = response?.data || {};
     removeInviteParam();
-    applyRealtimeRows();
-    setStatus("✅ Te has unido correctamente a la carrera.");
-    globalThis.dispatchEvent(new CustomEvent("militopo:v2-invitation-accepted", { detail: { inviteId: id, eventId: invite.eventId } }));
-    globalThis.dispatchEvent(new CustomEvent("militopo:v2-invitation-refresh", { detail: { inviteId: id, eventId: invite.eventId } }));
+    await startRealtimeInvitations({ force: true });
+    const routeBits = [data.participantId, data.routeId, Number.isFinite(Number(data.routeDistanceKm)) ? `${Number(data.routeDistanceKm).toFixed(2)} km` : ""].filter(Boolean);
+    setStatus(`✅ Te has unido correctamente. Recorrido asignado: ${routeBits.join(" · ") || "asignado"}.`);
+    globalThis.dispatchEvent(new CustomEvent("militopo:v2-invitation-accepted", { detail: { inviteId: id, eventId: data.eventId || "", participantId: data.participantId || "", routeId: data.routeId || "" } }));
+    globalThis.dispatchEvent(new CustomEvent("militopo:v2-invitation-refresh", { detail: { inviteId: id, eventId: data.eventId || "" } }));
   } catch (error) {
-    console.error("[MILITOPO E1 inbox] accept", error);
+    console.error("[MILITOPO H4.2 inbox] accept", error);
     setStatus(`No se pudo aceptar la invitación: ${String(error?.message || error)}`);
   } finally {
     state.busy = false;
