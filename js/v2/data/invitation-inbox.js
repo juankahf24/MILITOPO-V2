@@ -143,14 +143,9 @@ function applyRealtimeRows() {
   const pending = rows.filter(row => String(row.status || "pending") === "pending");
   const signature = pending.map(row => row.id).sort().join("|");
   if (pending.length && signature && signature !== state.lastPendingSignature) {
+    // La invitación se anuncia con el círculo amarillo de MI CUENTA, pero no
+    // interrumpe al corredor ni abre el perfil automáticamente.
     state.lastPendingSignature = signature;
-    const marker = `militopo_v2_invite_seen_${state.auth?.uid || ""}_${pending.map(r => r.id).join("_")}`;
-    let seen = false;
-    try { seen = sessionStorage.getItem(marker) === "1"; } catch (_) {}
-    if (state.directInviteId || !seen) {
-      try { sessionStorage.setItem(marker, "1"); } catch (_) {}
-      setTimeout(() => document.getElementById("m2AuthAccountBtn")?.click(), 120);
-    }
   } else if (!pending.length) {
     state.lastPendingSignature = "";
   }
@@ -270,15 +265,8 @@ async function loadInvitations() {
     state.rows = rows;
     render();
 
-    const pending = rows.filter(row => String(row.status || "pending") === "pending");
-    if (pending.length) {
-      const marker = `militopo_v2_invite_seen_${state.auth.uid}_${pending.map(r => r.id).join("_")}`;
-      const shouldOpen = Boolean(state.directInviteId) || sessionStorage.getItem(marker) !== "1";
-      if (shouldOpen) {
-        sessionStorage.setItem(marker, "1");
-        setTimeout(() => document.getElementById("m2AuthAccountBtn")?.click(), 180);
-      }
-    }
+    // No abrimos MI CUENTA automáticamente. render() mantiene el badge amarillo
+    // con el número de invitaciones pendientes y el usuario decide cuándo entrar.
   } catch (error) {
     console.error("[MILITOPO E1 inbox] load", error);
     setStatus("No se pudieron comprobar las invitaciones ahora. Tu sesión sigue funcionando.");
