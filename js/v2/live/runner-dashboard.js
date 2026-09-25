@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-h4-runner-result-detail-20260925";
-  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
+  const VERSION = "v2-h4-1-runner-map-parity-20260925";
+  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
   const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
@@ -92,7 +92,10 @@
       .m2rd-account{width:100%;min-height:44px;margin-top:12px;border-radius:13px;border:1px solid rgba(240,193,106,.38);background:rgba(240,193,106,.10);color:#fff1d2;font:inherit;font-weight:900}.m2rd-status{padding:10px 11px;border-radius:13px;background:rgba(255,255,255,.035);color:#c7bda8;font-size:.78rem;line-height:1.45}.m2rd-status.ok{border:1px solid rgba(126,220,150,.25);color:#dcf4cf}.m2rd-status.err{border:1px solid rgba(255,142,122,.28);color:#ffd0c8}
       .m2rd-events{display:grid;gap:10px;margin-top:10px}.m2rd-event{border:1px solid rgba(255,255,255,.10);border-radius:16px;background:rgba(255,255,255,.035);padding:13px}.m2rd-event strong{display:block;font-size:.94rem}.m2rd-event-meta{margin-top:4px;color:#b7ad99;font-size:.72rem}.m2rd-pill{display:inline-block;margin-top:8px;padding:5px 9px;border-radius:999px;border:1px solid rgba(126,220,150,.36);color:#e0f6d4;font-size:.68rem;font-weight:900}.m2rd-note{margin-top:9px;padding:9px 10px;border-radius:12px;background:rgba(240,193,106,.08);color:#eadbbf;font-size:.75rem;line-height:1.4}.m2rd-live{margin-top:9px;padding:9px 10px;border-radius:12px;border:1px solid rgba(126,220,150,.28);background:rgba(126,220,150,.10);color:#ddf6d2;font-size:.75rem;font-weight:900}.m2rd-btn{width:100%;min-height:45px;margin-top:9px;border-radius:13px;border:1px solid rgba(126,220,150,.40);background:rgba(126,220,150,.15);color:#efffe8;font:inherit;font-weight:900}.m2rd-btn:disabled{opacity:.48}.m2rd-small{margin-top:10px;color:#978e7e;font-size:.68rem;line-height:1.45}
       .m2rd-history-head{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0}.m2rd-history-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);text-align:center}.m2rd-history-stat strong{display:block;font-size:1rem;color:#f4e7c8}.m2rd-history-stat span{display:block;margin-top:2px;font-size:.58rem;letter-spacing:.06em;color:#9f9889}.m2rd-history{display:grid;gap:9px}.m2rd-history-row{padding:12px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09)}.m2rd-history-top{display:flex;gap:8px;justify-content:space-between;align-items:flex-start}.m2rd-history-title{min-width:0}.m2rd-history-title strong{display:block;font-size:.9rem}.m2rd-history-date{margin-top:3px;color:#a9a18f;font-size:.68rem}.m2rd-history-state{flex:0 0 auto;padding:4px 7px;border-radius:999px;font-size:.61rem;font-weight:900;border:1px solid rgba(126,220,150,.30);color:#daf3cf}.m2rd-history-state.incomplete{border-color:rgba(240,193,106,.34);color:#f5dfaf}.m2rd-history-state.not_started{border-color:rgba(170,170,170,.25);color:#c4c4c4}.m2rd-history-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:9px}.m2rd-history-metric{padding:7px;border-radius:10px;background:rgba(0,0,0,.12)}.m2rd-history-metric span{display:block;font-size:.56rem;color:#8f978d;letter-spacing:.05em}.m2rd-history-metric strong{display:block;margin-top:3px;font-size:.76rem;color:#edf2e8}.m2rd-history-refresh{min-height:40px;margin-top:9px}.m2rd-history-detail-btn{width:100%;min-height:38px;margin-top:9px;border-radius:11px;border:1px solid rgba(240,193,106,.34);background:rgba(240,193,106,.10);color:#fff0cf;font:inherit;font-size:.72rem;font-weight:900}
-      .m2rd-detail{position:fixed;inset:0;z-index:100003;overflow:auto;background:rgba(4,8,5,.985);padding:max(72px,calc(env(safe-area-inset-top) + 58px)) 10px calc(28px + env(safe-area-inset-bottom));color:#f5e6c8}.m2rd-detail[hidden]{display:none!important}.m2rd-detail-shell{width:min(860px,100%);margin:0 auto;display:grid;gap:12px}.m2rd-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.m2rd-detail-head h2{margin:0;color:#f0c16a;font-size:1.15rem}.m2rd-detail-close{min-width:44px;min-height:40px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#fff;font:inherit;font-weight:900}.m2rd-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.m2rd-detail-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)}.m2rd-detail-stat span{display:block;font-size:.56rem;color:#9a9b8f;letter-spacing:.05em}.m2rd-detail-stat strong{display:block;margin-top:4px;font-size:.78rem;color:#eef3e9;overflow-wrap:anywhere}.m2rd-detail-maptools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:10px}.m2rd-detail-layer{min-height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.22);color:#f6efe2;font:inherit;font-size:.65rem;font-weight:900}.m2rd-detail-layer.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-detail-map{height:390px;margin-top:8px;border-radius:15px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:#172017}.m2rd-detail-note{margin-top:8px;color:#a9a18f;font-size:.67rem;line-height:1.4}.m2rd-control-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.m2rd-control-chip{padding:5px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.035);font-size:.62rem}.m2rd-control-chip.start{border-color:rgba(126,220,150,.35);color:#daf4d0}.m2rd-control-chip.finish{border-color:rgba(255,145,130,.30);color:#ffd3cb}
+      .m2rd-detail{position:fixed;inset:0;z-index:100003;overflow:auto;background:rgba(4,8,5,.985);padding:max(72px,calc(env(safe-area-inset-top) + 58px)) 10px calc(28px + env(safe-area-inset-bottom));color:#f5e6c8}.m2rd-detail[hidden]{display:none!important}.m2rd-detail-shell{width:min(860px,100%);margin:0 auto;display:grid;gap:12px}.m2rd-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.m2rd-detail-head h2{margin:0;color:#f0c16a;font-size:1.15rem}.m2rd-detail-close{min-width:44px;min-height:40px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#fff;font:inherit;font-weight:900}.m2rd-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.m2rd-detail-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)}.m2rd-detail-stat span{display:block;font-size:.56rem;color:#9a9b8f;letter-spacing:.05em}.m2rd-detail-stat strong{display:block;margin-top:4px;font-size:.78rem;color:#eef3e9;overflow-wrap:anywhere}.m2rd-detail-maptools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:10px}.m2rd-detail-layer{min-height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.22);color:#f6efe2;font:inherit;font-size:.65rem;font-weight:900}.m2rd-detail-layer.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-detail-layer.loading{opacity:.62;cursor:wait}.m2rd-detail-layerstatus{min-height:18px;margin:6px 0 0;font-size:.64rem;opacity:.76}.m2rd-detail-layerstatus.err{color:#ffc5b9;opacity:1}.m2rd-detail-map{height:390px;margin-top:8px;border-radius:15px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:#172017}.m2rd-detail-note{margin-top:8px;color:#a9a18f;font-size:.67rem;line-height:1.4}.m2rd-control-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.m2rd-control-chip{padding:5px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.035);font-size:.62rem}.m2rd-control-chip.start{border-color:rgba(126,220,150,.35);color:#daf4d0}.m2rd-control-chip.finish{border-color:rgba(255,145,130,.30);color:#ffd3cb}
+      .m2rd-detail-checkpoint{min-width:22px;height:22px;padding:0 4px;border-radius:999px;display:grid;place-items:center;border:2px solid rgba(255,255,255,.9);background:#9b6b2f;color:white;font-size:9px;font-weight:900;box-shadow:0 2px 7px rgba(0,0,0,.38)}
+      .m2rd-detail-checkpoint.start{background:#397d55}.m2rd-detail-checkpoint.finish{background:#934d4d}
+      .m2rd-detail-map .leaflet-control-attribution{font-size:9px}.m2rd-detail-maplegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:.62rem;opacity:.75}.m2rd-detail-maplegend span{display:inline-flex;align-items:center;gap:5px}
       @media(max-width:430px){#m2RunnerDashboard{padding-left:9px;padding-right:9px}.m2rd-card{border-radius:22px}.m2rd-history-head{grid-template-columns:1fr 1fr}.m2rd-history-metrics{grid-template-columns:1fr 1fr 1fr}.m2rd-detail-grid{grid-template-columns:1fr 1fr}.m2rd-detail-map{height:320px}}
     `;
     document.head.appendChild(style);
@@ -111,7 +114,7 @@
     <section id="m2rdHistoryDetail" class="m2rd-detail" hidden><div class="m2rd-detail-shell">
       <section class="m2rd-card"><div class="m2rd-detail-head"><div><div class="m2rd-kicker">🏁 DETALLE DE PARTICIPACIÓN</div><h2 id="m2rdDetailTitle">Carrera</h2><div id="m2rdDetailSubtitle" class="m2rd-history-date">Resultado histórico</div></div><button id="m2rdDetailClose" class="m2rd-detail-close" type="button" aria-label="Cerrar detalle">✕</button></div><div id="m2rdDetailStatus" class="m2rd-status" style="margin-top:12px">Selecciona una carrera.</div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">📊 RESULTADO</h3><div id="m2rdDetailMetrics" class="m2rd-detail-grid"></div></section>
-      <section class="m2rd-card"><h3 class="m2rd-kicker">🗺️ TRACK Y CARTOGRAFÍA</h3><div class="m2rd-detail-maptools"><button class="m2rd-detail-layer active" type="button" data-detail-layer="mapant">MAPANT</button><button class="m2rd-detail-layer" type="button" data-detail-layer="ign">IGN</button><button class="m2rd-detail-layer" type="button" data-detail-layer="aerial">AÉREO</button></div><div id="m2rdDetailMap" class="m2rd-detail-map"></div><button id="m2rdDetailFit" class="m2rd-btn" type="button">ENCUADRAR RECORRIDO</button><div id="m2rdDetailMapNote" class="m2rd-detail-note">El track se carga desde Firestore, no desde la sesión Live.</div></section>
+      <section class="m2rd-card"><h3 class="m2rd-kicker">🗺️ TRACK Y CARTOGRAFÍA</h3><div class="m2rd-detail-maptools" role="tablist" aria-label="Cartografía del track histórico"><button class="m2rd-detail-layer active" type="button" data-detail-layer="mapant">MAPANT</button><button class="m2rd-detail-layer" type="button" data-detail-layer="ign">IGN</button><button class="m2rd-detail-layer" type="button" data-detail-layer="aerial">AÉREO</button><button class="m2rd-detail-layer" type="button" data-detail-layer="custom">PLANO CARRERA</button></div><div id="m2rdDetailLayerStatus" class="m2rd-detail-layerstatus">Fondo: MAPANT</div><div id="m2rdDetailMap" class="m2rd-detail-map"></div><div class="m2rd-detail-maplegend"><span>━ Track del corredor</span><span>◆ Baliza / salida / llegada</span></div><button id="m2rdDetailFit" class="m2rd-btn" type="button">ENCUADRAR RECORRIDO</button><div id="m2rdDetailMapNote" class="m2rd-detail-note">El track se carga desde Firestore, no desde la sesión Live.</div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">◆ DATOS DE LA CARRERA</h3><div id="m2rdDetailEventMetrics" class="m2rd-detail-grid"></div><div id="m2rdDetailControls" class="m2rd-control-list"></div></section>
     </div></section>`;
     document.body.appendChild(root); state.root=root;
@@ -135,7 +138,7 @@
       const detailBtn=e.target.closest("[data-history-detail]");
       if(detailBtn){openHistoryDetail(String(detailBtn.dataset.historyDetail||""));return;}
       const layerBtn=e.target.closest("[data-detail-layer]");
-      if(layerBtn){switchHistoryDetailLayer(String(layerBtn.dataset.detailLayer||"mapant"));return;}
+      if(layerBtn){switchHistoryDetailLayer(String(layerBtn.dataset.detailLayer||"mapant")).catch(error=>{console.error("[MILITOPO H4.1 layer]",error);state.detailRacePlanError=String(error?.message||"No se pudo cambiar el fondo cartográfico.");renderHistoryDetailLayerState();});return;}
       const btn=e.target.closest("[data-enter-event]");
       if(!btn)return; const id=btn.dataset.enterEvent||""; const event=state.events.find(row=>row.eventId===id); if(!event||!state.runId)return; window.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{event:{...event},runId:state.runId,auth:{...state.auth}}}));
     });
@@ -325,6 +328,9 @@
     const value=Math.max(0,Number(meters||0));
     return value>=1000?`${(value/1000).toFixed(value>=10000?1:2)} km`:`${Math.round(value)} m`;
   }
+  function fmtReducedDistance(km){
+    const value=Number(km);return Number.isFinite(value)&&value>=0?`${value.toFixed(2)} km`:"—";
+  }
   function setHistoryStatus(message,type=""){
     const node=el("m2rdHistoryStatus");node.textContent=message;node.className=`m2rd-status${type?` ${type}`:""}`;
   }
@@ -340,6 +346,11 @@
   function fmtSpeed(value){const n=Number(value);return Number.isFinite(n)&&n>0?`${n.toFixed(2)} km/h`:"—";}
   function fmtAccuracy(value){const n=Number(value);return Number.isFinite(n)&&n>0?`${n.toFixed(1)} m`:"—";}
   function metricCell(label,value){return `<div class="m2rd-detail-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;}
+  function cleanupHistoryRacePlanUrl(){
+    if(!state.detailRacePlanOwnedUrl)return;
+    try{URL.revokeObjectURL(state.detailRacePlanOwnedUrl);}catch(_){}
+    state.detailRacePlanOwnedUrl="";
+  }
   function closeHistoryDetail(){
     const panel=el("m2rdHistoryDetail"); if(panel)panel.hidden=true;
     state.detailEventId="";state.detailError="";state.detailLoading=false;
@@ -358,15 +369,79 @@
     };
     state.detailBaseKey="mapant";state.detailBaseLayer=state.detailBaseLayers.mapant.addTo(state.detailMap);
     state.detailTrackLayer=L.layerGroup().addTo(state.detailMap);state.detailCheckpointLayer=L.layerGroup().addTo(state.detailMap);
+    renderHistoryDetailLayerState();
     return state.detailMap;
   }
-  function switchHistoryDetailLayer(key){
-    const map=ensureHistoryDetailMap();if(!map)return;
-    const wanted=["mapant","ign","aerial"].includes(key)?key:"mapant";
-    if(wanted===state.detailBaseKey)return;
+  function removeHistoryBaseLayer(){
+    const map=state.detailMap;if(!map)return;
     if(state.detailBaseLayer&&map.hasLayer(state.detailBaseLayer))map.removeLayer(state.detailBaseLayer);
-    state.detailBaseLayer=state.detailBaseLayers[wanted];state.detailBaseLayer?.addTo(map);state.detailBaseKey=wanted;
-    el("m2rdHistoryDetail")?.querySelectorAll("[data-detail-layer]").forEach(btn=>btn.classList.toggle("active",String(btn.dataset.detailLayer)===wanted));
+    if(state.detailRacePlanLayer&&map.hasLayer(state.detailRacePlanLayer))map.removeLayer(state.detailRacePlanLayer);
+    state.detailBaseLayer=null;state.detailRacePlanLayer=null;
+  }
+  function bringHistoryOverlayLayersToFront(){
+    const map=state.detailMap;if(!map)return;
+    [state.detailTrackLayer,state.detailCheckpointLayer].forEach(group=>{
+      if(!group)return;
+      try{if(map.hasLayer(group))map.removeLayer(group);group.addTo(map);}catch(_){}
+    });
+  }
+  async function loadHistoryRacePlanDescriptor(){
+    const api=globalThis.MILITOPO_RACE_PLAN_HISTORY;
+    if(!api?.getForEvent)throw new Error("El lector de planos de carrera todavía no está disponible.");
+    const raw=await api.getForEvent({eventId:state.detailEventId});
+    if(!raw||!Array.isArray(raw.bounds)||raw.bounds.length!==2)throw new Error("No hay un plano de carrera disponible.");
+    cleanupHistoryRacePlanUrl();
+    let url=String(raw.url||"");
+    if(!url&&raw.blob){url=URL.createObjectURL(raw.blob);state.detailRacePlanOwnedUrl=url;}
+    if(!url)throw new Error("No se pudo preparar la imagen del plano de carrera.");
+    state.detailRacePlanDescriptor={...raw,url,bounds:raw.bounds.map(pair=>pair.map(Number))};
+    return state.detailRacePlanDescriptor;
+  }
+  function renderHistoryDetailLayerState(){
+    const panel=el("m2rdHistoryDetail");if(!panel)return;
+    panel.querySelectorAll("[data-detail-layer]").forEach(btn=>{
+      const key=String(btn.dataset.detailLayer||"");
+      btn.classList.toggle("active",key===state.detailBaseKey);
+      btn.classList.toggle("loading",key==="custom"&&state.detailRacePlanLoading);
+      btn.disabled=key==="custom"&&state.detailRacePlanLoading;
+    });
+    const status=el("m2rdDetailLayerStatus");if(!status)return;
+    status.className=`m2rd-detail-layerstatus${state.detailRacePlanError?" err":""}`;
+    if(state.detailRacePlanError)status.textContent=`PLANO CARRERA: ${state.detailRacePlanError}`;
+    else if(state.detailRacePlanLoading)status.textContent="PLANO CARRERA: preparando cartografía georreferenciada…";
+    else if(state.detailBaseKey==="custom"){
+      const d=state.detailRacePlanDescriptor||{};
+      status.textContent=`Fondo: PLANO CARRERA · ${d.name||"plano propio"}${d.fallback?" · prueba integrada":""}`;
+    }else status.textContent=`Fondo: ${{mapant:"MAPANT",ign:"IGN",aerial:"AÉREO"}[state.detailBaseKey]||"MAPANT"}`;
+  }
+  async function switchHistoryDetailLayer(key){
+    const map=ensureHistoryDetailMap(),L=globalThis.L;if(!map||!L)return false;
+    const wanted=["mapant","ign","aerial","custom"].includes(String(key))?String(key):"mapant";
+    if(wanted===state.detailBaseKey&&(wanted!=="custom"||state.detailRacePlanLayer))return true;
+    const previous=state.detailBaseKey;
+    state.detailRacePlanError="";
+    if(wanted==="custom"){
+      state.detailRacePlanLoading=true;renderHistoryDetailLayerState();
+      try{
+        const descriptor=await loadHistoryRacePlanDescriptor();
+        removeHistoryBaseLayer();
+        state.detailRacePlanLayer=L.imageOverlay(descriptor.url,descriptor.bounds,{opacity:1,interactive:false,pane:"tilePane"}).addTo(map);
+        state.detailBaseKey="custom";
+        bringHistoryOverlayLayersToFront();
+        renderHistoryDetailLayerState();
+        return true;
+      }catch(error){
+        state.detailRacePlanError=String(error?.message||"No se pudo cargar el plano de carrera.");
+        state.detailBaseKey=previous;
+        renderHistoryDetailLayerState();
+        return false;
+      }finally{
+        state.detailRacePlanLoading=false;renderHistoryDetailLayerState();
+      }
+    }
+    const next=state.detailBaseLayers[wanted];if(!next)return false;
+    removeHistoryBaseLayer();state.detailBaseLayer=next.addTo(map);state.detailBaseKey=wanted;
+    bringHistoryOverlayLayersToFront();renderHistoryDetailLayerState();return true;
   }
   function validHistoryCoord(lat,lng){return Number.isFinite(Number(lat))&&Number.isFinite(Number(lng))&&Number(lat)>=-90&&Number(lat)<=90&&Number(lng)>=-180&&Number(lng)<=180;}
   function fitHistoryDetailMap(){
@@ -384,10 +459,13 @@
     (detail.checkpoints||[]).forEach(cp=>{
       if(!validHistoryCoord(cp.lat,cp.lon))return;
       const type=String(cp.type||"BALIZA").toUpperCase();
-      const radius=type==="SALIDA"||type==="LLEGADA"?8:6;
-      const marker=L.circleMarker([Number(cp.lat),Number(cp.lon)],{radius,weight:2,fillOpacity:.8});
+      const cls=type==="SALIDA"?"start":type==="LLEGADA"?"finish":"";
+      const label=type==="SALIDA"?"S":type==="LLEGADA"?"L":String(cp.checkpointId||cp.id||"P").replace(/^P/i,"").slice(-3);
+      const icon=L.divIcon({className:"",html:`<div class="m2rd-detail-checkpoint ${cls}">${esc(label)}</div>`,iconSize:[30,24],iconAnchor:[15,12]});
+      const marker=L.marker([Number(cp.lat),Number(cp.lon)],{icon,keyboard:false});
       marker.bindPopup(`<strong>${esc(cp.checkpointId||"Punto")}</strong><br>${esc(type)}${cp.description?`<br>${esc(cp.description)}`:""}`);marker.addTo(state.detailCheckpointLayer);
     });
+    bringHistoryOverlayLayersToFront();
     setTimeout(()=>{map.invalidateSize();fitHistoryDetailMap();},100);
   }
   function renderHistoryDetail(){
@@ -401,19 +479,24 @@
     status.textContent="✅ Resultado histórico cargado desde Firestore.";status.className="m2rd-status ok";
     el("m2rdDetailMetrics").innerHTML=[
       metricCell("ESTADO",historyStatusES(result.status)),metricCell("SALIDA",fmtClock(result.startedAtMs)),metricCell("LLEGADA",fmtClock(result.finishedAtMs)),metricCell("TIEMPO",fmtDuration(result.durationMs)),
-      metricCell("DISTANCIA",fmtDistance(result.trackDistanceM)),metricCell("RITMO MEDIO",fmtPace(result.paceMinKm)),metricCell("VELOCIDAD MEDIA",fmtSpeed(result.avgSpeedKmh)),metricCell("PUNTOS GPS",`${Number(result.trackPointCount||0)} pts`),
+      metricCell("RECORRIDO",result.courseId||"—"),metricCell("DISTANCIA REDUCIDA",fmtReducedDistance(result.reducedDistanceKm)),metricCell("DISTANCIA TRACK",fmtDistance(result.trackDistanceM)),metricCell("DESNIVEL +",Number.isFinite(Number(result.coursePositiveM))?`${Math.round(Number(result.coursePositiveM))} m`:"—"),
+      metricCell("DIFICULTAD",result.courseDifficulty||"—"),metricCell("RITMO MEDIO",fmtPace(result.paceMinKm)),metricCell("VELOCIDAD MEDIA",fmtSpeed(result.avgSpeedKmh)),metricCell("PUNTOS GPS",`${Number(result.trackPointCount||0)} pts`),
       metricCell("PRECISIÓN MEDIA",fmtAccuracy(gps.averageM)),metricCell("MEJOR GPS",fmtAccuracy(gps.bestM)),metricCell("PEOR GPS",fmtAccuracy(gps.worstM)),metricCell("RUN ID",result.runId||"—")
     ].join("");
     el("m2rdDetailEventMetrics").innerHTML=[
       metricCell("ESCALA",event.planScale?`1:${Number(event.planScale).toLocaleString("es-ES")}`:"—"),metricCell("EQUIDISTANCIA",event.planEquidistanceM?`${event.planEquidistanceM} m`:"—"),metricCell("BALIZAS",String(event.checkpointCount||0)),metricCell("RECORRIDOS",String(event.courseCount||0)),metricCell("PARTICIPANTES PREVISTOS",String(event.participantCount||0)),metricCell("ESTADO EVENTO",statusES(event.status||""))
     ].join("");
     const controls=el("m2rdDetailControls");controls.innerHTML=(detail.checkpoints||[]).map(cp=>`<span class="m2rd-control-chip ${String(cp.type||"").toLowerCase()==="salida"?"start":String(cp.type||"").toLowerCase()==="llegada"?"finish":""}">${esc(cp.type==="SALIDA"?"SALIDA":cp.type==="LLEGADA"?"LLEGADA":cp.checkpointId||"BALIZA")}${cp.elevationM!=null?` · ${esc(cp.elevationM)} m`:""}</span>`).join("")||'<span class="m2rd-detail-note">No hay balizas georreferenciadas guardadas.</span>';
-    el("m2rdDetailMapNote").textContent=meta.downsampled?`Firestore conserva ${meta.storedPointCount} puntos. Para que el mapa funcione fluido se muestran ${meta.returnedPointCount} puntos representativos.`:`Track histórico completo · ${meta.storedPointCount||0} puntos almacenados en Firestore.`;
+    const trackNote=meta.downsampled?`Firestore conserva ${meta.storedPointCount} puntos. Para que el mapa funcione fluido se muestran ${meta.returnedPointCount} puntos representativos.`:`Track histórico completo · ${meta.storedPointCount||0} puntos almacenados en Firestore.`;
+    const courseNote=result.reducedDistanceKm==null&&Number(event.courseCount||0)>1?" · Distancia reducida pendiente de una asignación inequívoca del recorrido al corredor.":" · Distancia reducida = recorrido diseñado; distancia track = GPS real.";
+    el("m2rdDetailMapNote").textContent=trackNote+courseNote;
     renderHistoryDetailMap();
   }
   async function openHistoryDetail(eventId){
     if(!eventId||state.detailLoading)return;
     const panel=el("m2rdHistoryDetail");panel.hidden=false;panel.scrollTop=0;state.detailEventId=eventId;state.detailLoading=true;state.detailError="";state.historyDetail=null;
+    state.detailRacePlanDescriptor=null;state.detailRacePlanError="";state.detailRacePlanLoading=false;cleanupHistoryRacePlanUrl();
+    if(state.detailMap&&state.detailBaseKey==="custom"){await switchHistoryDetailLayer("mapant");}
     const historyRow=state.history.find(row=>String(row.eventId)===String(eventId));el("m2rdDetailTitle").textContent=historyRow?.eventName||"Carrera";el("m2rdDetailSubtitle").textContent=historyRow?`${historyStatusES(historyRow.status)} · ${eventId}`:eventId;renderHistoryDetail();
     try{
       const svc=await services();if(!svc.callable)throw new Error("Backend de detalle histórico no disponible.");
