@@ -978,7 +978,7 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   });
 
   const participantState = String(row.status || "not_started").toLowerCase();
-  const finalStatus = resultStatus(participantState);
+  const finalStatus = row.manualFinishIncomplete ? "incomplete" : resultStatus(participantState);
   const startedAtMs = Math.max(0, Number(row.startedAt || 0)) || null;
   let finishedAtMs = Math.max(0, Number(row.finishedAt || 0)) || null;
   if (!finishedAtMs && finalStatus === "incomplete" && cutoffAt) finishedAtMs = Math.max(0, Number(cutoffAt || 0)) || null;
@@ -1240,6 +1240,190 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
 });
 
 
+
+async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, existingCtx = null) {
+  const ctx = existingCtx || await resolveRunnerLiveContext(identity, eventId);
+  const current = String(ctx.participant.status || "").toLowerCase();
+  if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes estar EN CARRERA para validar balizas.");
+
+  const plan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
+  const batch = Array.isArray(rawPasses) ? rawPasses.slice(0, 80) : [];
+  const now = Date.now();
+  const startedAt = Math.max(0, Number(ctx.participant.startedAt || 0));
+  const progressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
+  let transactionError = "";
+  const acceptedAttemptIds = [];
+
+  const txResult = await progressRef.transaction(currentValue => {
+    transactionError = "";
+    const progress = currentValue && typeof currentValue === "object" ? { ...currentValue } : {};
+    const passes = progress.passes && typeof progress.passes === "object" ? { ...progress.passes } : {};
+    let completedCount = Math.max(0, Number(progress.completedCount || 0));
+    let finishValidated = Boolean(progress.finishValidated);
+    let finishPass = progress.finishPass && typeof progress.finishPass === "object" ? { ...progress.finishPass } : null;
+    let arrivalAt = Math.max(0, Number(progress.arrivalAt || 0)) || null;
+    let lastControlId = progress.lastControlId || null;
+    let lastControlAt = Math.max(0, Number(progress.lastControlAt || 0)) || null;
+    const seenAttempts = new Set(Object.values(passes).map(row => String(row?.attemptId || "")).filter(Boolean));
+    if (finishPass?.attemptId) seenAttempts.add(String(finishPass.attemptId));
+
+    for (const raw of batch) {
+      const source = String(raw?.source || "gps").toLowerCase();
+      if (!["gps", "qr"].includes(source)) { transactionError = "Método de validación no válido."; return; }
+      const checkpointId = canonicalControlId(raw?.checkpointId);
+      if (!checkpointId || checkpointId === "START") { transactionError = "Control no válido."; return; }
+      const attemptId = String(raw?.attemptId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 100) || randomUUID().replace(/-/g, "");
+      if (seenAttempts.has(attemptId)) continue;
+
+      const isFinish = checkpointId === "FINISH";
+      const expected = completedCount < plan.expectedCount ? plan.controls[completedCount] : plan.finish;
+      const expectedId = completedCount < plan.expectedCount ? canonicalControlId(expected?.checkpointId) : "FINISH";
+      if (checkpointId !== expectedId) {
+        transactionError = `La siguiente validación es ${expectedId || "LLEGADA"}.`;
+        return;
+      }
+      if (isFinish && completedCount < plan.expectedCount) {
+        transactionError = `La siguiente validación es ${plan.controls[completedCount]?.checkpointId || "LLEGADA"}.`;
+        return;
+      }
+      if (isFinish && finishValidated) continue;
+
+      let passedAtMs = Math.max(0, Number(raw?.passedAtMs || now));
+      if (!passedAtMs || passedAtMs > now + 60000 || (startedAt && passedAtMs < startedAt - 60000)) passedAtMs = now;
+      let distanceM = null;
+      let allowedRadiusM = null;
+      let gpsAccuracyM = null;
+      if (source === "gps") {
+        const lat = Number(raw?.lat), lng = Number(raw?.lng), accuracy = Math.max(0, Number(raw?.accuracy || 0));
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(expected?.lat) || !Number.isFinite(expected?.lng)) {
+          transactionError = `No hay coordenadas GPS válidas para comprobar ${isFinish ? "la llegada" : "esta baliza"}.`;
+          return;
+        }
+        distanceM = haversineMeters({ lat, lng }, { lat: expected.lat, lng: expected.lng });
+        allowedRadiusM = CONTROL_MAX_RADIUS_M;
+        gpsAccuracyM = accuracy > 0 ? Math.round(accuracy * 10) / 10 : null;
+        if (!(accuracy > 0 && accuracy <= CONTROL_MAX_GPS_ACCURACY_M)) {
+          transactionError = `Precisión GPS insuficiente (±${Math.round(accuracy || 0)} m). Para validar por GPS se exige ±10 m o mejor.`;
+          return;
+        }
+        if (!Number.isFinite(distanceM) || distanceM > CONTROL_MAX_RADIUS_M) {
+          transactionError = `Debes estar físicamente a 10 metros o menos de ${isFinish ? "la llegada" : "la siguiente baliza"} para validarla por GPS.`;
+          return;
+        }
+      } else {
+        const rawQr = String(raw?.qrRaw || "").trim().toUpperCase();
+        const expectedQr = `ORI|CONTROL|${eventId}|${checkpointId}`.toUpperCase();
+        if (!rawQr || rawQr !== expectedQr) {
+          transactionError = `El QR no corresponde a esta carrera y a ${isFinish ? "la llegada" : "esta baliza"}.`;
+          return;
+        }
+      }
+
+      const previous = completedCount > 0 ? passes[`c${String(completedCount).padStart(3, "0")}`] : null;
+      const previousAt = Math.max(0, Number(previous?.passedAtMs || startedAt || passedAtMs));
+      const commonPass = {
+        order: isFinish ? plan.expectedCount + 1 : completedCount + 1,
+        checkpointId,
+        source,
+        passedAtMs,
+        elapsedMs: startedAt ? Math.max(0, passedAtMs - startedAt) : null,
+        splitMs: previousAt ? Math.max(0, passedAtMs - previousAt) : null,
+        distanceM: distanceM == null ? null : Math.round(distanceM * 10) / 10,
+        allowedRadiusM: allowedRadiusM == null ? null : Math.round(allowedRadiusM * 10) / 10,
+        gpsAccuracyM,
+        receivedAtMs: now,
+        queuedOffline: now - passedAtMs > 15000,
+        attemptId
+      };
+
+      if (isFinish) {
+        finishValidated = true;
+        finishPass = commonPass;
+        arrivalAt = passedAtMs;
+        lastControlId = "FINISH";
+        lastControlAt = passedAtMs;
+      } else {
+        const key = `c${String(completedCount + 1).padStart(3, "0")}`;
+        passes[key] = commonPass;
+        completedCount += 1;
+        lastControlId = checkpointId;
+        lastControlAt = passedAtMs;
+      }
+      seenAttempts.add(attemptId);
+      acceptedAttemptIds.push(attemptId);
+    }
+
+    return {
+      ...progress,
+      schemaVersion: 2,
+      eventId, runId: ctx.runId, uid: ctx.uid,
+      routeId: plan.routeId, participantId: plan.participantId,
+      expectedCount: plan.expectedCount,
+      completedCount,
+      nextControlId: finishValidated ? null : (completedCount < plan.expectedCount ? plan.controls[completedCount]?.checkpointId : "FINISH"),
+      lastControlId,
+      lastControlAt,
+      finishValidated,
+      finishPass,
+      arrivalAt,
+      passes,
+      createdAt: progress.createdAt || now,
+      updatedAt: now
+    };
+  });
+
+  if (!txResult.committed && transactionError) throw new HttpsError("failed-precondition", transactionError);
+
+  const progressSnap = await progressRef.get();
+  const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
+  const completedCount = Math.max(0, Number(progress.completedCount || 0));
+  const commonUpdate = {
+    controlExpectedCount: plan.expectedCount,
+    controlCompletedCount: completedCount,
+    nextControlId: progress.nextControlId ?? (completedCount < plan.expectedCount ? plan.controls[completedCount]?.checkpointId : "FINISH"),
+    lastControlId: progress.lastControlId || null,
+    lastControlAt: progress.lastControlAt || null,
+    updatedAt: now,
+    lastSeen: now
+  };
+  if (progress.finishValidated) {
+    commonUpdate.arrivalValidated = true;
+    commonUpdate.arrivalValidatedAt = Math.max(0, Number(progress.arrivalAt || progress.finishPass?.passedAtMs || now));
+    commonUpdate.arrivalSource = String(progress.finishPass?.source || "");
+    commonUpdate.nextControlId = null;
+  }
+  await ctx.participantRef.update(commonUpdate);
+
+  if (acceptedAttemptIds.length) {
+    await appendAudit("RUNNER_CONTROLS_BATCH_SYNCED", identity.uid, identity.uid, {
+      eventId, ownerUid: ctx.ownerUid, runId: ctx.runId,
+      acceptedCount: acceptedAttemptIds.length,
+      completedCount,
+      finishValidated: Boolean(progress.finishValidated)
+    });
+  }
+
+  return {
+    ok: true,
+    eventId,
+    runId: ctx.runId,
+    completedCount,
+    expectedCount: plan.expectedCount,
+    finishValidated: Boolean(progress.finishValidated),
+    arrivalAt: progress.arrivalAt || null,
+    nextControlId: progress.nextControlId || null,
+    acceptedAttemptIds,
+    progress
+  };
+}
+
+exports.runnerSyncControlPasses = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const passes = Array.isArray(request.data?.passes) ? request.data.passes : [];
+  return syncRunnerControlPassBatchInternal(identity, eventId, passes);
+});
+
 exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
@@ -1470,12 +1654,20 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes iniciar el recorrido antes de finalizarlo.");
 
   const plan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
+  const manualFinish = request.data?.manualFinish === true;
+  const pendingPasses = Array.isArray(request.data?.pendingPasses) ? request.data.pendingPasses.slice(0, 80) : [];
+  let pendingSyncWarning = null;
+  if (pendingPasses.length) {
+    try { await syncRunnerControlPassBatchInternal(identity, eventId, pendingPasses, ctx); }
+    catch (error) { pendingSyncWarning = String(error?.message || error || "No se pudieron consolidar algunas balizas pendientes."); }
+  }
   const progressSnap = await ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`).get();
   const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
-  if (plan?.finish && !progress.finishValidated) {
+  if (plan?.finish && !progress.finishValidated && !manualFinish) {
     throw new HttpsError("failed-precondition", "Debes validar la LLEGADA por GPS o QR. La carrera se cerrará automáticamente después.");
   }
 
+  const manualFinishIncomplete = manualFinish && (!progress.finishValidated || Math.max(0, Number(progress.completedCount || 0)) < Math.max(0, Number(plan.expectedCount || 0)));
   const now = Date.now();
   const arrivalAt = Math.max(0, Number(progress.arrivalAt || progress.finishPass?.passedAtMs || 0));
   const startedAt = Math.max(0, Number(ctx.participant.startedAt || 0));
@@ -1488,6 +1680,10 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     arrivalValidated: Boolean(progress.finishValidated),
     arrivalValidatedAt: arrivalAt || finishedAt,
     arrivalSource: String(progress.finishPass?.source || ctx.participant.arrivalSource || ""),
+    manualFinish,
+    manualFinishIncomplete,
+    finishReason: manualFinishIncomplete ? "runner_manual_incomplete" : (manualFinish ? "runner_manual" : "arrival_validated"),
+    pendingSyncWarning,
     lastSeen: now,
     updatedAt: now
   };
@@ -1498,6 +1694,10 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     arrivalValidated: Boolean(progress.finishValidated),
     arrivalValidatedAt: arrivalAt || finishedAt,
     arrivalSource: String(progress.finishPass?.source || ctx.participant.arrivalSource || ""),
+    manualFinish,
+    manualFinishIncomplete,
+    finishReason: manualFinishIncomplete ? "runner_manual_incomplete" : (manualFinish ? "runner_manual" : "arrival_validated"),
+    pendingSyncWarning,
     lastSeen: now,
     updatedAt: now
   });
@@ -1512,7 +1712,7 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     uid: ctx.uid,
     participant: finishedParticipant,
     cutoffAt: finishedAt,
-    source: "runner_finish_after_arrival"
+    source: manualFinish ? "runner_manual_finish" : "runner_finish_after_arrival"
   });
 
   await appendAudit("RUNNER_FINISHED", identity.uid, identity.uid, {
@@ -1523,6 +1723,10 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   return {
     ok: true, eventId, runId: ctx.runId, status: "finished", finishedAt,
     resultPersisted: true,
+    resultStatus: saved.status,
+    manualFinish,
+    manualFinishIncomplete,
+    pendingSyncWarning,
     trackPointCount: saved.trackPointCount,
     durationMs: saved.durationMs
   };
