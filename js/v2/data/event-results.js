@@ -1,4 +1,4 @@
-/* MILITOPO V2 · H6 · resultados persistentes + paso GPS por balizas para el organizador.
+/* MILITOPO V2 · H6.1 · resultados persistentes + validación de balizas GPS/QR para el organizador.
    Fuente exclusiva: Firestore events/{eventId}/results. No depende del Live RTDB. */
 import "../bootstrap.js";
 import {
@@ -96,7 +96,7 @@ function ensurePanel() {
       <div class="m2-h2-metric"><strong id="m2H2NotStarted">0</strong><span>NO SALIERON</span></div>
     </div>
     <div class="m2-h2-tools"><div class="m2-h2-source">Fuente: Firestore · histórico permanente H1/H2</div><button id="m2H2Refresh" class="m2-h2-refresh" type="button">ACTUALIZAR</button></div>
-    <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>CORREDOR</th><th>ESTADO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO</th><th>DISTANCIA</th><th>BALIZAS GPS</th><th>GPS</th><th>RUN</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="9" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
+    <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>CORREDOR</th><th>ESTADO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO</th><th>DISTANCIA</th><th>BALIZAS</th><th>GPS</th><th>RUN</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="9" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
     <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">🏆 CLASIFICACIÓN H5</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes independientemente del recorrido. POR RECORRIDO compara únicamente corredores con el mismo Rxx.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="8" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>`;
   if (mapPanel?.parentNode) mapPanel.insertAdjacentElement("afterend", panel);
   else if (monitor?.parentNode) monitor.insertAdjacentElement("afterend", panel);
