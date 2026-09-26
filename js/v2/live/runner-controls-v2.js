@@ -5,7 +5,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-h6-7-arrival-synced-autofinish-20260925";
+  const VERSION="v2-h6-9-coordinated-finish-20260926";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -255,7 +255,15 @@
     state.queue.push({...pass});state.lastAutoAt=Date.now();persist();
     try{if(navigator.vibrate)navigator.vibrate(isFinish?[220,80,220,80,320]:[120,70,180]);}catch(_){}
     emit(isFinish?"arrival_local":"passed",{pass,nextAfter:nextTarget()?{...nextTarget()}:null});
-    if(navigator.onLine!==false)flush().catch(()=>{});else emit("offline",{message:isFinish?"Llegada guardada en el dispositivo. Se finalizará automáticamente al recuperar cobertura.":"Baliza guardada en el dispositivo. Se sincronizará al recuperar cobertura."});
+    // H6.9: las balizas normales siguen sincronizando en segundo plano. LLEGADA no
+    // arranca otra petición paralela: runner-race-v2 coordina un único cierre
+    // (controles -> track -> FINALIZADO), evitando la carrera entre flush y finish.
+    if(!isFinish){
+      if(navigator.onLine!==false)flush().catch(()=>{});
+      else emit("offline",{message:"Baliza guardada en el dispositivo. Se sincronizará al recuperar cobertura."});
+    }else if(navigator.onLine===false){
+      emit("offline",{message:"Llegada guardada. La carrera se cerrará automáticamente al recuperar cobertura."});
+    }
     return {ok:true,pass};
   }
 
@@ -291,6 +299,26 @@
   async function scanImageFile(file,{canvas,statusEl}={}){if(!file)return {ok:false,message:"No se recibió ninguna imagen."};const workCanvas=canvas||document.createElement("canvas");let source=null,revoke="";try{if("createImageBitmap" in window){source=await createImageBitmap(file);}else{revoke=URL.createObjectURL(file);source=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("No se pudo abrir la foto."));img.src=revoke;});}const sw=Number(source.width||source.naturalWidth||0),sh=Number(source.height||source.naturalHeight||0);if(!sw||!sh)throw new Error("La imagen de la cámara no es válida.");const maxSide=1800,scale=Math.min(1,maxSide/Math.max(sw,sh)),w=Math.max(1,Math.round(sw*scale)),h=Math.max(1,Math.round(sh*scale));workCanvas.width=w;workCanvas.height=h;const ctx=workCanvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(source,0,0,w,h);let raw="";if("BarcodeDetector" in window){try{const detector=new BarcodeDetector({formats:["qr_code"]});const codes=await detector.detect(workCanvas);if(codes?.length)raw=String(codes[0].rawValue||"").trim();}catch(_){}}if(!raw){const ready=await preloadQrReader();if(ready&&window.jsQR){const img=ctx.getImageData(0,0,w,h),code=window.jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});if(code?.data)raw=String(code.data).trim();}}if(!raw){const msg="No se ha detectado ningún QR en la imagen. Acerca más la cámara y vuelve a intentarlo.";if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}const result=submitQr(raw);if(statusEl)statusEl.textContent=result.ok?"QR validado correctamente.":result.message;return result;}catch(error){const msg=String(error?.message||error||"No se pudo leer el QR.");if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}finally{try{source?.close?.();}catch(_){}if(revoke)try{URL.revokeObjectURL(revoke);}catch(_){}}}
 
   function closeScanner(options={}){const silent=Boolean(options&&options.silent),sc=state.scanner;if(sc){sc.running=false;try{sc.stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}try{sc.video.srcObject=null;}catch(_){}}if(state.scannerFrame)cancelAnimationFrame(state.scannerFrame);state.scannerFrame=0;state.scanner=null;if(!silent)emit("qr_closed");}
+
+  async function flushAndWait({timeoutMs=18000,requireArrival=false}={}){
+    const started=Date.now();
+    if(navigator.onLine===false)return false;
+    // Si había un flush de una baliza anterior, esperamos a que termine antes de
+    // lanzar el cierre. Después reconstruimos la cola desde el diario completo.
+    while(state.flushing&&Date.now()-started<timeoutMs){await new Promise(r=>setTimeout(r,90));}
+    while(Date.now()-started<timeoutMs){
+      rebuildPendingQueue();
+      if(!state.queue.length){
+        if(!requireArrival||state.serverFinishValidated)return true;
+      }
+      if(navigator.onLine===false)return false;
+      if(!state.flushing)await flush();
+      await new Promise(r=>setTimeout(r,120));
+      if(requireArrival&&state.serverFinishValidated&&state.queue.length===0)return true;
+      if(!requireArrival&&state.queue.length===0)return true;
+    }
+    return requireArrival ? (state.serverFinishValidated&&state.queue.length===0) : state.queue.length===0;
+  }
   function snapshot(){return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:expectedCount(),nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,journalCount:state.journal.length,syncing:state.flushing,lastSyncError:state.lastSyncError,syncFailureCount:state.syncFailureCount,lastFix:state.lastFix?{...state.lastFix}:null};}
   function pendingPasses(){return syncPayload().map(item=>({...item}));}
   function stop(){closeScanner({silent:true});clearRetry();persist();state.raceStatus="finished";emit("stopped");}
@@ -299,5 +327,5 @@
   window.addEventListener("online",()=>{state.flushAgain=true;flush().catch(()=>{});});
   window.addEventListener("pagehide",persist);
 
-  globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,snapshot,pendingPasses,stop,version:VERSION});
+  globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,flushAndWait,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,snapshot,pendingPasses,stop,version:VERSION});
 })();
