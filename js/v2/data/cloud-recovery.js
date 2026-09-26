@@ -19,7 +19,9 @@ const state = {
   overlay: null,
   list: null,
   status: null,
-  events: []
+  events: [],
+  overlayMode: "events",
+  openResultsAfterRecover: ""
 };
 
 function cleanRole(role) {
@@ -67,6 +69,21 @@ function formatDate(value) {
     return new Date(ms).toLocaleString();
   }
 }
+function formatDuration(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n < 0) return "—";
+  const total = Math.floor(n / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+}
+function resultName(row = {}) {
+  const display = cleanString(row.displayName, 120);
+  const username = cleanString(row.username, 40).replace(/^@/, "");
+  if (display && username) return `${display} (@${username})`;
+  return display || (username ? `@${username}` : "Corredor");
+}
 function esc(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -102,8 +119,17 @@ function ensureStyles() {
     .m2-cloud-event-status{display:inline-flex;align-items:center;min-height:26px;padding:3px 8px;border-radius:999px;border:1px solid rgba(245,204,121,.34);font-size:.74rem;font-weight:900;letter-spacing:.04em}
     .m2-cloud-event.archived{opacity:.72}
     .m2-cloud-event-open{min-height:42px;border:0;border-radius:9px;padding:9px 13px;font-weight:900;cursor:pointer;background:#d9e8c9;color:#10150d}
+    .m2-cloud-history-btn{border-color:rgba(245,204,121,.40);background:#282313;color:#ffe7a3}
+    .m2-cloud-history-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 12px}
+    .m2-cloud-history-stat{border:1px solid rgba(255,255,255,.11);border-radius:12px;padding:9px 6px;background:rgba(255,255,255,.035);text-align:center}
+    .m2-cloud-history-stat strong{display:block;font-size:1.05rem}.m2-cloud-history-stat span{display:block;margin-top:2px;font-size:.60rem;opacity:.68}
+    .m2-cloud-history-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:9px 0 10px}
+    .m2-cloud-history-metric{border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:7px 5px;text-align:center;background:rgba(255,255,255,.025)}
+    .m2-cloud-history-metric strong{display:block;font-size:.91rem}.m2-cloud-history-metric span{display:block;font-size:.53rem;opacity:.66;margin-top:2px}
+    .m2-cloud-history-best{font-size:.77rem;line-height:1.4;margin:0 0 10px;color:#e8f6df}
     .m2-cloud-recovery-empty{padding:14px;border:1px dashed rgba(255,255,255,.25);border-radius:10px;opacity:.82}
-    @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:100%}}
+    @media(max-width:600px){.m2-cloud-history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-cloud-history-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:100%}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
   `;
   document.head.appendChild(style);
 }
@@ -126,12 +152,14 @@ function ensureLauncher() {
     row.className = "m2-cloud-recovery-row";
     row.innerHTML = `
       <button type="button" id="m2CloudRecoveryOpen" class="m2-cloud-recovery-btn">☁️ ABRIR EVENTO DESDE NUBE</button>
-      <span id="m2CloudRecoveryMini" style="font-size:.85rem;opacity:.78">C3 · recuperación Firestore</span>
+      <button type="button" id="m2OrganizerHistoryOpen" class="m2-cloud-recovery-btn m2-cloud-history-btn">📚 HISTÓRICO DEL ORGANIZADOR</button>
+      <span id="m2CloudRecoveryMini" style="font-size:.85rem;opacity:.78">Firestore · eventos e histórico</span>
     `;
     const nav = step.querySelector(".nav-row");
     if (nav) nav.insertAdjacentElement("beforebegin", row);
     else step.appendChild(row);
     row.querySelector("#m2CloudRecoveryOpen")?.addEventListener("click", openCloudPicker);
+    row.querySelector("#m2OrganizerHistoryOpen")?.addEventListener("click", openHistoryPicker);
   }
   let status = document.getElementById("m2CloudRecoveryStatus");
   if (!status) {
@@ -157,7 +185,7 @@ function ensureOverlay() {
       <div class="m2-cloud-recovery-head">
         <div>
           <h2 id="m2CloudRecoveryTitle" style="margin:0">Eventos en Firestore</h2>
-          <div style="font-size:.86rem;opacity:.72;margin-top:3px">Organizer: tus eventos. Super admin: todos los eventos accesibles.</div>
+          <div id="m2CloudRecoverySubtitle" style="font-size:.86rem;opacity:.72;margin-top:3px">Organizer: tus eventos. Super admin: todos los eventos accesibles.</div>
         </div>
         <button type="button" class="m2-cloud-recovery-close" aria-label="Cerrar">×</button>
       </div>
@@ -193,7 +221,13 @@ function normalizeHeader(id, data = {}) {
     cloudStage: cleanString(data.cloudStage, 20),
     status: cleanString(data.status || "draft", 30),
     ownerUid: cleanString(data.ownerUid, 160),
-    updatedAt: data.updatedAt || data.structureUpdatedAt || data.createdAt || null
+    updatedAt: data.updatedAt || data.structureUpdatedAt || data.createdAt || null,
+    finishedAt: data.finishedAt || null,
+    archivedAt: data.archivedAt || null,
+    resultCount: Math.max(0, Math.trunc(Number(data.resultCount) || 0)),
+    resultFinishedCount: Math.max(0, Math.trunc(Number(data.resultFinishedCount) || 0)),
+    resultIncompleteCount: Math.max(0, Math.trunc(Number(data.resultIncompleteCount) || 0)),
+    resultNotStartedCount: Math.max(0, Math.trunc(Number(data.resultNotStartedCount) || 0))
   };
 }
 function normalizeCheckpoint(id, data = {}) {
@@ -289,10 +323,126 @@ function renderEventList(rows) {
   });
 }
 
+async function loadHistorySummary(row) {
+  const { firestore } = await services();
+  const snap = await getDocs(collection(firestore, "events", row.eventId, "results"));
+  const results = snap.docs.map(d => ({ id:d.id, ...(d.data() || {}) }));
+  const counts = { total: results.length, finished:0, incomplete:0, notStarted:0 };
+  let best = null;
+  for (const result of results) {
+    const status = String(result.status || "not_started").toLowerCase();
+    if (status === "finished") {
+      counts.finished += 1;
+      const durationMs = Number(result.durationMs);
+      if (Number.isFinite(durationMs) && durationMs >= 0 && (!best || durationMs < best.durationMs)) {
+        best = { durationMs, name: resultName(result), routeId: cleanString(result.routeId, 40) };
+      }
+    } else if (status === "incomplete") counts.incomplete += 1;
+    else counts.notStarted += 1;
+  }
+  if (!counts.total && row.resultCount) {
+    counts.total = row.resultCount; counts.finished = row.resultFinishedCount;
+    counts.incomplete = row.resultIncompleteCount; counts.notStarted = row.resultNotStartedCount;
+  }
+  return { ...row, counts, best };
+}
+
+async function loadHistoryRows() {
+  const rows = (await loadEventList()).filter(row => ["finished","archived"].includes(String(row.status || "").toLowerCase()));
+  const out = [];
+  const concurrency = 6;
+  for (let offset = 0; offset < rows.length; offset += concurrency) {
+    const group = rows.slice(offset, offset + concurrency);
+    const summaries = await Promise.all(group.map(row => loadHistorySummary(row).catch(error => {
+      console.warn("[MILITOPO H7] resumen", row.eventId, error);
+      return { ...row, counts:{ total:row.resultCount, finished:row.resultFinishedCount, incomplete:row.resultIncompleteCount, notStarted:row.resultNotStartedCount }, best:null, summaryError:true };
+    })));
+    out.push(...summaries);
+  }
+  out.sort((a,b) => timestampMs(b.archivedAt || b.finishedAt || b.updatedAt) - timestampMs(a.archivedAt || a.finishedAt || a.updatedAt));
+  return out;
+}
+
+function renderHistoryList(rows) {
+  if (!state.list) return;
+  if (!rows.length) {
+    state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Todavía no hay carreras FINALIZADAS o ARCHIVADAS para esta cuenta.</div>`;
+    return;
+  }
+  const aggregate = rows.reduce((acc,row) => {
+    acc.results += Number(row.counts?.total || 0);
+    acc.finished += Number(row.counts?.finished || 0);
+    acc.incomplete += Number(row.counts?.incomplete || 0);
+    return acc;
+  }, { results:0, finished:0, incomplete:0 });
+  state.list.innerHTML = `
+    <div class="m2-cloud-history-summary">
+      <div class="m2-cloud-history-stat"><strong>${rows.length}</strong><span>CARRERAS</span></div>
+      <div class="m2-cloud-history-stat"><strong>${aggregate.results}</strong><span>RESULTADOS</span></div>
+      <div class="m2-cloud-history-stat"><strong>${aggregate.finished}</strong><span>FINALIZADOS</span></div>
+      <div class="m2-cloud-history-stat"><strong>${aggregate.incomplete}</strong><span>INCOMPLETOS</span></div>
+    </div>` + rows.map(row => {
+      const counts = row.counts || { total:0, finished:0, incomplete:0, notStarted:0 };
+      const date = row.archivedAt || row.finishedAt || row.updatedAt;
+      const best = row.best ? `<div class="m2-cloud-history-best">🥇 Mejor tiempo: <strong>${esc(formatDuration(row.best.durationMs))}</strong> · ${esc(row.best.name)}${row.best.routeId ? ` · ${esc(row.best.routeId)}` : ""}</div>` : `<div class="m2-cloud-history-best">Sin tiempo finalizado disponible.</div>`;
+      return `
+        <article class="m2-cloud-event${row.status === "archived" ? " archived" : ""}">
+          <h3>${esc(row.eventName)}</h3>
+          <div class="m2-cloud-event-meta">
+            <span class="m2-cloud-event-status">${esc(statusLabel(row.status))}</span>
+            <span>${esc(row.eventId)}</span>
+            <span>${esc(formatDate(date))}</span>
+          </div>
+          <div class="m2-cloud-history-metrics">
+            <div class="m2-cloud-history-metric"><strong>${counts.total}</strong><span>RESULTADOS</span></div>
+            <div class="m2-cloud-history-metric"><strong>${counts.finished}</strong><span>FINALIZADOS</span></div>
+            <div class="m2-cloud-history-metric"><strong>${counts.incomplete}</strong><span>INCOMPLETOS</span></div>
+            <div class="m2-cloud-history-metric"><strong>${counts.notStarted}</strong><span>NO SALIERON</span></div>
+            <div class="m2-cloud-history-metric"><strong>${row.participantCount}</strong><span>PLAZAS</span></div>
+          </div>
+          ${best}
+          <button type="button" class="m2-cloud-event-open m2-history-open-results" data-event-id="${esc(row.eventId)}">ABRIR RESULTADOS Y CLASIFICACIÓN</button>
+        </article>`;
+    }).join("");
+  state.list.querySelectorAll(".m2-history-open-results").forEach(button => {
+    button.addEventListener("click", () => recoverEvent(button.dataset.eventId, { openResults:true }));
+  });
+}
+
+async function openHistoryPicker() {
+  const launcher = document.getElementById("m2OrganizerHistoryOpen");
+  if (state.busy) return;
+  ensureOverlay();
+  state.overlayMode = "history";
+  const title = document.getElementById("m2CloudRecoveryTitle");
+  const subtitle = document.getElementById("m2CloudRecoverySubtitle");
+  if (title) title.textContent = "Histórico del organizador";
+  if (subtitle) subtitle.textContent = "Carreras finalizadas y archivadas · resultados permanentes en Firestore.";
+  state.overlay.hidden = false; state.overlay.style.display = "grid";
+  if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Construyendo histórico y resultados…</div>`;
+  if (launcher) launcher.disabled = true;
+  try {
+    const rows = await loadHistoryRows();
+    renderHistoryList(rows);
+    paintStatus(`📚 Histórico: ${rows.length} carrera${rows.length === 1 ? "" : "s"} finalizada${rows.length === 1 ? "" : "s"}/archivada${rows.length === 1 ? "" : "s"}.`, "ok");
+  } catch (error) {
+    console.error("[MILITOPO H7] histórico", error);
+    if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">⚠️ ${esc(error?.message || "No se pudo cargar el histórico.")}</div>`;
+    paintStatus("⚠️ No se pudo cargar el histórico del organizador.", "warn");
+  } finally {
+    if (launcher) launcher.disabled = false;
+  }
+}
+
 async function openCloudPicker() {
   const launcher = document.getElementById("m2CloudRecoveryOpen");
   if (state.busy) return;
   ensureOverlay();
+  state.overlayMode = "events";
+  const title = document.getElementById("m2CloudRecoveryTitle");
+  const subtitle = document.getElementById("m2CloudRecoverySubtitle");
+  if (title) title.textContent = "Eventos en Firestore";
+  if (subtitle) subtitle.textContent = "Organizer: tus eventos. Super admin: todos los eventos accesibles.";
   state.overlay.hidden = false;
   state.overlay.style.display = "grid";
   if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Consultando Firestore…</div>`;
@@ -335,10 +485,11 @@ async function fetchCloudEvent(eventId) {
   return { header, checkpoints, courses };
 }
 
-async function recoverEvent(eventId) {
+async function recoverEvent(eventId, options = {}) {
   if (state.busy) return;
   const row = state.events.find(item => item.eventId === eventId);
   if (!row) return;
+  state.openResultsAfterRecover = options?.openResults ? eventId : "";
   const ok = confirm(
     `Se va a abrir “${row.eventName}” (${row.eventId}) desde Firestore.\n\n` +
     `MILITOPO guardará primero una copia duradera del evento que tengas abierto en este dispositivo. ` +
@@ -372,13 +523,23 @@ async function recoverEvent(eventId) {
 function onAuthReady(event) {
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
   const button = document.getElementById("m2CloudRecoveryOpen");
+  const historyButton = document.getElementById("m2OrganizerHistoryOpen");
   if (button) button.disabled = !canManage();
+  if (historyButton) historyButton.disabled = !canManage();
   if (!canManage()) paintStatus("🔒 Recuperación nube disponible para organizer/super_admin con correo verificado.", "warn");
 }
 function onApplied(event) {
   const detail = event?.detail || {};
   if (detail.ok) {
-    paintStatus(`✅ Evento recuperado desde Firestore · ${cleanString(detail.eventId, 120)}`, "ok");
+    const eventId = cleanString(detail.eventId, 120);
+    paintStatus(`✅ Evento recuperado desde Firestore · ${eventId}`, "ok");
+    if (state.openResultsAfterRecover && state.openResultsAfterRecover === eventId) {
+      state.openResultsAfterRecover = "";
+      setTimeout(() => {
+        const panel = document.getElementById("m2EventHistoricalResults");
+        if (panel) panel.scrollIntoView({ behavior:"smooth", block:"start" });
+      }, 900);
+    }
   } else {
     paintStatus(`⚠️ ${cleanString(detail.error || "No se pudo aplicar el evento descargado.", 300)}`, "warn");
   }
