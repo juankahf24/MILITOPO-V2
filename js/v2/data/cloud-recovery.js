@@ -535,10 +535,22 @@ function onApplied(event) {
     paintStatus(`✅ Evento recuperado desde Firestore · ${eventId}`, "ok");
     if (state.openResultsAfterRecover && state.openResultsAfterRecover === eventId) {
       state.openResultsAfterRecover = "";
+      // H7.1: al abrir una carrera desde el histórico, mostrarla en PASO 1.
+      // La recuperación base puede llevar al PASO 3 cuando ya existen recorridos;
+      // para histórico/resultados queremos volver al panel principal del evento.
       setTimeout(() => {
-        const panel = document.getElementById("m2EventHistoricalResults");
-        if (panel) panel.scrollIntoView({ behavior:"smooth", block:"start" });
-      }, 900);
+        try {
+          if (typeof globalThis.goStep === "function") globalThis.goStep(1);
+          else document.querySelector('.step-tab[data-step="1"]')?.click();
+        } catch (_) {
+          document.querySelector('.step-tab[data-step="1"]')?.click();
+        }
+        setTimeout(() => {
+          const panel = document.getElementById("m2EventHistoricalResults");
+          if (panel) panel.scrollIntoView({ behavior:"smooth", block:"start" });
+          else document.getElementById("step1")?.scrollIntoView({ behavior:"smooth", block:"start" });
+        }, 180);
+      }, 180);
     }
   } else {
     paintStatus(`⚠️ ${cleanString(detail.error || "No se pudo aplicar el evento descargado.", 300)}`, "warn");
