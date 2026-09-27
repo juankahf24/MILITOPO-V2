@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-i1-3-orientation-scope-fix-20260927";
+const BUILD_ID="v2-i2-offline-sdk-legacy-retire-20260927";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -13,7 +13,7 @@ const APP_SHELL=[
   "./",
   "./index.html",
   "./styles.css?v=v2-a1-backend-20260919",
-  "./app.js?v=v2-i1-2-role-gate-20260927",
+  "./app.js?v=v2-i2-offline-sdk-20260927",
   "./manifest.webmanifest",
   "./icons/militopo-192.png",
   "./icons/militopo-512.png",
@@ -37,7 +37,16 @@ const APP_SHELL=[
 
 /* Librerías externas útiles offline. Son opcionales durante install: si un CDN falla,
    no impedimos instalar la versión local, pero se intentarán cachear de nuevo al usarlas. */
+const FIREBASE_SDK_ASSETS=[
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js"
+];
 const REMOTE_ASSETS=[
+  ...FIREBASE_SDK_ASSETS,
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
   "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -58,16 +67,22 @@ const REMOTE_ASSETS=[
 const ORIENTATION_SCOPE_PATH=new URL("./orientacion/", self.registration.scope).pathname;
 
 const TRUSTED_RUNTIME_ORIGINS=new Set([
-  "https://unpkg.com","https://cdnjs.cloudflare.com","https://cdn.sheetjs.com","https://cdn.jsdelivr.net",
+  "https://www.gstatic.com","https://unpkg.com","https://cdnjs.cloudflare.com","https://cdn.sheetjs.com","https://cdn.jsdelivr.net",
   "https://tile.openstreetmap.org","https://www.ign.es","https://mapant.es","https://raster.trailmap.fi"
 ]);
 
 async function cacheRemote(cache,url){
   try{
+    const target=new URL(url);
+    const firebase=target.origin==="https://www.gstatic.com";
     let r;
     try{r=await fetch(new Request(url,{mode:"cors",cache:"reload"}));}
-    catch(_){r=await fetch(new Request(url,{mode:"no-cors",cache:"reload"}));}
-    if(r)await cache.put(url,r.clone());
+    catch(_){
+      /* Un módulo ESM de Firebase no puede recuperarse offline desde una respuesta opaque. */
+      if(firebase)return;
+      r=await fetch(new Request(url,{mode:"no-cors",cache:"reload"}));
+    }
+    if(r&&(!firebase||(r.ok&&r.type!=="opaque")))await cache.put(url,r.clone());
   }catch(_){}
 }
 async function trimCache(name,max=450){
@@ -84,9 +99,13 @@ self.addEventListener("install",event=>{
   /* NO skipWaiting(): una versión nueva no puede tomar el control en mitad de una carrera. */
   event.waitUntil((async()=>{
     const cache=await caches.open(CACHE_NAME);
+    const runtime=await caches.open(RUNTIME_CACHE);
     /* El núcleo local sí es obligatorio. Si falta un archivo, no activamos una shell incompleta. */
     await cache.addAll(APP_SHELL.map(u=>new Request(u,{cache:"reload"})));
-    await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(cache,u)));
+    /* I2: dependencias remotas (incluido Firebase SDK) viven en el cache runtime que
+       realmente consulta el fetch handler. Así un dispositivo que ya abrió MILITOPO
+       online puede volver a arrancar el núcleo V2 sin descargar gstatic de nuevo. */
+    await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(runtime,u)));
   })());
 });
 
@@ -107,8 +126,7 @@ self.addEventListener("message",event=>{
 self.addEventListener("fetch",event=>{
   const req=event.request;if(req.method!=="GET")return;
   const url=new URL(req.url);
-  /* Firebase SDK se resolverá en I2. No cachear aquí respuestas ESM opacas/incompletas. */
-  if(url.origin==="https://www.gstatic.com")return;
+  /* I2: Firebase SDK 12.19.0 se cachea como dependencia versionada. */
   const same=url.origin===self.location.origin,isRemote=TRUSTED_RUNTIME_ORIGINS.has(url.origin);
   if(!same&&!isRemote)return;
 

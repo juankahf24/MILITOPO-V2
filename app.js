@@ -5429,11 +5429,27 @@ document.addEventListener("DOMContentLoaded", setupTopoVisualEnhancements);
         setInstalledState();
     });
 
+    /* I2: comprobar siempre el SW en red, sin depender del HTTP cache del navegador. */
     if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./sw.js").catch(error => {
-                console.warn("No se pudo registrar la instalación de MILITOPO:", error);
-            });
+            navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" })
+                .then(reg => { try { reg.update(); } catch (_) {} })
+                .catch(error => {
+                    console.warn("No se pudo registrar la instalación de MILITOPO:", error);
+                });
         });
     }
+
+    /* QR de instalación generado por el organizador: ya apunta a la PWA V2 principal.
+       Solo abrimos la guía de instalación; el runner seguirá entrando por Auth y su Área del Corredor. */
+    try {
+        const params = new URLSearchParams(window.location.search || "");
+        if (params.get("militopo_runner_install") === "1") {
+            window.setTimeout(openPlatformModal, 350);
+            params.delete("militopo_runner_install");
+            params.delete("install");
+            const qs = params.toString();
+            history.replaceState({}, document.title, location.pathname + (qs ? `?${qs}` : "") + location.hash);
+        }
+    } catch (_) {}
 })();
