@@ -3,11 +3,13 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-i2-1-offline-auth-persist-20260927";
+  const VERSION = "v2-i2-2-online-rehydrate-20260927";
   const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set() };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
   const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
+  const ACTIVE_RACE_KEY = "militopo_v2_active_race_v3";
+  const ONLINE_RELOAD_KEY = "militopo_v2_online_recovery_reload_v1";
 
   const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusES = s => ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"})[String(s||"").toLowerCase()] || String(s||"").toUpperCase();
@@ -18,6 +20,64 @@
 
   function cachedAuth(){
     try{const raw=localStorage.getItem(AUTH_SNAPSHOT_KEY);if(!raw)return null;const data=JSON.parse(raw);return data?.role==="runner"?data:null;}catch(_){return null;}
+  }
+
+  function activeRaceSnapshot(){
+    try{
+      const raw=localStorage.getItem(ACTIVE_RACE_KEY);if(!raw)return null;
+      const data=JSON.parse(raw);
+      if(!data?.event?.eventId||!data?.auth?.uid||!data?.runId)return null;
+      const status=String(data.status||"").toLowerCase();
+      return ["finished","archived"].includes(status)?null:data;
+    }catch(_){return null;}
+  }
+  function clearOnlineRecoveryReload(){
+    try{sessionStorage.removeItem(ONLINE_RELOAD_KEY);}catch(_){}
+  }
+  function scheduleControlledOnlineReload(){
+    if(!navigator.onLine)return false;
+    // No recargamos automáticamente una carrera activa: I3 validará esa recuperación
+    // de forma específica para no arriesgar una actualización de versión a mitad de carrera.
+    if(activeRaceSnapshot())return false;
+    try{
+      const previous=Number(sessionStorage.getItem(ONLINE_RELOAD_KEY)||0);
+      if(previous && Date.now()-previous<60000)return false;
+      sessionStorage.setItem(ONLINE_RELOAD_KEY,String(Date.now()));
+    }catch(_){}
+    setStatus("Conexión recuperada · reactivando tu sesión de forma segura…","ok");
+    setTimeout(()=>{try{location.reload();}catch(_){}},450);
+    return true;
+  }
+  async function revalidateAfterOnline(){
+    if(!navigator.onLine)return false;
+    if(state.auth?.role==="runner"){
+      clearOnlineRecoveryReload();
+      await Promise.allSettled([loadEvents(true,true),loadHistory(true)]);
+      return true;
+    }
+    const snap=cachedAuth();
+    if(!snap?.uid||snap.role!=="runner")return false;
+    setStatus("Conexión recuperada · revalidando tu sesión…");
+    const delays=[0,700,1600,3000];
+    for(const delay of delays){
+      if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+      if(!navigator.onLine)return false;
+      const ok=await recoverRunnerAuth();
+      if(ok||state.auth?.role==="runner"){
+        clearOnlineRecoveryReload();
+        await Promise.allSettled([loadEvents(true,true),loadHistory(true)]);
+        return true;
+      }
+    }
+    // Firebase Auth puede haberse iniciado completamente offline con currentUser=null.
+    // En el dashboard (sin carrera activa), una recarga única re-inicializa Auth y
+    // recupera su persistencia local; es el mismo efecto que la recarga manual probada.
+    if(scheduleControlledOnlineReload())return false;
+    if(activeRaceSnapshot())
+      setStatus("Conexión recuperada · carrera protegida. Manteniendo la sesión local mientras Firebase revalida la cuenta…","ok");
+    else
+      setStatus("Conexión recuperada, pero Firebase aún no ha revalidado la sesión. MILITOPO seguirá reintentando sin borrar tus datos.","err");
+    return false;
   }
   async function recoverRunnerAuth(){
     if(state.auth?.uid)return state.auth.role==="runner";
@@ -815,6 +875,7 @@
     const changedUid=String(state.auth?.uid||"")!==String(auth.uid||"");
     state.auth=auth;
     clearTimeout(state.recoveryDeadline); state.recoveryDeadline=null;
+    clearOnlineRecoveryReload();
     try{localStorage.setItem(LAST_ROLE_KEY,"runner");localStorage.setItem(AUTH_SNAPSHOT_KEY,JSON.stringify(auth));}catch(_){}
     reveal(); paintIdentity(auth);
     const retry=el("m2rdRetry"); retry.textContent="REINTENTAR"; retry.hidden=true;
@@ -831,14 +892,11 @@
   addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
   document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner"){loadEvents(false,true);loadHistory(true);}});
   addEventListener("focus",()=>{if(state.auth?.role==="runner"){loadEvents(false,true);loadHistory(true);}});
-  addEventListener("online",async()=>{
-    if(state.auth?.role==="runner"){loadEvents(true,true);loadHistory(true);return;}
-    const snap=cachedAuth();
-    if(snap?.uid&&snap.role==="runner"){
-      setStatus("Conexión recuperada · revalidando tu sesión…");
-      const ok=await recoverRunnerAuth();
-      if(ok){loadEvents(true,true);loadHistory(true);}
-    }
+  addEventListener("online",()=>{
+    revalidateAfterOnline().catch(error=>{
+      console.warn("[MILITOPO runner dashboard] online revalidation",error);
+      if(navigator.onLine&&!activeRaceSnapshot())scheduleControlledOnlineReload();
+    });
   });
   addEventListener("militopo:v2-runner-race-closed",event=>{if(state.auth?.role==="runner"){loadEvents(true,true);if(String(event?.detail?.status||"").toLowerCase()==="finished")setTimeout(()=>loadHistory(false),350);}});
   addEventListener("militopo:v2-invitation-accepted",()=>{if(state.auth?.role==="runner")loadEvents(true,false);});
