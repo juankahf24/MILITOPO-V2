@@ -785,7 +785,11 @@
     }catch(error){console.error("[MILITOPO runner dashboard]",error);setStatus(`⚠️ ${String(error?.message||"No se pudieron consultar tus carreras.")}`,"err");retry.hidden=false;}
   }
   function activate(auth, silent=false){
-    if(!auth||auth.role!=="runner"){hide();return;}
+    if(!auth||auth.role!=="runner"){
+      hide();
+      try{localStorage.removeItem(LAST_ROLE_KEY);document.documentElement.classList.remove("militopo-runner-restore");}catch(_){}
+      return;
+    }
     const changedUid=String(state.auth?.uid||"")!==String(auth.uid||"");
     state.auth=auth;
     clearTimeout(state.recoveryDeadline); state.recoveryDeadline=null;
