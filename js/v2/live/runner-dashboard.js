@@ -3,7 +3,7 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-i1-2-strict-runner-recovery-20260927";
+  const VERSION = "v2-i2-1-offline-auth-persist-20260927";
   const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set() };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
@@ -831,7 +831,15 @@
   addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
   document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner"){loadEvents(false,true);loadHistory(true);}});
   addEventListener("focus",()=>{if(state.auth?.role==="runner"){loadEvents(false,true);loadHistory(true);}});
-  addEventListener("online",()=>{if(state.auth?.role==="runner"){loadEvents(true,true);loadHistory(true);}});
+  addEventListener("online",async()=>{
+    if(state.auth?.role==="runner"){loadEvents(true,true);loadHistory(true);return;}
+    const snap=cachedAuth();
+    if(snap?.uid&&snap.role==="runner"){
+      setStatus("Conexión recuperada · revalidando tu sesión…");
+      const ok=await recoverRunnerAuth();
+      if(ok){loadEvents(true,true);loadHistory(true);}
+    }
+  });
   addEventListener("militopo:v2-runner-race-closed",event=>{if(state.auth?.role==="runner"){loadEvents(true,true);if(String(event?.detail?.status||"").toLowerCase()==="finished")setTimeout(()=>loadHistory(false),350);}});
   addEventListener("militopo:v2-invitation-accepted",()=>{if(state.auth?.role==="runner")loadEvents(true,false);});
   addEventListener("militopo:v2-inbox-updated",event=>{
@@ -852,13 +860,32 @@
       clearTimeout(state.recoveryDeadline);
       state.recoveryDeadline=setTimeout(async()=>{
         if(state.auth?.uid) return;
+
+        // I2.1: OFFLINE es un estado válido, no un fallo de autenticación.
+        // Si existe un snapshot runner válido del mismo dispositivo, mantenemos
+        // la shell restaurada y los datos locales indefinidamente. La seguridad
+        // real sigue estando en Rules/Functions; aquí solo preservamos la UI offline.
+        if(!navigator.onLine){
+          const retry=el("m2rdRetry");
+          retry.hidden=true;
+          setStatus("📴 Sin conexión · sesión local restaurada. Tus carreras guardadas siguen disponibles; MILITOPO revalidará la cuenta al recuperar Internet.","ok");
+          return;
+        }
+
         const ok=await recoverRunnerAuth();
         if(!ok){
+          // Si la red cayó durante el intento, tampoco destruimos el snapshot.
+          if(!navigator.onLine){
+            const retry=el("m2rdRetry");
+            retry.hidden=true;
+            setStatus("📴 Sin conexión · sesión local restaurada. Revalidación pendiente al recuperar Internet.","ok");
+            return;
+          }
           const retry=el("m2rdRetry");
           retry.hidden=false; retry.textContent="REINTENTAR SESIÓN";
-          setStatus("No se ha podido restaurar la sesión todavía. Reintenta; si Firebase no responde, MILITOPO volverá al acceso seguro.","err");
+          setStatus("No se ha podido confirmar la sesión con Firebase. Reintenta cuando tengas conexión.","err");
           setTimeout(()=>{
-            if(state.auth?.uid)return;
+            if(state.auth?.uid||!navigator.onLine)return;
             try{globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-recovery-failed"));}catch(_){}
             hide();
           },7000);
@@ -876,7 +903,7 @@
       return;
     }
     // Solo intentar recuperación si existe evidencia local explícita de runner.
-    if(bootTries%5===0){
+    if(bootTries%5===0 && navigator.onLine){
       const snap=cachedAuth();
       if(snap?.uid && snap.role==="runner") recoverRunnerAuth();
     }
