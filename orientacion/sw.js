@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-i1-1-role-routing-20260927";
+const BUILD_ID="v2-i2-offline-sdk-legacy-retire-20260927";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -43,7 +43,16 @@ const CORE_ASSETS=[
   "../js/v2/data/event-results.js?v=v2-h6-1-live-controls-qr-20260925"
 ];
 
+const FIREBASE_SDK_ASSETS=[
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js"
+];
 const REMOTE_ASSETS=[
+  ...FIREBASE_SDK_ASSETS,
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
   "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -58,12 +67,12 @@ const REMOTE_ASSETS=[
   "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"
 ];
 const TRUSTED_RUNTIME_ORIGINS=new Set([
-  "https://unpkg.com","https://cdnjs.cloudflare.com","https://cdn.jsdelivr.net",
+  "https://www.gstatic.com","https://unpkg.com","https://cdnjs.cloudflare.com","https://cdn.jsdelivr.net",
   "https://raster.trailmap.fi","https://www.ign.es","https://tile.openstreetmap.org"
 ]);
 
 async function cacheRemote(cache,url){
-  try{let r;try{r=await fetch(new Request(url,{mode:"cors",cache:"reload"}));}catch(_){r=await fetch(new Request(url,{mode:"no-cors",cache:"reload"}));}if(r)await cache.put(url,r.clone());}catch(_){}
+  try{const target=new URL(url),firebase=target.origin==="https://www.gstatic.com";let r;try{r=await fetch(new Request(url,{mode:"cors",cache:"reload"}));}catch(_){if(firebase)return;r=await fetch(new Request(url,{mode:"no-cors",cache:"reload"}));}if(r&&(!firebase||(r.ok&&r.type!=="opaque")))await cache.put(url,r.clone());}catch(_){}
 }
 async function trimCache(name,max=500){try{const c=await caches.open(name),keys=await c.keys();await Promise.all(keys.slice(0,Math.max(0,keys.length-max)).map(k=>c.delete(k)));}catch(_){}}
 async function matchIn(name,req){try{return await (await caches.open(name)).match(req,{ignoreSearch:false});}catch(_){return undefined;}}
@@ -77,8 +86,11 @@ self.addEventListener("install",event=>{
   /* NO skipWaiting(): no sustituir código mientras organizador/corredor tienen una sesión abierta. */
   event.waitUntil((async()=>{
     const cache=await caches.open(MILITOPO_CACHE);
+    const runtime=await caches.open(RUNTIME_CACHE);
     await cache.addAll(CORE_ASSETS.map(u=>new Request(u,{cache:"reload"})));
-    await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(cache,u)));
+    /* I2: Firebase y librerías remotas se precachean en el mismo runtime cache
+       que consulta el fetch handler. */
+    await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(runtime,u)));
   })());
 });
 
@@ -102,7 +114,6 @@ self.addEventListener("message",event=>{
 self.addEventListener("fetch",event=>{
   const req=event.request;if(req.method!=="GET")return;
   const url=new URL(req.url);
-  if(url.origin==="https://www.gstatic.com")return;
   const same=url.origin===self.location.origin,isRemote=TRUSTED_RUNTIME_ORIGINS.has(url.origin);
   if(!same&&!isRemote)return;
 
