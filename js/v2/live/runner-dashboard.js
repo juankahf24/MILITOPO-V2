@@ -3,7 +3,7 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-h6-2-manual-live-strictgps-progress-reset-20260925";
+  const VERSION = "v2-i1-2-strict-runner-recovery-20260927";
   const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set() };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
@@ -20,8 +20,15 @@
     try{const raw=localStorage.getItem(AUTH_SNAPSHOT_KEY);if(!raw)return null;const data=JSON.parse(raw);return data?.role==="runner"?data:null;}catch(_){return null;}
   }
   async function recoverRunnerAuth(){
-    if(state.auth?.uid)return true;
+    if(state.auth?.uid)return state.auth.role==="runner";
     if(state.recoveryPromise)return state.recoveryPromise;
+
+    // I1.2: JAMÁS inferir "runner" solo porque Firebase tenga un usuario autenticado.
+    // La recuperación rápida solo es válida si este MISMO uid ya tenía un snapshot runner.
+    // Esto evita que organizer/super_admin sean degradados por el recuperador del dashboard.
+    const snap=cachedAuth();
+    if(!snap?.uid || snap.role!=="runner") return false;
+
     state.recoveryPromise=(async()=>{
       try{
         const svc=await services();
@@ -32,8 +39,23 @@
         }
         const user=svc.auth?.currentUser;
         if(!user||!user.emailVerified)return false;
-        const snap=cachedAuth();
-        activate({uid:user.uid,email:user.email||snap?.email||null,displayName:snap?.displayName||user.displayName||null,username:snap?.username||null,role:"runner",emailVerified:true},true);
+        if(String(user.uid||"")!==String(snap.uid||"")){
+          try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);document.documentElement.classList.remove("militopo-runner-restore");}catch(_){}
+          return false;
+        }
+
+        // Si los claims están disponibles, son autoridad: si esta cuenta ya no es runner,
+        // cancelamos la restauración y limpiamos cualquier hint local antiguo.
+        let token=null;
+        try{token=await Promise.race([user.getIdTokenResult(false),new Promise(resolve=>setTimeout(()=>resolve(null),5000))]);}catch(_){}
+        const claimedRole=String(token?.claims?.role||"").trim();
+        if(claimedRole && claimedRole!=="runner"){
+          try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);document.documentElement.classList.remove("militopo-runner-restore");}catch(_){}
+          hide();
+          return false;
+        }
+
+        activate({uid:user.uid,email:user.email||snap.email||null,displayName:snap.displayName||user.displayName||null,username:snap.username||null,role:"runner",emailVerified:true},true);
         return true;
       }catch(error){
         console.warn("[MILITOPO runner dashboard] auth recovery",error);
@@ -819,10 +841,10 @@
     if(pending===0)loadEvents(true,true);
   });
   try{
-    if(localStorage.getItem(LAST_ROLE_KEY)==="runner"){
+    const snap=cachedAuth();
+    if(localStorage.getItem(LAST_ROLE_KEY)==="runner" && snap?.uid && snap.role==="runner"){
       reveal();
-      const snap=cachedAuth();
-      if(snap) paintIdentity(snap);
+      paintIdentity(snap);
       const cachedEvents=readEventsSnapshot();
       if(cachedEvents.length){ state.events=cachedEvents; renderEvents(); }
       setStatus("Recuperando tu sesión de corredor…");
@@ -848,11 +870,15 @@
   const bootTimer=setInterval(()=>{
     bootTries+=1;
     const auth=globalThis.MILITOPO_V2_AUTH;
-    if(auth?.role==="runner"){
+    if(auth){
       clearInterval(bootTimer);
-      activate(auth,true);
-    } else if(bootTries%5===0){
-      recoverRunnerAuth();
+      activate(auth,true); // activate() oculta el dashboard para cualquier rol no-runner.
+      return;
+    }
+    // Solo intentar recuperación si existe evidencia local explícita de runner.
+    if(bootTries%5===0){
+      const snap=cachedAuth();
+      if(snap?.uid && snap.role==="runner") recoverRunnerAuth();
     }
     if(bootTries>=30) clearInterval(bootTimer);
   },400);
