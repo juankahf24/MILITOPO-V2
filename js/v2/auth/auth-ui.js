@@ -30,6 +30,9 @@ const TRUSTED_DEVICE_KEY = "militopo_v2_trusted_device";
 const KEEP_SESSION_KEY = "militopo_v2_keep_session";
 const POST_LOGIN_SELECTOR_KEY = "militopo_v2_post_login_selector";
 const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
+const LAST_ROLE_KEY = "militopo_v2_last_role";
+let enterAppInFlight = null;
+let enterAppInFlightUid = "";
 // F3A: el runner permanece en la shell principal ya autenticada.
 // Evitamos inicializar Firebase una segunda vez en /orientacion/participante/,
 // que era la causa de los fallos de carga ESM en algunos móviles antiguos.
@@ -53,6 +56,17 @@ function writeAuthSnapshot(value) {
 }
 function clearAuthSnapshot() {
   try { localStorage.removeItem(AUTH_SNAPSHOT_KEY); } catch (_) {}
+}
+function clearRunnerRestoreHint({ clearSnapshot = false } = {}) {
+  try { localStorage.removeItem(LAST_ROLE_KEY); } catch (_) {}
+  if (clearSnapshot) clearAuthSnapshot();
+  try { document.documentElement.classList.remove("militopo-runner-restore"); } catch (_) {}
+}
+async function getTokenResultReliable(user) {
+  let token = await withTimeout(user.getIdTokenResult(false).catch(() => null), 8000, null);
+  if (token) return token;
+  token = await withTimeout(user.getIdTokenResult(true).catch(() => null), 12000, null);
+  return token || null;
 }
 function withTimeout(promise, ms, fallback) {
   return Promise.race([
@@ -530,7 +544,7 @@ function paintAccount(user, displayName) {
   if (el("m2AccountTrustedDevice")) el("m2AccountTrustedDevice").checked = trustedDeviceEnabled();
 }
 
-async function enterApp(user) {
+async function enterAppCore(user) {
   const cached = readAuthSnapshot(user.uid);
   state.currentUser = user;
 
@@ -552,11 +566,19 @@ async function enterApp(user) {
   }
 
   const [tokenResult, profileResult] = await Promise.all([
-    withTimeout(user.getIdTokenResult(false).catch(() => null), 6000, null),
-    withTimeout(ensureRunnerProfile(user).catch(() => null), 6000, null)
+    getTokenResultReliable(user),
+    withTimeout(ensureRunnerProfile(user).catch(() => null), 8000, null)
   ]);
 
-  state.role = normalizeRole(tokenResult?.claims?.role || cached?.role || "runner");
+  // Si Firebase no ha devuelto todavía el token, NO degradamos una cuenta privilegiada
+  // silenciosamente a runner. Solo usamos un snapshot del MISMO uid; si tampoco existe,
+  // abortamos esta preparación y dejamos que Auth reintente/recargue de forma segura.
+  if (!tokenResult && !cached?.role) {
+    throw new Error("ROLE_RESOLUTION_TIMEOUT");
+  }
+  state.role = tokenResult
+    ? normalizeRole(tokenResult?.claims?.role || "runner")
+    : normalizeRole(cached.role);
   state.profile = profileResult || state.profile || {
     displayName: cached?.displayName || user.displayName || null,
     username: cached?.username || null,
@@ -564,6 +586,7 @@ async function enterApp(user) {
   };
   const displayName = state.profile?.displayName || cached?.displayName || user.displayName || null;
 
+  if (state.role !== "runner") clearRunnerRestoreHint();
   paintAccount(user, displayName);
   if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
   if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
@@ -577,6 +600,20 @@ async function enterApp(user) {
   } else if (state.role === "runner") {
     clearPostLoginSelector();
   }
+}
+
+async function enterApp(user) {
+  const uid = String(user?.uid || "");
+  if (!uid) throw new Error("AUTH_USER_REQUIRED");
+  if (enterAppInFlight && enterAppInFlightUid === uid) return enterAppInFlight;
+  enterAppInFlightUid = uid;
+  enterAppInFlight = enterAppCore(user).finally(() => {
+    if (enterAppInFlightUid === uid) {
+      enterAppInFlight = null;
+      enterAppInFlightUid = "";
+    }
+  });
+  return enterAppInFlight;
 }
 
 function openAccountPanel() {
@@ -608,6 +645,7 @@ function friendlyError(error) {
     "auth/unsupported-persistence-type": "Este navegador no admite el modo de sesión solicitado. MILITOPO intentará un modo compatible.",
     "auth/web-storage-unsupported": "Este navegador tiene bloqueado el almacenamiento necesario para conservar la sesión.",
     "auth/internal-error": "Firebase ha devuelto un error interno al iniciar sesión incluso en modo de compatibilidad. Cierra esta pestaña, vuelve a abrir MILITOPO e inténtalo una vez más.",
+    "ROLE_RESOLUTION_TIMEOUT": "Firebase no ha podido confirmar el rol de esta cuenta todavía. Comprueba la conexión y vuelve a intentarlo; MILITOPO no cambiará la cuenta a runner por defecto.",
     "auth/unauthorized-continue-uri": "Firebase no acepta la dirección de retorno para verificar el correo.",
     "auth/invalid-continue-uri": "La dirección de retorno del correo de verificación no es válida.",
     "auth/user-token-expired": "La sesión ha caducado. Pulsa USAR OTRA CUENTA e inicia sesión de nuevo.",
@@ -662,6 +700,9 @@ async function handleSubmit(event) {
     }
   }
 
+  // Login interactivo: no reutilizar el hint/snapshot de una cuenta runner anterior.
+  // El rol se resolverá de nuevo desde el token de la cuenta que está entrando.
+  clearRunnerRestoreHint({ clearSnapshot: true });
   markPostLoginSelector();
   setBusy(true);
   setMessage(state.mode === "register" ? "Creando cuenta…" : "Iniciando sesión…");
