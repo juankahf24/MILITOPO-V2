@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-i1-2-strict-role-gate-20260927";
+const BUILD_ID="v2-i1-3-orientation-scope-fix-20260927";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -52,6 +52,11 @@ const REMOTE_ASSETS=[
   "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
 ];
+/* El SW raíz NO debe responder por la subapp /orientacion/.
+   En la primera visita debe llegar a red para obtener orientacion/index.html;
+   después orientacion/sw.js, con scope más específico, será su único controlador. */
+const ORIENTATION_SCOPE_PATH=new URL("./orientacion/", self.registration.scope).pathname;
+
 const TRUSTED_RUNTIME_ORIGINS=new Set([
   "https://unpkg.com","https://cdnjs.cloudflare.com","https://cdn.sheetjs.com","https://cdn.jsdelivr.net",
   "https://tile.openstreetmap.org","https://www.ign.es","https://mapant.es","https://raster.trailmap.fi"
@@ -106,6 +111,11 @@ self.addEventListener("fetch",event=>{
   if(url.origin==="https://www.gstatic.com")return;
   const same=url.origin===self.location.origin,isRemote=TRUSTED_RUNTIME_ORIGINS.has(url.origin);
   if(!same&&!isRemote)return;
+
+  /* CRÍTICO I1.3: no servir nunca la shell raíz dentro de /orientacion/.
+     Si no hay todavía SW específico de Orientación, la petición irá a red.
+     Cuando lo haya, el navegador elegirá automáticamente ese scope más específico. */
+  if(same&&url.pathname.startsWith(ORIENTATION_SCOPE_PATH))return;
 
   event.respondWith((async()=>{
     const cacheName=same?CACHE_NAME:RUNTIME_CACHE;
