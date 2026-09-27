@@ -62,6 +62,15 @@ function clearRunnerRestoreHint({ clearSnapshot = false } = {}) {
   if (clearSnapshot) clearAuthSnapshot();
   try { document.documentElement.classList.remove("militopo-runner-restore"); } catch (_) {}
 }
+function hasOfflineRunnerSnapshot() {
+  try {
+    if (navigator.onLine) return false;
+    const raw = localStorage.getItem(AUTH_SNAPSHOT_KEY);
+    if (!raw) return false;
+    const snap = JSON.parse(raw);
+    return Boolean(snap?.uid && snap?.role === "runner" && localStorage.getItem(LAST_ROLE_KEY) === "runner");
+  } catch (_) { return false; }
+}
 async function getTokenResultReliable(user) {
   let token = await withTimeout(user.getIdTokenResult(false).catch(() => null), 8000, null);
   if (token) return token;
@@ -903,6 +912,14 @@ async function init() {
   onAuthStateChanged(state.services.auth, async user => {
     try {
       if (!user) {
+        // I2.1: Firebase Auth puede tardar/no resolver currentUser al arrancar
+        // completamente offline. No interpretar ese estado transitorio como logout
+        // si ya existe un snapshot runner local válido.
+        if (hasOfflineRunnerSnapshot()) {
+          closeAccountPanel();
+          if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
+          return;
+        }
         state.currentUser = null;
         state.profile = null;
         closeAccountPanel();
@@ -926,6 +943,9 @@ async function init() {
   });
 
   globalThis.addEventListener("militopo:v2-auth-recovery-failed", () => {
+    // Offline no invalida una sesión local runner ya conocida. La revalidación
+    // se hará al recuperar conectividad.
+    if (hasOfflineRunnerSnapshot()) return;
     clearAuthSnapshot();
     try { localStorage.removeItem("militopo_v2_last_role"); } catch (_) {}
     closeAccountPanel();
