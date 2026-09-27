@@ -4525,10 +4525,20 @@ function openMapModal() {
 
     function isRunnerSessionContext() {
         try {
-            if (globalThis.MILITOPO_V2_AUTH?.role === "runner") return true;
+            // Si Auth ya resolvió un rol, ese dato manda. Un organizer/super_admin nunca
+            // puede quedar atrapado por un hint runner antiguo del navegador.
+            const liveRole = String(globalThis.MILITOPO_V2_AUTH?.role || "");
+            if (liveRole) return liveRole === "runner";
+
+            const raw = localStorage.getItem("militopo_v2_auth_snapshot");
+            const snap = raw ? JSON.parse(raw) : null;
+            const hintedRunner = localStorage.getItem("militopo_v2_last_role") === "runner"
+                && snap?.role === "runner"
+                && Boolean(String(snap?.uid || "").trim());
+            if (!hintedRunner) return false;
+
             const dashboard = document.getElementById("m2RunnerDashboard");
-            if (dashboard && dashboard.hidden === false) return true;
-            return localStorage.getItem("militopo_v2_last_role") === "runner";
+            return Boolean(dashboard && dashboard.hidden === false) || hintedRunner;
         } catch (_) { return false; }
     }
 
