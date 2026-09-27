@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-i2-2-online-rehydrate-20260927";
-  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set() };
+  const VERSION = "v2-i2-3-reconnect-coordinator-20260927";
+  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set(), onlineRevalidating:false, onlineRefreshPromise:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
   const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
@@ -48,36 +48,96 @@
     setTimeout(()=>{try{location.reload();}catch(_){}},450);
     return true;
   }
-  async function revalidateAfterOnline(){
+  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  function reconnectErrorText(error){
+    return `${String(error?.code||"")} ${String(error?.message||error||"")}`.toLowerCase();
+  }
+  function transientReconnectError(error){
+    const text=reconnectErrorText(error);
+    return !text || /internal|unavailable|network|fetch|offline|timeout|deadline|failed-precondition|load failed|\[0\]/.test(text);
+  }
+  async function forceFreshRunnerToken(){
     if(!navigator.onLine)return false;
-    if(state.auth?.role==="runner"){
-      clearOnlineRecoveryReload();
-      await Promise.allSettled([loadEvents(true,true),loadHistory(true)]);
-      return true;
+    const svc=await services();
+    if(typeof svc.auth?.authStateReady==="function"){
+      try{await Promise.race([svc.auth.authStateReady(),wait(3500)]);}catch(_){}
     }
     const snap=cachedAuth();
-    if(!snap?.uid||snap.role!=="runner")return false;
-    setStatus("Conexión recuperada · revalidando tu sesión…");
-    const delays=[0,700,1600,3000];
+    const user=svc.auth?.currentUser;
+    if(!user||!snap?.uid||String(user.uid)!==String(snap.uid))return false;
+    try{
+      await Promise.race([user.getIdToken(true),new Promise((_,reject)=>setTimeout(()=>reject(new Error("TOKEN_REFRESH_TIMEOUT")),6000))]);
+      return true;
+    }catch(error){
+      console.warn("[MILITOPO runner dashboard] token refresh",error);
+      return false;
+    }
+  }
+  async function refreshEventsAfterReconnect(){
+    const delays=[0,650,1400,2800,4500];
+    let lastError=null;
     for(const delay of delays){
-      if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
-      if(!navigator.onLine)return false;
-      const ok=await recoverRunnerAuth();
-      if(ok||state.auth?.role==="runner"){
-        clearOnlineRecoveryReload();
-        await Promise.allSettled([loadEvents(true,true),loadHistory(true)]);
-        return true;
+      if(delay)await wait(delay);
+      if(!navigator.onLine)throw new Error("OFFLINE_AGAIN");
+      try{
+        const result=await loadEvents(true,true,{throwOnError:true,reconnecting:true});
+        return result!==false;
+      }catch(error){
+        lastError=error;
+        if(!transientReconnectError(error))throw error;
+        setStatus("Conexión recuperada · sincronizando tus carreras…","ok");
+        try{await forceFreshRunnerToken();}catch(_){}
       }
     }
-    // Firebase Auth puede haberse iniciado completamente offline con currentUser=null.
-    // En el dashboard (sin carrera activa), una recarga única re-inicializa Auth y
-    // recupera su persistencia local; es el mismo efecto que la recarga manual probada.
-    if(scheduleControlledOnlineReload())return false;
-    if(activeRaceSnapshot())
-      setStatus("Conexión recuperada · carrera protegida. Manteniendo la sesión local mientras Firebase revalida la cuenta…","ok");
-    else
-      setStatus("Conexión recuperada, pero Firebase aún no ha revalidado la sesión. MILITOPO seguirá reintentando sin borrar tus datos.","err");
-    return false;
+    throw lastError||new Error("RECONNECT_EVENTS_TIMEOUT");
+  }
+  async function revalidateAfterOnline(){
+    if(!navigator.onLine)return false;
+    if(state.onlineRefreshPromise)return state.onlineRefreshPromise;
+    state.onlineRevalidating=true;
+    state.onlineRefreshPromise=(async()=>{
+      const snap=cachedAuth();
+      if(!snap?.uid||snap.role!=="runner")return false;
+      setStatus("Conexión recuperada · revalidando tu sesión…","ok");
+
+      // Primero recuperamos Firebase Auth. No consultamos Functions hasta que
+      // la instancia de Auth y su token estén preparados de nuevo.
+      if(state.auth?.role!=="runner"){
+        const delays=[0,600,1300,2400,4000];
+        let recovered=false;
+        for(const delay of delays){
+          if(delay)await wait(delay);
+          if(!navigator.onLine)return false;
+          recovered=await recoverRunnerAuth();
+          if(recovered||state.auth?.role==="runner")break;
+        }
+        if(!recovered&&state.auth?.role!=="runner"){
+          if(scheduleControlledOnlineReload())return false;
+          setStatus("Conexión recuperada · esperando a que Firebase restaure la sesión…","ok");
+          return false;
+        }
+      }
+
+      await forceFreshRunnerToken();
+      setStatus("Conexión recuperada · sincronizando tus carreras…","ok");
+      try{
+        await refreshEventsAfterReconnect();
+      }catch(error){
+        console.warn("[MILITOPO runner dashboard] reconnect events",error);
+        if(!activeRaceSnapshot()&&scheduleControlledOnlineReload())return false;
+        // Durante una carrera jamás sustituimos la UI local por un error de Functions.
+        setStatus(activeRaceSnapshot()?"Conexión recuperada · carrera protegida. Reintentando sincronización con el organizador…":"Conexión recuperada · reintentando sincronización…","ok");
+        return false;
+      }
+
+      // El histórico no bloquea la recuperación del dashboard. Si tarda o falla,
+      // conserva lo que ya hubiera en pantalla y podrá actualizarse después.
+      try{await loadHistory(true);}catch(_){}
+      clearOnlineRecoveryReload();
+      setStatus("✅ Conexión recuperada · datos sincronizados.","ok");
+      return true;
+    })();
+    try{return await state.onlineRefreshPromise;}finally{state.onlineRefreshPromise=null;state.onlineRevalidating=false;}
   }
   async function recoverRunnerAuth(){
     if(state.auth?.uid)return state.auth.role==="runner";
@@ -812,8 +872,14 @@
       state.historySummary=response?.data?.summary||{total:state.history.length,finished:0,incomplete:0,notStarted:0};
     }catch(error){
       console.error("[MILITOPO runner history]",error);
-      state.history=[];state.historySummary={total:0,finished:0,incomplete:0,notStarted:0};
-      state.historyError=String(error?.message||"No se pudo consultar tu histórico.");
+      if(state.onlineRevalidating&&transientReconnectError(error)){
+        // Durante la transición de red conservamos el histórico ya visible; un
+        // error temporal de Functions no debe borrar datos válidos de la pantalla.
+        state.historyError="";
+      }else{
+        state.history=[];state.historySummary={total:0,finished:0,incomplete:0,notStarted:0};
+        state.historyError=String(error?.message||"No se pudo consultar tu histórico.");
+      }
     }finally{
       state.historyLoading=false;renderHistory();
     }
@@ -846,8 +912,8 @@
       return `<article class="m2rd-event"><strong>${esc(ev.eventName||"Carrera")}</strong><div class="m2rd-event-meta">${esc(statusES(ev.status))} · ${esc(ev.eventId||"")}</div><span class="m2rd-pill">${esc(statusES(ev.status))}</span>${routeBlock}${action}</article>`;
     }).join("");
   }
-  async function loadEvents(force=false,silent=false){
-    if(!state.auth||state.auth.role!=="runner") return;
+  async function loadEvents(force=false,silent=false,options={}){
+    if(!state.auth||state.auth.role!=="runner") return false;
     const retry=el("m2rdRetry"); retry.hidden=true;
     if(!silent) setStatus("Consultando tus carreras Live V2…");
     try{
@@ -864,7 +930,19 @@
         cleanupLive();
         if(state.events.length&&!silent)setStatus(`✅ ${state.events.length} carrera${state.events.length===1?"":"s"} asociada${state.events.length===1?"":"s"} a tu cuenta.`,"ok");
       }
-    }catch(error){console.error("[MILITOPO runner dashboard]",error);setStatus(`⚠️ ${String(error?.message||"No se pudieron consultar tus carreras.")}`,"err");retry.hidden=false;}
+      return true;
+    }catch(error){
+      console.error("[MILITOPO runner dashboard]",error);
+      if(options?.throwOnError)throw error;
+      // Una transición offline→online puede devolver temporalmente functions/internal.
+      // Conservamos el snapshot visible y dejamos que el coordinador de reconexión reintente.
+      if(options?.reconnecting||state.onlineRevalidating||(!navigator.onLine)){
+        setStatus(navigator.onLine?"Conexión recuperada · sincronizando tus carreras…":"📴 Sin conexión · mostrando la última información guardada.","ok");
+        return false;
+      }
+      setStatus(`⚠️ ${String(error?.message||"No se pudieron consultar tus carreras.")}`,"err");retry.hidden=false;
+      return false;
+    }
   }
   function activate(auth, silent=false){
     if(!auth||auth.role!=="runner"){
@@ -875,13 +953,14 @@
     const changedUid=String(state.auth?.uid||"")!==String(auth.uid||"");
     state.auth=auth;
     clearTimeout(state.recoveryDeadline); state.recoveryDeadline=null;
-    clearOnlineRecoveryReload();
     try{localStorage.setItem(LAST_ROLE_KEY,"runner");localStorage.setItem(AUTH_SNAPSHOT_KEY,JSON.stringify(auth));}catch(_){}
     reveal(); paintIdentity(auth);
     const retry=el("m2rdRetry"); retry.textContent="REINTENTAR"; retry.hidden=true;
     if(changedUid || !state.unsubInviteSignals) bindInviteSignals();
-    if(changedUid||!state.events.length) loadEvents(false,silent);
-    if(changedUid||!state.history.length) loadHistory(silent);
+    if(!state.onlineRevalidating){
+      if(changedUid||!state.events.length) loadEvents(false,silent);
+      if(changedUid||!state.history.length) loadHistory(silent);
+    }
   }
   addEventListener("militopo:v2-auth-ready",e=>activate(e.detail));
   addEventListener("militopo:v2-runner-dashboard",e=>activate(e.detail));
@@ -890,8 +969,8 @@
     try{localStorage.removeItem(LAST_ROLE_KEY);localStorage.removeItem(AUTH_SNAPSHOT_KEY);localStorage.removeItem(EVENTS_SNAPSHOT_KEY);}catch(_){}
   });
   addEventListener("pageshow",()=>{if(globalThis.MILITOPO_V2_AUTH?.role==="runner")activate(globalThis.MILITOPO_V2_AUTH);});
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner"){loadEvents(false,true);loadHistory(true);}});
-  addEventListener("focus",()=>{if(state.auth?.role==="runner"){loadEvents(false,true);loadHistory(true);}});
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.auth?.role==="runner"&&!state.onlineRevalidating){loadEvents(false,true);loadHistory(true);}});
+  addEventListener("focus",()=>{if(state.auth?.role==="runner"&&!state.onlineRevalidating){loadEvents(false,true);loadHistory(true);}});
   addEventListener("online",()=>{
     revalidateAfterOnline().catch(error=>{
       console.warn("[MILITOPO runner dashboard] online revalidation",error);
