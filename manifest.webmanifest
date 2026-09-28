@@ -1,16 +1,20 @@
 {
-  "name": "MILITOPO V2",
+  "name": "MILITOPO",
   "short_name": "MILITOPO",
-  "description": "MILITOPO V2 · plataforma de Topografía, Orientación, carreras y resultados.",
+  "description": "MILITOPO · Topografía, orientación, Live GPS y resultados.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0a0e0a",
-  "theme_color": "#0a0e0a",
+  "background_color": "#061009",
+  "theme_color": "#0b1b12",
   "lang": "es",
-  "categories": ["navigation", "utilities", "sports"],
+  "categories": [
+    "navigation",
+    "utilities",
+    "sports"
+  ],
   "icons": [
     {
       "src": "icons/militopo-192.png",
@@ -24,5 +28,11 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "dir": "ltr",
+  "prefer_related_applications": false
 }
