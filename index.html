@@ -63,24 +63,24 @@
         }
         .mt-launch-radar { position:absolute; width:min(82vw,430px); aspect-ratio:1; border-radius:50%;
             border:1px solid rgba(236,213,154,.12); box-shadow:0 0 0 52px rgba(236,213,154,.025),0 0 0 104px rgba(236,213,154,.018);
-            animation:mtLaunchRotate 12s linear infinite; }
+            animation:mtLaunchRotate 30s linear infinite; }
         .mt-launch-radar::before { content:""; position:absolute; inset:50% -7% auto 50%; height:1px; background:linear-gradient(90deg,rgba(230,188,122,.48),transparent); transform-origin:left center; }
         .mt-launch-radar::after { content:""; position:absolute; inset:11%; border-radius:50%; border:1px dashed rgba(141,181,109,.18); }
         .mt-launch-shell { position:relative; width:min(88vw,430px); display:flex; flex-direction:column; align-items:center; text-align:center; gap:20px; }
         .mt-launch-mark { position:relative; width:clamp(112px,29vw,154px); aspect-ratio:1; border-radius:34px; display:grid; place-items:center;
             background:linear-gradient(145deg,rgba(255,255,255,.12),rgba(255,255,255,.035)); border:1px solid rgba(239,220,167,.2);
             box-shadow:0 28px 70px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.12); opacity:0; transform:translateY(16px) scale(.93);
-            animation:mtLaunchMark .72s cubic-bezier(.16,.84,.24,1) .12s forwards; }
-        .mt-launch-mark::before { content:""; position:absolute; inset:-18px; border-radius:44px; background:radial-gradient(circle,rgba(213,238,168,.20),transparent 68%); filter:blur(10px); animation:mtLaunchPulse 2.8s ease-in-out infinite; }
+            animation:mtLaunchMark 1.35s cubic-bezier(.16,.84,.24,1) .35s forwards; }
+        .mt-launch-mark::before { content:""; position:absolute; inset:-18px; border-radius:44px; background:radial-gradient(circle,rgba(213,238,168,.20),transparent 68%); filter:blur(10px); animation:mtLaunchPulse 4.8s ease-in-out infinite; }
         .mt-launch-mark img { position:relative; width:78%; height:78%; object-fit:cover; border-radius:50%; filter:saturate(.92) contrast(1.04); box-shadow:0 14px 34px rgba(0,0,0,.32); }
         .mt-launch-word { display:flex; justify-content:center; gap:.045em; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
             font-size:clamp(2.45rem,11vw,4.3rem); font-weight:900; line-height:.94; letter-spacing:.055em; color:#fff8e9; text-shadow:0 14px 38px rgba(0,0,0,.36); }
         .mt-launch-word span { display:inline-block; opacity:0; transform:translateY(20px) scale(.95); filter:blur(5px);
-            animation:mtLaunchLetter .52s cubic-bezier(.16,.84,.24,1) forwards; animation-delay:calc(.52s + var(--i)*.055s); }
-        .mt-launch-sub { margin-top:-8px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.73rem; font-weight:750; letter-spacing:.24em; text-transform:uppercase; color:rgba(245,233,202,.68); opacity:0; animation:mtLaunchFade .45s ease 1.04s forwards; }
-        .mt-launch-progress { width:min(66vw,260px); height:3px; margin-top:8px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.08); opacity:0; animation:mtLaunchFade .38s ease .94s forwards; }
-        .mt-launch-progress span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,#c89b51,#f0dc9a,#9fca72); box-shadow:0 0 14px rgba(225,201,127,.36); animation:mtLaunchLoad 1.25s cubic-bezier(.2,.76,.24,1) .76s forwards; }
-        .mt-launch-status { min-height:1.35em; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.74rem; font-weight:700; letter-spacing:.11em; color:rgba(246,239,218,.72); text-transform:uppercase; opacity:0; animation:mtLaunchFade .4s ease 1.04s forwards; }
+            animation:mtLaunchLetter .90s cubic-bezier(.16,.84,.24,1) forwards; animation-delay:calc(1.35s + var(--i)*.14s); }
+        .mt-launch-sub { margin-top:-8px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.73rem; font-weight:750; letter-spacing:.24em; text-transform:uppercase; color:rgba(245,233,202,.68); opacity:0; animation:mtLaunchFade .75s ease 2.80s forwards; }
+        .mt-launch-progress { width:min(66vw,260px); height:3px; margin-top:8px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.08); opacity:0; animation:mtLaunchFade .65s ease 2.65s forwards; }
+        .mt-launch-progress span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,#c89b51,#f0dc9a,#9fca72); box-shadow:0 0 14px rgba(225,201,127,.36); animation:mtLaunchLoad 4.25s cubic-bezier(.18,.72,.22,1) 2.45s forwards; }
+        .mt-launch-status { min-height:1.35em; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.74rem; font-weight:700; letter-spacing:.11em; color:rgba(246,239,218,.72); text-transform:uppercase; opacity:0; animation:mtLaunchFade .75s ease 2.95s forwards; }
         #militopoLaunchSplash.is-leaving .mt-launch-shell { transform:scale(1.018); transition:transform .58s cubic-bezier(.22,.8,.24,1); }
         @keyframes mtLaunchLetter { 0%{opacity:0;transform:translateY(20px) scale(.95);filter:blur(5px)} 70%{opacity:1;transform:translateY(-1px) scale(1.01);filter:blur(0)} 100%{opacity:1;transform:none;filter:blur(0)} }
         @keyframes mtLaunchMark { to{opacity:1;transform:none} }
@@ -139,8 +139,8 @@
   const t0=(performance&&performance.now)?performance.now():Date.now();
   let activeRace=false;
   try{const a=JSON.parse(localStorage.getItem("militopo_v2_active_race_v3")||"null");activeRace=!!(a&&["racing","started"].includes(String(a.status||"").toLowerCase())&&a.eventId&&a.runId);}catch(_){}
-  const minMs=activeRace?650:1250;
-  const maxMs=activeRace?1150:2200;
+  const minMs=activeRace?900:6500;
+  const maxMs=activeRace?1500:7600;
   if(status)status.textContent=!navigator.onLine?(activeRace?"Modo offline · recuperando carrera":"Modo offline · recuperando sesión"):(activeRace?"Recuperando carrera activa":"Preparando entorno seguro");
   let closed=false;
   function finish(label){
@@ -153,7 +153,13 @@
   }
   addEventListener("militopo:v2-auth-ready",e=>{const role=String(e?.detail?.role||"").toLowerCase();finish(role==="runner"?(activeRace?"Carrera recuperada":"Área del corredor lista"):"Entorno operativo listo");},{once:true});
   addEventListener("militopo:v2-auth-signed-out",()=>finish("Acceso preparado"),{once:true});
-  addEventListener("load",()=>setTimeout(()=>finish(activeRace?"Recuperando carrera":"MILITOPO listo"),activeRace?120:520),{once:true});
+  addEventListener("load",()=>{
+    if(activeRace){setTimeout(()=>finish("Carrera recuperada"),220);return;}
+    setTimeout(()=>{if(!closed&&status)status.textContent="Verificando sesión y recursos";},1400);
+    setTimeout(()=>{if(!closed&&status)status.textContent=navigator.onLine?"Sincronizando entorno operativo":"Modo offline · preparando datos locales";},3000);
+    setTimeout(()=>{if(!closed&&status)status.textContent="Preparando interfaz MILITOPO";},4550);
+    setTimeout(()=>finish("MILITOPO listo"),5900);
+  },{once:true});
   setTimeout(()=>finish(activeRace?"Recuperando carrera":"MILITOPO listo"),maxMs);
 })();
 </script>
