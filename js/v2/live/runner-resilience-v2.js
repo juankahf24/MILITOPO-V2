@@ -4,9 +4,12 @@
    Al volver Internet, runner-race-v2 reconcilia RTDB/Functions sin recargar la app. */
 (function(){
   "use strict";
-  const VERSION="v2-i3-1-offline-auto-open-active-race-20260928";
+  const VERSION="v2-i4-safe-update-guard-20260928";
   const KEY="militopo_v2_active_race_v3";
   const MAX_AGE_MS=24*60*60*1000;
+  const UPDATE_GUARD_CACHE="militopo-v2-update-guard";
+  const UPDATE_GUARD_URL=new URL("./__militopo_active_race_lock__",location.href).href;
+  const UPDATE_GUARD_TTL_MS=36*60*60*1000;
   const state={context:null,status:"",wake:null,restoring:false,restoreTimer:null};
 
   function emit(status,detail={}){
@@ -36,8 +39,33 @@
       return data;
     }catch(_){return null;}
   }
-  function write(ctx){state.context=ctx;try{localStorage.setItem(KEY,JSON.stringify(ctx));}catch(_){} }
-  function clear(){state.context=null;try{localStorage.removeItem(KEY);}catch(_){} }
+  async function writeUpdateGuard(ctx){
+    try{
+      if(!("caches" in globalThis))return;
+      const status=String(ctx?.status||"").toLowerCase();
+      if(!["racing","started"].includes(status)||!ctx?.event?.eventId||!ctx?.runId)return clearUpdateGuard(false);
+      const cache=await caches.open(UPDATE_GUARD_CACHE);
+      await cache.put(UPDATE_GUARD_URL,new Response(JSON.stringify({
+        status,eventId:String(ctx.event.eventId),runId:String(ctx.runId),uid:String(ctx.auth?.uid||""),
+        updatedAt:Date.now(),expiresAt:Date.now()+UPDATE_GUARD_TTL_MS,version:VERSION
+      }),{headers:{"Content-Type":"application/json","Cache-Control":"no-store"}}));
+      emit("update_guard_on",{eventId:String(ctx.event.eventId)});
+    }catch(_){}
+  }
+  async function requestSwUpdate(){
+    try{
+      if(!("serviceWorker" in navigator)||navigator.onLine===false)return;
+      const reg=await navigator.serviceWorker.getRegistration();
+      if(reg)setTimeout(()=>reg.update().catch(()=>{}),800);
+    }catch(_){}
+  }
+  async function clearUpdateGuard(checkUpdate=true){
+    try{if("caches" in globalThis){const cache=await caches.open(UPDATE_GUARD_CACHE);await cache.delete(UPDATE_GUARD_URL);}}catch(_){}
+    emit("update_guard_off");
+    if(checkUpdate)requestSwUpdate();
+  }
+  function write(ctx){state.context=ctx;try{localStorage.setItem(KEY,JSON.stringify(ctx));}catch(_){}writeUpdateGuard(ctx);}
+  function clear(){state.context=null;try{localStorage.removeItem(KEY);}catch(_){}clearUpdateGuard(true);}
   function saveFrom(detail,status=state.status||""){
     const event=cleanEvent(detail?.event),auth=cleanAuth(detail?.auth),runId=String(detail?.runId||"");
     if(!event?.eventId||!auth?.uid||!runId)return;
@@ -111,6 +139,7 @@
   state.context=read();
   if(state.context){
     state.status=String(state.context.status||"").toLowerCase();
+    writeUpdateGuard(state.context);
     emit("idle",{message:"Hay una carrera protegida para recuperación."});
 
     /* I3.1: al arrancar totalmente offline Firebase Auth puede no haber restaurado aún
