@@ -2,11 +2,34 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-i3-1-offline-auto-open-active-race-20260928";
+const BUILD_ID="v2-i4-safe-update-guard-20260928";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
 const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
+
+/* I4 · Guardia de actualización durante carrera activa.
+   runner-resilience-v2 escribe este lock en Cache Storage. Si un nuevo SW se
+   descarga mientras una carrera está EN CARRERA, su instalación se rechaza
+   de forma deliberada. Así, incluso si el corredor cierra completamente la PWA,
+   la siguiente apertura conserva la versión que inició la carrera. */
+const UPDATE_GUARD_CACHE="militopo-v2-update-guard";
+const UPDATE_GUARD_URL=new URL("./__militopo_active_race_lock__",self.registration.scope).href;
+const UPDATE_GUARD_MAX_AGE_MS=36*60*60*1000;
+async function activeRaceUpdateLock(){
+  try{
+    const cache=await caches.open(UPDATE_GUARD_CACHE);
+    const res=await cache.match(UPDATE_GUARD_URL);
+    if(!res)return null;
+    const data=await res.json();
+    const status=String(data?.status||"").toLowerCase();
+    const updatedAt=Number(data?.updatedAt||0);
+    const fresh=updatedAt>0&&(Date.now()-updatedAt)<=UPDATE_GUARD_MAX_AGE_MS;
+    if(fresh&&["racing","started"].includes(status)&&data?.eventId&&data?.runId)return data;
+    await cache.delete(UPDATE_GUARD_URL);
+  }catch(_){}
+  return null;
+}
 
 /* Rutas EXACTAS que carga index.html o sus imports directos. No mezclar queries de otras fases. */
 const APP_SHELL=[
@@ -30,7 +53,7 @@ const APP_SHELL=[
   "./js/v2/live/runner-dashboard.js?v=v2-i2-3-reconnect-coordinator-20260927",
   "./js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-20260924",
   "./js/v2/live/runner-gps-v2.js?v=v2-i3-active-race-offline-recovery-20260927",
-  "./js/v2/live/runner-resilience-v2.js?v=v2-i3-1-offline-auto-open-active-race-20260928",
+  "./js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
   "./js/v2/live/runner-controls-v2.js?v=v2-i3-active-race-offline-recovery-20260927",
   "./js/v2/live/runner-race-v2.js?v=v2-i3-active-race-offline-recovery-20260927"
 ];
@@ -96,8 +119,11 @@ function isAppCode(url,req){
 }
 
 self.addEventListener("install",event=>{
-  /* NO skipWaiting(): una versión nueva no puede tomar el control en mitad de una carrera. */
+  /* NO skipWaiting(). I4 añade además un guard persistente: si este dispositivo
+     tiene una carrera activa, ni siquiera instalamos la nueva versión. */
   event.waitUntil((async()=>{
+    const lock=await activeRaceUpdateLock();
+    if(lock)throw new Error(`MILITOPO_UPDATE_DEFERRED_ACTIVE_RACE:${lock.eventId}:${lock.runId}`);
     const cache=await caches.open(CACHE_NAME);
     const runtime=await caches.open(RUNTIME_CACHE);
     /* El núcleo local sí es obligatorio. Si falta un archivo, no activamos una shell incompleta. */
