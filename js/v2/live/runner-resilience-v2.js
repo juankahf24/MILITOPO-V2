@@ -4,7 +4,7 @@
    Al volver Internet, runner-race-v2 reconcilia RTDB/Functions sin recargar la app. */
 (function(){
   "use strict";
-  const VERSION="v2-i3-active-race-offline-recovery-20260927";
+  const VERSION="v2-i3-1-offline-auto-open-active-race-20260928";
   const KEY="militopo_v2_active_race_v3";
   const MAX_AGE_MS=24*60*60*1000;
   const state={context:null,status:"",wake:null,restoring:false,restoreTimer:null};
@@ -109,6 +109,24 @@
   globalThis.addEventListener("pagehide",()=>{const saved=read();if(saved)write({...saved,savedAt:Date.now()});});
 
   state.context=read();
-  if(state.context){state.status=String(state.context.status||"").toLowerCase();emit("idle",{message:"Hay una carrera protegida para recuperación."});}
-  globalThis.MILITOPO_RUNNER_RESILIENCE_V2=Object.freeze({snapshot:()=>({active:!!read(),status:state.status,wake:!!state.wake&&!state.wake.released,context:read()}),restore:()=>restore(currentAuth()),clear});
+  if(state.context){
+    state.status=String(state.context.status||"").toLowerCase();
+    emit("idle",{message:"Hay una carrera protegida para recuperación."});
+
+    /* I3.1: al arrancar totalmente offline Firebase Auth puede no haber restaurado aún
+       MILITOPO_V2_AUTH, aunque el dashboard runner sí tenga su snapshot local.
+       Una carrera que YA estaba racing/started debe abrirse desde su propia copia local
+       sin esperar a Firebase/RTDB. La seguridad del servidor sigue en Rules/Functions;
+       aquí solo reconstruimos la interfaz de la carrera del mismo uid guardado. */
+    if(["racing","started"].includes(state.status)){
+      setTimeout(()=>{
+        if(raceVisible())return;
+        const liveAuth=currentAuth();
+        const savedAuth=state.context?.auth||null;
+        const auth=(liveAuth?.role==="runner"&&String(liveAuth.uid||"")===String(savedAuth?.uid||""))?liveAuth:savedAuth;
+        if(auth?.role==="runner"&&auth?.uid) restore(auth);
+      },850);
+    }
+  }
+  globalThis.MILITOPO_RUNNER_RESILIENCE_V2=Object.freeze({snapshot:()=>({active:!!read(),status:state.status,wake:!!state.wake&&!state.wake.released,context:read()}),restore:()=>restore(currentAuth()||state.context?.auth||null),clear});
 })();
