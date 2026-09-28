@@ -43,7 +43,7 @@
             opacity: 1;
             visibility: visible;
         }
-        /* I5.2 · Launch screen premium expandido: más presencia visual, lenguaje militar/topográfico,
+        /* I5.3 · Launch screen premium refinado: más presencia visual, lenguaje militar/topográfico,
            radar de gran formato y composición de pantalla completa. */
         #militopoLaunchSplash {
             position: fixed; inset: 0; z-index: 100500; display: none; place-items: center;
@@ -67,6 +67,8 @@
         .mt-launch-overlay-panel,
         .mt-launch-center { position:absolute; }
         .mt-launch-noise { inset:0; opacity:.065; pointer-events:none; background-image:radial-gradient(rgba(255,255,255,.8) .7px, transparent .8px); background-size:18px 18px; mix-blend-mode:soft-light; }
+        .mt-launch-scanline { position:absolute; inset:-16% 0 auto; height:18%; pointer-events:none; opacity:.16; background:linear-gradient(to bottom,transparent,rgba(192,226,153,.08),rgba(239,218,160,.13),rgba(192,226,153,.045),transparent); filter:blur(2px); animation:mtLaunchScan 7.4s ease-in-out infinite; }
+        .mt-launch-corners { position:absolute; inset:22px; pointer-events:none; opacity:.48; background:linear-gradient(#d8c58b,#d8c58b) left top/36px 1px no-repeat,linear-gradient(#d8c58b,#d8c58b) left top/1px 36px no-repeat,linear-gradient(#d8c58b,#d8c58b) right top/36px 1px no-repeat,linear-gradient(#d8c58b,#d8c58b) right top/1px 36px no-repeat,linear-gradient(#d8c58b,#d8c58b) left bottom/36px 1px no-repeat,linear-gradient(#d8c58b,#d8c58b) left bottom/1px 36px no-repeat,linear-gradient(#d8c58b,#d8c58b) right bottom/36px 1px no-repeat,linear-gradient(#d8c58b,#d8c58b) right bottom/1px 36px no-repeat; }
         .mt-launch-aurora { inset:-8%; pointer-events:none; background:
             radial-gradient(circle at 50% 18%, rgba(246,219,160,.18), transparent 25%),
             radial-gradient(circle at 50% 52%, rgba(140,189,106,.12), transparent 32%),
@@ -89,7 +91,7 @@
               0 0 0 90px rgba(236,213,154,.018),
               0 0 0 180px rgba(236,213,154,.012),
               inset 0 0 120px rgba(0,0,0,.22);
-            animation:mtLaunchRotate 42s linear infinite;
+            animation:mtLaunchRotate 52s linear infinite;
             background:
               radial-gradient(circle at center, rgba(255,246,224,.085) 0 5%, transparent 6% 100%),
               repeating-radial-gradient(circle at center, rgba(236,213,154,.08) 0 1px, transparent 1px 56px);
@@ -111,9 +113,9 @@
         .mt-launch-overlay-panel {
             z-index:1; display:flex; flex-direction:column; gap:6px; min-width:170px; max-width:min(38vw,280px);
             padding:12px 14px; border-radius:18px; box-sizing:border-box; pointer-events:none;
-            background:linear-gradient(145deg, rgba(13,24,18,.72), rgba(10,18,14,.42));
+            background:linear-gradient(145deg, rgba(13,24,18,.78), rgba(8,16,12,.48));
             border:1px solid rgba(228,205,145,.18);
-            box-shadow:0 18px 34px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.06);
+            box-shadow:0 20px 44px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.07);
             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             opacity:0; transform:translateY(10px); animation:mtLaunchPanel .95s ease forwards;
         }
@@ -139,12 +141,12 @@
             animation:mtLaunchMark 1.55s cubic-bezier(.16,.84,.24,1) .35s forwards; }
         .mt-launch-mark::before { content:""; position:absolute; inset:-34px; border-radius:50%; background:radial-gradient(circle,rgba(213,238,168,.16),transparent 64%); filter:blur(14px); animation:mtLaunchPulse 6.5s ease-in-out infinite; }
         .mt-launch-mark::after { content:""; position:absolute; inset:5.5%; border-radius:50%; border:1px dashed rgba(230,209,153,.22); }
-        .mt-launch-mark img { position:relative; width:72%; height:72%; object-fit:cover; border-radius:50%; filter:saturate(.96) contrast(1.05); box-shadow:0 24px 52px rgba(0,0,0,.34); }
+        .mt-launch-mark img { position:relative; width:76%; height:76%; object-fit:cover; border-radius:50%; filter:saturate(.96) contrast(1.05); box-shadow:0 24px 52px rgba(0,0,0,.34); }
         .mt-launch-word { display:flex; justify-content:center; gap:.055em; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:clamp(2.9rem,10.8vw,5.4rem); font-weight:900; line-height:.94; letter-spacing:.08em; color:#fff8e9; text-shadow:0 14px 38px rgba(0,0,0,.36); }
         .mt-launch-word span { display:inline-block; opacity:0; transform:translateY(24px) scale(.95); filter:blur(5px); animation:mtLaunchLetter .92s cubic-bezier(.16,.84,.24,1) forwards; animation-delay:calc(1.5s + var(--i)*.17s); }
         .mt-launch-sub { margin-top:-2px; padding:8px 18px; border-radius:999px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.78rem; font-weight:800; letter-spacing:.28em; text-transform:uppercase; color:rgba(245,233,202,.72); background:rgba(6,14,11,.34); border:1px solid rgba(244,228,186,.11); opacity:0; animation:mtLaunchFade .82s ease 3.2s forwards; }
         .mt-launch-progress { width:min(76vw,360px); height:5px; margin-top:6px; overflow:hidden; border-radius:999px; background:rgba(255,255,255,.09); opacity:0; animation:mtLaunchFade .72s ease 3.0s forwards; box-shadow:inset 0 1px 1px rgba(255,255,255,.04); }
-        .mt-launch-progress span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,#7cb56b,#d0b06d 42%,#f5df9d 70%,#7cb56b); box-shadow:0 0 16px rgba(225,201,127,.38); animation:mtLaunchLoad 4.65s cubic-bezier(.18,.72,.22,1) 2.85s forwards; }
+        .mt-launch-progress span { display:block; width:0; height:100%; border-radius:inherit; background:linear-gradient(90deg,#7cb56b,#d0b06d 42%,#f5df9d 70%,#7cb56b); box-shadow:0 0 16px rgba(225,201,127,.38); animation:mtLaunchLoad 6.3s cubic-bezier(.18,.72,.22,1) 3.05s forwards; }
         .mt-launch-status { min-height:1.35em; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.76rem; font-weight:800; letter-spacing:.16em; color:rgba(246,239,218,.74); text-transform:uppercase; opacity:0; animation:mtLaunchFade .85s ease 3.45s forwards; }
         #militopoLaunchSplash.is-leaving .mt-launch-shell { transform:scale(1.018); transition:transform .68s cubic-bezier(.22,.8,.24,1); }
         @keyframes mtLaunchLetter { 0%{opacity:0;transform:translateY(24px) scale(.95);filter:blur(5px)} 70%{opacity:1;transform:translateY(-1px) scale(1.01);filter:blur(0)} 100%{opacity:1;transform:none;filter:blur(0)} }
@@ -155,6 +157,7 @@
         @keyframes mtLaunchPulse { 0%,100%{opacity:.55;transform:scale(.96)} 50%{opacity:1;transform:scale(1.05)} }
         @keyframes mtLaunchAurora { from{transform:translateY(-1.5%) scale(1)} to{transform:translateY(1.8%) scale(1.04)} }
         @keyframes mtLaunchPanel { to{opacity:1;transform:none} }
+        @keyframes mtLaunchScan { 0%{transform:translateY(-120%);opacity:0} 15%{opacity:.14} 72%{opacity:.12} 100%{transform:translateY(760%);opacity:0} }
         @media (max-width: 720px) {
             .mt-launch-overlay-panel { min-width:136px; padding:10px 12px; gap:4px; }
             .mt-launch-overlay-panel small { font-size:.54rem; letter-spacing:.22em; }
@@ -199,6 +202,8 @@
 
 <div id="militopoLaunchSplash" aria-hidden="true">
     <div class="mt-launch-noise"></div>
+    <div class="mt-launch-scanline"></div>
+    <div class="mt-launch-corners"></div>
     <div class="mt-launch-aurora"></div>
     <div class="mt-launch-contours"></div>
     <div class="mt-launch-grid"></div>
@@ -250,8 +255,8 @@
   const t0=(performance&&performance.now)?performance.now():Date.now();
   let activeRace=false;
   try{const a=JSON.parse(localStorage.getItem("militopo_v2_active_race_v3")||"null");activeRace=!!(a&&["racing","started"].includes(String(a.status||"").toLowerCase())&&a.eventId&&a.runId);}catch(_){}
-  const minMs=activeRace?900:6500;
-  const maxMs=activeRace?1500:7800;
+  const minMs=activeRace?900:8500;
+  const maxMs=activeRace?1500:9800;
   if(status)status.textContent=!navigator.onLine?(activeRace?"Modo offline · recuperando carrera":"Modo offline · recuperando sesión"):(activeRace?"Recuperando carrera activa":"Preparando entorno seguro");
   let closed=false;
   function finish(label){
@@ -266,10 +271,10 @@
   addEventListener("militopo:v2-auth-signed-out",()=>finish("Acceso preparado"),{once:true});
   addEventListener("load",()=>{
     if(activeRace){setTimeout(()=>finish("Carrera recuperada"),220);return;}
-    setTimeout(()=>{if(!closed&&status)status.textContent="Verificando sesión y recursos";},1400);
-    setTimeout(()=>{if(!closed&&status)status.textContent=navigator.onLine?"Sincronizando entorno operativo":"Modo offline · preparando datos locales";},3000);
-    setTimeout(()=>{if(!closed&&status)status.textContent="Preparando interfaz MILITOPO";},4550);
-    setTimeout(()=>finish("MILITOPO listo"),5900);
+    setTimeout(()=>{if(!closed&&status)status.textContent="Verificando sesión y recursos";},1800);
+    setTimeout(()=>{if(!closed&&status)status.textContent=navigator.onLine?"Sincronizando entorno operativo":"Modo offline · preparando datos locales";},4100);
+    setTimeout(()=>{if(!closed&&status)status.textContent="Preparando interfaz MILITOPO";},6100);
+    setTimeout(()=>finish("MILITOPO listo"),7900);
   },{once:true});
   setTimeout(()=>finish(activeRace?"Recuperando carrera":"MILITOPO listo"),maxMs);
 })();
