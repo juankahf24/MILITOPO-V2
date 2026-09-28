@@ -5,7 +5,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-h6-9-coordinated-finish-20260926";
+  const VERSION="v2-i3-active-race-offline-recovery-20260927";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -99,8 +99,10 @@
     state.journal=Array.isArray(local.journal)?local.journal:[];
     if(!state.journal.length){for(const row of state.passes)journalAdd(row);for(const row of (Array.isArray(local.queue)?local.queue:[]))journalAdd(row);}
     state.completedCount=Math.max(0,Number(local.completedCount||0));
+    state.serverCompletedCount=Math.max(0,Number(local.serverCompletedCount||0));
     state.queue=Array.isArray(local.queue)?local.queue:[];
-    if(local.finishValidated){state.finishValidated=true;state.finishPass=local.finishPass||null;if(state.finishPass)journalAdd(state.finishPass);}
+    state.serverFinishValidated=Boolean(local.serverFinishValidated);
+    if(local.finishValidated||state.serverFinishValidated){state.finishValidated=true;state.finishPass=local.finishPass||null;if(state.finishPass)journalAdd(state.finishPass);}
   }
 
   function rebuildPendingQueue(){
@@ -156,7 +158,7 @@
     state.completedCount=0;state.serverCompletedCount=0;state.queue=[];state.passes=[];state.journal=[];state.lastFix=null;state.lastAutoAt=0;state.finishValidated=false;state.serverFinishValidated=false;state.finishPass=null;state.serverAttemptIds=new Set();state.flushing=false;state.flushAgain=false;state.localHydrated=false;state.lastSyncError="";state.syncFailureCount=0;
     state.storageKey=contextKey();
     hydrateLocalOnce();
-    progressFromServer(progress||null);reconcile();
+    if(progress&&typeof progress==="object")progressFromServer(progress);else reconcile();
     preloadQrReader().catch(()=>{});
     if(navigator.onLine!==false)flush().catch(()=>{});
     emit("ready");

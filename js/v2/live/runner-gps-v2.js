@@ -3,7 +3,7 @@
    El track se guarda localmente y se sincroniza al recuperar conexión. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-h6-1-live-controls-qr-20260925";
+const VERSION = "v2-i3-active-race-offline-recovery-20260927";
 const MIN_WRITE_MS = 4000;
 const FORCE_WRITE_MS = 12000;
 const MIN_MOVE_M = 3;
@@ -60,20 +60,9 @@ function contextPath() {
   return `v2/live/${c.ownerUid}/${c.eventId}/runs/${c.runId}/participants/${c.uid}/gps`;
 }
 
-async function writeFix(fix, force = false) {
-  if (!fix || !state.active) return;
-  // Evento local de alta frecuencia: la validación de balizas funciona aunque
-  // este punto no se publique todavía en RTDB o no haya cobertura.
-  try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-gps-fix", { detail: { fix: { ...fix }, version: VERSION } })); } catch (_) {}
-  const now = Date.now();
-  const elapsed = state.lastSent ? now - state.lastSent.updatedAt : Infinity;
-  const moved = state.lastSent ? distanceM(state.lastSent, fix) : Infinity;
-  if (!force && elapsed < MIN_WRITE_MS) return;
-  if (!force && elapsed < FORCE_WRITE_MS && moved < MIN_MOVE_M) return;
-
-  trackApi()?.record?.(fix);
+async function publishFix(fix) {
   const path = contextPath();
-  if (!path) return;
+  if (!path || !fix || navigator.onLine === false) return false;
   try {
     const { database } = await services();
     await update(ref(database, path), {
@@ -83,13 +72,33 @@ async function writeFix(fix, force = false) {
       accuracy: Math.round(fix.accuracy * 10) / 10,
       updatedAt: fix.updatedAt
     });
-    state.lastSent = { ...fix };
     state.lastError = "";
     emit("active", { fix: { ...fix } });
+    return true;
   } catch (error) {
     state.lastError = String(error?.message || error);
-    emit("error", { message: state.lastError });
+    emit(navigator.onLine === false ? "offline_active" : "error", { message: state.lastError, fix: { ...fix } });
+    return false;
   }
+}
+
+async function writeFix(fix, force = false) {
+  if (!fix || !state.active) return;
+  try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-gps-fix", { detail: { fix: { ...fix }, version: VERSION } })); } catch (_) {}
+  const now = Date.now();
+  const elapsed = state.lastSent ? now - state.lastSent.updatedAt : Infinity;
+  const moved = state.lastSent ? distanceM(state.lastSent, fix) : Infinity;
+  if (!force && elapsed < MIN_WRITE_MS) return;
+  if (!force && elapsed < FORCE_WRITE_MS && moved < MIN_MOVE_M) return;
+
+  trackApi()?.record?.(fix);
+  state.lastSent = { ...fix };
+  if (navigator.onLine === false) {
+    state.lastError = "";
+    emit("offline_active", { fix: { ...fix }, message: "GPS activo sin cobertura. La posición y el track se guardan en el dispositivo." });
+    return;
+  }
+  await publishFix(fix);
 }
 
 function geolocationError(error) {
@@ -208,6 +217,13 @@ function snapshot() {
     lastError: state.lastError
   };
 }
+
+window.addEventListener("online", () => {
+  if (state.active && state.lastSent) publishFix({ ...state.lastSent, updatedAt: Date.now() }).catch(() => {});
+});
+window.addEventListener("offline", () => {
+  if (state.active) emit("offline_active", { fix: state.lastSent ? { ...state.lastSent } : null, message: "GPS activo sin cobertura. El track continúa guardándose localmente." });
+});
 
 globalThis.MILITOPO_RUNNER_GPS_V2 = Object.freeze({
   prepare,
