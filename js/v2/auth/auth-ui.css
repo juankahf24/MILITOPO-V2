@@ -246,3 +246,24 @@
   .m2-account-overlay { padding:0; align-items:end; }
   .m2-account-card { width:100%; max-height:92dvh; border-radius:24px 24px 0 0; border-bottom:0; padding:20px 18px max(20px, env(safe-area-inset-bottom)); }
 }
+
+
+/* I5.4 · iOS/PWA standalone: mantener MI CUENTA visible y fuera de problemas de composición WebKit. */
+@media (display-mode: standalone) {
+  #militopoV2AccountBadge {
+    position: fixed !important;
+    top: max(14px, env(safe-area-inset-top)) !important;
+    right: max(12px, env(safe-area-inset-right)) !important;
+    z-index: 2147483000 !important;
+    transform: translate3d(0,0,0) !important;
+    -webkit-transform: translate3d(0,0,0) !important;
+    isolation: isolate;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(8,13,9,.97) !important;
+    box-shadow: 0 10px 34px rgba(0,0,0,.42) !important;
+  }
+}
+html.militopo-pwa-launch #militopoV2AccountBadge {
+  z-index: 2147483000 !important;
+}

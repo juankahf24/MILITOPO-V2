@@ -57,10 +57,45 @@ function writeAuthSnapshot(value) {
 function clearAuthSnapshot() {
   try { localStorage.removeItem(AUTH_SNAPSHOT_KEY); } catch (_) {}
 }
+function paintAccountFromSnapshot(snapshot = readAuthSnapshot()) {
+  if (!snapshot?.uid) return false;
+  const role = normalizeRole(snapshot.role || "runner");
+  const name = snapshot.displayName || snapshot.email || "Usuario";
+  const username = String(snapshot.username || snapshot.usernameKey || "").replace(/^@/, "");
+  const badge = el("militopoV2AccountBadge");
+  const badgeName = el("m2AuthBadgeName");
+  const badgeRole = el("m2AuthBadgeRole");
+  if (badgeName) badgeName.textContent = name;
+  if (badgeRole) badgeRole.textContent = username ? `@${username} · ${roleLabel(role)}` : roleLabel(role);
+  const avatar = initials(name);
+  [el("m2AuthAvatar"), el("m2AccountAvatar")].forEach(node => { if (node) node.textContent = avatar; });
+  if (badge) {
+    badge.hidden = false;
+    badge.style.removeProperty("display");
+  }
+  return true;
+}
+function restoreAccountBadgeVisual() {
+  if (state.currentUser) {
+    paintAccount(state.currentUser, state.profile?.displayName || state.currentUser.displayName || null);
+    if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
+    return true;
+  }
+  return paintAccountFromSnapshot();
+}
 function clearRunnerRestoreHint({ clearSnapshot = false } = {}) {
   try { localStorage.removeItem(LAST_ROLE_KEY); } catch (_) {}
   if (clearSnapshot) clearAuthSnapshot();
   try { document.documentElement.classList.remove("militopo-runner-restore"); } catch (_) {}
+}
+function isStandaloneMode() {
+  try {
+    return Boolean((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true);
+  } catch (_) { return false; }
+}
+function hasCachedAuthSnapshot() {
+  const snap = readAuthSnapshot();
+  return Boolean(snap?.uid && snap?.role);
 }
 function hasOfflineRunnerSnapshot() {
   try {
@@ -806,6 +841,10 @@ async function saveAccount(event) {
 
 async function init() {
   buildUi();
+  // I5.4: en iOS standalone el badge fixed puede perderse entre navegaciones aunque
+  // la sesión siga guardada. Pintamos de inmediato desde el snapshot local y Firebase
+  // lo confirmará/actualizará después.
+  restoreAccountBadgeVisual();
   state.trustedDeviceAtBoot = trustedDeviceEnabled();
   if (el("m2AuthRemember")) el("m2AuthRemember").checked = keepSessionEnabled();
   setMode("login");
@@ -909,15 +948,41 @@ async function init() {
     if (event.key === "Escape" && !el("militopoV2AccountPanel")?.hidden) closeAccountPanel();
   });
 
+  // I5.4: WebKit standalone puede perder la capa fixed del badge al volver de otra vista.
+  // Repintarlo desde Auth/snapshot no altera permisos; solo restaura la UI de cuenta.
+  globalThis.addEventListener("pageshow", () => queueMicrotask(restoreAccountBadgeVisual));
+  globalThis.addEventListener("militopo:v2-auth-ready", () => queueMicrotask(restoreAccountBadgeVisual));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) setTimeout(restoreAccountBadgeVisual, 60);
+  });
+
   onAuthStateChanged(state.services.auth, async user => {
     try {
       if (!user) {
-        // I2.1: Firebase Auth puede tardar/no resolver currentUser al arrancar
-        // completamente offline. No interpretar ese estado transitorio como logout
-        // si ya existe un snapshot runner local válido.
-        if (hasOfflineRunnerSnapshot()) {
+        // I2.1/I5.4: Firebase Auth puede tardar en rehidratarse en iOS standalone.
+        // Mantener visualmente el badge/snapshot durante una ventana corta NO concede
+        // permisos: organizer-guard/Firestore/Functions siguen dependiendo de Auth real.
+        if (hasOfflineRunnerSnapshot() || (isStandaloneMode() && hasCachedAuthSnapshot())) {
+          restoreAccountBadgeVisual();
           closeAccountPanel();
           if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
+          if (navigator.onLine && isStandaloneMode()) {
+            setTimeout(() => {
+              const current = state.services?.auth?.currentUser;
+              if (current) {
+                enterApp(current).catch(error => console.warn("[MILITOPO V2 Auth] standalone rehydrate", error));
+                return;
+              }
+              // Si tras la gracia sigue sin existir Auth real, volver al flujo normal de login.
+              state.currentUser = null;
+              state.profile = null;
+              closeAccountPanel();
+              if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = true;
+              clearAuthSnapshot();
+              try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-signed-out")); } catch (_) {}
+              showMainView();
+            }, 4500);
+          }
           return;
         }
         state.currentUser = null;
