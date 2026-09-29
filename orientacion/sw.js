@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-i2-offline-sdk-legacy-retire-20260927";
+const BUILD_ID="v2-i5-4-pwa-account-hqlogo-20260929";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -27,8 +27,8 @@ const CORE_ASSETS=[
   "../js/v2/bootstrap.js",
   "../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../js/v2/auth/roles.js",
-  "../js/v2/auth/auth-ui.css?v=v2-f3b-runtimefix-20260924",
-  "../js/v2/auth/auth-ui.js?v=v2-i1-1-role-routing-20260927",
+  "../js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929",
+  "../js/v2/auth/auth-ui.js?v=v2-i5-4-pwa-account-hqlogo-20260929",
   "../js/v2/auth/organizer-guard.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/invitations.js?v=v2-invites-published-only-20260924",
   "../js/v2/data/participants-admin.js?v=v2-h4-23-route-assignment-20260925",
