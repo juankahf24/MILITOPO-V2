@@ -141,7 +141,7 @@
             animation:mtLaunchMark 1.55s cubic-bezier(.16,.84,.24,1) .35s forwards; }
         .mt-launch-mark::before { content:""; position:absolute; inset:-34px; border-radius:50%; background:radial-gradient(circle,rgba(213,238,168,.16),transparent 64%); filter:blur(14px); animation:mtLaunchPulse 6.5s ease-in-out infinite; }
         .mt-launch-mark::after { content:""; position:absolute; inset:5.5%; border-radius:50%; border:1px dashed rgba(230,209,153,.22); }
-        .mt-launch-mark img { position:relative; width:90%; height:90%; object-fit:cover; object-position:50% 50%; image-rendering:auto; -webkit-transform:translateZ(0); transform:translateZ(0); border-radius:50%; filter:saturate(1.02) contrast(1.04); box-shadow:0 24px 52px rgba(0,0,0,.34); }
+        .mt-launch-mark img { position:relative; width:88%; height:88%; object-fit:cover; object-position:50% 50%; background:#000; image-rendering:auto; -webkit-transform:translateZ(0); transform:translateZ(0); border-radius:50%; filter:saturate(1.02) contrast(1.04); box-shadow:0 24px 52px rgba(0,0,0,.34); }
         .mt-launch-word { display:flex; justify-content:center; gap:.055em; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:clamp(2.9rem,10.8vw,5.4rem); font-weight:900; line-height:.94; letter-spacing:.08em; color:#fff8e9; text-shadow:0 14px 38px rgba(0,0,0,.36); }
         .mt-launch-word span { display:inline-block; opacity:0; transform:translateY(24px) scale(.95); filter:blur(5px); animation:mtLaunchLetter .92s cubic-bezier(.16,.84,.24,1) forwards; animation-delay:calc(1.5s + var(--i)*.17s); }
         .mt-launch-sub { margin-top:-2px; padding:8px 18px; border-radius:999px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.78rem; font-weight:800; letter-spacing:.28em; text-transform:uppercase; color:rgba(245,233,202,.72); background:rgba(6,14,11,.34); border:1px solid rgba(244,228,186,.11); opacity:0; animation:mtLaunchFade .82s ease 3.2s forwards; }
@@ -177,8 +177,8 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icons/militopo-192.png">
     <link rel="apple-touch-icon" href="icons/militopo-192.png">
-    <link rel="apple-touch-startup-image" href="icons/militopo-startup-premium-2048x3072.jpg">
-    <link rel="preload" as="image" href="icons/militopo-startup-premium-2048x3072.jpg" fetchpriority="high">
+    <link rel="apple-touch-startup-image" href="icons/militopo-startup-1536.png">
+    <link rel="preload" as="image" href="icons/militopo-startup-1536.png" fetchpriority="high">
     <link rel="preload" as="image" href="icons/militopo-startup-1536.png" fetchpriority="high">
     <link rel="preload" as="image" href="icons/militopo-512.png" fetchpriority="high">
     <!-- Leaflet CSS no bloquea el primer pintado del menú de inicio -->
@@ -236,7 +236,7 @@
         <span>Runner · Organizer · Histórico</span>
     </div>
     <div class="mt-launch-shell">
-        <div class="mt-launch-mark"><img src="icons/militopo-startup-premium-2048x3072.jpg" alt=""></div>
+        <div class="mt-launch-mark"><img src="icons/militopo-startup-1536.png" alt=""></div>
         <div class="mt-launch-word" aria-label="MILITOPO">
             <span style="--i:0">M</span><span style="--i:1">I</span><span style="--i:2">L</span><span style="--i:3">I</span><span style="--i:4">T</span><span style="--i:5">O</span><span style="--i:6">P</span><span style="--i:7">O</span>
         </div>
@@ -303,7 +303,7 @@
     <div class="header header-clean-topografia">
         <div class="header-content header-content-clean">
             <div class="topo-militar topo-militar-clean">
-                <img class="logo-imagen logo-imagen-clean" src="icons/militopo-startup-premium-2048x3072.jpg" alt="Logo MILITOPO">
+                <img class="logo-imagen logo-imagen-clean" src="icons/militopo-startup-1536.png" alt="Logo MILITOPO">
                 <div class="topo-info topo-info-clean">
                     <h1>MILITOPO</h1>
                     <div class="topografia-subtitle-clean">TOPOGRAFÍA</div>
