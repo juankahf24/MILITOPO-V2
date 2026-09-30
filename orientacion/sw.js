@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-i6b-history-playback-ranking-20260930";
+const BUILD_ID="v2-i6b2-history-objective-cache-20260930";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -39,7 +39,7 @@ const CORE_ASSETS=[
   "../js/v2/data/event-lifecycle.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924",
-  "../js/v2/live/organizer-monitor.js?v=v2-i6a3-discard-official-hotfix-20260930",
+  "../js/v2/live/organizer-monitor.js?v=v2-i6b2-history-objective-cache-20260930",
   "../js/v2/live/organizer-live-map.js?v=v2-g5-live-cartography-20260924",
   "../js/v2/data/event-results.js?v=v2-i6b-ranking-official-20260930"
 ];
@@ -84,7 +84,8 @@ function isAppCode(url,req){
 }
 
 self.addEventListener("install",event=>{
-  /* NO skipWaiting(): no sustituir código mientras organizador/corredor tienen una sesión abierta. */
+  /* La página actual no se recarga sola; el SW nuevo queda listo para la siguiente
+     navegación, evitando tener que borrar manualmente la caché del navegador. */
   event.waitUntil((async()=>{
     const cache=await caches.open(MILITOPO_CACHE);
     const runtime=await caches.open(RUNTIME_CACHE);
@@ -92,6 +93,9 @@ self.addEventListener("install",event=>{
     /* I2: Firebase y librerías remotas se precachean en el mismo runtime cache
        que consulta el fetch handler. */
     await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(runtime,u)));
+    /* La versión instalada queda preparada para la siguiente navegación sin
+       exigir borrar caché manualmente. No forzamos una recarga de la página. */
+    await self.skipWaiting();
   })());
 });
 
