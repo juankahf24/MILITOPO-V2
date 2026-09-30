@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-i2-3-reconnect-coordinator-20260927";
-  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set(), onlineRevalidating:false, onlineRefreshPromise:null };
+  const VERSION = "v2-i6b-history-playback-ranking-20260930";
+  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", detailPlaybackLayer:null, detailPlaybackMarker:null, detailPlaybackTrail:null, detailPlaybackPoints:[], detailPlaybackPlaying:false, detailPlaybackRaf:0, detailPlaybackLastFrame:0, detailPlaybackCurrentMs:0, detailPlaybackDurationMs:0, detailPlaybackSpeed:1, active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set(), onlineRevalidating:false, onlineRefreshPromise:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
   const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
@@ -237,12 +237,13 @@
       .m2rd-account{position:relative;width:100%;min-height:44px;margin-top:12px;border-radius:13px;border:1px solid rgba(240,193,106,.38);background:rgba(240,193,106,.10);color:#fff1d2;font:inherit;font-weight:900}.m2rd-account-badge{position:absolute;right:10px;top:50%;transform:translateY(-50%);min-width:20px;height:20px;padding:0 6px;border-radius:999px;display:grid;place-items:center;background:#f0c66f;color:#17130b;font-size:.68rem;font-weight:1000;border:2px solid #1a2b18}.m2rd-account-badge[hidden]{display:none!important}.m2rd-status{padding:10px 11px;border-radius:13px;background:rgba(255,255,255,.035);color:#c7bda8;font-size:.78rem;line-height:1.45}.m2rd-status.ok{border:1px solid rgba(126,220,150,.25);color:#dcf4cf}.m2rd-status.err{border:1px solid rgba(255,142,122,.28);color:#ffd0c8}
       .m2rd-events{display:grid;gap:10px;margin-top:10px}.m2rd-event{border:1px solid rgba(255,255,255,.10);border-radius:16px;background:rgba(255,255,255,.035);padding:13px}.m2rd-event strong{display:block;font-size:.94rem}.m2rd-event-meta{margin-top:4px;color:#b7ad99;font-size:.72rem}.m2rd-pill{display:inline-block;margin-top:8px;padding:5px 9px;border-radius:999px;border:1px solid rgba(126,220,150,.36);color:#e0f6d4;font-size:.68rem;font-weight:900}.m2rd-route{margin-top:9px;padding:10px;border-radius:12px;border:1px solid rgba(240,193,106,.28);background:rgba(240,193,106,.07)}.m2rd-route-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:.72rem;font-weight:900;color:#f2dfb5}.m2rd-route-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:7px}.m2rd-route-grid span{display:block;padding:6px 5px;border-radius:9px;background:rgba(0,0,0,.14);font-size:.58rem;color:#9e9b8e}.m2rd-route-grid strong{display:block;margin-top:2px;color:#f3f0e8;font-size:.68rem;overflow-wrap:anywhere}.m2rd-route-seq{margin-top:7px;font-size:.62rem;line-height:1.45;color:#bdb49f;overflow-wrap:anywhere}.m2rd-note{margin-top:9px;padding:9px 10px;border-radius:12px;background:rgba(240,193,106,.08);color:#eadbbf;font-size:.75rem;line-height:1.4}.m2rd-live{margin-top:9px;padding:9px 10px;border-radius:12px;border:1px solid rgba(126,220,150,.28);background:rgba(126,220,150,.10);color:#ddf6d2;font-size:.75rem;font-weight:900}.m2rd-btn{width:100%;min-height:45px;margin-top:9px;border-radius:13px;border:1px solid rgba(126,220,150,.40);background:rgba(126,220,150,.15);color:#efffe8;font:inherit;font-weight:900}.m2rd-btn:disabled{opacity:.48}.m2rd-small{margin-top:10px;color:#978e7e;font-size:.68rem;line-height:1.45}
       .m2rd-history-head{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0}.m2rd-history-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);text-align:center}.m2rd-history-stat strong{display:block;font-size:1rem;color:#f4e7c8}.m2rd-history-stat span{display:block;margin-top:2px;font-size:.58rem;letter-spacing:.06em;color:#9f9889}.m2rd-history{display:grid;gap:9px}.m2rd-history-row{padding:12px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09)}.m2rd-history-top{display:flex;gap:8px;justify-content:space-between;align-items:flex-start}.m2rd-history-title{min-width:0}.m2rd-history-title strong{display:block;font-size:.9rem}.m2rd-history-date{margin-top:3px;color:#a9a18f;font-size:.68rem}.m2rd-history-state{flex:0 0 auto;padding:4px 7px;border-radius:999px;font-size:.61rem;font-weight:900;border:1px solid rgba(126,220,150,.30);color:#daf3cf}.m2rd-history-state.incomplete{border-color:rgba(240,193,106,.34);color:#f5dfaf}.m2rd-history-state.not_started{border-color:rgba(170,170,170,.25);color:#c4c4c4}.m2rd-history-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:9px}.m2rd-history-metric{padding:7px;border-radius:10px;background:rgba(0,0,0,.12)}.m2rd-history-metric span{display:block;font-size:.56rem;color:#8f978d;letter-spacing:.05em}.m2rd-history-metric strong{display:block;margin-top:3px;font-size:.76rem;color:#edf2e8}.m2rd-history-refresh{min-height:40px;margin-top:9px}.m2rd-history-detail-btn{width:100%;min-height:38px;margin-top:9px;border-radius:11px;border:1px solid rgba(240,193,106,.34);background:rgba(240,193,106,.10);color:#fff0cf;font:inherit;font-size:.72rem;font-weight:900}
-      .m2rd-detail{position:fixed;inset:0;z-index:100003;overflow:auto;background:rgba(4,8,5,.985);padding:max(72px,calc(env(safe-area-inset-top) + 58px)) 10px calc(28px + env(safe-area-inset-bottom));color:#f5e6c8}.m2rd-detail[hidden]{display:none!important}.m2rd-detail-shell{width:min(860px,100%);margin:0 auto;display:grid;gap:12px}.m2rd-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.m2rd-detail-head h2{margin:0;color:#f0c16a;font-size:1.15rem}.m2rd-detail-close{min-width:44px;min-height:40px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#fff;font:inherit;font-weight:900}.m2rd-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.m2rd-detail-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)}.m2rd-detail-stat span{display:block;font-size:.56rem;color:#9a9b8f;letter-spacing:.05em}.m2rd-detail-stat strong{display:block;margin-top:4px;font-size:.78rem;color:#eef3e9;overflow-wrap:anywhere}.m2rd-detail-maptools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:10px}.m2rd-detail-layer{min-height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.22);color:#f6efe2;font:inherit;font-size:.65rem;font-weight:900}.m2rd-detail-layer.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-detail-layer.loading{opacity:.62;cursor:wait}.m2rd-detail-layerstatus{min-height:18px;margin:6px 0 0;font-size:.64rem;opacity:.76}.m2rd-detail-layerstatus.err{color:#ffc5b9;opacity:1}.m2rd-detail-map{height:390px;margin-top:8px;border-radius:15px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:#172017}.m2rd-detail-note{margin-top:8px;color:#a9a18f;font-size:.67rem;line-height:1.4}.m2rd-control-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.m2rd-control-chip{padding:5px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.035);font-size:.62rem}.m2rd-control-chip.start{border-color:rgba(126,220,150,.35);color:#daf4d0}.m2rd-control-chip.finish{border-color:rgba(255,145,130,.30);color:#ffd3cb}.m2rd-pass-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:9px}.m2rd-pass-note{margin:9px 0;color:#aaa28f;font-size:.66rem;line-height:1.45}.m2rd-pass-table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-height:360px}.m2rd-pass-table{width:100%;min-width:690px;border-collapse:collapse}.m2rd-pass-table th,.m2rd-pass-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.62rem;text-align:left;white-space:nowrap}.m2rd-pass-table th{position:sticky;top:0;background:#172719;color:#f0dca6;font-size:.55rem}.m2rd-pass-ok{color:#cceec7;font-weight:900}.m2rd-pass-miss{color:#ffd0c8;font-weight:900}
+      .m2rd-detail{position:fixed;inset:0;z-index:100003;overflow:auto;background:rgba(4,8,5,.985);padding:max(72px,calc(env(safe-area-inset-top) + 58px)) 10px calc(28px + env(safe-area-inset-bottom));color:#f5e6c8}.m2rd-detail[hidden]{display:none!important}.m2rd-detail-shell{width:min(860px,100%);margin:0 auto;display:grid;gap:12px}.m2rd-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.m2rd-detail-head h2{margin:0;color:#f0c16a;font-size:1.15rem}.m2rd-detail-close{min-width:44px;min-height:40px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#fff;font:inherit;font-weight:900}.m2rd-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.m2rd-detail-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)}.m2rd-detail-stat span{display:block;font-size:.56rem;color:#9a9b8f;letter-spacing:.05em}.m2rd-detail-stat strong{display:block;margin-top:4px;font-size:.78rem;color:#eef3e9;overflow-wrap:anywhere}.m2rd-detail-maptools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:10px}.m2rd-detail-layer{min-height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.22);color:#f6efe2;font:inherit;font-size:.65rem;font-weight:900}.m2rd-detail-layer.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-detail-layer.loading{opacity:.62;cursor:wait}.m2rd-detail-layerstatus{min-height:18px;margin:6px 0 0;font-size:.64rem;opacity:.76}.m2rd-detail-layerstatus.err{color:#ffc5b9;opacity:1}.m2rd-detail-map{height:390px;margin-top:8px;border-radius:15px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:#172017}.m2rd-detail-note{margin-top:8px;color:#a9a18f;font-size:.67rem;line-height:1.4}.m2rd-control-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.m2rd-control-chip{padding:5px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.035);font-size:.62rem}.m2rd-control-chip.start{border-color:rgba(126,220,150,.35);color:#daf4d0}.m2rd-control-chip.finish{border-color:rgba(255,145,130,.30);color:#ffd3cb}.m2rd-pass-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:9px}.m2rd-pass-note{margin:9px 0;color:#aaa28f;font-size:.66rem;line-height:1.45}.m2rd-pass-table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-height:360px}.m2rd-pass-table{width:100%;min-width:690px;border-collapse:collapse}.m2rd-pass-table th,.m2rd-pass-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.62rem;text-align:left;white-space:nowrap}.m2rd-pass-table th{position:sticky;top:0;background:#172719;color:#f0dca6;font-size:.55rem}.m2rd-pass-ok{color:#cceec7;font-weight:900}.m2rd-pass-discard{color:#f3ca77;font-weight:900}.m2rd-pass-miss{color:#ffd0c8;font-weight:900}
+      .m2rd-playback{margin-top:10px;padding:10px;border-radius:14px;border:1px solid rgba(240,193,106,.18);background:rgba(0,0,0,.16)}.m2rd-playback-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.m2rd-playback-actions{display:flex;gap:6px;flex-wrap:wrap}.m2rd-playback-btn,.m2rd-playback-speed{min-height:36px;border-radius:10px;border:1px solid rgba(240,193,106,.30);background:rgba(240,193,106,.08);color:#fff0cf;font:inherit;font-size:.66rem;font-weight:900;padding:0 10px}.m2rd-playback-btn.primary{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-playback-time{font-size:.68rem;color:#d9d1c2;font-weight:900;white-space:nowrap}.m2rd-playback-slider{width:100%;margin:10px 0 2px;accent-color:#d8b45e}.m2rd-playback-meta{display:flex;justify-content:space-between;gap:8px;color:#a9a18f;font-size:.61rem}.m2rd-playback-empty{opacity:.58}.m2rd-playback-marker{width:20px;height:20px;border-radius:50%;background:#f0c16a;border:3px solid #fff;box-shadow:0 0 0 5px rgba(240,193,106,.24),0 3px 12px rgba(0,0,0,.55)}
       .m2rd-class-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.m2rd-class-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.m2rd-class-tab{min-height:38px;border-radius:11px;border:1px solid rgba(240,193,106,.28);background:rgba(240,193,106,.07);color:#f6ead1;font:inherit;font-size:.68rem;font-weight:900}.m2rd-class-tab.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-class-table-wrap{overflow:auto;margin-top:8px;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-height:350px}.m2rd-class-table{width:100%;min-width:720px;border-collapse:collapse}.m2rd-class-table th,.m2rd-class-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.62rem;text-align:left;white-space:nowrap}.m2rd-class-table th{position:sticky;top:0;background:#172719;color:#f0dca6;font-size:.55rem}.m2rd-class-me{background:rgba(240,193,106,.10)}.m2rd-class-rank{font-weight:900;color:#f0dca6}.m2rd-class-note{margin-top:8px;color:#a9a18f;font-size:.66rem;line-height:1.4}
       .m2rd-detail-checkpoint{min-width:22px;height:22px;padding:0 4px;border-radius:999px;display:grid;place-items:center;border:2px solid rgba(255,255,255,.9);background:#9b6b2f;color:white;font-size:9px;font-weight:900;box-shadow:0 2px 7px rgba(0,0,0,.38)}
       .m2rd-detail-checkpoint.start{background:#397d55}.m2rd-detail-checkpoint.finish{background:#934d4d}
       .m2rd-detail-map .leaflet-control-attribution{font-size:9px}.m2rd-detail-maplegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:.62rem;opacity:.75}.m2rd-detail-maplegend span{display:inline-flex;align-items:center;gap:5px}
-      @media(max-width:430px){#m2RunnerDashboard{padding-left:9px;padding-right:9px}.m2rd-card{border-radius:22px}.m2rd-history-head{grid-template-columns:1fr 1fr}.m2rd-history-metrics{grid-template-columns:1fr 1fr 1fr}.m2rd-detail-grid{grid-template-columns:1fr 1fr}.m2rd-class-summary{grid-template-columns:1fr 1fr}.m2rd-pass-summary{grid-template-columns:1fr 1fr}.m2rd-detail-map{height:320px}}
+      @media(max-width:430px){#m2RunnerDashboard{padding-left:9px;padding-right:9px}.m2rd-card{border-radius:22px}.m2rd-history-head{grid-template-columns:1fr 1fr}.m2rd-history-metrics{grid-template-columns:1fr 1fr 1fr}.m2rd-detail-grid{grid-template-columns:1fr 1fr}.m2rd-class-summary{grid-template-columns:1fr 1fr}.m2rd-pass-summary{grid-template-columns:1fr 1fr}.m2rd-playback-head{grid-template-columns:1fr}.m2rd-playback-time{text-align:left}.m2rd-detail-map{height:320px}}
     `;
     document.head.appendChild(style);
   }
@@ -260,9 +261,9 @@
     <section id="m2rdHistoryDetail" class="m2rd-detail" hidden><div class="m2rd-detail-shell">
       <section class="m2rd-card"><div class="m2rd-detail-head"><div><div class="m2rd-kicker">🏁 DETALLE DE PARTICIPACIÓN</div><h2 id="m2rdDetailTitle">Carrera</h2><div id="m2rdDetailSubtitle" class="m2rd-history-date">Resultado histórico</div></div><button id="m2rdDetailClose" class="m2rd-detail-close" type="button" aria-label="Cerrar detalle">✕</button></div><div id="m2rdDetailStatus" class="m2rd-status" style="margin-top:12px">Selecciona una carrera.</div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">📊 RESULTADO</h3><div id="m2rdDetailMetrics" class="m2rd-detail-grid"></div></section>
-      <section class="m2rd-card"><h3 class="m2rd-kicker">🏆 CLASIFICACIÓN</h3><div id="m2rdClassificationStatus" class="m2rd-status">Cargando clasificación…</div><div id="m2rdClassificationSummary" class="m2rd-class-summary" style="margin-top:10px"></div><div class="m2rd-class-tabs"><button id="m2rdClassGeneralBtn" class="m2rd-class-tab active" type="button" data-class-view="general">GENERAL</button><button id="m2rdClassRouteBtn" class="m2rd-class-tab" type="button" data-class-view="route">MI RECORRIDO</button></div><div class="m2rd-class-table-wrap"><table class="m2rd-class-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO</th><th>DIF. LÍDER</th></tr></thead><tbody id="m2rdClassificationBody"><tr><td colspan="7">Cargando…</td></tr></tbody></table></div><div id="m2rdClassificationNote" class="m2rd-class-note"></div></section>
-      <section class="m2rd-card"><h3 class="m2rd-kicker">🗺️ TRACK Y CARTOGRAFÍA</h3><div class="m2rd-detail-maptools" role="tablist" aria-label="Cartografía del track histórico"><button class="m2rd-detail-layer active" type="button" data-detail-layer="mapant">MAPANT</button><button class="m2rd-detail-layer" type="button" data-detail-layer="ign">IGN</button><button class="m2rd-detail-layer" type="button" data-detail-layer="aerial">AÉREO</button><button class="m2rd-detail-layer" type="button" data-detail-layer="custom">PLANO CARRERA</button></div><div id="m2rdDetailLayerStatus" class="m2rd-detail-layerstatus">Fondo: MAPANT</div><div id="m2rdDetailMap" class="m2rd-detail-map"></div><div class="m2rd-detail-maplegend"><span>━ Track del corredor</span><span>◆ Baliza / salida / llegada</span></div><button id="m2rdDetailFit" class="m2rd-btn" type="button">ENCUADRAR RECORRIDO</button><div id="m2rdDetailMapNote" class="m2rd-detail-note">El track se carga desde Firestore, no desde la sesión Live.</div></section>
-      <section class="m2rd-card"><h3 class="m2rd-kicker">🎯 PASO POR BALIZAS · GPS / QR</h3><div id="m2rdPassSummary" class="m2rd-pass-summary"></div><div id="m2rdPassNote" class="m2rd-pass-note">Validación combinada: GPS Live estricto (precisión ±10 m o mejor y distancia ≤10 m), QR de respaldo y recuperación histórica desde el track con el mismo criterio GPS.</div><div class="m2rd-pass-table-wrap"><table class="m2rd-pass-table"><thead><tr><th>#</th><th>BALIZA</th><th>DETECCIÓN</th><th>HORA</th><th>DESDE SALIDA</th><th>PARCIAL</th><th>MÉTODO / DIST.</th></tr></thead><tbody id="m2rdPassBody"><tr><td colspan="7">Sin análisis.</td></tr></tbody></table></div></section>
+      <section class="m2rd-card"><h3 class="m2rd-kicker">🏆 CLASIFICACIÓN</h3><div id="m2rdClassificationStatus" class="m2rd-status">Cargando clasificación…</div><div id="m2rdClassificationSummary" class="m2rd-class-summary" style="margin-top:10px"></div><div class="m2rd-class-tabs"><button id="m2rdClassGeneralBtn" class="m2rd-class-tab active" type="button" data-class-view="general">GENERAL</button><button id="m2rdClassRouteBtn" class="m2rd-class-tab" type="button" data-class-view="route">MI RECORRIDO</button></div><div class="m2rd-class-table-wrap"><table class="m2rd-class-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO OFICIAL</th><th>DIF. LÍDER</th></tr></thead><tbody id="m2rdClassificationBody"><tr><td colspan="7">Cargando…</td></tr></tbody></table></div><div id="m2rdClassificationNote" class="m2rd-class-note"></div></section>
+      <section class="m2rd-card"><h3 class="m2rd-kicker">🗺️ TRACK Y CARTOGRAFÍA</h3><div class="m2rd-detail-maptools" role="tablist" aria-label="Cartografía del track histórico"><button class="m2rd-detail-layer active" type="button" data-detail-layer="mapant">MAPANT</button><button class="m2rd-detail-layer" type="button" data-detail-layer="ign">IGN</button><button class="m2rd-detail-layer" type="button" data-detail-layer="aerial">AÉREO</button><button class="m2rd-detail-layer" type="button" data-detail-layer="custom">PLANO CARRERA</button></div><div id="m2rdDetailLayerStatus" class="m2rd-detail-layerstatus">Fondo: MAPANT</div><div id="m2rdDetailMap" class="m2rd-detail-map"></div><div class="m2rd-playback"><div class="m2rd-playback-head"><div class="m2rd-playback-actions"><button id="m2rdPlaybackToggle" class="m2rd-playback-btn primary" type="button">▶ REPRODUCIR</button><button id="m2rdPlaybackReset" class="m2rd-playback-btn" type="button">↺ REINICIAR</button><select id="m2rdPlaybackSpeed" class="m2rd-playback-speed" aria-label="Velocidad de reproducción"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></div><div id="m2rdPlaybackClock" class="m2rd-playback-time">00:00 / 00:00</div></div><input id="m2rdPlaybackSlider" class="m2rd-playback-slider" type="range" min="0" max="1000" value="0" step="1" aria-label="Posición temporal del track"><div class="m2rd-playback-meta"><span>Salida</span><span>Reproducción GPS histórica</span><span>Llegada</span></div></div><div class="m2rd-detail-maplegend"><span>━ Track completo</span><span>━ Tramo reproducido</span><span>● Posición del corredor</span><span>◆ Baliza / salida / llegada</span></div><button id="m2rdDetailFit" class="m2rd-btn" type="button">ENCUADRAR RECORRIDO</button><div id="m2rdDetailMapNote" class="m2rd-detail-note">El track se carga desde Firestore, no desde la sesión Live.</div></section>
+      <section class="m2rd-card"><h3 class="m2rd-kicker">🎯 PASO POR BALIZAS · ESTADO OFICIAL</h3><div id="m2rdPassSummary" class="m2rd-pass-summary"></div><div id="m2rdPassNote" class="m2rd-pass-note">Cada baliza queda identificada como VALIDADA, DESCARTADA o PENDIENTE. Descartadas y pendientes al finalizar penalizan +15:00 cada una.</div><div class="m2rd-pass-table-wrap"><table class="m2rd-pass-table"><thead><tr><th>#</th><th>BALIZA</th><th>ESTADO</th><th>HORA</th><th>DESDE SALIDA</th><th>PARCIAL</th><th>MÉTODO / PENALIZACIÓN</th></tr></thead><tbody id="m2rdPassBody"><tr><td colspan="7">Sin análisis.</td></tr></tbody></table></div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">◆ DATOS DE LA CARRERA</h3><div id="m2rdDetailEventMetrics" class="m2rd-detail-grid"></div><div id="m2rdDetailControls" class="m2rd-control-list"></div></section>
     </div></section>`;
     document.body.appendChild(root); state.root=root; updateAccountInviteBadge(state.pendingInvites);
@@ -282,6 +283,10 @@
     root.querySelector("#m2rdHistoryRefresh")?.addEventListener("click",()=>loadHistory(false));
     root.querySelector("#m2rdDetailClose")?.addEventListener("click",()=>closeHistoryDetail());
     root.querySelector("#m2rdDetailFit")?.addEventListener("click",()=>fitHistoryDetailMap());
+    root.querySelector("#m2rdPlaybackToggle")?.addEventListener("click",()=>toggleHistoryPlayback());
+    root.querySelector("#m2rdPlaybackReset")?.addEventListener("click",()=>resetHistoryPlayback(true));
+    root.querySelector("#m2rdPlaybackSlider")?.addEventListener("input",e=>seekHistoryPlayback(Number(e.target.value||0)));
+    root.querySelector("#m2rdPlaybackSpeed")?.addEventListener("change",e=>{const speed=Number(e.target.value||1);state.detailPlaybackSpeed=[1,2,4].includes(speed)?speed:1;});
     root.addEventListener("click",e=>{
       const detailBtn=e.target.closest("[data-history-detail]");
       if(detailBtn){openHistoryDetail(String(detailBtn.dataset.historyDetail||""));return;}
@@ -644,6 +649,7 @@
     state.detailRacePlanOwnedUrl="";
   }
   function closeHistoryDetail(){
+    stopHistoryPlayback(false);
     const panel=el("m2rdHistoryDetail"); if(panel)panel.hidden=true;
     state.detailEventId="";state.detailError="";state.detailLoading=false;
   }
@@ -660,7 +666,7 @@
       aerial:L.tileLayer("https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© PNOA · IGN",maxNativeZoom:19,maxZoom:22,keepBuffer:6,crossOrigin:true})
     };
     state.detailBaseKey="mapant";state.detailBaseLayer=state.detailBaseLayers.mapant.addTo(state.detailMap);
-    state.detailTrackLayer=L.layerGroup().addTo(state.detailMap);state.detailCheckpointLayer=L.layerGroup().addTo(state.detailMap);
+    state.detailTrackLayer=L.layerGroup().addTo(state.detailMap);state.detailCheckpointLayer=L.layerGroup().addTo(state.detailMap);state.detailPlaybackLayer=L.layerGroup().addTo(state.detailMap);
     renderHistoryDetailLayerState();
     return state.detailMap;
   }
@@ -672,7 +678,7 @@
   }
   function bringHistoryOverlayLayersToFront(){
     const map=state.detailMap;if(!map)return;
-    [state.detailTrackLayer,state.detailCheckpointLayer].forEach(group=>{
+    [state.detailTrackLayer,state.detailCheckpointLayer,state.detailPlaybackLayer].forEach(group=>{
       if(!group)return;
       try{if(map.hasLayer(group))map.removeLayer(group);group.addTo(map);}catch(_){}
     });
@@ -760,6 +766,82 @@
     bringHistoryOverlayLayersToFront();
     setTimeout(()=>{map.invalidateSize();fitHistoryDetailMap();},100);
   }
+  function clearHistoryPlaybackLayer(){
+    try{state.detailPlaybackLayer?.clearLayers?.();}catch(_){}
+    state.detailPlaybackMarker=null;state.detailPlaybackTrail=null;
+  }
+  function updateHistoryPlaybackUi(){
+    const ready=state.detailPlaybackPoints.length>0&&state.detailPlaybackDurationMs>0;
+    const toggle=el("m2rdPlaybackToggle"),reset=el("m2rdPlaybackReset"),slider=el("m2rdPlaybackSlider"),clock=el("m2rdPlaybackClock"),speed=el("m2rdPlaybackSpeed");
+    if(toggle){toggle.disabled=!ready;toggle.textContent=state.detailPlaybackPlaying?"⏸ PAUSAR":"▶ REPRODUCIR";toggle.classList.toggle("primary",ready);}
+    if(reset)reset.disabled=!ready;
+    if(slider){slider.disabled=!ready;slider.value=ready?String(Math.round((state.detailPlaybackCurrentMs/state.detailPlaybackDurationMs)*1000)):"0";}
+    if(clock)clock.textContent=ready?`${fmtDuration(state.detailPlaybackCurrentMs)} / ${fmtDuration(state.detailPlaybackDurationMs)}`:"SIN TRACK REPRODUCIBLE";
+    if(speed){speed.disabled=!ready;speed.value=String(state.detailPlaybackSpeed);}
+  }
+  function stopHistoryPlayback(update=true){
+    state.detailPlaybackPlaying=false;state.detailPlaybackLastFrame=0;
+    if(state.detailPlaybackRaf){try{cancelAnimationFrame(state.detailPlaybackRaf);}catch(_){}state.detailPlaybackRaf=0;}
+    if(update)updateHistoryPlaybackUi();
+  }
+  function playbackPointAt(ms){
+    const points=state.detailPlaybackPoints;if(!points.length)return null;
+    const target=Math.max(0,Math.min(state.detailPlaybackDurationMs,Number(ms)||0));
+    if(target<=points[0].playMs)return {...points[0],index:0};
+    const last=points.length-1;if(target>=points[last].playMs)return {...points[last],index:last};
+    let lo=0,hi=last;
+    while(lo+1<hi){const mid=(lo+hi)>>1;if(points[mid].playMs<=target)lo=mid;else hi=mid;}
+    const a=points[lo],b=points[hi],span=Math.max(1,b.playMs-a.playMs),t=Math.max(0,Math.min(1,(target-a.playMs)/span));
+    return {lat:a.lat+(b.lat-a.lat)*t,lng:a.lng+(b.lng-a.lng)*t,playMs:target,index:lo};
+  }
+  function drawHistoryPlaybackFrame(){
+    const map=state.detailMap,L=globalThis.L,layer=state.detailPlaybackLayer;if(!map||!L||!layer){updateHistoryPlaybackUi();return;}
+    if(!state.detailPlaybackPoints.length||state.detailPlaybackDurationMs<=0){clearHistoryPlaybackLayer();updateHistoryPlaybackUi();return;}
+    const pos=playbackPointAt(state.detailPlaybackCurrentMs);if(!pos)return;
+    if(!state.detailPlaybackMarker){
+      const icon=L.divIcon({className:"",html:'<div class="m2rd-playback-marker"></div>',iconSize:[26,26],iconAnchor:[13,13]});
+      state.detailPlaybackMarker=L.marker([pos.lat,pos.lng],{icon,keyboard:false,zIndexOffset:1800}).addTo(layer);
+    }else state.detailPlaybackMarker.setLatLng([pos.lat,pos.lng]);
+    const trail=state.detailPlaybackPoints.slice(0,pos.index+1).map(point=>[point.lat,point.lng]);trail.push([pos.lat,pos.lng]);
+    if(!state.detailPlaybackTrail)state.detailPlaybackTrail=L.polyline(trail,{weight:6,opacity:.95,lineCap:"round",lineJoin:"round"}).addTo(layer);else state.detailPlaybackTrail.setLatLngs(trail);
+    bringHistoryOverlayLayersToFront();updateHistoryPlaybackUi();
+  }
+  function prepareHistoryPlayback(){
+    stopHistoryPlayback(false);clearHistoryPlaybackLayer();
+    const detail=state.historyDetail||{},result=detail.result||{};
+    const raw=(Array.isArray(detail.track)?detail.track:[]).filter(point=>validHistoryCoord(point.lat,point.lng)&&Number.isFinite(Number(point.at))).map(point=>({lat:Number(point.lat),lng:Number(point.lng),at:Number(point.at)})).sort((a,b)=>a.at-b.at);
+    if(!raw.length){state.detailPlaybackPoints=[];state.detailPlaybackDurationMs=0;state.detailPlaybackCurrentMs=0;updateHistoryPlaybackUi();return;}
+    const start=Math.max(0,Number(result.startedAtMs||0))||raw[0].at;
+    const finish=Math.max(0,Number(result.finishedAtMs||0))||raw[raw.length-1].at;
+    state.detailPlaybackPoints=raw.map(point=>({...point,playMs:Math.max(0,point.at-start)}));
+    const lastPlay=state.detailPlaybackPoints[state.detailPlaybackPoints.length-1]?.playMs||0;
+    state.detailPlaybackDurationMs=Math.max(0,finish-start,lastPlay);
+    state.detailPlaybackCurrentMs=0;state.detailPlaybackSpeed=[1,2,4].includes(Number(state.detailPlaybackSpeed))?Number(state.detailPlaybackSpeed):1;
+    drawHistoryPlaybackFrame();
+  }
+  function historyPlaybackLoop(now){
+    if(!state.detailPlaybackPlaying)return;
+    if(!state.detailPlaybackLastFrame)state.detailPlaybackLastFrame=now;
+    const delta=Math.min(400,Math.max(0,now-state.detailPlaybackLastFrame));state.detailPlaybackLastFrame=now;
+    state.detailPlaybackCurrentMs=Math.min(state.detailPlaybackDurationMs,state.detailPlaybackCurrentMs+delta*state.detailPlaybackSpeed);
+    drawHistoryPlaybackFrame();
+    if(state.detailPlaybackCurrentMs>=state.detailPlaybackDurationMs){stopHistoryPlayback(true);return;}
+    state.detailPlaybackRaf=requestAnimationFrame(historyPlaybackLoop);
+  }
+  function toggleHistoryPlayback(){
+    if(!state.detailPlaybackPoints.length||state.detailPlaybackDurationMs<=0)return;
+    if(state.detailPlaybackPlaying){stopHistoryPlayback(true);return;}
+    if(state.detailPlaybackCurrentMs>=state.detailPlaybackDurationMs)state.detailPlaybackCurrentMs=0;
+    state.detailPlaybackPlaying=true;state.detailPlaybackLastFrame=0;updateHistoryPlaybackUi();state.detailPlaybackRaf=requestAnimationFrame(historyPlaybackLoop);
+  }
+  function resetHistoryPlayback(keepPaused=true){
+    stopHistoryPlayback(false);state.detailPlaybackCurrentMs=0;drawHistoryPlaybackFrame();
+    if(!keepPaused){state.detailPlaybackPlaying=true;state.detailPlaybackRaf=requestAnimationFrame(historyPlaybackLoop);}
+  }
+  function seekHistoryPlayback(scale){
+    if(!state.detailPlaybackDurationMs)return;
+    const ratio=Math.max(0,Math.min(1000,Number(scale)||0))/1000;state.detailPlaybackCurrentMs=state.detailPlaybackDurationMs*ratio;state.detailPlaybackLastFrame=0;drawHistoryPlaybackFrame();
+  }
   function fmtClassGap(value){const ms=Number(value);if(!Number.isFinite(ms)||ms<0)return "—";if(ms===0)return "LÍDER";return `+${fmtDuration(ms)}`;}
   function classificationRunnerName(row){const d=String(row?.displayName||"").trim(),u=String(row?.username||"").replace(/^@/,"").trim();return d&&u?`${d} (@${u})`:d||u&&`@${u}`||String(row?.participantId||"Corredor");}
   function renderRunnerClassification(){
@@ -769,10 +851,10 @@
     if(state.classificationError){status.textContent=`⚠️ ${state.classificationError}`;status.className="m2rd-status err";summary.innerHTML="";body.innerHTML='<tr><td colspan="7">No se pudo cargar.</td></tr>';note.textContent="";return;}
     const data=state.classificationDetail,my=data?.my||null;if(!data||!my){status.textContent="Clasificación no disponible para esta participación.";status.className="m2rd-status";summary.innerHTML="";body.innerHTML='<tr><td colspan="7">Sin clasificación.</td></tr>';note.textContent="";return;}
     status.textContent=data.event?.provisional?"⚠️ Clasificación provisional: el evento sigue EN DIRECTO.":"✅ Clasificación persistente del evento.";status.className=`m2rd-status ${data.event?.provisional?"":"ok"}`;
-    summary.innerHTML=[metricCell("PUESTO GENERAL",my.generalRank?`${my.generalRank} / ${my.generalFinishedCount}`:"—"),metricCell(`PUESTO ${my.routeId||"RECORRIDO"}`,my.routeRank?`${my.routeRank} / ${my.routeFinishedCount}`:"—"),metricCell("DIF. LÍDER GENERAL",fmtClassGap(my.generalGapMs)),metricCell("DIF. LÍDER RECORRIDO",fmtClassGap(my.routeGapMs))].join("");
+    summary.innerHTML=[metricCell("PUESTO GENERAL",my.generalRank?`${my.generalRank} / ${my.generalRankedCount??my.generalCount??"—"}`:"—"),metricCell(`PUESTO ${my.routeId||"RECORRIDO"}`,my.routeRank?`${my.routeRank} / ${my.routeRankedCount??my.routeCount??"—"}`:"—"),metricCell("DIF. LÍDER GENERAL",fmtClassGap(my.generalGapMs)),metricCell("DIF. LÍDER RECORRIDO",fmtClassGap(my.routeGapMs))].join("");
     const routeId=String(my.routeId||"");const rows=state.classificationView==="route"?(data.byRoute?.[routeId]||[]):(data.general||[]);el("m2rdClassRouteBtn").textContent=routeId?`${routeId} · MI RECORRIDO`:"MI RECORRIDO";
-    body.innerHTML=rows.length?rows.map(row=>`<tr class="${row.runnerUid===state.auth?.uid?"m2rd-class-me":""}"><td class="m2rd-class-rank">${row.rank??"—"}</td><td><strong>${esc(classificationRunnerName(row))}</strong></td><td>${esc(row.participantId||"—")}</td><td>${esc(row.routeId||"—")}</td><td>${row.routeDistanceKm==null?"—":`${esc(Number(row.routeDistanceKm).toFixed(2))} km`}</td><td><strong>${esc(fmtDuration(row.durationMs))}</strong></td><td>${esc(fmtClassGap(row.gapToLeaderMs))}</td></tr>`).join(""):'<tr><td colspan="7">Sin participantes.</td></tr>';
-    note.textContent=state.classificationView==="general"?"GENERAL compara por tiempo absoluto a todos los finalizados, aunque tengan recorridos distintos. El recorrido y su distancia reducida se muestran para interpretar la comparación.":`Clasificación exclusiva entre participantes asignados al ${routeId||"mismo recorrido"}.`;
+    body.innerHTML=rows.length?rows.map(row=>`<tr class="${row.runnerUid===state.auth?.uid?"m2rd-class-me":""}"><td class="m2rd-class-rank">${row.rank??"—"}</td><td><strong>${esc(classificationRunnerName(row))}</strong></td><td>${esc(row.participantId||"—")}</td><td>${esc(row.routeId||"—")}</td><td>${row.routeDistanceKm==null?"—":`${esc(Number(row.routeDistanceKm).toFixed(2))} km`}</td><td><strong>${esc(fmtDuration(row.officialDurationMs??row.durationMs))}</strong></td><td>${esc(fmtClassGap(row.gapToLeaderMs))}</td></tr>`).join(""):'<tr><td colspan="7">Sin participantes.</td></tr>';
+    note.textContent=state.classificationView==="general"?"GENERAL asigna puesto a todo corredor que tomó la salida: FINALIZADOS primero e INCOMPLETOS después. Dentro de cada estado se ordena por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.":`Clasificación del ${routeId||"mismo recorrido"}: FINALIZADOS primero e INCOMPLETOS después, ordenados por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.`;
   }
 
   function renderHistoryDetail(){
@@ -785,34 +867,51 @@
     el("m2rdDetailSubtitle").textContent=`${historyStatusES(result.status)} · ${event.eventId||""}`;
     status.textContent="✅ Resultado histórico cargado desde Firestore.";status.className="m2rd-status ok";
     el("m2rdDetailMetrics").innerHTML=[
-      metricCell("ESTADO",historyStatusES(result.status)),metricCell("SALIDA",fmtClock(result.startedAtMs)),metricCell("LLEGADA",fmtClock(result.finishedAtMs)),metricCell("TIEMPO",fmtDuration(result.durationMs)),
+      metricCell("ESTADO",historyStatusES(result.status)),metricCell("SALIDA",fmtClock(result.startedAtMs)),metricCell("LLEGADA",fmtClock(result.finishedAtMs)),metricCell("TIEMPO OFICIAL",fmtDuration(result.officialDurationMs??result.durationMs)),
+      metricCell("TIEMPO REAL",fmtDuration(result.durationMs)),metricCell("PENALIZACIÓN",result.penaltyMs?`+${fmtDuration(result.penaltyMs)}`:"+00:00"),metricCell("PENDIENTES",String(Math.max(0,Number(result.pendingControlCount||0)))),metricCell("DESCARTADAS",String(Math.max(0,Number(result.discardedControlCount||0)))),
       metricCell("RECORRIDO",result.courseId||"—"),metricCell("DISTANCIA REDUCIDA",fmtReducedDistance(result.reducedDistanceKm)),metricCell("DISTANCIA TRACK",fmtDistance(result.trackDistanceM)),metricCell("DESNIVEL +",Number.isFinite(Number(result.coursePositiveM))?`${Math.round(Number(result.coursePositiveM))} m`:"—"),
       metricCell("DIFICULTAD",result.courseDifficulty||"—"),metricCell("RITMO MEDIO",fmtPace(result.paceMinKm)),metricCell("VELOCIDAD MEDIA",fmtSpeed(result.avgSpeedKmh)),metricCell("PUNTOS GPS",`${Number(result.trackPointCount||0)} pts`),
       metricCell("PRECISIÓN MEDIA",fmtAccuracy(gps.averageM)),metricCell("MEJOR GPS",fmtAccuracy(gps.bestM)),metricCell("PEOR GPS",fmtAccuracy(gps.worstM)),metricCell("RUN ID",result.runId||"—")
     ].join("");
-    const passRows=Array.isArray(detail.controlPasses)?detail.controlPasses:[];
+    const rawPassRows=Array.isArray(detail.controlPasses)?detail.controlPasses:[];
+    const selectedCourse=(Array.isArray(detail.courses)?detail.courses:[]).find(course=>String(course.courseId||"")===String(result.courseId||""))||null;
+    const expectedIds=(Array.isArray(selectedCourse?.points)?selectedCourse.points:[]).map(value=>String(value||"").trim().toUpperCase()).filter(id=>id&&!['START','SALIDA','S','FINISH','LLEGADA','META','L'].includes(id));
+    const storedByOrder=new Map(rawPassRows.map(row=>[Number(row?.order||0),row]));
+    const discardedById=new Map((Array.isArray(result.discardedControls)?result.discardedControls:[]).map(row=>[String(row?.checkpointId||"").trim().toUpperCase(),row]));
+    const passRows=expectedIds.length?expectedIds.map((checkpointId,index)=>{
+      const order=index+1,stored=storedByOrder.get(order)||rawPassRows.find(row=>String(row?.checkpointId||"").trim().toUpperCase()===checkpointId)||null,discarded=discardedById.get(checkpointId)||null;
+      if(stored)return {...stored,order,checkpointId,discarded:Boolean(stored.discarded||String(stored.source||"").toLowerCase()==="discard"||String(stored.state||"").toLowerCase()==="discarded"||discarded),pending:Boolean(stored.pending||String(stored.state||"").toLowerCase()==="pending")};
+      if(discarded)return {order,checkpointId,detected:false,discarded:true,pending:false,state:"discarded",source:"discard",passedAtMs:discarded.discardedAtMs||null,elapsedMs:null,splitMs:null,penaltyMs:Number(discarded.penaltyMs||900000)};
+      return {order,checkpointId,detected:false,discarded:false,pending:true,state:"pending",source:"pending",passedAtMs:null,elapsedMs:null,splitMs:null,penaltyMs:result.status==="not_started"?0:900000};
+    }):rawPassRows;
+    const rowState=row=>{const source=String(row?.source||"").toLowerCase(),stateValue=String(row?.state||"").toLowerCase();if(row?.discarded||source==="discard"||stateValue==="discarded")return "discarded";if(row?.detected||stateValue==="validated"||["gps","qr","gps_track_recovery"].includes(source))return "validated";return "pending";};
     const expected=Math.max(0,Number(result.controlExpectedCount||passRows.length||0));
-    const detected=Math.max(0,Number(result.controlDetectedCount||passRows.filter(row=>row.detected).length||0));
-    const missing=Math.max(0,Number(result.controlMissingCount||Math.max(0,expected-detected)));
-    const pct=Number.isFinite(Number(result.controlCompletionPct))?`${Number(result.controlCompletionPct).toFixed(1)}%`:(expected?`${Math.round((detected/expected)*100)}%`:"—");
+    const derivedValidated=passRows.filter(row=>rowState(row)==="validated").length;
+    const derivedDiscarded=passRows.filter(row=>rowState(row)==="discarded").length;
+    const derivedPending=passRows.filter(row=>rowState(row)==="pending").length;
+    const detected=Math.max(0,derivedValidated||Number(result.controlDetectedCount||0));
+    const discarded=Math.max(0,derivedDiscarded||Number(result.discardedControlCount||0));
+    const missing=Math.max(0,expected?derivedPending:Number(result.pendingControlCount??result.controlMissingCount??0));
+    const pct=expected?`${((detected/expected)*100).toFixed(1)}%`:"—";
     const qrCount=Math.max(0,Number(result.controlQrCount||passRows.filter(row=>String(row.source||"")==="qr").length||0));
     const liveGpsCount=Math.max(0,Number(result.controlGpsLiveCount||passRows.filter(row=>String(row.source||"")==="gps").length||0));
     const recoveryCount=Math.max(0,Number(result.controlTrackRecoveryCount||passRows.filter(row=>String(row.source||"")==="gps_track_recovery").length||0));
-    const methodLabel=qrCount&&liveGpsCount?"GPS + QR":qrCount?"QR + GPS":liveGpsCount?"GPS LIVE":recoveryCount?"GPS TRACK":expected?"GPS / QR":"—";
-    el("m2rdPassSummary").innerHTML=[metricCell("VALIDADAS",expected?`${detected} / ${expected}`:"—"),metricCell("FALTAN",expected?String(missing):"—"),metricCell("COBERTURA",pct),metricCell("MÉTODO",methodLabel)].join("");
+    const methodLabel=qrCount&&liveGpsCount?"GPS + QR":qrCount?"QR":liveGpsCount?"GPS LIVE":recoveryCount?"GPS TRACK":detected?"GPS / QR":"—";
+    const penalty=Math.max(0,Number(result.penaltyMs||((discarded+missing)*900000)));
+    el("m2rdPassSummary").innerHTML=[metricCell("VALIDADAS",expected?`${detected} / ${expected}`:"—"),metricCell("DESCARTADAS",String(discarded)),metricCell("PENDIENTES",String(missing)),metricCell("PENALIZACIÓN",penalty?`+${fmtDuration(penalty)}`:"+00:00"),metricCell("COBERTURA",pct),metricCell("MÉTODO",methodLabel)].join("");
     const passNote=el("m2rdPassNote");
     if(passNote){
-      const validation=String(result.controlValidation||"");
-      passNote.textContent=validation==="complete"?`✅ Recorrido completo: ${detected} de ${expected} balizas validadas. GPS Live y QR quedan registrados con su método real.`:validation==="partial"||validation==="none_detected"?`⚠️ Hay ${missing} baliza${missing===1?"":"s"} sin validar. El histórico conserva las detecciones GPS, QR y recuperaciones por track disponibles.`:"No hay datos suficientes para analizar el paso por balizas.";
+      passNote.textContent=`Estado oficial: ${detected} validada${detected===1?"":"s"} · ${discarded} descartada${discarded===1?"":"s"} · ${missing} pendiente${missing===1?"":"s"}. Cada DESCARTADA y cada PENDIENTE al finalizar añade +15:00 al TIEMPO OFICIAL.`;
     }
     const passBody=el("m2rdPassBody");
     if(passBody){
       passBody.innerHTML=passRows.length?passRows.map(row=>{
-        const detectedRow=Boolean(row.detected),source=String(row.source||"");
-        const sourceLabel=source==="qr"?"QR":source==="gps"?"GPS LIVE":source==="gps_track_recovery"?"GPS TRACK":"GPS";
-        const gps=source==="qr"?"QR":detectedRow?(row.gpsAccuracyM==null?sourceLabel:`${sourceLabel} ±${Number(row.gpsAccuracyM).toFixed(0)} m`):(row.closestDistanceM==null?"Sin dato":`mín. ${Number(row.closestDistanceM).toFixed(0)} m`);
-        const dist=detectedRow&&row.distanceM!=null?` · ${Number(row.distanceM).toFixed(0)} m`:"";
-        return `<tr><td>${esc(row.order||"—")}</td><td><strong>${esc(row.checkpointId||"—")}</strong></td><td class="${detectedRow?"m2rd-pass-ok":"m2rd-pass-miss"}">${detectedRow?`VALIDADA · ${esc(sourceLabel)}`:"NO DETECTADA"}</td><td>${detectedRow?esc(fmtClock(row.passedAtMs)):"—"}</td><td>${detectedRow?esc(fmtDuration(row.elapsedMs)):"—"}</td><td>${detectedRow?esc(fmtDuration(row.splitMs)):"—"}</td><td>${esc(gps+dist)}</td></tr>`;
+        const stateRow=rowState(row),source=String(row.source||"").toLowerCase();
+        const sourceLabel=source==="qr"?"QR":source==="gps"?"GPS LIVE":source==="gps_track_recovery"?"GPS TRACK":source==="discard"?"DESCARTE":"SIN VALIDAR";
+        if(stateRow==="discarded")return `<tr><td>${esc(row.order||"—")}</td><td><strong>${esc(row.checkpointId||"—")}</strong></td><td class="m2rd-pass-discard">DESCARTADA · +15:00</td><td>${row.passedAtMs?esc(fmtClock(row.passedAtMs)):"—"}</td><td>${row.elapsedMs!=null?esc(fmtDuration(row.elapsedMs)):"—"}</td><td>${row.splitMs!=null?esc(fmtDuration(row.splitMs)):"—"}</td><td class="m2rd-pass-discard">DESCARTE · +15:00</td></tr>`;
+        if(stateRow==="pending")return `<tr><td>${esc(row.order||"—")}</td><td><strong>${esc(row.checkpointId||"—")}</strong></td><td class="m2rd-pass-miss">PENDIENTE · +15:00</td><td>—</td><td>—</td><td>—</td><td class="m2rd-pass-miss">NO VALIDADA AL FINALIZAR · +15:00</td></tr>`;
+        const gps=source==="qr"?"QR":(row.gpsAccuracyM==null?sourceLabel:`${sourceLabel} ±${Number(row.gpsAccuracyM).toFixed(0)} m`),dist=row.distanceM!=null?` · ${Number(row.distanceM).toFixed(0)} m`:"";
+        return `<tr><td>${esc(row.order||"—")}</td><td><strong>${esc(row.checkpointId||"—")}</strong></td><td class="m2rd-pass-ok">VALIDADA · ${esc(sourceLabel)}</td><td>${row.passedAtMs?esc(fmtClock(row.passedAtMs)):"—"}</td><td>${row.elapsedMs!=null?esc(fmtDuration(row.elapsedMs)):"—"}</td><td>${row.splitMs!=null?esc(fmtDuration(row.splitMs)):"—"}</td><td>${esc(gps+dist)}</td></tr>`;
       }).join(""):'<tr><td colspan="7">No hay una secuencia de balizas analizable para este recorrido.</td></tr>';
     }
     el("m2rdDetailEventMetrics").innerHTML=[
@@ -822,11 +921,12 @@
     const trackNote=meta.downsampled?`Firestore conserva ${meta.storedPointCount} puntos. Para que el mapa funcione fluido se muestran ${meta.returnedPointCount} puntos representativos.`:`Track histórico completo · ${meta.storedPointCount||0} puntos almacenados en Firestore.`;
     const courseNote=result.reducedDistanceKm==null&&Number(event.courseCount||0)>1?" · Distancia reducida pendiente de una asignación inequívoca del recorrido al corredor.":" · Distancia reducida = recorrido diseñado; distancia track = GPS real.";
     el("m2rdDetailMapNote").textContent=trackNote+courseNote;
-    renderHistoryDetailMap();
+    renderHistoryDetailMap();prepareHistoryPlayback();
   }
   async function openHistoryDetail(eventId){
     if(!eventId||state.detailLoading)return;
     const panel=el("m2rdHistoryDetail");panel.hidden=false;panel.scrollTop=0;state.detailEventId=eventId;state.detailLoading=true;state.detailError="";state.historyDetail=null;state.classificationDetail=null;state.classificationLoading=true;state.classificationError="";state.classificationView="general";
+    stopHistoryPlayback(false);clearHistoryPlaybackLayer();state.detailPlaybackPoints=[];state.detailPlaybackCurrentMs=0;state.detailPlaybackDurationMs=0;updateHistoryPlaybackUi();
     state.detailRacePlanDescriptor=null;state.detailRacePlanError="";state.detailRacePlanLoading=false;cleanupHistoryRacePlanUrl();
     if(state.detailMap&&state.detailBaseKey==="custom"){await switchHistoryDetailLayer("mapant");}
     const historyRow=state.history.find(row=>String(row.eventId)===String(eventId));el("m2rdDetailTitle").textContent=historyRow?.eventName||"Carrera";el("m2rdDetailSubtitle").textContent=historyRow?`${historyStatusES(historyRow.status)} · ${eventId}`:eventId;renderHistoryDetail();
@@ -859,7 +959,7 @@
       const status=["finished","incomplete","not_started"].includes(String(row.status))?String(row.status):"not_started";
       const date=fmtHistoryDate(row.finishedAtMs||row.startedAtMs||row.consolidatedAtMs);
       const points=Math.max(0,Number(row.trackPointCount||0));
-      return `<article class="m2rd-history-row"><div class="m2rd-history-top"><div class="m2rd-history-title"><strong>${esc(row.eventName||"Carrera de orientación")}</strong><div class="m2rd-history-date">${esc(date)} · ${esc(row.eventId||"")}</div></div><span class="m2rd-history-state ${esc(status)}">${esc(historyStatusES(status))}</span></div><div class="m2rd-history-metrics"><div class="m2rd-history-metric"><span>TIEMPO</span><strong>${esc(fmtDuration(row.durationMs))}</strong></div><div class="m2rd-history-metric"><span>DISTANCIA</span><strong>${esc(fmtDistance(row.trackDistanceM))}</strong></div><div class="m2rd-history-metric"><span>GPS</span><strong>${esc(points)} pts</strong></div></div><button class="m2rd-history-detail-btn" type="button" data-history-detail="${esc(row.eventId||"")}">VER DETALLE · MAPA Y TRACK</button></article>`;
+      return `<article class="m2rd-history-row"><div class="m2rd-history-top"><div class="m2rd-history-title"><strong>${esc(row.eventName||"Carrera de orientación")}</strong><div class="m2rd-history-date">${esc(date)} · ${esc(row.eventId||"")}</div></div><span class="m2rd-history-state ${esc(status)}">${esc(historyStatusES(status))}</span></div><div class="m2rd-history-metrics"><div class="m2rd-history-metric"><span>TIEMPO OFICIAL</span><strong>${esc(fmtDuration(row.officialDurationMs??row.durationMs))}</strong></div><div class="m2rd-history-metric"><span>DISTANCIA</span><strong>${esc(fmtDistance(row.trackDistanceM))}</strong></div><div class="m2rd-history-metric"><span>GPS</span><strong>${esc(points)} pts</strong></div></div><button class="m2rd-history-detail-btn" type="button" data-history-detail="${esc(row.eventId||"")}">VER DETALLE · MAPA Y TRACK</button></article>`;
     }).join("");
   }
   async function loadHistory(silent=false){
