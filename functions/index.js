@@ -673,6 +673,7 @@ function trackDistanceMeters(points) {
 const CONTROL_ANALYSIS_VERSION = 3;
 const CONTROL_BASE_RADIUS_M = 10;
 const CONTROL_MAX_RADIUS_M = 10;
+const CONTROL_DISCARD_PENALTY_MS = 15 * 60 * 1000;
 const CONTROL_MAX_GPS_ACCURACY_M = 10;
 
 function canonicalControlId(value) {
@@ -780,7 +781,8 @@ function normalizeLiveControlPasses(raw) {
     const checkpointId = canonicalControlId(row?.checkpointId);
     const passedAtMs = Math.max(0, Number(row?.passedAtMs || row?.at || 0)) || null;
     if (!order || !checkpointId || !passedAtMs) return null;
-    const source = ["gps", "qr"].includes(String(row?.source || "").toLowerCase()) ? String(row.source).toLowerCase() : "gps";
+    const sourceRaw = String(row?.source || "").toLowerCase();
+    const source = ["gps", "qr", "discard"].includes(sourceRaw) ? sourceRaw : "gps";
     return {
       order,
       checkpointId,
@@ -792,7 +794,9 @@ function normalizeLiveControlPasses(raw) {
       allowedRadiusM: row?.allowedRadiusM == null ? null : Math.max(0, Number(row.allowedRadiusM || 0)),
       gpsAccuracyM: row?.gpsAccuracyM == null ? null : Math.max(0, Number(row.gpsAccuracyM || 0)),
       receivedAtMs: row?.receivedAtMs == null ? null : Math.max(0, Number(row.receivedAtMs || 0)),
-      queuedOffline: Boolean(row?.queuedOffline)
+      queuedOffline: Boolean(row?.queuedOffline),
+      discarded: source === "discard" || row?.discarded === true,
+      penaltyMs: source === "discard" ? CONTROL_DISCARD_PENALTY_MS : 0
     };
   }).filter(Boolean).sort((a, b) => a.order - b.order || a.passedAtMs - b.passedAtMs);
 }
@@ -818,7 +822,9 @@ function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
     }
     return {
       ...row,
-      detected: true,
+      detected: live.source !== "discard",
+      discarded: live.source === "discard",
+      penaltyMs: live.source === "discard" ? CONTROL_DISCARD_PENALTY_MS : 0,
       passedAtMs: live.passedAtMs,
       elapsedMs: live.elapsedMs,
       splitMs: live.splitMs,
@@ -987,6 +993,16 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   const trackControlAnalysis = analyzeControlPasses(points, routePoints, checkpoints, startedAtMs, finishedAtMs);
   const controlProgress = controlProgressSnap.exists() ? (controlProgressSnap.val() || {}) : {};
   const controlAnalysis = mergeLiveAndTrackControlAnalysis(trackControlAnalysis, controlProgress);
+  const liveControlRows = controlProgress?.passes && typeof controlProgress.passes === "object" ? Object.values(controlProgress.passes) : [];
+  const discardedControls = liveControlRows.filter(row => String(row?.source || "").toLowerCase() === "discard" || row?.discarded === true).map(row => ({ checkpointId: canonicalControlId(row?.checkpointId), discardedAtMs: Math.max(0, Number(row?.passedAtMs || 0)) || null, order: Math.max(0, Number(row?.order || 0)), penaltyMs: CONTROL_DISCARD_PENALTY_MS })).filter(row => row.checkpointId);
+  const discardedControlCount = discardedControls.length;
+  // Penalización oficial: +15 min por control descartado y, al finalizar,
+  // +15 min por cada control que haya quedado pendiente. Los descartados
+  // no se cuentan de nuevo como pendientes.
+  const pendingControlCount = finalStatus === "not_started" ? 0 : Math.max(0, Number(controlAnalysis.missingCount || 0));
+  const penalizedControlCount = discardedControlCount + pendingControlCount;
+  const penaltyMs = penalizedControlCount * CONTROL_DISCARD_PENALTY_MS;
+  const officialDurationMs = durationMs == null ? null : durationMs + penaltyMs;
   const resultRef = eventRef.collection("results").doc(uid);
   const existing = await resultRef.get();
   const first = points[0] || null;
@@ -1023,6 +1039,14 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     controlGpsLiveCount: Math.max(0, Number(controlAnalysis.sourceCounts?.gps || 0)),
     controlQrCount: Math.max(0, Number(controlAnalysis.sourceCounts?.qr || 0)),
     controlTrackRecoveryCount: Math.max(0, Number(controlAnalysis.sourceCounts?.gps_track_recovery || 0)),
+    discardedControlCount,
+    discardedControls,
+    pendingControlCount,
+    penalizedControlCount,
+    penaltyPerControlMs: CONTROL_DISCARD_PENALTY_MS,
+    penaltyPerDiscardMs: CONTROL_DISCARD_PENALTY_MS,
+    penaltyMs,
+    officialDurationMs,
     controlAnalyzedAt: FieldValue.serverTimestamp(),
     arrivalValidated: Boolean(controlProgress.finishValidated),
     arrivalValidatedAtMs: Math.max(0, Number(controlProgress.arrivalAt || controlProgress.finishPass?.passedAtMs || 0)) || null,
@@ -1269,7 +1293,7 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
 
     for (const raw of batch) {
       const source = String(raw?.source || "gps").toLowerCase();
-      if (!["gps", "qr"].includes(source)) { transactionError = "Método de validación no válido."; return; }
+      if (!["gps", "qr", "discard"].includes(source)) { transactionError = "Método de validación no válido."; return; }
       const checkpointId = canonicalControlId(raw?.checkpointId);
       if (!checkpointId || checkpointId === "START") { transactionError = "Control no válido."; return; }
       const attemptId = String(raw?.attemptId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 100) || randomUUID().replace(/-/g, "");
@@ -1309,7 +1333,9 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
       let distanceM = null;
       let allowedRadiusM = null;
       let gpsAccuracyM = null;
-      if (source === "gps") {
+      if (source === "discard") {
+        if (isFinish) { transactionError = "La LLEGADA no se puede descartar."; return; }
+      } else if (source === "gps") {
         const lat = Number(raw?.lat), lng = Number(raw?.lng), accuracy = Math.max(0, Number(raw?.accuracy || 0));
         if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(expected?.lat) || !Number.isFinite(expected?.lng)) {
           transactionError = `No hay coordenadas GPS válidas para comprobar ${isFinish ? "la llegada" : "esta baliza"}.`;
@@ -1349,6 +1375,8 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
         gpsAccuracyM,
         receivedAtMs: now,
         queuedOffline: now - passedAtMs > 15000,
+        discarded: source === "discard",
+        penaltyMs: source === "discard" ? CONTROL_DISCARD_PENALTY_MS : 0,
         attemptId
       };
 
@@ -1393,9 +1421,17 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
   const progressSnap = await progressRef.get();
   const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
   const completedCount = Math.max(0, Number(progress.completedCount || 0));
+  const progressPasses = progress.passes && typeof progress.passes === "object" ? Object.values(progress.passes) : [];
+  const discardedPasses = progressPasses.filter(row => String(row?.source || "").toLowerCase() === "discard" || row?.discarded === true);
+  const discardedControlIds = discardedPasses.map(row => canonicalControlId(row?.checkpointId)).filter(Boolean);
+  const discardedControlCount = discardedControlIds.length;
+  const controlPenaltyMs = discardedControlCount * CONTROL_DISCARD_PENALTY_MS;
   const commonUpdate = {
     controlExpectedCount: plan.expectedCount,
     controlCompletedCount: completedCount,
+    discardedControlCount,
+    discardedControls: discardedControlIds,
+    controlPenaltyMs,
     nextControlId: progress.nextControlId ?? (completedCount < plan.expectedCount ? plan.controls[completedCount]?.checkpointId : "FINISH"),
     lastControlId: progress.lastControlId || null,
     lastControlAt: progress.lastControlAt || null,
@@ -2196,7 +2232,7 @@ function h5RunnerLabel(row = {}) {
   return String(row.participantId || "Corredor");
 }
 function h5Duration(row = {}) {
-  const value = Number(row.durationMs);
+  const value = Number(row.officialDurationMs ?? row.durationMs);
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 function h5RankRows(rows) {
@@ -2246,7 +2282,13 @@ function h5PublicRow(row = {}) {
     username: String(row.username || "").replace(/^@/, "").slice(0, 40) || null,
     status: h5ResultStatus(row.status),
     rank: row.rank == null ? null : (Number.isFinite(Number(row.rank)) ? Number(row.rank) : null),
-    durationMs: h5Duration(row),
+    durationMs: row.durationMs == null ? null : Math.max(0, Number(row.durationMs || 0)),
+    officialDurationMs: h5Duration(row),
+    penaltyMs: Math.max(0, Number(row.penaltyMs || 0)),
+    discardedControlCount: Math.max(0, Number(row.discardedControlCount || 0)),
+    discardedControls: Array.isArray(row.discardedControls) ? row.discardedControls.slice(0,120) : [],
+    pendingControlCount: Math.max(0, Number(row.pendingControlCount ?? row.controlMissingCount ?? 0)),
+    penalizedControlCount: Math.max(0, Number(row.penalizedControlCount ?? ((Number(row.discardedControlCount)||0)+(Number(row.pendingControlCount ?? row.controlMissingCount)||0)))),
     gapToLeaderMs: row.gapToLeaderMs == null ? null : (Number.isFinite(Number(row.gapToLeaderMs)) ? Number(row.gapToLeaderMs) : null),
     startedAtMs: Math.max(0, Number(row.startedAtMs || 0)) || null,
     finishedAtMs: Math.max(0, Number(row.finishedAtMs || 0)) || null,
@@ -2312,6 +2354,12 @@ async function buildEventClassification(eventRef, eventData) {
       username: String(result.username || member.username || profile.usernameKey || profile.username || "").replace(/^@/, "").slice(0, 40) || null,
       status: hasResult ? h5ResultStatus(result.status) : "not_started",
       durationMs: hasResult && result.durationMs != null ? Math.max(0, Number(result.durationMs || 0)) : null,
+      officialDurationMs: hasResult && (result.officialDurationMs != null || result.durationMs != null) ? Math.max(0, Number(result.officialDurationMs ?? result.durationMs ?? 0)) : null,
+      penaltyMs: hasResult ? Math.max(0, Number(result.penaltyMs || 0)) : 0,
+      discardedControlCount: hasResult ? Math.max(0, Number(result.discardedControlCount || 0)) : 0,
+      discardedControls: hasResult && Array.isArray(result.discardedControls) ? result.discardedControls : [],
+      pendingControlCount: hasResult ? Math.max(0, Number(result.pendingControlCount ?? result.controlMissingCount ?? 0)) : 0,
+      penalizedControlCount: hasResult ? Math.max(0, Number(result.penalizedControlCount ?? ((Number(result.discardedControlCount)||0)+(Number(result.pendingControlCount ?? result.controlMissingCount)||0)))) : 0,
       startedAtMs: hasResult ? (Math.max(0, Number(result.startedAtMs || 0)) || null) : null,
       finishedAtMs: hasResult ? (Math.max(0, Number(result.finishedAtMs || 0)) || null) : null,
       trackDistanceM: hasResult ? Math.max(0, Number(result.trackDistanceM || 0)) : 0,
