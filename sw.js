@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-i6b-history-playback-ranking-20260930";
+const BUILD_ID="v2-i6b2-history-objective-cache-20260930";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -52,12 +52,12 @@ const APP_SHELL=[
   "./js/v2/auth/auth-ui.js?v=v2-i5-4-pwa-account-hqlogo-20260929",
   "./js/v2/data/invitation-inbox.js?v=v2-h6-2-2-qr-button-hardfix-20260925",
   "./js/v2/maps/race-plan-history.js?v=v2-h4-1-runner-map-parity-20260925",
-  "./js/v2/live/runner-dashboard.js?v=v2-i6b-history-playback-ranking-20260930",
+  "./js/v2/live/runner-dashboard.js?v=v2-i6b2-history-objective-cache-20260930",
   "./js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-20260924",
   "./js/v2/live/runner-gps-v2.js?v=v2-i6a-discard-controls-20260930",
   "./js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
-  "./js/v2/live/runner-controls-v2.js?v=v2-i6a3-discard-official-hotfix-20260930",
-  "./js/v2/live/runner-race-v2.js?v=v2-i6a3-discard-official-hotfix-20260930"
+  "./js/v2/live/runner-controls-v2.js?v=v2-i6b2-history-objective-cache-20260930",
+  "./js/v2/live/runner-race-v2.js?v=v2-i6b2-history-objective-cache-20260930"
 ];
 
 /* Librerías externas útiles offline. Son opcionales durante install: si un CDN falla,
@@ -121,8 +121,9 @@ function isAppCode(url,req){
 }
 
 self.addEventListener("install",event=>{
-  /* NO skipWaiting(). I4 añade además un guard persistente: si este dispositivo
-     tiene una carrera activa, ni siquiera instalamos la nueva versión. */
+  /* I4: si existe una carrera activa, ni siquiera instalamos la nueva versión.
+     Si no existe, la nueva versión se activa automáticamente para que una simple
+     recarga/cierre-apertura sea suficiente y no haga falta borrar caché. */
   event.waitUntil((async()=>{
     const lock=await activeRaceUpdateLock();
     if(lock)throw new Error(`MILITOPO_UPDATE_DEFERRED_ACTIVE_RACE:${lock.eventId}:${lock.runId}`);
@@ -134,6 +135,10 @@ self.addEventListener("install",event=>{
        realmente consulta el fetch handler. Así un dispositivo que ya abrió MILITOPO
        online puede volver a arrancar el núcleo V2 sin descargar gstatic de nuevo. */
     await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(runtime,u)));
+    /* Fuera de una carrera activa, la versión nueva pasa a ser la siguiente
+       controladora inmediatamente. La página actual no se recarga sola: basta
+       una recarga/cierre-apertura para entrar ya en la nueva versión. */
+    await self.skipWaiting();
   })());
 });
 
@@ -144,7 +149,7 @@ self.addEventListener("activate",event=>event.waitUntil((async()=>{
   await self.clients.claim();
 })()));
 
-/* Activación manual reservada para una fase posterior/UI de actualización segura. */
+/* Se conserva el mensaje de activación manual por compatibilidad con clientes antiguos. */
 self.addEventListener("message",event=>{
   const data=event.data||{};
   if(data.type==="MILITOPO_ACTIVATE_UPDATE")self.skipWaiting();
