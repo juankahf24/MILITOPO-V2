@@ -97,7 +97,7 @@ function ensurePanel() {
     </div>
     <div class="m2-h2-tools"><div class="m2-h2-source">Fuente: Firestore · histórico permanente H1/H2</div><button id="m2H2Refresh" class="m2-h2-refresh" type="button">ACTUALIZAR</button></div>
     <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>CORREDOR</th><th>ESTADO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO</th><th>DISTANCIA</th><th>BALIZAS</th><th>GPS</th><th>RUN</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="9" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
-    <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">🏆 CLASIFICACIÓN H5</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes independientemente del recorrido. POR RECORRIDO compara únicamente corredores con el mismo Rxx.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="8" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>`;
+    <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">🏆 CLASIFICACIÓN H5</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes independientemente del recorrido. POR RECORRIDO compara únicamente corredores con el mismo Rxx.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO OFICIAL</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="8" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>`;
   if (mapPanel?.parentNode) mapPanel.insertAdjacentElement("afterend", panel);
   else if (monitor?.parentNode) monitor.insertAdjacentElement("afterend", panel);
   else {
@@ -171,11 +171,11 @@ function renderClassification() {
   tabs.innerHTML = `<button class="m2-h5-tab ${state.classView === "general" ? "active" : ""}" type="button" data-h5-view="general">GENERAL</button>` + routes.map(route => `<button class="m2-h5-tab ${state.classView === route.routeId ? "active" : ""}" type="button" data-h5-view="${esc(route.routeId)}">${esc(route.routeId)} · ${esc(route.participantCount)} corredores</button>`).join("");
 
   if (state.classError) note.textContent = `⚠️ ${state.classError}`;
-  else if (state.classView === "general") note.textContent = "GENERAL ordena por tiempo absoluto entre todos los finalizados, aunque sus recorridos sean diferentes. El Rxx y la distancia reducida permanecen visibles para interpretar la comparación.";
+  else if (state.classView === "general") note.textContent = "GENERAL asigna puesto a todo corredor que tomó la salida: FINALIZADOS primero e INCOMPLETOS después. Dentro de cada estado se ordena por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.";
   else {
     const route = routes.find(row => row.routeId === state.classView) || {};
     const distance = Number.isFinite(Number(route.routeDistanceKm)) ? `${Number(route.routeDistanceKm).toFixed(2)} km` : "distancia —";
-    note.textContent = `${state.classView}: ${route.participantCount || 0} participantes · ${distance} · clasificación entre corredores del mismo recorrido.`;
+    note.textContent = `${state.classView}: ${route.participantCount || 0} participantes · ${distance} · FINALIZADOS primero e INCOMPLETOS después, ordenados por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.`;
   }
 
   if (state.classLoading) { body.innerHTML = '<tr><td colspan="8" class="m2-h2-empty">Calculando clasificación…</td></tr>'; return; }
@@ -183,7 +183,7 @@ function renderClassification() {
   if (!rows.length) { body.innerHTML = `<tr><td colspan="8" class="m2-h2-empty">${state.classError ? "No se pudo cargar la clasificación." : "Todavía no hay participantes clasificables."}</td></tr>`; return; }
   body.innerHTML = rows.map(row => {
     const status = ["finished","incomplete","not_started"].includes(String(row.status)) ? String(row.status) : "not_started";
-    return `<tr class="${row.runnerUid === state.auth?.uid ? "m2-h5-own" : ""}"><td class="m2-h5-rank">${row.rank ?? "—"}</td><td><strong>${esc(runnerName(row))}</strong></td><td>${esc(row.participantId || "—")}</td><td>${esc(row.routeId || "—")}</td><td>${row.routeDistanceKm == null ? "—" : `${esc(Number(row.routeDistanceKm).toFixed(2))} km`}</td><td><strong>${esc(formatDuration(row.durationMs))}</strong></td><td class="m2-h5-gap">${esc(formatGap(row.gapToLeaderMs))}</td><td><span class="m2-h2-state ${esc(status)}">${esc(RESULT_ES[status])}</span></td></tr>`;
+    return `<tr class="${row.runnerUid === state.auth?.uid ? "m2-h5-own" : ""}"><td class="m2-h5-rank">${row.rank ?? "—"}</td><td><strong>${esc(runnerName(row))}</strong></td><td>${esc(row.participantId || "—")}</td><td>${esc(row.routeId || "—")}</td><td>${row.routeDistanceKm == null ? "—" : `${esc(Number(row.routeDistanceKm).toFixed(2))} km`}</td><td><strong>${esc(formatDuration(row.officialDurationMs ?? row.durationMs))}</strong></td><td class="m2-h5-gap">${esc(formatGap(row.gapToLeaderMs))}</td><td><span class="m2-h2-state ${esc(status)}">${esc(RESULT_ES[status])}</span></td></tr>`;
   }).join("");
 }
 async function loadClassification(force = false) {
