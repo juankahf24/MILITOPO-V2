@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-i6a3-discard-official-hotfix-20260930";
+const BUILD_ID="v2-i6b-history-playback-ranking-20260930";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -41,7 +41,7 @@ const CORE_ASSETS=[
   "../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/organizer-monitor.js?v=v2-i6a3-discard-official-hotfix-20260930",
   "../js/v2/live/organizer-live-map.js?v=v2-g5-live-cartography-20260924",
-  "../js/v2/data/event-results.js?v=v2-h6-1-live-controls-qr-20260925"
+  "../js/v2/data/event-results.js?v=v2-i6b-ranking-official-20260930"
 ];
 
 const FIREBASE_SDK_ASSETS=[
