@@ -5,7 +5,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-i6a3-discard-official-hotfix-20260930";
+  const VERSION="v2-i6b2-history-objective-cache-20260930";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -34,9 +34,10 @@
     const completed=Math.min(expected,Math.max(0,Number(state.completedCount||0)));
     const discarded=(state.passes||[]).filter(row=>String(row?.source||"").toLowerCase()==="discard"||row?.discarded===true).length;
     const pendingControls=Math.max(0,expected-completed);
-    return {expected,completed,discarded,pendingControls,penaltyPreviewMs:(discarded+pendingControls)*CONTROL_PENALTY_MS};
+    const penaltyAccumulatedMs=discarded*CONTROL_PENALTY_MS;
+    return {expected,completed,discarded,pendingControls,penaltyAccumulatedMs,penaltyPreviewMs:penaltyAccumulatedMs};
   }
-  function emit(status,detail={}){const next=nextTarget(),stats=courseStats();window.dispatchEvent(new CustomEvent("militopo:v2-control-status",{detail:{status,version:VERSION,raceStatus:state.raceStatus,completedCount:state.completedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyPreviewMs:stats.penaltyPreviewMs,nextControl:next?{...next}:null,finishValidated:state.finishValidated,finishPass:state.finishPass?{...state.finishPass}:null,lastFix:state.lastFix?{...state.lastFix}:null,pending:state.queue.length,...detail}}));}
+  function emit(status,detail={}){const next=nextTarget(),stats=courseStats();window.dispatchEvent(new CustomEvent("militopo:v2-control-status",{detail:{status,version:VERSION,raceStatus:state.raceStatus,completedCount:state.completedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyAccumulatedMs:stats.penaltyAccumulatedMs,penaltyPreviewMs:stats.penaltyPreviewMs,nextControl:next?{...next}:null,finishValidated:state.finishValidated,finishPass:state.finishPass?{...state.finishPass}:null,lastFix:state.lastFix?{...state.lastFix}:null,pending:state.queue.length,...detail}}));}
   function safeLoad(){if(!state.storageKey)return null;try{const raw=localStorage.getItem(state.storageKey);const x=raw?JSON.parse(raw):null;return x&&typeof x==="object"?x:null;}catch(_){return null;}}
   function journalAdd(item){
     if(!item||typeof item!=="object")return;
@@ -338,7 +339,7 @@
     }
     return requireArrival ? (state.serverFinishValidated&&state.queue.length===0) : state.queue.length===0;
   }
-  function snapshot(){const stats=courseStats();return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyPreviewMs:stats.penaltyPreviewMs,nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,journalCount:state.journal.length,syncing:state.flushing,lastSyncError:state.lastSyncError,syncFailureCount:state.syncFailureCount,lastFix:state.lastFix?{...state.lastFix}:null};}
+  function snapshot(){const stats=courseStats();return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyAccumulatedMs:stats.penaltyAccumulatedMs,penaltyPreviewMs:stats.penaltyPreviewMs,nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,journalCount:state.journal.length,syncing:state.flushing,lastSyncError:state.lastSyncError,syncFailureCount:state.syncFailureCount,lastFix:state.lastFix?{...state.lastFix}:null};}
   function pendingPasses(){return syncPayload().map(item=>({...item}));}
   function stop(){closeScanner({silent:true});clearRetry();persist();state.raceStatus="finished";emit("stopped");}
 

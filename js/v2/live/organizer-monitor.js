@@ -294,8 +294,10 @@ function render() {
     const startedAt = Math.max(0, Number(row.startedAt || 0));
     const finishedAt = Math.max(0, Number(row.finishedAt || 0));
     const hasStarted = startedAt > 0 && ["racing","finished"].includes(st);
-    const provisionalPenalty = hasStarted ? (discardedControls + pendingControls) * CONTROL_PENALTY_MS : 0;
-    const finalPenalty = st === "finished" && row.penaltyMs != null && Number.isFinite(Number(row.penaltyMs)) ? Math.max(0, Number(row.penaltyMs)) : provisionalPenalty;
+    // Durante la carrera solo cuentan penalizaciones ya ocurridas (descartes).
+    // Las balizas que sigan pendientes se penalizan únicamente al finalizar.
+    const accumulatedPenalty = hasStarted ? discardedControls * CONTROL_PENALTY_MS : 0;
+    const finalPenalty = st === "finished" && row.penaltyMs != null && Number.isFinite(Number(row.penaltyMs)) ? Math.max(0, Number(row.penaltyMs)) : accumulatedPenalty;
     const rawDuration = hasStarted ? Math.max(0, (finishedAt || Date.now()) - startedAt) : null;
     const finalOfficial = st === "finished" && row.officialDurationMs != null && Number.isFinite(Number(row.officialDurationMs)) ? Math.max(0, Number(row.officialDurationMs)) : (rawDuration == null ? null : rawDuration + finalPenalty);
     const lastSeen = Math.max(0, Number(row.lastSeen || row.updatedAt || 0));

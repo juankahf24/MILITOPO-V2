@@ -3,8 +3,8 @@
    ha cargado correctamente la pantalla de login de MILITOPO. */
 (function () {
   "use strict";
-  const VERSION = "v2-i6b-history-playback-ranking-20260930";
-  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", detailPlaybackLayer:null, detailPlaybackMarker:null, detailPlaybackTrail:null, detailPlaybackPoints:[], detailPlaybackPlaying:false, detailPlaybackRaf:0, detailPlaybackLastFrame:0, detailPlaybackCurrentMs:0, detailPlaybackDurationMs:0, detailPlaybackSpeed:1, active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set(), onlineRevalidating:false, onlineRefreshPromise:null };
+  const VERSION = "v2-i6b2-history-objective-cache-20260930";
+  const state = { auth:null, services:null, servicesPromise:null, recoveryPromise:null, events:[], history:[], historySummary:{total:0,finished:0,incomplete:0,notStarted:0}, historyLoading:false, historyError:"", historyDetail:null, detailLoading:false, detailError:"", detailEventId:"", classificationDetail:null, classificationLoading:false, classificationError:"", classificationView:"general", detailMap:null, detailBaseLayers:{}, detailBaseLayer:null, detailBaseKey:"mapant", detailTrackLayer:null, detailCheckpointLayer:null, detailCheckpointMarkers:new Map(), detailRacePlanLayer:null, detailRacePlanDescriptor:null, detailRacePlanOwnedUrl:"", detailRacePlanLoading:false, detailRacePlanError:"", detailPlaybackLayer:null, detailPlaybackMarker:null, detailPlaybackTrail:null, detailPlaybackTargetLine:null, detailPlaybackPoints:[], detailPlaybackControlRows:[], detailPlaybackStartMs:0, detailPlaybackObjectiveKey:"", detailPlaybackPlaying:false, detailPlaybackRaf:0, detailPlaybackLastFrame:0, detailPlaybackCurrentMs:0, detailPlaybackDurationMs:0, detailPlaybackSpeed:1, active:null, runId:"", participantStatus:"", unsubRun:null, unsubParticipant:null, heartbeat:null, root:null, eventWatchers:new Map(), unsubInviteSignals:null, inviteSignalSignature:"", recoveryDeadline:null, connectingEventId:"", connectPromise:null, connectToken:0, liveSelectionTimer:null, pendingInvites:0, autoOpenedRuns:new Set(), onlineRevalidating:false, onlineRefreshPromise:null };
   const LAST_ROLE_KEY = "militopo_v2_last_role";
   const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
   const EVENTS_SNAPSHOT_KEY = "militopo_v2_runner_events_snapshot";
@@ -238,10 +238,9 @@
       .m2rd-events{display:grid;gap:10px;margin-top:10px}.m2rd-event{border:1px solid rgba(255,255,255,.10);border-radius:16px;background:rgba(255,255,255,.035);padding:13px}.m2rd-event strong{display:block;font-size:.94rem}.m2rd-event-meta{margin-top:4px;color:#b7ad99;font-size:.72rem}.m2rd-pill{display:inline-block;margin-top:8px;padding:5px 9px;border-radius:999px;border:1px solid rgba(126,220,150,.36);color:#e0f6d4;font-size:.68rem;font-weight:900}.m2rd-route{margin-top:9px;padding:10px;border-radius:12px;border:1px solid rgba(240,193,106,.28);background:rgba(240,193,106,.07)}.m2rd-route-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:.72rem;font-weight:900;color:#f2dfb5}.m2rd-route-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:7px}.m2rd-route-grid span{display:block;padding:6px 5px;border-radius:9px;background:rgba(0,0,0,.14);font-size:.58rem;color:#9e9b8e}.m2rd-route-grid strong{display:block;margin-top:2px;color:#f3f0e8;font-size:.68rem;overflow-wrap:anywhere}.m2rd-route-seq{margin-top:7px;font-size:.62rem;line-height:1.45;color:#bdb49f;overflow-wrap:anywhere}.m2rd-note{margin-top:9px;padding:9px 10px;border-radius:12px;background:rgba(240,193,106,.08);color:#eadbbf;font-size:.75rem;line-height:1.4}.m2rd-live{margin-top:9px;padding:9px 10px;border-radius:12px;border:1px solid rgba(126,220,150,.28);background:rgba(126,220,150,.10);color:#ddf6d2;font-size:.75rem;font-weight:900}.m2rd-btn{width:100%;min-height:45px;margin-top:9px;border-radius:13px;border:1px solid rgba(126,220,150,.40);background:rgba(126,220,150,.15);color:#efffe8;font:inherit;font-weight:900}.m2rd-btn:disabled{opacity:.48}.m2rd-small{margin-top:10px;color:#978e7e;font-size:.68rem;line-height:1.45}
       .m2rd-history-head{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0}.m2rd-history-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07);text-align:center}.m2rd-history-stat strong{display:block;font-size:1rem;color:#f4e7c8}.m2rd-history-stat span{display:block;margin-top:2px;font-size:.58rem;letter-spacing:.06em;color:#9f9889}.m2rd-history{display:grid;gap:9px}.m2rd-history-row{padding:12px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09)}.m2rd-history-top{display:flex;gap:8px;justify-content:space-between;align-items:flex-start}.m2rd-history-title{min-width:0}.m2rd-history-title strong{display:block;font-size:.9rem}.m2rd-history-date{margin-top:3px;color:#a9a18f;font-size:.68rem}.m2rd-history-state{flex:0 0 auto;padding:4px 7px;border-radius:999px;font-size:.61rem;font-weight:900;border:1px solid rgba(126,220,150,.30);color:#daf3cf}.m2rd-history-state.incomplete{border-color:rgba(240,193,106,.34);color:#f5dfaf}.m2rd-history-state.not_started{border-color:rgba(170,170,170,.25);color:#c4c4c4}.m2rd-history-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:9px}.m2rd-history-metric{padding:7px;border-radius:10px;background:rgba(0,0,0,.12)}.m2rd-history-metric span{display:block;font-size:.56rem;color:#8f978d;letter-spacing:.05em}.m2rd-history-metric strong{display:block;margin-top:3px;font-size:.76rem;color:#edf2e8}.m2rd-history-refresh{min-height:40px;margin-top:9px}.m2rd-history-detail-btn{width:100%;min-height:38px;margin-top:9px;border-radius:11px;border:1px solid rgba(240,193,106,.34);background:rgba(240,193,106,.10);color:#fff0cf;font:inherit;font-size:.72rem;font-weight:900}
       .m2rd-detail{position:fixed;inset:0;z-index:100003;overflow:auto;background:rgba(4,8,5,.985);padding:max(72px,calc(env(safe-area-inset-top) + 58px)) 10px calc(28px + env(safe-area-inset-bottom));color:#f5e6c8}.m2rd-detail[hidden]{display:none!important}.m2rd-detail-shell{width:min(860px,100%);margin:0 auto;display:grid;gap:12px}.m2rd-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.m2rd-detail-head h2{margin:0;color:#f0c16a;font-size:1.15rem}.m2rd-detail-close{min-width:44px;min-height:40px;border-radius:11px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#fff;font:inherit;font-weight:900}.m2rd-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.m2rd-detail-stat{padding:9px 7px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)}.m2rd-detail-stat span{display:block;font-size:.56rem;color:#9a9b8f;letter-spacing:.05em}.m2rd-detail-stat strong{display:block;margin-top:4px;font-size:.78rem;color:#eef3e9;overflow-wrap:anywhere}.m2rd-detail-maptools{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:10px}.m2rd-detail-layer{min-height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.22);color:#f6efe2;font:inherit;font-size:.65rem;font-weight:900}.m2rd-detail-layer.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-detail-layer.loading{opacity:.62;cursor:wait}.m2rd-detail-layerstatus{min-height:18px;margin:6px 0 0;font-size:.64rem;opacity:.76}.m2rd-detail-layerstatus.err{color:#ffc5b9;opacity:1}.m2rd-detail-map{height:390px;margin-top:8px;border-radius:15px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:#172017}.m2rd-detail-note{margin-top:8px;color:#a9a18f;font-size:.67rem;line-height:1.4}.m2rd-control-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.m2rd-control-chip{padding:5px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.11);background:rgba(255,255,255,.035);font-size:.62rem}.m2rd-control-chip.start{border-color:rgba(126,220,150,.35);color:#daf4d0}.m2rd-control-chip.finish{border-color:rgba(255,145,130,.30);color:#ffd3cb}.m2rd-pass-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:9px}.m2rd-pass-note{margin:9px 0;color:#aaa28f;font-size:.66rem;line-height:1.45}.m2rd-pass-table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-height:360px}.m2rd-pass-table{width:100%;min-width:690px;border-collapse:collapse}.m2rd-pass-table th,.m2rd-pass-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.62rem;text-align:left;white-space:nowrap}.m2rd-pass-table th{position:sticky;top:0;background:#172719;color:#f0dca6;font-size:.55rem}.m2rd-pass-ok{color:#cceec7;font-weight:900}.m2rd-pass-discard{color:#f3ca77;font-weight:900}.m2rd-pass-miss{color:#ffd0c8;font-weight:900}
-      .m2rd-playback{margin-top:10px;padding:10px;border-radius:14px;border:1px solid rgba(240,193,106,.18);background:rgba(0,0,0,.16)}.m2rd-playback-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.m2rd-playback-actions{display:flex;gap:6px;flex-wrap:wrap}.m2rd-playback-btn,.m2rd-playback-speed{min-height:36px;border-radius:10px;border:1px solid rgba(240,193,106,.30);background:rgba(240,193,106,.08);color:#fff0cf;font:inherit;font-size:.66rem;font-weight:900;padding:0 10px}.m2rd-playback-btn.primary{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-playback-time{font-size:.68rem;color:#d9d1c2;font-weight:900;white-space:nowrap}.m2rd-playback-slider{width:100%;margin:10px 0 2px;accent-color:#d8b45e}.m2rd-playback-meta{display:flex;justify-content:space-between;gap:8px;color:#a9a18f;font-size:.61rem}.m2rd-playback-empty{opacity:.58}.m2rd-playback-marker{width:20px;height:20px;border-radius:50%;background:#f0c16a;border:3px solid #fff;box-shadow:0 0 0 5px rgba(240,193,106,.24),0 3px 12px rgba(0,0,0,.55)}
+      .m2rd-playback{margin-top:10px;padding:10px;border-radius:14px;border:1px solid rgba(240,193,106,.18);background:rgba(0,0,0,.16)}.m2rd-playback-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.m2rd-playback-actions{display:flex;gap:6px;flex-wrap:wrap}.m2rd-playback-btn,.m2rd-playback-speed{min-height:36px;border-radius:10px;border:1px solid rgba(240,193,106,.30);background:rgba(240,193,106,.08);color:#fff0cf;font:inherit;font-size:.66rem;font-weight:900;padding:0 10px}.m2rd-playback-btn.primary{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-playback-time{font-size:.68rem;color:#d9d1c2;font-weight:900;white-space:nowrap}.m2rd-playback-objective{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;align-items:center;margin-top:10px;padding:9px 10px;border-radius:11px;border:1px solid rgba(240,193,106,.22);background:linear-gradient(90deg,rgba(240,193,106,.10),rgba(255,255,255,.025))}.m2rd-playback-objective span{grid-row:1/3;font-size:.53rem;letter-spacing:.07em;color:#a99d83;font-weight:900}.m2rd-playback-objective strong{font-size:.78rem;color:#ffe4a1;letter-spacing:.035em}.m2rd-playback-objective small{font-size:.58rem;color:#b8b1a2}.m2rd-playback-slider{width:100%;margin:10px 0 2px;accent-color:#d8b45e}.m2rd-playback-meta{display:flex;justify-content:space-between;gap:8px;color:#a9a18f;font-size:.61rem}.m2rd-playback-empty{opacity:.58}.m2rd-playback-marker{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle,#fff 0 24%,#f0c16a 26% 58%,#422d13 60% 100%);border:2px solid #fff;box-shadow:0 0 0 5px rgba(240,193,106,.22),0 3px 12px rgba(0,0,0,.58);animation:m2rdRunnerPulse 1.8s ease-out infinite}
       .m2rd-class-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.m2rd-class-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.m2rd-class-tab{min-height:38px;border-radius:11px;border:1px solid rgba(240,193,106,.28);background:rgba(240,193,106,.07);color:#f6ead1;font:inherit;font-size:.68rem;font-weight:900}.m2rd-class-tab.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2rd-class-table-wrap{overflow:auto;margin-top:8px;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-height:350px}.m2rd-class-table{width:100%;min-width:720px;border-collapse:collapse}.m2rd-class-table th,.m2rd-class-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.62rem;text-align:left;white-space:nowrap}.m2rd-class-table th{position:sticky;top:0;background:#172719;color:#f0dca6;font-size:.55rem}.m2rd-class-me{background:rgba(240,193,106,.10)}.m2rd-class-rank{font-weight:900;color:#f0dca6}.m2rd-class-note{margin-top:8px;color:#a9a18f;font-size:.66rem;line-height:1.4}
-      .m2rd-detail-checkpoint{min-width:22px;height:22px;padding:0 4px;border-radius:999px;display:grid;place-items:center;border:2px solid rgba(255,255,255,.9);background:#9b6b2f;color:white;font-size:9px;font-weight:900;box-shadow:0 2px 7px rgba(0,0,0,.38)}
-      .m2rd-detail-checkpoint.start{background:#397d55}.m2rd-detail-checkpoint.finish{background:#934d4d}
+      .m2rd-map-marker{position:relative;width:36px;height:36px;display:grid;place-items:center;filter:drop-shadow(0 5px 8px rgba(0,0,0,.42));transform-origin:center}.m2rd-map-marker svg{width:36px;height:36px;overflow:visible}.m2rd-map-marker text{font-family:"Courier New",monospace;font-weight:1000;paint-order:stroke;stroke:rgba(7,12,8,.78);stroke-width:2px;stroke-linejoin:round}.m2rd-map-marker.control .marker-ring{fill:rgba(18,32,20,.92);stroke:#f2cf82;stroke-width:3}.m2rd-map-marker.control .marker-core{fill:#f2cf82}.m2rd-map-marker.start .marker-shape{fill:#397d55;stroke:#f1ffe9;stroke-width:2.5}.m2rd-map-marker.finish .marker-outer{fill:rgba(34,21,21,.92);stroke:#f3d7d2;stroke-width:3}.m2rd-map-marker.finish .marker-inner{fill:none;stroke:#d76d68;stroke-width:2}.m2rd-map-marker.validated .marker-state-dot{background:#76d692}.m2rd-map-marker.discarded .marker-state-dot{background:#f0b55f}.m2rd-map-marker.pending .marker-state-dot{background:#d9796b}.m2rd-map-marker .marker-state-dot{position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;border:2px solid #101710;background:#b6b6b6}.m2rd-map-marker.discarded:after{content:"";position:absolute;width:27px;height:3px;border-radius:999px;background:#ffb35b;transform:rotate(-42deg);box-shadow:0 0 0 1px rgba(40,18,0,.6)}.m2rd-map-marker.is-objective{z-index:5;animation:m2rdObjectivePulse 1.05s ease-in-out infinite}.m2rd-map-marker.is-objective:before{content:"";position:absolute;inset:-8px;border:2px solid #ffe58f;border-radius:50%;box-shadow:0 0 0 5px rgba(255,218,112,.14),0 0 20px rgba(255,218,112,.55);animation:m2rdObjectiveRing 1.05s ease-out infinite}.m2rd-map-marker.start.is-objective:before{border-radius:12px}.m2rd-detail-map .leaflet-marker-icon{background:transparent!important;border:0!important}.m2rd-detail-map .leaflet-popup-content-wrapper{background:#152119;color:#f4ead6;border:1px solid rgba(240,193,106,.28);border-radius:12px}.m2rd-detail-map .leaflet-popup-tip{background:#152119}@keyframes m2rdObjectivePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.13)}}@keyframes m2rdObjectiveRing{0%{transform:scale(.82);opacity:.9}100%{transform:scale(1.28);opacity:0}}@keyframes m2rdRunnerPulse{0%,100%{box-shadow:0 0 0 4px rgba(240,193,106,.18),0 3px 12px rgba(0,0,0,.58)}50%{box-shadow:0 0 0 8px rgba(240,193,106,.08),0 3px 12px rgba(0,0,0,.58)}}
       .m2rd-detail-map .leaflet-control-attribution{font-size:9px}.m2rd-detail-maplegend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:.62rem;opacity:.75}.m2rd-detail-maplegend span{display:inline-flex;align-items:center;gap:5px}
       @media(max-width:430px){#m2RunnerDashboard{padding-left:9px;padding-right:9px}.m2rd-card{border-radius:22px}.m2rd-history-head{grid-template-columns:1fr 1fr}.m2rd-history-metrics{grid-template-columns:1fr 1fr 1fr}.m2rd-detail-grid{grid-template-columns:1fr 1fr}.m2rd-class-summary{grid-template-columns:1fr 1fr}.m2rd-pass-summary{grid-template-columns:1fr 1fr}.m2rd-playback-head{grid-template-columns:1fr}.m2rd-playback-time{text-align:left}.m2rd-detail-map{height:320px}}
     `;
@@ -262,7 +261,7 @@
       <section class="m2rd-card"><div class="m2rd-detail-head"><div><div class="m2rd-kicker">🏁 DETALLE DE PARTICIPACIÓN</div><h2 id="m2rdDetailTitle">Carrera</h2><div id="m2rdDetailSubtitle" class="m2rd-history-date">Resultado histórico</div></div><button id="m2rdDetailClose" class="m2rd-detail-close" type="button" aria-label="Cerrar detalle">✕</button></div><div id="m2rdDetailStatus" class="m2rd-status" style="margin-top:12px">Selecciona una carrera.</div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">📊 RESULTADO</h3><div id="m2rdDetailMetrics" class="m2rd-detail-grid"></div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">🏆 CLASIFICACIÓN</h3><div id="m2rdClassificationStatus" class="m2rd-status">Cargando clasificación…</div><div id="m2rdClassificationSummary" class="m2rd-class-summary" style="margin-top:10px"></div><div class="m2rd-class-tabs"><button id="m2rdClassGeneralBtn" class="m2rd-class-tab active" type="button" data-class-view="general">GENERAL</button><button id="m2rdClassRouteBtn" class="m2rd-class-tab" type="button" data-class-view="route">MI RECORRIDO</button></div><div class="m2rd-class-table-wrap"><table class="m2rd-class-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO OFICIAL</th><th>DIF. LÍDER</th></tr></thead><tbody id="m2rdClassificationBody"><tr><td colspan="7">Cargando…</td></tr></tbody></table></div><div id="m2rdClassificationNote" class="m2rd-class-note"></div></section>
-      <section class="m2rd-card"><h3 class="m2rd-kicker">🗺️ TRACK Y CARTOGRAFÍA</h3><div class="m2rd-detail-maptools" role="tablist" aria-label="Cartografía del track histórico"><button class="m2rd-detail-layer active" type="button" data-detail-layer="mapant">MAPANT</button><button class="m2rd-detail-layer" type="button" data-detail-layer="ign">IGN</button><button class="m2rd-detail-layer" type="button" data-detail-layer="aerial">AÉREO</button><button class="m2rd-detail-layer" type="button" data-detail-layer="custom">PLANO CARRERA</button></div><div id="m2rdDetailLayerStatus" class="m2rd-detail-layerstatus">Fondo: MAPANT</div><div id="m2rdDetailMap" class="m2rd-detail-map"></div><div class="m2rd-playback"><div class="m2rd-playback-head"><div class="m2rd-playback-actions"><button id="m2rdPlaybackToggle" class="m2rd-playback-btn primary" type="button">▶ REPRODUCIR</button><button id="m2rdPlaybackReset" class="m2rd-playback-btn" type="button">↺ REINICIAR</button><select id="m2rdPlaybackSpeed" class="m2rd-playback-speed" aria-label="Velocidad de reproducción"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></div><div id="m2rdPlaybackClock" class="m2rd-playback-time">00:00 / 00:00</div></div><input id="m2rdPlaybackSlider" class="m2rd-playback-slider" type="range" min="0" max="1000" value="0" step="1" aria-label="Posición temporal del track"><div class="m2rd-playback-meta"><span>Salida</span><span>Reproducción GPS histórica</span><span>Llegada</span></div></div><div class="m2rd-detail-maplegend"><span>━ Track completo</span><span>━ Tramo reproducido</span><span>● Posición del corredor</span><span>◆ Baliza / salida / llegada</span></div><button id="m2rdDetailFit" class="m2rd-btn" type="button">ENCUADRAR RECORRIDO</button><div id="m2rdDetailMapNote" class="m2rd-detail-note">El track se carga desde Firestore, no desde la sesión Live.</div></section>
+      <section class="m2rd-card"><h3 class="m2rd-kicker">🗺️ TRACK Y CARTOGRAFÍA</h3><div class="m2rd-detail-maptools" role="tablist" aria-label="Cartografía del track histórico"><button class="m2rd-detail-layer active" type="button" data-detail-layer="mapant">MAPANT</button><button class="m2rd-detail-layer" type="button" data-detail-layer="ign">IGN</button><button class="m2rd-detail-layer" type="button" data-detail-layer="aerial">AÉREO</button><button class="m2rd-detail-layer" type="button" data-detail-layer="custom">PLANO CARRERA</button></div><div id="m2rdDetailLayerStatus" class="m2rd-detail-layerstatus">Fondo: MAPANT</div><div id="m2rdDetailMap" class="m2rd-detail-map"></div><div class="m2rd-playback"><div class="m2rd-playback-head"><div class="m2rd-playback-actions"><button id="m2rdPlaybackToggle" class="m2rd-playback-btn primary" type="button">▶ REPRODUCIR</button><button id="m2rdPlaybackReset" class="m2rd-playback-btn" type="button">↺ REINICIAR</button><select id="m2rdPlaybackSpeed" class="m2rd-playback-speed" aria-label="Velocidad de reproducción"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="10">10×</option></select></div><div id="m2rdPlaybackClock" class="m2rd-playback-time">00:00 / 00:00</div></div><div class="m2rd-playback-objective"><span>OBJETIVO EN ESE MOMENTO</span><strong id="m2rdPlaybackObjective">—</strong><small id="m2rdPlaybackObjectiveMeta">Mueve la línea temporal para reconstruir la navegación.</small></div><input id="m2rdPlaybackSlider" class="m2rd-playback-slider" type="range" min="0" max="1000" value="0" step="1" aria-label="Posición temporal del track"><div class="m2rd-playback-meta"><span>Salida</span><span>Reproducción GPS histórica</span><span>Llegada</span></div></div><div class="m2rd-detail-maplegend"><span>━ Track completo</span><span>━ Tramo reproducido</span><span>┄ Objetivo actual</span><span>◉ Posición corredor</span><span>● verde validada · ● ámbar descartada · ● rojo pendiente</span><span>◎ Baliza / △ salida / ⦿ llegada</span></div><button id="m2rdDetailFit" class="m2rd-btn" type="button">ENCUADRAR RECORRIDO</button><div id="m2rdDetailMapNote" class="m2rd-detail-note">El track se carga desde Firestore, no desde la sesión Live.</div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">🎯 PASO POR BALIZAS · ESTADO OFICIAL</h3><div id="m2rdPassSummary" class="m2rd-pass-summary"></div><div id="m2rdPassNote" class="m2rd-pass-note">Cada baliza queda identificada como VALIDADA, DESCARTADA o PENDIENTE. Descartadas y pendientes al finalizar penalizan +15:00 cada una.</div><div class="m2rd-pass-table-wrap"><table class="m2rd-pass-table"><thead><tr><th>#</th><th>BALIZA</th><th>ESTADO</th><th>HORA</th><th>DESDE SALIDA</th><th>PARCIAL</th><th>MÉTODO / PENALIZACIÓN</th></tr></thead><tbody id="m2rdPassBody"><tr><td colspan="7">Sin análisis.</td></tr></tbody></table></div></section>
       <section class="m2rd-card"><h3 class="m2rd-kicker">◆ DATOS DE LA CARRERA</h3><div id="m2rdDetailEventMetrics" class="m2rd-detail-grid"></div><div id="m2rdDetailControls" class="m2rd-control-list"></div></section>
     </div></section>`;
@@ -286,7 +285,7 @@
     root.querySelector("#m2rdPlaybackToggle")?.addEventListener("click",()=>toggleHistoryPlayback());
     root.querySelector("#m2rdPlaybackReset")?.addEventListener("click",()=>resetHistoryPlayback(true));
     root.querySelector("#m2rdPlaybackSlider")?.addEventListener("input",e=>seekHistoryPlayback(Number(e.target.value||0)));
-    root.querySelector("#m2rdPlaybackSpeed")?.addEventListener("change",e=>{const speed=Number(e.target.value||1);state.detailPlaybackSpeed=[1,2,4].includes(speed)?speed:1;});
+    root.querySelector("#m2rdPlaybackSpeed")?.addEventListener("change",e=>{const speed=Number(e.target.value||1);state.detailPlaybackSpeed=[1,2,4,10].includes(speed)?speed:1;});
     root.addEventListener("click",e=>{
       const detailBtn=e.target.closest("[data-history-detail]");
       if(detailBtn){openHistoryDetail(String(detailBtn.dataset.historyDetail||""));return;}
@@ -748,27 +747,97 @@
     (detail.checkpoints||[]).forEach(p=>{if(validHistoryCoord(p.lat,p.lon))coords.push([Number(p.lat),Number(p.lon)]);});
     if(coords.length===1)map.setView(coords[0],16);else if(coords.length>1)map.fitBounds(L.latLngBounds(coords),{padding:[24,24],maxZoom:17});
   }
+  function historyCheckpointKey(cp){
+    const type=String(cp?.type||"").toUpperCase();
+    if(type==="SALIDA")return "START";
+    if(type==="LLEGADA")return "FINISH";
+    return String(cp?.checkpointId||cp?.id||"").trim().toUpperCase();
+  }
+  function historyPassState(checkpointId){
+    const key=String(checkpointId||"").trim().toUpperCase();
+    const row=(state.detailPlaybackControlRows||[]).find(item=>String(item?.checkpointId||"").trim().toUpperCase()===key);
+    if(!row)return "pending";
+    const source=String(row.source||"").toLowerCase(),value=String(row.state||"").toLowerCase();
+    if(row.discarded||source==="discard"||value==="discarded")return "discarded";
+    if(row.detected||value==="validated"||["gps","qr","gps_track_recovery"].includes(source))return "validated";
+    return "pending";
+  }
+  function historyCheckpointIcon(cp){
+    const L=globalThis.L,type=String(cp?.type||"BALIZA").toUpperCase(),key=historyCheckpointKey(cp);
+    const isControl=type!=="SALIDA"&&type!=="LLEGADA";
+    const status=isControl?historyPassState(key):"";
+    const rawLabel=type==="SALIDA"?"S":type==="LLEGADA"?"L":String(cp?.checkpointId||cp?.id||"B").trim().toUpperCase();
+    const label=rawLabel.length>4?rawLabel.slice(-4):rawLabel;
+    let svg="";
+    if(type==="SALIDA"){
+      svg=`<svg viewBox="0 0 36 36" aria-hidden="true"><path class="marker-shape" d="M18 3.5 33 31H3Z"/><text x="18" y="25" text-anchor="middle" font-size="12" fill="#fff">${esc(label)}</text></svg>`;
+    }else if(type==="LLEGADA"){
+      svg=`<svg viewBox="0 0 36 36" aria-hidden="true"><circle class="marker-outer" cx="18" cy="18" r="15"/><circle class="marker-inner" cx="18" cy="18" r="9.5"/><text x="18" y="22" text-anchor="middle" font-size="11" fill="#fff">${esc(label)}</text></svg>`;
+    }else{
+      const font=label.length>=4?8.5:10;
+      svg=`<svg viewBox="0 0 36 36" aria-hidden="true"><circle class="marker-ring" cx="18" cy="18" r="14.5"/><circle class="marker-core" cx="18" cy="18" r="2.6"/><text x="18" y="11" text-anchor="middle" font-size="${font}" fill="#fff">${esc(label)}</text></svg><span class="marker-state-dot" aria-hidden="true"></span>`;
+    }
+    const kind=type==="SALIDA"?"start":type==="LLEGADA"?"finish":"control";
+    return L.divIcon({className:"",html:`<div class="m2rd-map-marker ${kind}${status?` ${status}`:""}" data-checkpoint="${esc(key)}">${svg}</div>`,iconSize:[36,36],iconAnchor:[18,18],popupAnchor:[0,-18]});
+  }
   function renderHistoryDetailMap(){
     const map=ensureHistoryDetailMap(),L=globalThis.L,detail=state.historyDetail;if(!map||!L||!detail)return;
-    state.detailTrackLayer?.clearLayers();state.detailCheckpointLayer?.clearLayers();
+    state.detailTrackLayer?.clearLayers();state.detailCheckpointLayer?.clearLayers();state.detailCheckpointMarkers.clear();
     const track=(detail.track||[]).filter(p=>validHistoryCoord(p.lat,p.lng)).map(p=>[Number(p.lat),Number(p.lng)]);
-    if(track.length>1)L.polyline(track,{weight:4,opacity:.88}).addTo(state.detailTrackLayer);
+    if(track.length>1)L.polyline(track,{weight:4,opacity:.76,lineCap:"round",lineJoin:"round"}).addTo(state.detailTrackLayer);
     else if(track.length===1)L.circleMarker(track[0],{radius:6,weight:2,fillOpacity:.9}).addTo(state.detailTrackLayer);
     (detail.checkpoints||[]).forEach(cp=>{
       if(!validHistoryCoord(cp.lat,cp.lon))return;
-      const type=String(cp.type||"BALIZA").toUpperCase();
-      const cls=type==="SALIDA"?"start":type==="LLEGADA"?"finish":"";
-      const label=type==="SALIDA"?"S":type==="LLEGADA"?"L":String(cp.checkpointId||cp.id||"P").replace(/^P/i,"").slice(-3);
-      const icon=L.divIcon({className:"",html:`<div class="m2rd-detail-checkpoint ${cls}">${esc(label)}</div>`,iconSize:[30,24],iconAnchor:[15,12]});
-      const marker=L.marker([Number(cp.lat),Number(cp.lon)],{icon,keyboard:false});
-      marker.bindPopup(`<strong>${esc(cp.checkpointId||"Punto")}</strong><br>${esc(type)}${cp.description?`<br>${esc(cp.description)}`:""}`);marker.addTo(state.detailCheckpointLayer);
+      const type=String(cp.type||"BALIZA").toUpperCase(),key=historyCheckpointKey(cp);
+      const marker=L.marker([Number(cp.lat),Number(cp.lon)],{icon:historyCheckpointIcon(cp),keyboard:false,zIndexOffset:type==="BALIZA"?800:900});
+      const officialState=(type!=="SALIDA"&&type!=="LLEGADA")?historyPassState(key):"";
+      const stateLabel=officialState==="validated"?"VALIDADA":officialState==="discarded"?"DESCARTADA · +15:00":officialState==="pending"?"PENDIENTE AL FINALIZAR · +15:00":"";
+      marker.bindPopup(`<strong>${esc(type==="SALIDA"?"SALIDA":type==="LLEGADA"?"LLEGADA":cp.checkpointId||"BALIZA")}</strong>${stateLabel?`<br>${esc(stateLabel)}`:""}${cp.description?`<br>${esc(cp.description)}`:""}`);
+      marker.addTo(state.detailCheckpointLayer);
+      state.detailCheckpointMarkers.set(key,{marker,cp:{...cp},type});
     });
     bringHistoryOverlayLayersToFront();
-    setTimeout(()=>{map.invalidateSize();fitHistoryDetailMap();},100);
+    setTimeout(()=>{map.invalidateSize();fitHistoryDetailMap();applyHistoryPlaybackObjective(playbackObjectiveAt(state.detailPlaybackCurrentMs),null);},100);
   }
   function clearHistoryPlaybackLayer(){
     try{state.detailPlaybackLayer?.clearLayers?.();}catch(_){}
-    state.detailPlaybackMarker=null;state.detailPlaybackTrail=null;
+    state.detailPlaybackMarker=null;state.detailPlaybackTrail=null;state.detailPlaybackTargetLine=null;state.detailPlaybackObjectiveKey="";
+    for(const entry of state.detailCheckpointMarkers.values()){
+      const node=entry?.marker?.getElement?.()?.querySelector?.(".m2rd-map-marker");
+      node?.classList?.remove("is-objective");
+    }
+  }
+  function playbackObjectiveAt(ms){
+    const rows=Array.isArray(state.detailPlaybackControlRows)?state.detailPlaybackControlRows:[];
+    const start=Math.max(0,Number(state.detailPlaybackStartMs||0)),target=Math.max(0,Number(ms)||0);
+    for(const row of rows){
+      const key=String(row?.checkpointId||"").trim().toUpperCase();if(!key)continue;
+      const passedAt=Math.max(0,Number(row?.passedAtMs||0));
+      if(!passedAt||!start||Math.max(0,passedAt-start)>target)return {key,label:key,kind:"control",row};
+    }
+    return {key:"FINISH",label:"LLEGADA",kind:"finish",row:null};
+  }
+  function applyHistoryPlaybackObjective(objective,pos){
+    const key=String(objective?.key||"").toUpperCase();
+    state.detailPlaybackObjectiveKey=key;
+    for(const [markerKey,entry] of state.detailCheckpointMarkers.entries()){
+      const node=entry?.marker?.getElement?.()?.querySelector?.(".m2rd-map-marker");
+      node?.classList?.toggle("is-objective",markerKey===key);
+    }
+    const title=el("m2rdPlaybackObjective"),meta=el("m2rdPlaybackObjectiveMeta");
+    if(title)title.textContent=objective?.label||"—";
+    if(meta){
+      const atEnd=state.detailPlaybackDurationMs>0&&state.detailPlaybackCurrentMs>=state.detailPlaybackDurationMs;
+      meta.textContent=!objective?"Sin objetivo reconstruible":atEnd?(objective.kind==="control"?`${objective.label} quedó PENDIENTE al finalizar`:"LLEGADA · fin de la reproducción"):objective.kind==="finish"?"Últimas balizas resueltas · objetivo: LLEGADA":"Buscando esta baliza en el instante seleccionado";
+    }
+    const targetEntry=state.detailCheckpointMarkers.get(key),L=globalThis.L,layer=state.detailPlaybackLayer;
+    if(pos&&targetEntry&&L&&layer&&validHistoryCoord(targetEntry.cp?.lat,targetEntry.cp?.lon)){
+      const latlngs=[[Number(pos.lat),Number(pos.lng)],[Number(targetEntry.cp.lat),Number(targetEntry.cp.lon)]];
+      if(!state.detailPlaybackTargetLine)state.detailPlaybackTargetLine=L.polyline(latlngs,{color:"#f0c16a",weight:2,opacity:.86,dashArray:"7 8",lineCap:"round",interactive:false}).addTo(layer);
+      else state.detailPlaybackTargetLine.setLatLngs(latlngs);
+    }else if(state.detailPlaybackTargetLine){
+      state.detailPlaybackTargetLine.setLatLngs([]);
+    }
   }
   function updateHistoryPlaybackUi(){
     const ready=state.detailPlaybackPoints.length>0&&state.detailPlaybackDurationMs>0;
@@ -803,20 +872,22 @@
       state.detailPlaybackMarker=L.marker([pos.lat,pos.lng],{icon,keyboard:false,zIndexOffset:1800}).addTo(layer);
     }else state.detailPlaybackMarker.setLatLng([pos.lat,pos.lng]);
     const trail=state.detailPlaybackPoints.slice(0,pos.index+1).map(point=>[point.lat,point.lng]);trail.push([pos.lat,pos.lng]);
-    if(!state.detailPlaybackTrail)state.detailPlaybackTrail=L.polyline(trail,{weight:6,opacity:.95,lineCap:"round",lineJoin:"round"}).addTo(layer);else state.detailPlaybackTrail.setLatLngs(trail);
+    if(!state.detailPlaybackTrail)state.detailPlaybackTrail=L.polyline(trail,{color:"#f0c16a",weight:6,opacity:.95,lineCap:"round",lineJoin:"round"}).addTo(layer);else state.detailPlaybackTrail.setLatLngs(trail);
+    applyHistoryPlaybackObjective(playbackObjectiveAt(state.detailPlaybackCurrentMs),pos);
     bringHistoryOverlayLayersToFront();updateHistoryPlaybackUi();
   }
   function prepareHistoryPlayback(){
     stopHistoryPlayback(false);clearHistoryPlaybackLayer();
     const detail=state.historyDetail||{},result=detail.result||{};
     const raw=(Array.isArray(detail.track)?detail.track:[]).filter(point=>validHistoryCoord(point.lat,point.lng)&&Number.isFinite(Number(point.at))).map(point=>({lat:Number(point.lat),lng:Number(point.lng),at:Number(point.at)})).sort((a,b)=>a.at-b.at);
-    if(!raw.length){state.detailPlaybackPoints=[];state.detailPlaybackDurationMs=0;state.detailPlaybackCurrentMs=0;updateHistoryPlaybackUi();return;}
+    if(!raw.length){state.detailPlaybackPoints=[];state.detailPlaybackDurationMs=0;state.detailPlaybackCurrentMs=0;state.detailPlaybackStartMs=0;applyHistoryPlaybackObjective(null,null);updateHistoryPlaybackUi();return;}
     const start=Math.max(0,Number(result.startedAtMs||0))||raw[0].at;
     const finish=Math.max(0,Number(result.finishedAtMs||0))||raw[raw.length-1].at;
+    state.detailPlaybackStartMs=start;
     state.detailPlaybackPoints=raw.map(point=>({...point,playMs:Math.max(0,point.at-start)}));
     const lastPlay=state.detailPlaybackPoints[state.detailPlaybackPoints.length-1]?.playMs||0;
     state.detailPlaybackDurationMs=Math.max(0,finish-start,lastPlay);
-    state.detailPlaybackCurrentMs=0;state.detailPlaybackSpeed=[1,2,4].includes(Number(state.detailPlaybackSpeed))?Number(state.detailPlaybackSpeed):1;
+    state.detailPlaybackCurrentMs=0;state.detailPlaybackSpeed=[1,2,4,10].includes(Number(state.detailPlaybackSpeed))?Number(state.detailPlaybackSpeed):1;
     drawHistoryPlaybackFrame();
   }
   function historyPlaybackLoop(now){
@@ -884,6 +955,7 @@
       if(discarded)return {order,checkpointId,detected:false,discarded:true,pending:false,state:"discarded",source:"discard",passedAtMs:discarded.discardedAtMs||null,elapsedMs:null,splitMs:null,penaltyMs:Number(discarded.penaltyMs||900000)};
       return {order,checkpointId,detected:false,discarded:false,pending:true,state:"pending",source:"pending",passedAtMs:null,elapsedMs:null,splitMs:null,penaltyMs:result.status==="not_started"?0:900000};
     }):rawPassRows;
+    state.detailPlaybackControlRows=passRows.map(row=>({...row}));
     const rowState=row=>{const source=String(row?.source||"").toLowerCase(),stateValue=String(row?.state||"").toLowerCase();if(row?.discarded||source==="discard"||stateValue==="discarded")return "discarded";if(row?.detected||stateValue==="validated"||["gps","qr","gps_track_recovery"].includes(source))return "validated";return "pending";};
     const expected=Math.max(0,Number(result.controlExpectedCount||passRows.length||0));
     const derivedValidated=passRows.filter(row=>rowState(row)==="validated").length;
@@ -926,7 +998,7 @@
   async function openHistoryDetail(eventId){
     if(!eventId||state.detailLoading)return;
     const panel=el("m2rdHistoryDetail");panel.hidden=false;panel.scrollTop=0;state.detailEventId=eventId;state.detailLoading=true;state.detailError="";state.historyDetail=null;state.classificationDetail=null;state.classificationLoading=true;state.classificationError="";state.classificationView="general";
-    stopHistoryPlayback(false);clearHistoryPlaybackLayer();state.detailPlaybackPoints=[];state.detailPlaybackCurrentMs=0;state.detailPlaybackDurationMs=0;updateHistoryPlaybackUi();
+    stopHistoryPlayback(false);clearHistoryPlaybackLayer();state.detailPlaybackPoints=[];state.detailPlaybackControlRows=[];state.detailPlaybackStartMs=0;state.detailPlaybackCurrentMs=0;state.detailPlaybackDurationMs=0;updateHistoryPlaybackUi();
     state.detailRacePlanDescriptor=null;state.detailRacePlanError="";state.detailRacePlanLoading=false;cleanupHistoryRacePlanUrl();
     if(state.detailMap&&state.detailBaseKey==="custom"){await switchHistoryDetailLayer("mapant");}
     const historyRow=state.history.find(row=>String(row.eventId)===String(eventId));el("m2rdDetailTitle").textContent=historyRow?.eventName||"Carrera";el("m2rdDetailSubtitle").textContent=historyRow?`${historyStatusES(historyRow.status)} · ${eventId}`:eventId;renderHistoryDetail();
