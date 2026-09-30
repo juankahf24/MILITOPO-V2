@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-i5-6-circle-hq-20260929";
+const BUILD_ID="v2-i6a3-discard-official-hotfix-20260930";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -56,8 +56,8 @@ const APP_SHELL=[
   "./js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-20260924",
   "./js/v2/live/runner-gps-v2.js?v=v2-i6a-discard-controls-20260930",
   "./js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
-  "./js/v2/live/runner-controls-v2.js?v=v2-i6a-discard-controls-20260930",
-  "./js/v2/live/runner-race-v2.js?v=v2-i6a-discard-controls-20260930"
+  "./js/v2/live/runner-controls-v2.js?v=v2-i6a3-discard-official-hotfix-20260930",
+  "./js/v2/live/runner-race-v2.js?v=v2-i6a3-discard-official-hotfix-20260930"
 ];
 
 /* Librerías externas útiles offline. Son opcionales durante install: si un CDN falla,
