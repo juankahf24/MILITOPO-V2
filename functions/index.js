@@ -2299,7 +2299,7 @@ function h5RankRows(rows) {
     return h5RunnerLabel(a).localeCompare(h5RunnerLabel(b), "es", { numeric: true });
   });
 
-  const leaderDuration = h5Duration(sorted.find(row => ["finished", "incomplete"].includes(h5ResultStatus(row.status)) && h5Duration(row) != null));
+  const leaderDuration = h5Duration(sorted.find(row => h5ResultStatus(row.status) === "finished" && h5Duration(row) != null));
   let previousDuration = null;
   let previousStatus = null;
   let previousRank = 0;
@@ -2320,7 +2320,7 @@ function h5RankRows(rows) {
       ...row,
       status,
       rank,
-      gapToLeaderMs: rank != null && leaderDuration != null && duration != null ? Math.max(0, duration - leaderDuration) : null
+      gapToLeaderMs: status === "finished" && rank != null && leaderDuration != null && duration != null ? Math.max(0, duration - leaderDuration) : null
     };
   });
 }
