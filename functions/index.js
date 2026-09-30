@@ -670,7 +670,7 @@ function trackDistanceMeters(points) {
 // Es una evidencia automática, no una descalificación oficial: un fallo GPS no
 // cambia por sí solo el estado FINISHED del corredor. La búsqueda respeta el
 // orden del recorrido y guarda también la aproximación mínima a cada control.
-const CONTROL_ANALYSIS_VERSION = 3;
+const CONTROL_ANALYSIS_VERSION = 4;
 const CONTROL_BASE_RADIUS_M = 10;
 const CONTROL_MAX_RADIUS_M = 10;
 const CONTROL_DISCARD_PENALTY_MS = 15 * 60 * 1000;
@@ -749,6 +749,7 @@ function analyzeControlPasses(points, routePoints, checkpoints, startedAtMs = nu
     }
     passes.push({
       order: order + 1, checkpointId, detected: Boolean(detected),
+      discarded: false, pending: !detected, state: detected ? "validated" : "pending", penaltyMs: 0,
       passedAtMs, elapsedMs, splitMs,
       distanceM: detected ? Math.round(detected.distanceM * 10) / 10 : null,
       allowedRadiusM: detected ? Math.round(detected.allowedRadiusM * 10) / 10 : null,
@@ -809,7 +810,9 @@ function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
   };
   const livePasses = normalizeLiveControlPasses(liveProgress?.passes);
   if (!livePasses.length) {
-    const passes = (Array.isArray(base.passes) ? base.passes : []).map(row => row.detected ? { ...row, source: "gps_track_recovery" } : row);
+    const passes = (Array.isArray(base.passes) ? base.passes : []).map(row => row.detected
+      ? { ...row, source: "gps_track_recovery", discarded: false, pending: false, state: "validated", penaltyMs: 0 }
+      : { ...row, source: "pending", discarded: false, pending: true, state: "pending", penaltyMs: 0 });
     const trackRecovered = passes.filter(row => row.detected).length;
     return { ...base, passes, sourceCounts: trackRecovered ? { gps_track_recovery: trackRecovered } : {} };
   }
@@ -818,12 +821,16 @@ function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
   const mergedPasses = (Array.isArray(base.passes) ? base.passes : []).map(row => {
     const live = byOrder.get(Number(row.order || 0));
     if (!live || canonicalControlId(live.checkpointId) !== canonicalControlId(row.checkpointId)) {
-      return row.detected ? { ...row, source: "gps_track_recovery" } : row;
+      return row.detected
+        ? { ...row, source: "gps_track_recovery", discarded: false, pending: false, state: "validated", penaltyMs: 0 }
+        : { ...row, source: "pending", discarded: false, pending: true, state: "pending", penaltyMs: 0 };
     }
     return {
       ...row,
       detected: live.source !== "discard",
       discarded: live.source === "discard",
+      pending: false,
+      state: live.source === "discard" ? "discarded" : "validated",
       penaltyMs: live.source === "discard" ? CONTROL_DISCARD_PENALTY_MS : 0,
       passedAtMs: live.passedAtMs,
       elapsedMs: live.elapsedMs,
@@ -851,7 +858,7 @@ function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
   }, {});
   return {
     ...base,
-    method: "live_gps_qr_strict_10m_with_track_recovery_v3",
+    method: "live_gps_qr_strict_10m_with_track_recovery_v4",
     expectedCount,
     detectedCount,
     discardedCount,
@@ -2258,8 +2265,9 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
 
 // H5 · Clasificación oficial V2.
 // Una misma fuente genera la clasificación GENERAL y POR RECORRIDO para
-// organizador y corredores. Los puestos se asignan únicamente a FINALIZADOS;
-// incompletos y no salieron permanecen visibles, pero sin puesto competitivo.
+// organizador y corredores. Todo participante que haya tomado la SALIDA recibe
+// puesto: FINALIZADOS primero e INCOMPLETOS después, ambos ordenados por TIEMPO
+// OFICIAL. Solo NO SALIÓ permanece visible sin puesto.
 function h5ResultStatus(value) {
   const status = String(value || "not_started").toLowerCase();
   return ["finished", "incomplete", "not_started"].includes(status) ? status : "not_started";
@@ -2282,7 +2290,7 @@ function h5RankRows(rows) {
     const sa = statusOrder[h5ResultStatus(a.status)] ?? 9;
     const sb = statusOrder[h5ResultStatus(b.status)] ?? 9;
     if (sa !== sb) return sa - sb;
-    if (sa === 0) {
+    if (sa <= 1) {
       const da = h5Duration(a), dbb = h5Duration(b);
       if (da !== dbb) return (da ?? Number.MAX_SAFE_INTEGER) - (dbb ?? Number.MAX_SAFE_INTEGER);
     }
@@ -2291,19 +2299,21 @@ function h5RankRows(rows) {
     return h5RunnerLabel(a).localeCompare(h5RunnerLabel(b), "es", { numeric: true });
   });
 
-  const leaderDuration = h5Duration(sorted.find(row => h5ResultStatus(row.status) === "finished"));
+  const leaderDuration = h5Duration(sorted.find(row => ["finished", "incomplete"].includes(h5ResultStatus(row.status)) && h5Duration(row) != null));
   let previousDuration = null;
+  let previousStatus = null;
   let previousRank = 0;
-  let finishedOrdinal = 0;
+  let rankedOrdinal = 0;
   return sorted.map(row => {
     const status = h5ResultStatus(row.status);
     const duration = h5Duration(row);
     let rank = null;
-    if (status === "finished" && duration != null) {
-      finishedOrdinal += 1;
-      if (previousDuration !== null && duration === previousDuration) rank = previousRank;
-      else rank = finishedOrdinal;
+    if (status !== "not_started") {
+      rankedOrdinal += 1;
+      if (duration != null && previousDuration !== null && duration === previousDuration && status === previousStatus) rank = previousRank;
+      else rank = rankedOrdinal;
       previousDuration = duration;
+      previousStatus = status;
       previousRank = rank;
     }
     return {
@@ -2487,11 +2497,13 @@ exports.getEventClassification = onCall({ enforceAppCheck: false, timeoutSeconds
         generalRank: myGeneral.rank == null ? null : (Number.isFinite(Number(myGeneral.rank)) ? Number(myGeneral.rank) : null),
         generalCount: built.general.length,
         generalFinishedCount: built.general.filter(row => row.status === "finished").length,
+        generalRankedCount: built.general.filter(row => row.status !== "not_started").length,
         generalGapMs: myGeneral.gapToLeaderMs == null ? null : (Number.isFinite(Number(myGeneral.gapToLeaderMs)) ? Number(myGeneral.gapToLeaderMs) : null),
         routeId: myGeneral.routeId || null,
         routeRank: myRoute?.rank == null ? null : (Number.isFinite(Number(myRoute.rank)) ? Number(myRoute.rank) : null),
         routeCount: myRouteRows.length,
         routeFinishedCount: myRouteRows.filter(row => row.status === "finished").length,
+        routeRankedCount: myRouteRows.filter(row => row.status !== "not_started").length,
         routeGapMs: myRoute?.gapToLeaderMs == null ? null : (Number.isFinite(Number(myRoute.gapToLeaderMs)) ? Number(myRoute.gapToLeaderMs) : null)
       } : null
     };
