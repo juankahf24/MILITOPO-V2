@@ -54,10 +54,10 @@ const APP_SHELL=[
   "./js/v2/maps/race-plan-history.js?v=v2-h4-1-runner-map-parity-20260925",
   "./js/v2/live/runner-dashboard.js?v=v2-i2-3-reconnect-coordinator-20260927",
   "./js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-20260924",
-  "./js/v2/live/runner-gps-v2.js?v=v2-i3-active-race-offline-recovery-20260927",
+  "./js/v2/live/runner-gps-v2.js?v=v2-i6a-discard-controls-20260930",
   "./js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
-  "./js/v2/live/runner-controls-v2.js?v=v2-i3-active-race-offline-recovery-20260927",
-  "./js/v2/live/runner-race-v2.js?v=v2-i3-active-race-offline-recovery-20260927"
+  "./js/v2/live/runner-controls-v2.js?v=v2-i6a-discard-controls-20260930",
+  "./js/v2/live/runner-race-v2.js?v=v2-i6a-discard-controls-20260930"
 ];
 
 /* Librerías externas útiles offline. Son opcionales durante install: si un CDN falla,
