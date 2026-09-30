@@ -5,7 +5,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-i3-active-race-offline-recovery-20260927";
+  const VERSION="v2-i6a-discard-controls-20260930";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -250,13 +250,13 @@
     const previous=state.passes[state.passes.length-1]||null;
     const startedAt=Math.max(0,Number(meta.startedAt||0));
     const isFinish=id==="FINISH";
-    const pass={order:isFinish?expectedCount()+1:state.completedCount+1,kind:isFinish?"finish":"control",checkpointId:id,source,passedAtMs:now,elapsedMs:startedAt?Math.max(0,now-startedAt):null,splitMs:previous?.passedAtMs?Math.max(0,now-Number(previous.passedAtMs)):null,distanceM:meta.distanceM==null?null:Math.round(Number(meta.distanceM)*10)/10,allowedRadiusM:meta.allowedRadiusM==null?null:Math.round(Number(meta.allowedRadiusM)*10)/10,gpsAccuracyM:meta.accuracy==null?null:Math.round(Number(meta.accuracy)*10)/10,lat:meta.lat==null?null:Number(meta.lat),lng:meta.lng==null?null:Number(meta.lng),accuracy:meta.accuracy==null?null:Number(meta.accuracy),attemptId:makeAttemptId(),qrRaw:source==="qr"?String(meta.qrRaw||"").trim():undefined};
+    const pass={order:isFinish?expectedCount()+1:state.completedCount+1,kind:isFinish?"finish":"control",checkpointId:id,source,discarded:source==="discard",penaltyMs:source==="discard"?900000:0,passedAtMs:now,elapsedMs:startedAt?Math.max(0,now-startedAt):null,splitMs:previous?.passedAtMs?Math.max(0,now-Number(previous.passedAtMs)):null,distanceM:meta.distanceM==null?null:Math.round(Number(meta.distanceM)*10)/10,allowedRadiusM:meta.allowedRadiusM==null?null:Math.round(Number(meta.allowedRadiusM)*10)/10,gpsAccuracyM:meta.accuracy==null?null:Math.round(Number(meta.accuracy)*10)/10,lat:meta.lat==null?null:Number(meta.lat),lng:meta.lng==null?null:Number(meta.lng),accuracy:meta.accuracy==null?null:Number(meta.accuracy),attemptId:makeAttemptId(),qrRaw:source==="qr"?String(meta.qrRaw||"").trim():undefined};
     if(isFinish){state.finishValidated=true;state.finishPass={...pass};}
     else{state.passes.push(pass);state.completedCount=Math.min(expectedCount(),state.completedCount+1);}
     journalAdd(pass);
     state.queue.push({...pass});state.lastAutoAt=Date.now();persist();
     try{if(navigator.vibrate)navigator.vibrate(isFinish?[220,80,220,80,320]:[120,70,180]);}catch(_){}
-    emit(isFinish?"arrival_local":"passed",{pass,nextAfter:nextTarget()?{...nextTarget()}:null});
+    emit(isFinish?"arrival_local":(source==="discard"?"discarded":"passed"),{pass,nextAfter:nextTarget()?{...nextTarget()}:null});
     // H6.9: las balizas normales siguen sincronizando en segundo plano. LLEGADA no
     // arranca otra petición paralela: runner-race-v2 coordina un único cierre
     // (controles -> track -> FINALIZADO), evitando la carrera entre flush y finish.
@@ -267,6 +267,15 @@
       emit("offline",{message:"Llegada guardada. La carrera se cerrará automáticamente al recuperar cobertura."});
     }
     return {ok:true,pass};
+  }
+
+  function discardNextControl(){
+    const target=nextTarget();
+    if(!target)return {ok:false,message:"No hay ninguna baliza pendiente."};
+    if(canonical(target.checkpointId)==="FINISH")return {ok:false,message:"La LLEGADA no se puede descartar."};
+    const result=registerLocal(target.checkpointId,"discard",{passedAtMs:Date.now()});
+    if(result.ok&&navigator.onLine===false)emit("offline",{message:`${target.checkpointId} descartada. Penalización +15:00 guardada localmente.`});
+    return result;
   }
 
   function handleFix(fix){
@@ -329,5 +338,5 @@
   window.addEventListener("online",()=>{state.flushAgain=true;flush().catch(()=>{});});
   window.addEventListener("pagehide",persist);
 
-  globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,flushAndWait,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,snapshot,pendingPasses,stop,version:VERSION});
+  globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,flushAndWait,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,discardNextControl,snapshot,pendingPasses,stop,version:VERSION});
 })();
