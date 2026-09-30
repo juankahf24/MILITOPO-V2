@@ -837,8 +837,12 @@ function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
     };
   });
   const detectedCount = mergedPasses.filter(row => row.detected).length;
+  const discardedCount = mergedPasses.filter(row => row.discarded === true || String(row.source || "").toLowerCase() === "discard").length;
   const expectedCount = mergedPasses.length;
-  const missingCount = Math.max(0, expectedCount - detectedCount);
+  // "Pendiente" significa que el control no fue validado ni descartado.
+  // Un descarte ya tiene su propia penalización de +15 min y no puede volver
+  // a contarse como pendiente, o se penalizaría dos veces.
+  const missingCount = Math.max(0, expectedCount - detectedCount - discardedCount);
   const completionPct = expectedCount ? Math.round((detectedCount / expectedCount) * 1000) / 10 : null;
   const sourceCounts = mergedPasses.reduce((acc, row) => {
     const key = String(row.source || (row.detected ? "gps_track_recovery" : "missing"));
@@ -847,12 +851,13 @@ function mergeLiveAndTrackControlAnalysis(trackAnalysis, liveProgress) {
   }, {});
   return {
     ...base,
-    method: "live_gps_qr_strict_10m_with_track_recovery_v2",
+    method: "live_gps_qr_strict_10m_with_track_recovery_v3",
     expectedCount,
     detectedCount,
+    discardedCount,
     missingCount,
     completionPct,
-    validation: expectedCount === 0 ? "unavailable" : missingCount === 0 ? "complete" : detectedCount ? "partial" : "none_detected",
+    validation: expectedCount === 0 ? "unavailable" : (missingCount === 0 && discardedCount === 0) ? "complete" : (detectedCount || discardedCount) ? "partial" : "none_detected",
     passes: mergedPasses,
     sourceCounts
   };
@@ -999,7 +1004,10 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   // Penalización oficial: +15 min por control descartado y, al finalizar,
   // +15 min por cada control que haya quedado pendiente. Los descartados
   // no se cuentan de nuevo como pendientes.
-  const pendingControlCount = finalStatus === "not_started" ? 0 : Math.max(0, Number(controlAnalysis.missingCount || 0));
+  const liveCompletedForPenalty = Math.min(Math.max(0, Number(controlAnalysis.expectedCount || 0)), Math.max(0, Number(controlProgress.completedCount || 0)));
+  const pendingControlCount = finalStatus === "not_started" ? 0 : (controlProgressSnap.exists()
+    ? Math.max(0, Math.max(0, Number(controlAnalysis.expectedCount || 0)) - liveCompletedForPenalty)
+    : Math.max(0, Number(controlAnalysis.missingCount || 0)));
   const penalizedControlCount = discardedControlCount + pendingControlCount;
   const penaltyMs = penalizedControlCount * CONTROL_DISCARD_PENALTY_MS;
   const officialDurationMs = durationMs == null ? null : durationMs + penaltyMs;
@@ -1074,7 +1082,10 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
 
   await resultRef.set(result, { merge: true });
   await replaceResultTrackChunks(resultRef, points);
-  return { uid, status: finalStatus, trackPointCount: points.length, durationMs };
+  return {
+    uid, status: finalStatus, trackPointCount: points.length, durationMs,
+    penaltyMs, officialDurationMs, pendingControlCount, discardedControlCount, penalizedControlCount
+  };
 }
 
 async function consolidateRunResults({ eventRef, eventData, ownerUid, eventId, baseRef, runId, cutoffAt, source }) {
@@ -1700,7 +1711,11 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
       finishedAt: ctx.participant.finishedAt || null,
       resultPersisted: true,
       trackPointCount: saved.trackPointCount,
-      durationMs: saved.durationMs
+      durationMs: saved.durationMs,
+      penaltyMs: saved.penaltyMs,
+      officialDurationMs: saved.officialDurationMs,
+      pendingControlCount: saved.pendingControlCount,
+      discardedControlCount: saved.discardedControlCount
     };
   }
   if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes iniciar el recorrido antes de finalizarlo.");
@@ -1767,6 +1782,18 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     source: manualFinish ? "runner_manual_finish" : "runner_finish_after_arrival"
   });
 
+  // Publica también el resumen oficial en RTDB para que Live V2 muestre exactamente
+  // los mismos números que Firestore/clasificación, sin recalcular el resultado final.
+  await ctx.participantRef.update({
+    durationMs: saved.durationMs,
+    penaltyMs: saved.penaltyMs,
+    officialDurationMs: saved.officialDurationMs,
+    pendingControlCount: saved.pendingControlCount,
+    discardedControlCount: saved.discardedControlCount,
+    penalizedControlCount: saved.penalizedControlCount,
+    updatedAt: Date.now()
+  });
+
   await appendAudit("RUNNER_FINISHED", identity.uid, identity.uid, {
     eventId, ownerUid: ctx.ownerUid, runId: ctx.runId,
     trackPointCount: saved.trackPointCount,
@@ -1780,7 +1807,11 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     manualFinishIncomplete,
     pendingSyncWarning,
     trackPointCount: saved.trackPointCount,
-    durationMs: saved.durationMs
+    durationMs: saved.durationMs,
+    penaltyMs: saved.penaltyMs,
+    officialDurationMs: saved.officialDurationMs,
+    pendingControlCount: saved.pendingControlCount,
+    discardedControlCount: saved.discardedControlCount
   };
 });
 
@@ -1914,6 +1945,10 @@ exports.getRunnerHistory = onCall({ enforceAppCheck: false }, async request => {
           startedAtMs: Math.max(0, Number(row.startedAtMs || 0)) || null,
           finishedAtMs: Math.max(0, Number(row.finishedAtMs || 0)) || null,
           durationMs: row.durationMs == null ? null : Math.max(0, Number(row.durationMs || 0)),
+          penaltyMs: Math.max(0, Number(row.penaltyMs || 0)),
+          officialDurationMs: row.officialDurationMs == null ? (row.durationMs == null ? null : Math.max(0, Number(row.durationMs || 0)) + Math.max(0, Number(row.penaltyMs || 0))) : Math.max(0, Number(row.officialDurationMs || 0)),
+          pendingControlCount: Math.max(0, Number(row.pendingControlCount ?? row.controlMissingCount ?? 0)),
+          discardedControlCount: Math.max(0, Number(row.discardedControlCount || 0)),
           trackDistanceM: Math.max(0, Number(row.trackDistanceM || 0)),
           trackPointCount: Math.max(0, Number(row.trackPointCount || 0)),
           trackChunkCount: Math.max(0, Number(row.trackChunkCount || 0)),
@@ -2175,6 +2210,12 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
         startedAtMs: startedAtMs || null,
         finishedAtMs: finishedAtMs || null,
         durationMs: durationMs == null ? null : durationMs,
+        penaltyMs: Math.max(0, Number(result.penaltyMs || 0)),
+        officialDurationMs: result.officialDurationMs == null ? (durationMs == null ? null : durationMs + Math.max(0, Number(result.penaltyMs || 0))) : Math.max(0, Number(result.officialDurationMs || 0)),
+        pendingControlCount: Math.max(0, Number(result.pendingControlCount ?? result.controlMissingCount ?? controlAnalysis.missingCount ?? 0)),
+        discardedControlCount: Math.max(0, Number(result.discardedControlCount || 0)),
+        penalizedControlCount: Math.max(0, Number(result.penalizedControlCount ?? ((Number(result.pendingControlCount ?? result.controlMissingCount ?? controlAnalysis.missingCount)||0)+(Number(result.discardedControlCount)||0)))),
+        discardedControls: Array.isArray(result.discardedControls) ? result.discardedControls.slice(0,120) : [],
         trackDistanceM: distanceM,
         reducedDistanceKm,
         courseId: selectedCourse?.courseId || explicitCourseId || null,
