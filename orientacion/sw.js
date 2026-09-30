@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-i6-connectivity-ui-20260929";
+const BUILD_ID="v2-i6a3-discard-official-hotfix-20260930";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -10,12 +10,12 @@ const CORE_ASSETS=[
   "./",
   "./index.html",
   "./css/styles.css?v=v2-a1-backend-20260919",
-  "./js/app.js?v=v2-h6-2-manual-live-strictgps-progress-reset-20260925",
-  "./js/config/iof-symbols-baked.js?v=v2-h6-2-manual-live-strictgps-progress-reset-20260925",
-  "./js/core/app-main.js?v=v2-h6-2-manual-live-strictgps-progress-reset-20260925",
-  "./js/pdf/pdf-professional.js?v=v2-h6-2-manual-live-strictgps-progress-reset-20260925",
-  "./js/results/results-v16.js?v=v2-h6-2-manual-live-strictgps-progress-reset-20260925",
-  "./js/results/results-classification-fix.js?v=v2-h6-2-manual-live-strictgps-progress-reset-20260925",
+  "./js/app.js?v=v2-i6a3-discard-official-hotfix-20260930",
+  "./js/config/iof-symbols-baked.js?v=v2-i6a3-discard-official-hotfix-20260930",
+  "./js/core/app-main.js?v=v2-i6a3-discard-official-hotfix-20260930",
+  "./js/pdf/pdf-professional.js?v=v2-i6a3-discard-official-hotfix-20260930",
+  "./js/results/results-v16.js?v=v2-i6a3-discard-official-hotfix-20260930",
+  "./js/results/results-classification-fix.js?v=v2-i6a3-discard-official-hotfix-20260930",
   "./js/config/plan-assets.js?v=v77-reset-seguro-wakelock-20260919",
   "./js/vendor/qr.js?v=modular-fase2",
   "./maps/index.json",
@@ -39,7 +39,7 @@ const CORE_ASSETS=[
   "../js/v2/data/event-lifecycle.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924",
-  "../js/v2/live/organizer-monitor.js?v=v2-h6-2-manual-live-strictgps-progress-reset-20260925",
+  "../js/v2/live/organizer-monitor.js?v=v2-i6a3-discard-official-hotfix-20260930",
   "../js/v2/live/organizer-live-map.js?v=v2-g5-live-cartography-20260924",
   "../js/v2/data/event-results.js?v=v2-h6-1-live-controls-qr-20260925"
 ];
