@@ -6,6 +6,7 @@ import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/fir
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
+const CONTROL_PENALTY_MS = 15 * 60 * 1000;
 const EVENT_STATUS_ES = {
   draft: "BORRADOR",
   prepared: "PREPARADO",
@@ -45,7 +46,8 @@ const state = {
   panel: null,
   lastError: "",
   profileCache: new Map(),
-  profileLoads: new Set()
+  profileLoads: new Set(),
+  clockTimer: null
 };
 
 function roleOf() {
@@ -75,6 +77,30 @@ function fmtAgo(value) {
   if (min < 60) return `hace ${min} min`;
   return fmtTime(n);
 }
+function fmtDuration(ms) {
+  const total = Math.max(0, Math.floor(Number(ms || 0) / 1000));
+  const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+}
+function refreshOfficialClocks() {
+  document.querySelectorAll("#m2F2CBody tr[data-started-at]").forEach(tr => {
+    const start = Number(tr.dataset.startedAt || 0);
+    const finish = Number(tr.dataset.finishedAt || 0);
+    if (!start) return;
+    const raw = Math.max(0, (finish || Date.now()) - start);
+    const penalty = Math.max(0, Number(tr.dataset.penaltyMs || 0));
+    const rawEl = tr.querySelector("[data-role='real-time']");
+    const officialEl = tr.querySelector("[data-role='official-time']");
+    const syncEl = tr.querySelector("[data-role='last-sync']");
+    if (rawEl) rawEl.textContent = fmtDuration(raw);
+    if (officialEl) officialEl.textContent = fmtDuration(raw + penalty);
+    if (syncEl) syncEl.textContent = fmtAgo(Number(tr.dataset.lastSeen || 0));
+  });
+}
+function ensureClockTimer() {
+  if (state.clockTimer) return;
+  state.clockTimer = setInterval(refreshOfficialClocks, 1000);
+}
 async function services() {
   if (!state.services) state.services = await globalThis.MILITOPO_V2.firebase();
   return state.services;
@@ -96,9 +122,9 @@ function hideLegacyOrganizerLive() {
     .m2-f2c-metric strong{display:block;font-size:1.08rem}.m2-f2c-metric span{display:block;margin-top:3px;font-size:.58rem;opacity:.68}
     .m2-f2c-run{padding:9px 11px;border-radius:13px;background:rgba(0,0,0,.16);font-size:.68rem;line-height:1.4;word-break:break-word}
     .m2-f2c-table-wrap{margin-top:12px;overflow-x:auto;border:1px solid rgba(255,255,255,.08);border-radius:15px}
-    .m2-f2c-table{width:100%;border-collapse:collapse;min-width:760px;background:rgba(0,0,0,.11)}
+    .m2-f2c-table{width:100%;border-collapse:collapse;min-width:1520px;background:rgba(0,0,0,.11)}
     .m2-f2c-table th,.m2-f2c-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.64rem;text-align:left;vertical-align:middle}
-    .m2-f2c-table th{font-size:.57rem;color:#f5d18b;letter-spacing:.04em}
+    .m2-f2c-table th{font-size:.57rem;color:#f5d18b;letter-spacing:.04em;white-space:nowrap}.m2-f2c-table td{white-space:nowrap}.m2-f2c-table td:first-child{white-space:normal;min-width:180px}.m2-f2c-time{font-variant-numeric:tabular-nums;font-weight:800}.m2-f2c-penalty{color:#ffd28c;font-weight:900}
     .m2-f2c-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.12);font-size:.56rem;font-weight:900}
     .m2-f2c-state.racing{color:#d7ecff;border-color:rgba(102,172,242,.35);background:rgba(76,136,197,.14)}
     .m2-f2c-state.finished{color:#e8ffd7;border-color:rgba(126,220,150,.34);background:rgba(96,160,77,.14)}
@@ -132,8 +158,8 @@ function ensurePanel() {
     <div id="m2F2CRun" class="m2-f2c-run">Sin sesión Live V2 cargada.</div>
     <div class="m2-f2c-table-wrap">
       <table class="m2-f2c-table">
-        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>PROGRESO</th><th>CONEXIÓN</th><th>GPS</th><th>SALIDA</th><th>LLEGADA</th><th>ÚLTIMA SYNC</th></tr></thead>
-        <tbody id="m2F2CBody"><tr><td colspan="8">Todavía no hay una sesión Live V2 activa.</td></tr></tbody>
+        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>PROGRESO</th><th>PUNTOS PENDIENTES</th><th>PUNTOS DESCARTADOS</th><th>TIEMPO OFICIAL</th><th>PENALIZACIÓN CONTROLES</th><th>TIEMPO REAL</th><th>ÚLTIMA SINCRONIZACIÓN</th><th>HORA SALIDA</th><th>HORA LLEGADA</th><th>CONEXIÓN</th><th>GPS</th></tr></thead>
+        <tbody id="m2F2CBody"><tr><td colspan="13">Todavía no hay una sesión Live V2 activa.</td></tr></tbody>
       </table>
     </div>`;
   if (foundation?.parentNode) foundation.insertAdjacentElement("afterend", panel);
@@ -238,11 +264,11 @@ function render() {
     : `Pre-salida · ${rows.length} corredor${rows.length === 1 ? "" : "es"} autorizado${rows.length === 1 ? "" : "s"}`;
 
   if (!state.runId && !rows.length) {
-    body.innerHTML = `<tr><td colspan="8">Todavía no hay corredores autorizados para Live V2.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="13">Todavía no hay corredores autorizados para Live V2.</td></tr>`;
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="8">La sesión no tiene corredores autorizados.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="13">La sesión no tiene corredores autorizados.</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(row => {
@@ -259,20 +285,38 @@ function render() {
       ? `${gpsActive ? "● GPS" : "○ ÚLTIMO"} ±${Math.round(Number(gps.accuracy || 0))}m · ${fmtAgo(gps.updatedAt)}`
       : "SIN GPS";
     const expectedControls = Math.max(0, Number(row.controlExpectedCount || row.routeControlCount || 0));
+    // controlCompletedCount representa el avance secuencial e incluye los descartes.
     const completedControls = Math.min(expectedControls || Number.MAX_SAFE_INTEGER, Math.max(0, Number(row.controlCompletedCount || 0)));
+    const discardedControls = Math.min(completedControls, Math.max(0, Number(row.discardedControlCount || 0)));
+    const pendingControls = Math.max(0, expectedControls - completedControls);
     const progressLabel = expectedControls > 0 ? `${completedControls}/${expectedControls}` : "—";
     const progressDone = expectedControls > 0 && completedControls >= expectedControls;
-    return `<tr>
+    const startedAt = Math.max(0, Number(row.startedAt || 0));
+    const finishedAt = Math.max(0, Number(row.finishedAt || 0));
+    const hasStarted = startedAt > 0 && ["racing","finished"].includes(st);
+    const provisionalPenalty = hasStarted ? (discardedControls + pendingControls) * CONTROL_PENALTY_MS : 0;
+    const finalPenalty = st === "finished" && row.penaltyMs != null && Number.isFinite(Number(row.penaltyMs)) ? Math.max(0, Number(row.penaltyMs)) : provisionalPenalty;
+    const rawDuration = hasStarted ? Math.max(0, (finishedAt || Date.now()) - startedAt) : null;
+    const finalOfficial = st === "finished" && row.officialDurationMs != null && Number.isFinite(Number(row.officialDurationMs)) ? Math.max(0, Number(row.officialDurationMs)) : (rawDuration == null ? null : rawDuration + finalPenalty);
+    const lastSeen = Math.max(0, Number(row.lastSeen || row.updatedAt || 0));
+    return `<tr data-started-at="${startedAt}" data-finished-at="${finishedAt}" data-penalty-ms="${finalPenalty}" data-last-seen="${lastSeen}">
       <td><strong>${esc(name)}</strong><br><span style="opacity:.62">${esc(sub)}</span></td>
       <td><span class="m2-f2c-state ${cls}">${esc(label)}</span></td>
       <td><strong style="color:${progressDone ? "#bde99c" : "#f5d18b"}">${esc(progressLabel)}</strong></td>
+      <td><strong>${pendingControls}</strong></td>
+      <td><strong>${discardedControls}</strong></td>
+      <td class="m2-f2c-time" data-role="official-time">${finalOfficial == null ? "—" : fmtDuration(finalOfficial)}</td>
+      <td class="m2-f2c-time m2-f2c-penalty">${finalPenalty ? `+${fmtDuration(finalPenalty)}` : (hasStarted ? "+00:00:00" : "—")}</td>
+      <td class="m2-f2c-time" data-role="real-time">${rawDuration == null ? "—" : fmtDuration(rawDuration)}</td>
+      <td data-role="last-sync">${esc(fmtAgo(lastSeen))}</td>
+      <td>${esc(fmtTime(startedAt))}</td>
+      <td>${esc(fmtTime(finishedAt))}</td>
       <td><span class="m2-f2c-online ${online ? "ok" : "off"}">${state.runId ? (online ? "● ONLINE" : "○ OFFLINE") : "— ESPERANDO"}</span></td>
       <td><span class="m2-f2c-gps ${gpsActive ? "ok" : "off"}">${esc(gpsLabel)}</span></td>
-      <td>${esc(fmtTime(row.startedAt))}</td>
-      <td>${esc(fmtTime(row.finishedAt))}</td>
-      <td>${esc(fmtAgo(row.lastSeen || row.updatedAt))}</td>
     </tr>`;
   }).join("");
+  refreshOfficialClocks();
+  ensureClockTimer();
 }
 function clearListeners() {
   try { state.unsubActive?.(); } catch (_) {}
