@@ -7695,7 +7695,7 @@ async function addParticipantOfflinePwaToZip(folder,eventData){
     ];
     const failures=[];
     for(const [source,dest,binary] of assets){
-        try{const res=await fetch(new URL(source,location.href),{cache:"force-cache"});if(!res.ok)throw new Error(String(res.status));base.file(dest,binary?await res.blob():await res.text())}
+        try{const res=await fetch(new URL(source,location.href),{cache:"reload"});if(!res.ok)throw new Error(String(res.status));base.file(dest,binary?await res.blob():await res.text())}
         catch(e){failures.push(`${source}: ${e&&e.message?e.message:e}`)}
     }
     folder.file("evento_orientacion.json",JSON.stringify(eventData,null,2));
