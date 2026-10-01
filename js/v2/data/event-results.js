@@ -3,6 +3,9 @@
 import "../bootstrap.js";
 import {
   collection,
+  doc,
+  getDoc,
+  getDocs,
   onSnapshot
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -36,6 +39,49 @@ const state = {
   classView: "general",
   classToken: 0
 };
+const organizerPlaybackCache = new Map();
+
+function publishOrganizerResults() {
+  const eventId = String(state.eventId || currentEventId() || "").trim();
+  globalThis.MILITOPO_V2_ORGANIZER_RESULTS = {
+    eventId,
+    rows: state.rows.map(row => ({ ...row })),
+    updatedAt: Date.now()
+  };
+  globalThis.dispatchEvent(new CustomEvent("militopo:v2-organizer-results", { detail: { eventId, count: state.rows.length } }));
+}
+
+function safePlaybackPoint(raw) {
+  const lat = Number(raw?.lat), lng = Number(raw?.lng ?? raw?.lon), at = Number(raw?.at), seq = Number(raw?.seq);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(at)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180 || at <= 0) return null;
+  return { lat, lng, at, seq: Number.isFinite(seq) ? seq : 0, accuracy: Math.max(0, Number(raw?.accuracy || 0)) };
+}
+
+async function loadOrganizerPlaybackResult(input = {}) {
+  if (!canManage()) throw new Error("No tienes permisos para cargar tracks de este evento.");
+  const eventId = String(input.eventId || currentEventId() || state.eventId || "").trim();
+  const runnerUid = String(input.runnerUid || "").trim();
+  if (!eventId || !runnerUid) throw new Error("Falta identificar el evento o el corredor.");
+  const cacheKey = `${eventId}:${runnerUid}`;
+  if (!input.force && organizerPlaybackCache.has(cacheKey)) return organizerPlaybackCache.get(cacheKey);
+  const { firestore } = await services();
+  const resultRef = doc(firestore, "events", eventId, "results", runnerUid);
+  const [resultSnap, chunksSnap] = await Promise.all([
+    getDoc(resultRef),
+    getDocs(collection(resultRef, "trackChunks"))
+  ]);
+  if (!resultSnap.exists()) throw new Error("No existe el resultado persistente de este corredor.");
+  const chunks = chunksSnap.docs.map(row => ({ index: Math.max(0, Number(row.data()?.index || 0)), points: Array.isArray(row.data()?.points) ? row.data().points : [] })).sort((a,b) => a.index - b.index);
+  const track = [];
+  for (const chunk of chunks) for (const raw of chunk.points) { const point = safePlaybackPoint(raw); if (point) track.push(point); }
+  track.sort((a,b) => (a.seq - b.seq) || (a.at - b.at));
+  const payload = { ok:true, eventId, runnerUid, result:{ id: resultSnap.id, ...(resultSnap.data() || {}) }, track };
+  organizerPlaybackCache.set(cacheKey, payload);
+  return payload;
+}
+
+globalThis.MILITOPO_V2_LOAD_ORGANIZER_PLAYBACK_RESULT = loadOrganizerPlaybackResult;
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
@@ -310,12 +356,14 @@ async function bindResults(force = false) {
     state.unsubscribe = onSnapshot(collection(firestore, "events", eventId, "results"), snap => {
       state.rows = snap.docs.map(d => ({ id:d.id, ...(d.data() || {}) }));
       state.error = "";
+      publishOrganizerResults();
       render();
       loadClassification(false);
     }, error => {
       console.error("[MILITOPO H2] resultados", error);
       state.rows = [];
       state.error = String(error?.message || "No se pudieron consultar los resultados de Firestore.");
+      publishOrganizerResults();
       render();
     });
   } catch (error) {
@@ -331,19 +379,22 @@ function updateFromHeader(event) {
     state.rows = [];
     state.error = "";
     state.classification = null; state.classError = ""; state.classView = "general";
+    organizerPlaybackCache.clear();
     stopResults();
+    publishOrganizerResults();
   }
   setTimeout(() => bindResults(), 160);
 }
 function init() {
   injectStyle();
   ensurePanel();
+  publishOrganizerResults();
   addEventListener("militopo:v2-auth-ready", event => {
     state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
     setTimeout(() => bindResults(true), 160);
   });
   addEventListener("militopo:v2-auth-signed-out", () => {
-    state.auth = null; state.rows = []; state.eventId = ""; state.eventStatus = ""; state.classification = null; state.classError = ""; state.classView = "general"; stopResults(); render(); renderClassification();
+    state.auth = null; state.rows = []; state.eventId = ""; state.eventStatus = ""; state.classification = null; state.classError = ""; state.classView = "general"; organizerPlaybackCache.clear(); stopResults(); publishOrganizerResults(); render(); renderClassification();
   });
   addEventListener("militopo:v2-orientation-header", updateFromHeader);
   addEventListener("militopo:v2-cloud-event-applied", event => {
