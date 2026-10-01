@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-i6h-paso7-status-dots-20261001";
+const BUILD_ID="v2-j1a-connectivity-no-spam-20261001";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -25,7 +25,7 @@ const CORE_ASSETS=[
   "../icons/militopo-startup-premium-2048x3072.jpg",
   "../js/v2/firebase-config.js",
   "../js/v2/bootstrap.js",
-  "../js/v2/ui/connectivity-status.js?v=v2-i6-connectivity-ui-20260929",
+  "../js/v2/ui/connectivity-status.js?v=v2-j1a-connectivity-no-spam-20261001",
   "../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../js/v2/auth/roles.js",
   "../js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929",
