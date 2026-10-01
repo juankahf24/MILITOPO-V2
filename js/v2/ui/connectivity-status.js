@@ -2,7 +2,7 @@
    Unifica online/offline, reconexión y colas locales sin mostrar errores técnicos. */
 (() => {
   "use strict";
-  const VERSION = "v2-i6-connectivity-ui-20260929";
+  const VERSION = "v2-j1a-connectivity-no-spam-20261001";
   const state = {
     online: navigator.onLine !== false,
     reconnecting: false,
@@ -144,7 +144,7 @@
     state.trackPending = Math.max(0, Number(d.pending || 0));
     state.trackSyncing = ["syncing", "queued"].includes(st) && state.online && state.trackPending > 0;
     if (["synced", "online", "ready", "stopped"].includes(st) && state.trackPending === 0) state.trackSyncing = false;
-    render({ force: st === "error" || st === "offline" || st === "synced" });
+    render({ force: st === "error" || st === "offline" });
   });
 
   addEventListener("militopo:v2-control-status", e => {
@@ -152,7 +152,7 @@
     state.controlPending = Math.max(0, Number(d.pending || 0));
     state.controlSyncing = ["syncing"].includes(st) && state.online && state.controlPending > 0;
     if (["synced", "reconciled", "arrival_synced"].includes(st) && state.controlPending === 0) state.controlSyncing = false;
-    render({ force: ["offline", "sync_error", "synced", "arrival_synced"].includes(st) });
+    render({ force: ["offline", "sync_error"].includes(st) });
   });
 
   addEventListener("militopo:v2-race-participant", e => {
@@ -170,5 +170,5 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { syncSnapshots(); render({ force: true }); }, { once: true });
   else { syncSnapshots(); render({ force: true }); }
 
-  globalThis.MILITOPO_CONNECTIVITY_UI = Object.freeze({ version: VERSION, refresh: () => { syncSnapshots(); render({ force: true }); } });
+  globalThis.MILITOPO_CONNECTIVITY_UI = Object.freeze({ version: VERSION, refresh: () => { syncSnapshots(); render({ force: false }); } });
 })();
