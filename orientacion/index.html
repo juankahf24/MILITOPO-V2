@@ -32,7 +32,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="apple-touch-startup-image" href="../icons/militopo-startup-premium-2048x3072.jpg">
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
-<link rel="stylesheet" href="css/styles.css?v=v2-a1-backend-20260919" />
+<link rel="stylesheet" href="css/styles.css?v=v2-i6c-organizer-replay-nav-20261001" />
 <link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929" />
 
 
@@ -91,7 +91,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script type="module" src="../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924"></script>
 <script type="module" src="../js/v2/live/organizer-monitor.js?v=v2-i6b2-history-objective-cache-20260930"></script>
 <script type="module" src="../js/v2/live/organizer-live-map.js?v=v2-g5-live-cartography-20260924"></script>
-<script type="module" src="../js/v2/data/event-results.js?v=v2-i6b-ranking-official-20260930"></script>
+<script type="module" src="../js/v2/data/event-results.js?v=v2-i6c-organizer-replay-nav-20261001"></script>
 </head>
 <body class="ori-page-booting" style="background:#0a0e0a;">
 
@@ -430,7 +430,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
   <div id="analysisPanelSummary" class="analysis-panel active">
     <div class="status ok" style="margin-bottom:12px;">La <b>mediana</b> es el tiempo central: la mitad de los participantes queda por debajo y la otra mitad por encima. Es menos sensible que la media a un tiempo excepcionalmente alto.</div>
     <div id="raceAnalysisSummaryCards" class="analysis-metric-grid"></div>
-    <div class="block"><label>Clasificación general de análisis</label><div class="help">Ordena por tiempo ajustado: tiempo real más la penalización de los controles descartados. No altera el resultado original.</div><div id="raceAnalysisRanking" class="table-wrap"></div></div>
+    <div class="block"><label>Clasificación general de análisis</label><div class="help">Ordena por TIEMPO OFICIAL: tiempo real más las penalizaciones consolidadas. Los tracks del reproductor se leen del resultado persistente en Firestore.</div><div id="raceAnalysisRanking" class="table-wrap"></div></div>
   </div>
 
   <div id="analysisPanelSegments" class="analysis-panel">
@@ -597,7 +597,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
-<script src="js/app.js?v=v2-i6a3-discard-official-hotfix-20260930"></script>
+<script src="js/app.js?v=v2-i6c-organizer-replay-nav-20261001"></script>
 
 <script>
 window.addEventListener("load",function(){
