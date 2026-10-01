@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-j1a-connectivity-no-spam-20261001";
+const BUILD_ID="v2-k1-qa-legacy-export-fix-20261001";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -10,12 +10,12 @@ const CORE_ASSETS=[
   "./",
   "./index.html",
   "./css/styles.css?v=v2-i6h-paso7-status-dots-20261001",
-  "./js/app.js?v=v2-i6h-paso7-status-dots-20261001",
-  "./js/config/iof-symbols-baked.js?v=v2-i6h-paso7-status-dots-20261001",
-  "./js/core/app-main.js?v=v2-i6h-paso7-status-dots-20261001",
-  "./js/pdf/pdf-professional.js?v=v2-i6h-paso7-status-dots-20261001",
-  "./js/results/results-v16.js?v=v2-i6h-paso7-status-dots-20261001",
-  "./js/results/results-classification-fix.js?v=v2-i6h-paso7-status-dots-20261001",
+  "./js/app.js?v=v2-k1-qa-legacy-export-fix-20261001",
+  "./js/config/iof-symbols-baked.js?v=v2-k1-qa-legacy-export-fix-20261001",
+  "./js/core/app-main.js?v=v2-k1-qa-legacy-export-fix-20261001",
+  "./js/pdf/pdf-professional.js?v=v2-k1-qa-legacy-export-fix-20261001",
+  "./js/results/results-v16.js?v=v2-k1-qa-legacy-export-fix-20261001",
+  "./js/results/results-classification-fix.js?v=v2-k1-qa-legacy-export-fix-20261001",
   "./js/config/plan-assets.js?v=v77-reset-seguro-wakelock-20260919",
   "./js/vendor/qr.js?v=modular-fase2",
   "./maps/index.json",
