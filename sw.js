@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-i6f-compact-map-icons-20261001";
+const BUILD_ID="v2-i6g-runner-smaller-slow-pulse-20261001";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -52,7 +52,7 @@ const APP_SHELL=[
   "./js/v2/auth/auth-ui.js?v=v2-i5-4-pwa-account-hqlogo-20260929",
   "./js/v2/data/invitation-inbox.js?v=v2-h6-2-2-qr-button-hardfix-20260925",
   "./js/v2/maps/race-plan-history.js?v=v2-h4-1-runner-map-parity-20260925",
-  "./js/v2/live/runner-dashboard.js?v=v2-i6f-compact-map-icons-20261001",
+  "./js/v2/live/runner-dashboard.js?v=v2-i6g-runner-smaller-slow-pulse-20261001",
   "./js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-20260924",
   "./js/v2/live/runner-gps-v2.js?v=v2-i6a-discard-controls-20260930",
   "./js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
