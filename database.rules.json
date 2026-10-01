@@ -27,7 +27,7 @@
                   ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))",
                   "$uid": {
                     ".read": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid) || auth.uid === $uid)",
-                    ".write": "auth != null && ((auth.token.role === 'super_admin') || (auth.token.role === 'organizer' && auth.uid === $ownerUid))",
+                    ".write": false,
                     "online": {
                       ".write": "auth != null && auth.uid === $uid && root.child('v2/live').child($ownerUid).child($eventId).child('members').child(auth.uid).child('active').val() === true",
                       ".validate": "newData.isBoolean()"

@@ -166,6 +166,8 @@ service cloud.firestore {
       allow create: if signedIn() && request.auth.uid == uid
                     && request.resource.data.uid == request.auth.uid
                     && !request.resource.data.keys().hasAny(["role", "roleMirror", "accountStatus", "permissions"])
+                    && (!request.resource.data.keys().hasAny(["emailVerified"])
+                        || request.resource.data.emailVerified == (request.auth.token.email_verified == true))
                     && (!request.resource.data.keys().hasAny(["usernameKey"])
                         || (validUsernameKey(request.resource.data.usernameKey)
                             && request.resource.data.username == request.resource.data.usernameKey
@@ -175,6 +177,8 @@ service cloud.firestore {
                       "displayName", "firstName", "lastName", "photoURL", "preferences", "updatedAt",
                       "emailVerified", "username", "usernameKey"
                     ])
+                    && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["emailVerified"])
+                        || request.resource.data.emailVerified == (request.auth.token.email_verified == true))
                     && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["username", "usernameKey"])
                         || (
                           !resource.data.keys().hasAny(["usernameKey"])
@@ -242,8 +246,9 @@ service cloud.firestore {
 
       match /results/{uid} {
         allow read: if signedIn() && (request.auth.uid == uid || managesEvent(eventId));
-        allow create, update: if verified() && managesEvent(eventId);
-        allow delete: if false;
+        // J1: resultados oficiales = solo servidor (Admin SDK / Cloud Functions).
+        // Ni runner ni organizer pueden crear o alterar tiempos, penalizaciones o clasificación desde cliente.
+        allow write: if false;
 
         // H1: el track histórico se escribe únicamente desde Cloud Functions
         // (Admin SDK) y puede leerlo su corredor o el gestor del evento.
