@@ -5,7 +5,7 @@ import "../bootstrap.js";
 import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-g5-live-cartography-20260924";
+const VERSION = "v2-i6d-live-map-modern-20261001";
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const DEFAULT_RACE_PLAN_ID = "el-valle-matizado";
 
@@ -34,6 +34,8 @@ const state = {
   racePlanLoading: false,
   racePlanError: "",
   runnerMarkers: new Map(),
+  runnerMotion: new Map(),
+  runnerColors: new Map(),
   trackPoints: [],
   unsubActive: null,
   unsubParticipants: null,
@@ -97,10 +99,13 @@ function ensureStyles() {
     .m2-g5map-empty{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font-size:.76rem;opacity:.68;pointer-events:none;z-index:700}
     .m2-g5map-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:9px;font-size:.62rem;opacity:.75}
     .m2-g5map-legend span{display:inline-flex;align-items:center;gap:5px}
-    .m2-g5-runner-dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;border:2px solid #f7f2e8;background:#5a9ad6;box-shadow:0 2px 8px rgba(0,0,0,.45);font-size:9px;font-weight:900;color:white}
-    .m2-g5-runner-dot.stale{background:#6c746b}.m2-g5-runner-dot.finished{background:#6fa45f}
-    .m2-g5-checkpoint{min-width:22px;height:22px;padding:0 4px;border-radius:999px;display:grid;place-items:center;border:2px solid rgba(255,255,255,.9);background:#9b6b2f;color:white;font-size:9px;font-weight:900;box-shadow:0 2px 7px rgba(0,0,0,.38)}
-    .m2-g5-checkpoint.start{background:#397d55}.m2-g5-checkpoint.finish{background:#934d4d}
+    .m2-g5-runner-wrap,.m2-g5-checkpoint-wrap{background:transparent!important;border:0!important;overflow:visible!important}
+    .m2-g5-runner{position:relative;width:42px;height:42px;display:grid;place-items:center;filter:drop-shadow(0 5px 8px rgba(0,0,0,.58))}
+    .m2-g5-runner svg{width:38px;height:38px;overflow:visible}.m2-g5-runner .nav-body{fill:var(--runner-color,#59a6ff);stroke:#fff;stroke-width:1.8;stroke-linejoin:round}.m2-g5-runner .nav-core{fill:#111914}.m2-g5-runner .nav-shadow{fill:rgba(0,0,0,.34)}
+    .m2-g5-runner.stale{opacity:.58;filter:drop-shadow(0 4px 7px rgba(0,0,0,.5))}.m2-g5-runner.finished{filter:drop-shadow(0 0 8px rgba(255,255,255,.52)) drop-shadow(0 5px 8px rgba(0,0,0,.58))}
+    .m2-g5-runner-label{position:absolute;left:34px;top:4px;max-width:150px;padding:4px 7px;border:2px solid #fff;border-radius:9px;background:var(--runner-color,#59a6ff);color:#fff;font:950 10px/1.05 Arial,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 12px rgba(0,0,0,.46);text-shadow:0 1px 2px rgba(0,0,0,.55)}
+    .m2-g5-runner-label small{display:block;margin-top:2px;font-size:8px;font-weight:800;opacity:.92}
+    .m2-g5-checkpoint{position:relative;width:40px;height:40px;display:grid;place-items:center;filter:drop-shadow(0 4px 7px rgba(0,0,0,.48))}.m2-g5-checkpoint svg{width:40px;height:40px;overflow:visible}.m2-g5-checkpoint text{fill:#fff;font:950 10px/1 "Courier New",monospace;paint-order:stroke;stroke:rgba(0,0,0,.62);stroke-width:2px}.m2-g5-checkpoint.control .cp-ring{fill:rgba(17,30,20,.94);stroke:#f0cf82;stroke-width:3}.m2-g5-checkpoint.control .cp-core{fill:#f0cf82}.m2-g5-checkpoint.start .cp-start{fill:#357b54;stroke:#effff4;stroke-width:2.6;stroke-linejoin:round}.m2-g5-checkpoint.finish .cp-finish-outer{fill:#3b2020;stroke:#fff1ed;stroke-width:3}.m2-g5-checkpoint.finish .cp-finish-inner{fill:none;stroke:#df746d;stroke-width:2.3}
     .m2-g5map .leaflet-control-attribution{font-size:9px}
     @media(max-width:700px){.m2-g5map{padding:13px}.m2-g5map-toolbar{grid-template-columns:1fr 1fr}.m2-g5map-select{grid-column:1/-1}.m2-g5map-canvas{height:340px}.m2-g5map-layers{gap:4px}.m2-g5-layer-btn{padding:6px 2px;letter-spacing:0}}
   `;
@@ -135,7 +140,7 @@ function ensurePanel() {
       <button id="m2G5TrackBtn" class="m2-g5map-btn" type="button" disabled>VER TRAZA</button>
     </div>
     <div id="m2G5Map" class="m2-g5map-canvas"><div id="m2G5MapEmpty" class="m2-g5map-empty">Esperando puntos o posiciones GPS…</div></div>
-    <div class="m2-g5map-legend"><span>● Corredor con GPS</span><span>○ Señal antigua</span><span>◆ Baliza / salida / llegada</span></div>`;
+    <div class="m2-g5map-legend"><span>➤ Corredor · color e identificación propios</span><span>△ Salida</span><span>◎ Baliza</span><span>⦿ Llegada</span></div>`;
   if (monitor?.parentNode) monitor.insertAdjacentElement("afterend", panel);
   else {
     const nav = step.querySelector(".nav-row");
@@ -310,6 +315,30 @@ function participantStatus(row = {}) {
   const s = String(row.status || "not_started").toLowerCase();
   return s === "started" ? "racing" : s;
 }
+function runnerColor(uid = "") {
+  const key=String(uid||"");if(state.runnerColors.has(key))return state.runnerColors.get(key);
+  const palette=["#4ea3ff","#ff7a59","#7fd35b","#d46cff","#f2c14e","#2fd0c8","#ff5e9b","#8b9cff","#ff9d3d","#5edb8a","#e66b6b","#4dc7f2"];
+  const used=new Set(state.runnerColors.values());let color=palette.find(item=>!used.has(item));
+  if(!color){let hash=2166136261;for(const ch of key){hash^=ch.charCodeAt(0);hash=Math.imul(hash,16777619)}const hue=Math.abs(hash>>>0)%360;color=`hsl(${hue} 74% 56%)`;}
+  state.runnerColors.set(key,color);return color;
+}
+function bearingDeg(a,b){
+  if(!a||!b)return 0;const rad=v=>Number(v)*Math.PI/180,deg=v=>v*180/Math.PI;
+  const lat1=rad(a.lat),lat2=rad(b.lat),dLon=rad(Number(b.lng)-Number(a.lng));
+  const y=Math.sin(dLon)*Math.cos(lat2),x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+  const out=(deg(Math.atan2(y,x))+360)%360;return Number.isFinite(out)?out:0;
+}
+function approxDistanceM(a,b){
+  if(!a||!b)return 0;const dy=(Number(b.lat)-Number(a.lat))*111320,dx=(Number(b.lng)-Number(a.lng))*111320*Math.cos(Number(a.lat)*Math.PI/180);return Math.hypot(dx,dy);
+}
+function runnerBearing(uid,gps,lat,lng){
+  const explicit=Number(gps?.heading??gps?.course??gps?.bearing);const prev=state.runnerMotion.get(uid);let bearing=Number.isFinite(explicit)&&explicit>=0?explicit:(Number(prev?.bearing)||0);
+  const current={lat,lng};if(prev&&approxDistanceM(prev,current)>=2.5)bearing=bearingDeg(prev,current);
+  state.runnerMotion.set(uid,{lat,lng,bearing});return bearing;
+}
+function runnerMeta(row={}){
+  const slot=String(row.slotId||row.participantSlot||row.plaza||"").trim(),route=String(row.routeId||row.routeCode||row.recorrido||"").trim();return [slot,route].filter(Boolean).join(" · ");
+}
 
 function redrawCheckpoints() {
   if (!state.mapReady || !state.checkpointLayer) return;
@@ -319,15 +348,15 @@ function redrawCheckpoints() {
     const lat = Number(cp.lat), lng = Number(cp.lon ?? cp.lng);
     if (!validCoord(lat, lng)) return;
     const type = String(cp.type || "BALIZA").toUpperCase();
-    const cls = type === "SALIDA" ? "start" : type === "LLEGADA" ? "finish" : "";
-    const label = type === "SALIDA" ? "S" : type === "LLEGADA" ? "L" : String(cp.checkpointId || cp.id || "P").replace(/^P/i, "").slice(-3);
-    const icon = L.divIcon({
-      className: "",
-      html: `<div class="m2-g5-checkpoint ${cls}">${esc(label)}</div>`,
-      iconSize: [24,24], iconAnchor: [12,12]
-    });
+    const key=String(cp.checkpointId||cp.id||"B").trim().toUpperCase();
+    const label=type==="SALIDA"?"S":type==="LLEGADA"?"L":(key.length>4?key.slice(-4):key);
+    let svg="",kind="control";
+    if(type==="SALIDA"){kind="start";svg=`<svg viewBox="0 0 40 40" aria-hidden="true"><path class="cp-start" d="M20 4 36 34H4Z"/><text x="20" y="28" text-anchor="middle">S</text></svg>`;}
+    else if(type==="LLEGADA"){kind="finish";svg=`<svg viewBox="0 0 40 40" aria-hidden="true"><circle class="cp-finish-outer" cx="20" cy="20" r="16"/><circle class="cp-finish-inner" cx="20" cy="20" r="10"/><text x="20" y="24" text-anchor="middle">L</text></svg>`;}
+    else svg=`<svg viewBox="0 0 40 40" aria-hidden="true"><circle class="cp-ring" cx="20" cy="20" r="16"/><circle class="cp-core" cx="20" cy="20" r="3"/><text x="20" y="12" text-anchor="middle">${esc(label)}</text></svg>`;
+    const icon=L.divIcon({className:"m2-g5-checkpoint-wrap",html:`<div class="m2-g5-checkpoint ${kind}">${svg}</div>`,iconSize:[40,40],iconAnchor:[20,20]});
     const marker = L.marker([lat, lng], { icon, keyboard:false });
-    marker.bindPopup(`<strong>${esc(cp.checkpointId || "Punto")}</strong><br>${esc(type)}${cp.description ? `<br>${esc(cp.description)}` : ""}`);
+    marker.bindPopup(`<strong>${esc(type === "SALIDA" ? "SALIDA" : type === "LLEGADA" ? "LLEGADA" : key)}</strong><br>${esc(type)}${cp.description ? `<br>${esc(cp.description)}` : ""}`);
     marker.addTo(state.checkpointLayer);
   });
 }
@@ -335,26 +364,17 @@ function redrawCheckpoints() {
 function redrawRunners() {
   if (!state.mapReady || !state.runnerLayer) return;
   const L = globalThis.L;
-  state.runnerLayer.clearLayers();
-  state.runnerMarkers.clear();
+  state.runnerLayer.clearLayers();state.runnerMarkers.clear();
   const now = Date.now();
   Object.entries(state.participants || {}).forEach(([uid, row]) => {
-    const gps = row?.gps || {};
-    const lat = Number(gps.lat), lng = Number(gps.lng);
+    const gps = row?.gps || {},lat = Number(gps.lat), lng = Number(gps.lng);
     if (!validCoord(lat, lng)) return;
-    const age = Math.max(0, now - Number(gps.updatedAt || 0));
-    const stale = age > 30000 || gps.active !== true;
-    const finished = participantStatus(row) === "finished";
-    const initial = participantName(row).slice(0,1).toUpperCase() || "•";
-    const icon = L.divIcon({
-      className: "",
-      html: `<div class="m2-g5-runner-dot ${finished ? "finished" : stale ? "stale" : ""}">${esc(initial)}</div>`,
-      iconSize: [22,22], iconAnchor: [11,11]
-    });
-    const marker = L.marker([lat,lng], { icon, keyboard:false });
-    marker.bindPopup(`<strong>${esc(participantName(row))}</strong><br>${esc(participantStatus(row).toUpperCase())}<br>GPS ±${Math.round(Number(gps.accuracy || 0))} m · ${esc(fmtAgo(gps.updatedAt))}`);
-    marker.addTo(state.runnerLayer);
-    state.runnerMarkers.set(uid, marker);
+    const age = Math.max(0, now - Number(gps.updatedAt || 0)),stale = age > 30000 || gps.active !== true,finished = participantStatus(row) === "finished";
+    const color=runnerColor(uid),name=participantName(row),meta=runnerMeta(row),bearing=runnerBearing(uid,gps,lat,lng);
+    const icon=L.divIcon({className:"m2-g5-runner-wrap",html:`<div class="m2-g5-runner ${finished?"finished":stale?"stale":""}" style="--runner-color:${color}"><svg viewBox="0 0 36 36" aria-hidden="true"><g transform="rotate(${bearing.toFixed(1)} 18 18)"><path class="nav-shadow" d="M18 2.5 31 30.5 18 25.5 5 30.5Z" transform="translate(1 1.5)"/><path class="nav-body" d="M18 2.5 31 30.5 18 25.5 5 30.5Z"/><path class="nav-core" d="M18 9.5 23.6 23.5 18 21.4 12.4 23.5Z"/></g></svg><div class="m2-g5-runner-label">${esc(name)}${meta?`<small>${esc(meta)}</small>`:""}</div></div>`,iconSize:[176,44],iconAnchor:[21,21]});
+    const marker = L.marker([lat,lng], { icon, keyboard:false,zIndexOffset:1200 });
+    marker.bindPopup(`<strong style="color:${color}">${esc(name)}</strong>${meta?`<br>${esc(meta)}`:""}<br>${esc(participantStatus(row).toUpperCase())}<br>GPS ±${Math.round(Number(gps.accuracy || 0))} m · ${esc(fmtAgo(gps.updatedAt))}`);
+    marker.addTo(state.runnerLayer);state.runnerMarkers.set(uid, marker);
   });
 }
 
@@ -364,10 +384,11 @@ function redrawTrack() {
   state.trackLayer.clearLayers();
   const points = state.trackPoints.filter(p => validCoord(p.lat, p.lng)).map(p => [Number(p.lat), Number(p.lng)]);
   if (points.length < 2) return;
-  const line = L.polyline(points, { weight:4, opacity:.82, lineJoin:"round" }).addTo(state.trackLayer);
+  const selectedColor=state.selectedUid?runnerColor(state.selectedUid):"#f0c16a";
+  const line = L.polyline(points, { color:selectedColor, weight:5, opacity:.9, lineJoin:"round", lineCap:"round" }).addTo(state.trackLayer);
   if (state.selectedUid) {
     const row = state.participants?.[state.selectedUid] || {};
-    line.bindPopup(`Traza de <strong>${esc(participantName(row))}</strong> · ${points.length} puntos`);
+    line.bindPopup(`Traza de <strong style="color:${selectedColor}">${esc(participantName(row))}</strong> · ${points.length} puntos`);
   }
 }
 
@@ -464,6 +485,8 @@ function clearRunListeners() {
   state.unsubParticipants = null;
   state.unsubTrack = null;
   state.participants = {};
+  state.runnerMotion.clear();
+  state.runnerColors.clear();
   state.trackPoints = [];
   state.selectedUid = "";
   state.optionsKey = "";
@@ -514,6 +537,8 @@ async function bindParticipants() {
   try { state.unsubParticipants?.(); } catch (_) {}
   state.unsubParticipants = null;
   state.participants = {};
+  state.runnerMotion.clear();
+  state.runnerColors.clear();
   state.trackPoints = [];
   try { state.unsubTrack?.(); } catch (_) {}
   state.unsubTrack = null;
