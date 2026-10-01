@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-i6d1-arrow-track-anchor-20261001";
+const BUILD_ID="v2-i6e-local-playback-20261001";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -9,13 +9,13 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
 const CORE_ASSETS=[
   "./",
   "./index.html",
-  "./css/styles.css?v=v2-i6d1-arrow-track-anchor-20261001",
-  "./js/app.js?v=v2-i6d1-arrow-track-anchor-20261001",
-  "./js/config/iof-symbols-baked.js?v=v2-i6d1-arrow-track-anchor-20261001",
-  "./js/core/app-main.js?v=v2-i6d1-arrow-track-anchor-20261001",
-  "./js/pdf/pdf-professional.js?v=v2-i6d1-arrow-track-anchor-20261001",
-  "./js/results/results-v16.js?v=v2-i6d1-arrow-track-anchor-20261001",
-  "./js/results/results-classification-fix.js?v=v2-i6d1-arrow-track-anchor-20261001",
+  "./css/styles.css?v=v2-i6e-local-playback-20261001",
+  "./js/app.js?v=v2-i6e-local-playback-20261001",
+  "./js/config/iof-symbols-baked.js?v=v2-i6e-local-playback-20261001",
+  "./js/core/app-main.js?v=v2-i6e-local-playback-20261001",
+  "./js/pdf/pdf-professional.js?v=v2-i6e-local-playback-20261001",
+  "./js/results/results-v16.js?v=v2-i6e-local-playback-20261001",
+  "./js/results/results-classification-fix.js?v=v2-i6e-local-playback-20261001",
   "./js/config/plan-assets.js?v=v77-reset-seguro-wakelock-20260919",
   "./js/vendor/qr.js?v=modular-fase2",
   "./maps/index.json",
@@ -40,8 +40,8 @@ const CORE_ASSETS=[
   "../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/organizer-monitor.js?v=v2-i6b2-history-objective-cache-20260930",
-  "../js/v2/live/organizer-live-map.js?v=v2-i6d1-arrow-track-anchor-20261001",
-  "../js/v2/data/event-results.js?v=v2-i6d1-arrow-track-anchor-20261001"
+  "../js/v2/live/organizer-live-map.js?v=v2-i6e-local-playback-20261001",
+  "../js/v2/data/event-results.js?v=v2-i6e-local-playback-20261001"
 ];
 
 const FIREBASE_SDK_ASSETS=[
