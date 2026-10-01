@@ -80,3 +80,12 @@
 
 /* I6D · navegación comparativa: la rotación vive en el SVG para evitar conflictos con transform de Leaflet. */
 .analysis-runner-icon svg{display:block;transform:none!important;transform-origin:50% 50%}.analysis-runner-icon svg g{transform-box:view-box;transform-origin:18px 18px}
+
+
+/* MILITOPO V2 · I6D.1 · flecha centrada sobre el track + rumbo real del tramo */
+.analysis-runner-icon-wrap{width:44px!important;height:44px!important;background:transparent!important;border:0!important;overflow:visible!important;pointer-events:none!important}
+.analysis-runner-icon{position:absolute!important;left:0!important;top:0!important;width:44px!important;height:44px!important;display:block!important;background:transparent!important;border:0!important;box-shadow:none!important;filter:drop-shadow(0 5px 7px rgba(0,0,0,.58));transform:none!important;pointer-events:none!important}
+.analysis-runner-bearing{position:absolute!important;inset:0!important;width:44px!important;height:44px!important;transform-origin:22px 22px!important;transition:transform .10s linear!important;will-change:transform!important}
+.analysis-runner-bearing svg{display:block!important;width:44px!important;height:44px!important;overflow:visible!important;transform:none!important}
+.analysis-runner-position-dot{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;transform:translate(-50%,-50%);background:#111a14;border:1.5px solid #fff;box-shadow:0 0 0 2px var(--runner-color,#f0c16a),0 2px 6px rgba(0,0,0,.55);z-index:4}
+.analysis-runner-name{left:46px!important;top:10px!important;pointer-events:none!important}
