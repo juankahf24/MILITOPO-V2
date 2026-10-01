@@ -5,7 +5,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2-i6b2-history-objective-cache-20260930";
+  const VERSION="v2-k3a-discard-race-guard-20261001";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -278,10 +278,18 @@
     return {ok:true,pass};
   }
 
-  function discardNextControl(){
+  function discardNextControl(expectedCheckpointId=""){
     const target=nextTarget();
     if(!target)return {ok:false,message:"No hay ninguna baliza pendiente."};
     if(canonical(target.checkpointId)==="FINISH")return {ok:false,message:"La LLEGADA no se puede descartar."};
+    const expected=canonical(expectedCheckpointId);
+    const current=canonical(target.checkpointId);
+    // K3A · La confirmación queda ligada a una baliza concreta. Si esa baliza
+    // se valida por GPS/QR mientras el diálogo está abierto, nunca se descarta
+    // accidentalmente el siguiente control.
+    if(expected&&expected!==current){
+      return {ok:false,stale:true,message:`${expected} ya no es la baliza pendiente. La siguiente es ${current}. No se ha descartado nada.`};
+    }
     const result=registerLocal(target.checkpointId,"discard",{passedAtMs:Date.now()});
     if(result.ok&&navigator.onLine===false)emit("offline",{message:`${target.checkpointId} descartada. Penalización +15:00 guardada localmente.`});
     return result;

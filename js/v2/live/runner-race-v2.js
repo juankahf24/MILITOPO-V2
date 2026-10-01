@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2-i6b2-history-objective-cache-20260930";
+  const VERSION="v2-k3a-discard-race-guard-20261001";
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,liveBound:false,reconnectPromise:null,localArrivalAt:0,autoFinishing:false,summaryOpen:false};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
@@ -66,10 +66,19 @@
     const discardBtn=root.querySelector("#m2raceDiscard"),discardConfirm=root.querySelector("#m2raceDiscardConfirm");let discardHoldTimer=0,discardHoldStart=0,discardRaf=0;
     const resetDiscardHold=()=>{clearTimeout(discardHoldTimer);discardHoldTimer=0;cancelAnimationFrame(discardRaf);discardRaf=0;discardHoldStart=0;if(discardBtn)discardBtn.style.setProperty("--hold","0%");};
     const animateDiscardHold=()=>{if(!discardHoldStart)return;const pct=Math.min(100,((performance.now()-discardHoldStart)/5000)*100);discardBtn.style.setProperty("--hold",`${pct}%`);if(pct<100)discardRaf=requestAnimationFrame(animateDiscardHold);};
-    const beginDiscardHold=e=>{if(discardBtn?.hidden)return;e.preventDefault();resetDiscardHold();discardHoldStart=performance.now();discardRaf=requestAnimationFrame(animateDiscardHold);discardHoldTimer=setTimeout(()=>{resetDiscardHold();const snap=controlsApi()?.snapshot?.()||{},id=snap.nextControl?.checkpointId||"esta baliza";root.querySelector("#m2raceDiscardTitle").textContent=`¿Descartar ${id}?`;discardConfirm.hidden=false;},5000);};
+    const beginDiscardHold=e=>{if(discardBtn?.hidden||discardBtn?.disabled)return;e.preventDefault();resetDiscardHold();discardHoldStart=performance.now();discardRaf=requestAnimationFrame(animateDiscardHold);discardHoldTimer=setTimeout(()=>{resetDiscardHold();const snap=controlsApi()?.snapshot?.()||{},id=String(snap.nextControl?.checkpointId||"").trim();if(!id||id.toUpperCase()==="FINISH")return;discardConfirm.dataset.checkpointId=id;root.querySelector("#m2raceDiscardTitle").textContent=`¿Descartar ${id}?`;discardConfirm.hidden=false;},5000);};
     discardBtn?.addEventListener("pointerdown",beginDiscardHold);["pointerup","pointercancel","pointerleave"].forEach(ev=>discardBtn?.addEventListener(ev,resetDiscardHold));
-    root.querySelector("#m2raceDiscardCancel")?.addEventListener("click",()=>{discardConfirm.hidden=true;});
-    root.querySelector("#m2raceDiscardOk")?.addEventListener("click",()=>{const res=controlsApi()?.discardNextControl?.();discardConfirm.hidden=true;if(!res?.ok){const st=root.querySelector("#m2raceControlStatus");if(st){st.className="m2race-control-status warn";st.textContent=res?.message||"No se pudo descartar la baliza.";}}});
+    root.querySelector("#m2raceDiscardCancel")?.addEventListener("click",()=>{discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";});
+    root.querySelector("#m2raceDiscardOk")?.addEventListener("click",()=>{
+      const okBtn=root.querySelector("#m2raceDiscardOk");
+      if(okBtn?.disabled)return;
+      const expected=String(discardConfirm.dataset.checkpointId||"").trim();
+      if(okBtn)okBtn.disabled=true;
+      const res=controlsApi()?.discardNextControl?.(expected);
+      discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";
+      if(okBtn)okBtn.disabled=false;
+      if(!res?.ok){const st=root.querySelector("#m2raceControlStatus");if(st){st.className="m2race-control-status warn";st.textContent=res?.message||"No se pudo descartar la baliza.";}}
+    });
     root.querySelector("#m2raceSummaryClose").addEventListener("click",()=>{root.querySelector("#m2raceSummary").classList.remove("open");state.summaryOpen=false;});
     root.querySelector("#m2raceSummaryDone").addEventListener("click",()=>{root.querySelector("#m2raceSummary").classList.remove("open");state.summaryOpen=false;close();});
     root.querySelector("#m2raceQrPhoto").addEventListener("change",async event=>{
@@ -177,6 +186,8 @@
     const raceStatus=String(state.participant?.status||snap.raceStatus||"").toLowerCase(),active=["racing","started"].includes(raceStatus);
     card.hidden=!active;if(!active)return;
     const completed=Math.max(0,Number(detail.completedCount??snap.completedCount??0)),expected=Math.max(0,Number(detail.expectedCount??snap.expectedCount??0)),next=detail.nextControl??snap.nextControl??null,finishValidated=Boolean(detail.finishValidated??snap.finishValidated),pending=Math.max(0,Number(detail.pending??snap.pending??0));
+    // K3A · Cierra una confirmación antigua si el objetivo cambió mientras estaba abierta.
+    if(discardConfirm&&!discardConfirm.hidden){const confirmed=String(discardConfirm.dataset.checkpointId||"").trim().toUpperCase(),current=String(next?.checkpointId||"").trim().toUpperCase();if(!confirmed||confirmed!==current){discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";}}
     const syncError=String(detail.message&&status==="sync_error"?detail.message:(snap.lastSyncError||""));
     progressEl.textContent=`${completed} / ${expected}`;
     updatePenaltyPreview({...detail,completedCount:completed,expectedCount:expected});
