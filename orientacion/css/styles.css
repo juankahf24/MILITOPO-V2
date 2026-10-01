@@ -89,3 +89,20 @@
 .analysis-runner-bearing svg{display:block!important;width:44px!important;height:44px!important;overflow:visible!important;transform:none!important}
 .analysis-runner-position-dot{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;transform:translate(-50%,-50%);background:#111a14;border:1.5px solid #fff;box-shadow:0 0 0 2px var(--runner-color,#f0c16a),0 2px 6px rgba(0,0,0,.55);z-index:4}
 .analysis-runner-name{left:46px!important;top:10px!important;pointer-events:none!important}
+
+/* I6F · marcadores cartográficos compactos: más mapa visible sin perder estado/rumbo */
+.analysis-runner-icon-wrap{width:32px!important;height:32px!important}
+.analysis-runner-icon{left:0!important;top:0!important;width:32px!important;height:32px!important}
+.analysis-runner-bearing{width:32px!important;height:32px!important;transform-origin:16px 16px!important}
+.analysis-runner-bearing svg,.analysis-runner-icon svg{width:32px!important;height:32px!important}
+.analysis-runner-position-dot{width:4px!important;height:4px!important;border-width:1px!important;box-shadow:0 0 0 1.5px var(--runner-color,#f0c16a),0 1px 4px rgba(0,0,0,.55)!important}
+.analysis-runner-name{left:34px!important;top:7px!important;max-width:118px!important;padding:3px 6px!important;font-size:9px!important;border-width:1.5px!important}
+.analysis-objective-wrap{width:54px!important;height:54px!important}
+.analysis-objective-pulse{left:8px!important;top:8px!important;width:38px!important;height:38px!important;border-width:3px!important}
+.analysis-objective-pulse.secondary{left:4px!important;top:4px!important;width:46px!important;height:46px!important;border-width:1.5px!important}
+.analysis-objective-core{left:19px!important;top:19px!important;width:16px!important;height:16px!important;border-width:2px!important;box-shadow:0 0 0 2px var(--objective-color,#ffe45e),0 0 16px var(--objective-color,#ffe45e)!important}
+.analysis-objective-core span{width:5px!important;height:5px!important}
+.analysis-objective-label{top:54px!important;padding:4px 7px!important;font-size:8.5px!important;border-width:1.5px!important}
+.analysis-collective-endpoint{width:30px!important;height:30px!important}.analysis-collective-endpoint svg{width:30px!important;height:30px!important}.analysis-collective-endpoint text{font-size:9px!important}
+.analysis-control-marker{width:30px!important;height:30px!important}.analysis-control-marker svg{width:30px!important;height:30px!important}.analysis-control-marker text{font-size:7px!important}
+.analysis-pass-badge{width:15px!important;height:15px!important;border-width:1.5px!important;font-size:9px!important;box-shadow:0 2px 6px rgba(0,0,0,.45),0 0 0 1px var(--runner-color,#fff)!important}
