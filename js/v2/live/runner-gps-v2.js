@@ -3,10 +3,11 @@
    El track se guarda localmente y se sincroniza al recuperar conexión. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-i3-active-race-offline-recovery-20260927";
+const VERSION = "v2-k3b-gps-resume-20261001";
 const MIN_WRITE_MS = 4000;
 const FORCE_WRITE_MS = 12000;
 const MIN_MOVE_M = 3;
+const RESUME_STALE_MS = 18000;
 
 const state = {
   services: null,
@@ -14,6 +15,8 @@ const state = {
   watchId: null,
   active: false,
   lastSent: null,
+  lastFixAt: 0,
+  resumeBusy: false,
   seedFix: null,
   lastError: ""
 };
@@ -38,6 +41,8 @@ function toFix(position) {
     lat: Number(c.latitude),
     lng: Number(c.longitude),
     accuracy: Math.max(0, Number(c.accuracy || 0)),
+    heading: Number.isFinite(Number(c.heading)) ? Number(c.heading) : null,
+    speed: Number.isFinite(Number(c.speed)) ? Number(c.speed) : null,
     updatedAt: Date.now()
   };
 }
@@ -84,6 +89,7 @@ async function publishFix(fix) {
 
 async function writeFix(fix, force = false) {
   if (!fix || !state.active) return;
+  state.lastFixAt = Date.now();
   try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-gps-fix", { detail: { fix: { ...fix }, version: VERSION } })); } catch (_) {}
   const now = Date.now();
   const elapsed = state.lastSent ? now - state.lastSent.updatedAt : Infinity;
@@ -151,13 +157,46 @@ async function start(context, seedFix = null) {
   const first = seedFix || state.seedFix;
   if (first) await writeFix(first, true);
 
+  installWatch();
+  emit("watching", { fix: first ? { ...first } : null });
+  return true;
+}
+
+function installWatch() {
+  if (!navigator.geolocation || !state.active) return false;
+  stopWatchOnly();
   state.watchId = navigator.geolocation.watchPosition(
     position => writeFix(toFix(position)).catch(() => {}),
     geolocationError,
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
   );
-  emit("watching", { fix: first ? { ...first } : null });
   return true;
+}
+
+async function resumeAfterSuspend(reason = "visible") {
+  if (!state.active || !state.context || !navigator.geolocation || document.visibilityState === "hidden" || state.resumeBusy) return false;
+  const stale = !state.lastFixAt || (Date.now() - state.lastFixAt) >= RESUME_STALE_MS;
+  if (!stale && state.watchId != null) return true;
+  state.resumeBusy = true;
+  try {
+    emit("requesting", { message: "Reanudando GPS tras volver a MILITOPO…", reason });
+    installWatch();
+    await new Promise(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const fix = toFix(position);
+          if (fix) writeFix(fix, true).catch(() => {});
+          resolve();
+        },
+        () => resolve(),
+        { enableHighAccuracy: true, timeout: 9000, maximumAge: 2500 }
+      );
+    });
+    emit("watching", { fix: state.lastSent ? { ...state.lastSent } : null, resumed: true, reason });
+    return true;
+  } finally {
+    state.resumeBusy = false;
+  }
 }
 
 function stopWatchOnly() {
@@ -172,6 +211,7 @@ async function stop(reason = "manual") {
   const path = contextPath();
   const wasActive = state.active;
   state.active = false;
+  state.resumeBusy = false;
   if (path && wasActive && state.lastSent) {
     try {
       const { database } = await services();
@@ -214,6 +254,7 @@ function snapshot() {
   return {
     active: state.active,
     lastSent: state.lastSent ? { ...state.lastSent } : null,
+    lastFixAt: state.lastFixAt,
     lastError: state.lastError
   };
 }
@@ -224,11 +265,18 @@ window.addEventListener("online", () => {
 window.addEventListener("offline", () => {
   if (state.active) emit("offline_active", { fix: state.lastSent ? { ...state.lastSent } : null, message: "GPS activo sin cobertura. El track continúa guardándose localmente." });
 });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") setTimeout(() => resumeAfterSuspend("visibility").catch(() => {}), 180);
+});
+window.addEventListener("pageshow", () => {
+  setTimeout(() => resumeAfterSuspend("pageshow").catch(() => {}), 220);
+});
 
 globalThis.MILITOPO_RUNNER_GPS_V2 = Object.freeze({
   prepare,
   start,
   stop,
   resumeIfGranted,
+  resumeAfterSuspend,
   snapshot
 });
