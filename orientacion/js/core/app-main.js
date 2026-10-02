@@ -1338,6 +1338,10 @@ function buildOrientationPointPopup(pointId){
 }
 
 function openOrientationPointPopup(marker, pointId){
+    if(window.__MILITOPO_R2_TRACE_MODE__===true){
+        if(typeof window.militopoR2HandleMapPointClick==="function") window.militopoR2HandleMapPointClick(pointId);
+        return;
+    }
     selectedPointId=pointId;
     const select=document.getElementById("selectedPoint");
     if(select) select.value=pointId;
@@ -1404,7 +1408,7 @@ function deleteOrientationPopupPoint(pointId){
 }
 // ORIENTATION POINT POPUP JS END
 
-function renderMapMarkers(){if(!markersLayer)return;markersLayer.clearLayers();routeLayer?.clearLayers();renderPlanPdfPreview();Object.values(state.points).forEach(p=>{if(p.lat===null||p.lon===null)return;const icon=L.divIcon({html:`<div class="${iconClassForType(p.type)}">${p.type==="BALIZA"?p.id.replace("B",""):""}</div>`,className:"",iconSize:[16,16],iconAnchor:[8,8]});const marker=L.marker([p.lat,p.lon],{icon,draggable:!currentMilitopoCloudDesignLock()}).bindTooltip(`${p.id}`,{permanent:true,direction:"right",className:"marker-label"}).on("dragend",ev=>{if(rejectProtectedRaceMutation("mover balizas")){renderMapMarkers();return;}const ll=ev.target.getLatLng();p.lat=ll.lat;p.lon=ll.lng;p.utm=latLonToUtm(ll.lat,ll.lng);p.elevation=null;selectedPointId=p.id;renderPointsTable();loadSelectedPointFields();saveState();renderPlanPdfPreview();marker.setPopupContent(buildOrientationPointPopup(p.id))}).on("click",ev=>{if(window.__MILITOPO_R2_TRACE_MODE__===true&&typeof window.militopoR2HandleMapPointClick==="function"){try{L.DomEvent.stopPropagation(ev);}catch(_){ }window.militopoR2HandleMapPointClick(p.id);return;}openOrientationPointPopup(marker,p.id)}).addTo(markersLayer);marker.bindPopup(buildOrientationPointPopup(p.id),{className:"orientation-point-popup",closeButton:true,autoPan:true,maxWidth:330})})}function iconClassForType(type){return type==="SALIDA"?"ori-start-icon":type==="LLEGADA"?"ori-finish-icon":"ori-control-icon"}function zoomSelectedPoint(){const p=state.points[selectedPointId];if(!map||!p||p.lat===null)return;map.setView([p.lat,p.lon],19)}function fitAllPoints(){
+function renderMapMarkers(){if(!markersLayer)return;markersLayer.clearLayers();routeLayer?.clearLayers();renderPlanPdfPreview();Object.values(state.points).forEach(p=>{if(p.lat===null||p.lon===null)return;const icon=L.divIcon({html:`<div class="${iconClassForType(p.type)}">${p.type==="BALIZA"?p.id.replace("B",""):""}</div>`,className:"",iconSize:[16,16],iconAnchor:[8,8]});const marker=L.marker([p.lat,p.lon],{icon,draggable:!currentMilitopoCloudDesignLock()}).bindTooltip(`${p.id}`,{permanent:true,direction:"right",className:"marker-label"}).on("dragend",ev=>{if(rejectProtectedRaceMutation("mover balizas")){renderMapMarkers();return;}const ll=ev.target.getLatLng();p.lat=ll.lat;p.lon=ll.lng;p.utm=latLonToUtm(ll.lat,ll.lng);p.elevation=null;selectedPointId=p.id;renderPointsTable();loadSelectedPointFields();saveState();renderPlanPdfPreview();const popup=marker.getPopup?.();if(popup)marker.setPopupContent(buildOrientationPointPopup(p.id))}).on("click",ev=>{if(window.__MILITOPO_R2_TRACE_MODE__===true&&typeof window.militopoR2HandleMapPointClick==="function"){try{L.DomEvent.stopPropagation(ev);}catch(_){ }try{marker.closePopup()}catch(_){ }window.militopoR2HandleMapPointClick(p.id);return;}openOrientationPointPopup(marker,p.id)}).addTo(markersLayer)})}function iconClassForType(type){return type==="SALIDA"?"ori-start-icon":type==="LLEGADA"?"ori-finish-icon":"ori-control-icon"}function zoomSelectedPoint(){const p=state.points[selectedPointId];if(!map||!p||p.lat===null)return;map.setView([p.lat,p.lon],19)}function fitAllPoints(){
     if(!map)return;
     const latlngs=Object.values(state.points||{})
         .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon))
@@ -11015,6 +11019,7 @@ window.MILITOPO_R2_BRIDGE={
         return {eventId:String(state.eventId||""),eventName:String(state.eventName||""),selectedPointId:String(selectedPointId||""),points,placed,total:points.length,controls,controlsPlaced:controls.filter(p=>p.lat!==null&&p.lon!==null).length,controlsPerRoute:Math.max(1,Number(state.controlsPerRoute)||1),participantCount:Math.max(1,Number(state.participantCount)||1),routeCount:uniqueRoutes.length,routeIds:uniqueRoutes,locked:!!currentMilitopoCloudDesignLock()};
     },
     selectPoint(id){if(!state.points?.[id])return false;selectPoint(String(id));return true;},
+    clearSelection(){selectedPointId="";const sel=document.getElementById("selectedPoint");if(sel)sel.value="";const utm=document.getElementById("selectedUtm");if(utm)utm.value="";try{map?.closePopup?.()}catch(_){ }return true;},
     selectNextControl(){const id=militopoR2FirstIncompleteControl();if(!id)return "";selectPoint(id);return id;},
     fitAll(){fitAllPoints();return true;},
     renderDraft(ids){militopoR2RenderDraftRoute(ids);},
