@@ -4,7 +4,7 @@
   window.__MILITOPO_R2_MAP_WORKSPACE__=true;
   const $=(s,r=document)=>r.querySelector(s);
   const bridge=()=>window.MILITOPO_R2_BRIDGE||null;
-  const state={trace:false,selected:[],stage:null,statusTimer:null,lastSelected:"",placeMode:"",toolsHidden:false};
+  const state={trace:false,selected:[],stage:null,statusTimer:null,lastSelected:"",placeMode:"",toolsHidden:false,activeTool:""};
   const ico={
     start:'<svg viewBox="0 0 24 24"><path d="M5 21V4m0 1h11l-2.5 3L16 11H5"/></svg>',
     control:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>',
@@ -60,7 +60,12 @@
   }
   function toggleTools(){state.toolsHidden=!state.toolsHidden;try{localStorage.setItem("militopo_r2_tools_hidden",state.toolsHidden?"1":"0")}catch(_){}applyToolsVisibility()}
   function setTool(action){
-    state.stage?.querySelectorAll('[data-r2-tool]').forEach(b=>b.classList.toggle('is-active',b.dataset.r2Tool===action));
+    state.activeTool=action||'';
+    state.stage?.querySelectorAll('[data-r2-tool]').forEach(b=>b.classList.toggle('is-active',b.dataset.r2Tool===state.activeTool));
+  }
+  function cancelActiveTool(message='Herramienta cancelada · toca otra herramienta cuando quieras continuar.'){
+    if(state.trace){exitTrace(true);return}
+    state.placeMode='';state.lastSelected='';bridge()?.clearSelection?.();setTool('');instruction(message);refresh();
   }
   function instruction(text){const el=$('#r2ContextTip');if(el)el.textContent=text}
   function selectPoint(id,label){
@@ -77,11 +82,11 @@
     if(e.target.closest("[data-r2-tools-toggle]")){toggleTools();return}
     const tool=e.target.closest('[data-r2-tool]')?.dataset.r2Tool;
     if(tool){
-      if(tool==='start')return selectPoint('START','start');
-      if(tool==='control')return selectControl();
-      if(tool==='finish')return selectPoint('FINISH','finish');
-      if(tool==='fit'){bridge()?.fitAll?.();setTool('fit');instruction('Mapa ajustado a todos los puntos colocados.');return}
-      if(tool==='route')return startTrace();
+      if(tool==='start'){if(state.activeTool==='start')return cancelActiveTool('SALIDA deseleccionada.');return selectPoint('START','start')}
+      if(tool==='control'){if(state.activeTool==='control')return cancelActiveTool('BALIZA deseleccionada.');return selectControl()}
+      if(tool==='finish'){if(state.activeTool==='finish')return cancelActiveTool('LLEGADA deseleccionada.');return selectPoint('FINISH','finish')}
+      if(tool==='fit'){bridge()?.fitAll?.();setTool('');instruction('Mapa centrado en todos los puntos colocados.');return}
+      if(tool==='route'){if(state.trace||state.activeTool==='route')return exitTrace(true);return startTrace()}
     }
     const trace=e.target.closest('[data-r2-trace]')?.dataset.r2Trace;
     if(trace==='cancel')return exitTrace(true);
@@ -131,6 +136,7 @@
   }
   function exitTrace(cancelled){
     state.trace=false;window.__MILITOPO_R2_TRACE_MODE__=false;bridge()?.clearDraft?.();state.selected=[];
+    state.placeMode='';state.lastSelected='';bridge()?.clearSelection?.();
     state.stage?.classList.remove('is-tracing');$('#r2TracePanel')?.setAttribute('hidden','');setTool('');
     if(cancelled)instruction('Trazado manual cancelado · no se ha modificado ningún recorrido.');
   }
@@ -140,7 +146,7 @@
     const current=snap.points.find(p=>p.id===state.lastSelected);
     if(!current||current.lat===null||current.lon===null)return;
     const next=b.selectNextControl?.();
-    if(next&&next!==state.lastSelected){state.lastSelected=next;instruction(`${next} preparada · toca el mapa para colocarla.`);}else if(!next){state.placeMode='';setTool('');instruction('Todas las balizas están colocadas. Ya puedes trazar el recorrido manualmente.');}
+    if(next&&next!==state.lastSelected){state.lastSelected=next;instruction(`${next} preparada · toca el mapa para colocarla.`);}else if(!next){state.placeMode='';state.lastSelected='';bridge()?.clearSelection?.();setTool('');instruction('Todas las balizas están colocadas. Ya puedes trazar el recorrido manualmente.');}
   }
   function refresh(){
     const snap=bridge()?.getSnapshot?.();if(!snap)return;
