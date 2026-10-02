@@ -169,3 +169,20 @@ body.r1-shell-active.r1-workspace-open .r1-map-dock{display:none!important}
   .r1-nav-btn{border-radius:14px!important}
   .r1-nav-btn[data-r1-action="participants"]{display:none!important}
 }
+
+
+/* R2E · brújula sin superficie nativa: solo el emblema circular */
+.r1-compass{
+  display:block!important;box-sizing:border-box!important;
+  background:none!important;background-color:transparent!important;background-image:none!important;
+  border:0!important;outline:0!important;box-shadow:none!important;
+  -webkit-appearance:none!important;appearance:none!important;
+  overflow:visible!important;isolation:isolate;
+}
+.r1-compass::before,.r1-compass::after{content:none!important;display:none!important}
+.r1-compass img{
+  display:block!important;width:100%!important;height:100%!important;
+  background:none!important;background-color:transparent!important;
+  border:0!important;box-shadow:none!important;outline:0!important;
+  clip-path:circle(49% at 50% 50%)!important;-webkit-clip-path:circle(49% at 50% 50%)!important;
+}

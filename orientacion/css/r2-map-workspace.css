@@ -36,3 +36,16 @@ body.r1-workspace-open .r2-tool-dock,body.r1-workspace-open .r2-map-hud,body.r1-
 .orientation-point-popup .ori-map-popup-actions{gap:6px!important}
 .orientation-point-popup .ori-map-popup-btn{min-height:34px!important;font-size:.72rem!important}
 .orientation-point-popup .ori-map-popup-note{margin-top:7px!important;padding:7px 8px!important;border-radius:10px!important;font-size:.58rem!important;line-height:1.2!important}
+
+
+/* R2E · herramientas izquierda/derecha alineadas sobre el mismo eje vertical */
+.r2-tool-dock{top:52%!important;transform:translateY(-50%)!important}
+@media(max-width:720px){.r2-tool-dock{top:52%!important;transform:translateY(-50%)!important}}
+
+/* Selector profesional de recorrido manual */
+.r2-route-picker{position:fixed;inset:0;z-index:100120;display:grid;place-items:center;padding:18px;background:rgba(6,10,7,.58);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.r2-route-picker[hidden]{display:none!important}
+.r2-route-picker-card{width:min(520px,calc(100vw - 28px));max-height:min(76vh,650px);overflow:auto;border:1px solid rgba(238,204,116,.62);border-radius:20px;background:rgba(238,241,229,.97);color:#172018;box-shadow:0 24px 64px rgba(0,0,0,.42);padding:14px}
+.r2-route-picker-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:11px}.r2-route-picker-head>div{display:grid;gap:4px}.r2-route-picker-head small{font:800 8px/1 system-ui;letter-spacing:.12em;color:#647066}.r2-route-picker-head strong{font:900 16px/1.05 system-ui}.r2-route-picker-close{width:34px;height:34px;border:1px solid rgba(22,32,24,.16);border-radius:10px;background:rgba(255,255,255,.72);color:#172018;font-size:20px}
+.r2-route-picker-help{margin:0 0 11px;color:#59645b;font:700 10px/1.35 system-ui}.r2-route-picker-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.r2-route-choice{min-height:58px;border:1px solid rgba(24,34,25,.18);border-radius:13px;background:#fff;color:#172018;display:grid;place-items:center;align-content:center;gap:3px;padding:7px;font:900 11px/1 system-ui}.r2-route-choice small{font:800 7px/1 system-ui;color:#718075;letter-spacing:.06em}.r2-route-choice.is-existing{background:#243326;color:#fff7df;border-color:#c8ae67}.r2-route-choice.is-existing small{color:#e6d8a9}.r2-route-choice:active{transform:scale(.98)}
+@media(max-width:420px){.r2-route-picker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.r2-route-picker-card{padding:12px;border-radius:17px}}
