@@ -132,3 +132,10 @@ body.r1-shell-active{min-height:100dvh;background-color:#0a0e0a!important}
 @supports(padding:max(0px)){
   body.r1-shell-active{padding-top:0!important}
 }
+
+/* R2B · El mapa es ahora el fondo permanente de la interfaz principal. */
+body.r1-shell-active>.app>.card{display:none!important}
+body.r1-shell-active>.app{width:100%!important;max-width:none!important;min-height:100dvh!important;padding:0!important;margin:0!important}
+body.r1-shell-active.r1-map-home{overflow:hidden}
+body.r1-shell-active.r1-workspace-open{overflow:hidden}
+body.r1-shell-active.r1-workspace-open .r1-map-dock{display:none!important}
