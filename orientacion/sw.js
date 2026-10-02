@@ -1,6 +1,6 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
 const BUILD_ID="v2-r1c-logo-match-topbar-20261002";
-const CACHE_PREFIX="militopo-v2-orientacion-";
+const CACHE_PREFIX="militopo-v2-orientacion--r1d";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
 const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;

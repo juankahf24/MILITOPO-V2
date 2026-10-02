@@ -10,14 +10,18 @@ try {
 </script>
 
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
 <title>MILITOPO V2 · Orientación</title>
-<meta name="theme-color" content="#20351f">
+<meta name="theme-color" content="#0a0e0a">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#0a0e0a">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0e0a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
-html,body{background:#0a0e0a!important;margin:0;min-height:100%}
+html,body{background:#0a0e0a!important;margin:0;min-height:100%;min-height:100dvh}
+html{background-color:#0a0e0a!important;color-scheme:dark}
+body{overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
 body.ori-page-booting{opacity:0;background:#0a0e0a!important;-webkit-transition:opacity .48s ease;transition:opacity .48s ease}
 body.ori-page-booting .app{opacity:0;-webkit-transform:translate3d(0,12px,0);transform:translate3d(0,12px,0);will-change:opacity,transform;-webkit-transition:opacity .52s ease,-webkit-transform .52s cubic-bezier(.22,.8,.24,1);transition:opacity .52s ease,transform .52s cubic-bezier(.22,.8,.24,1)}
 body.ori-page-ready{opacity:1}
@@ -33,7 +37,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <link rel="stylesheet" href="css/styles.css?v=v2-i6h-paso7-status-dots-20261001" />
-<link rel="stylesheet" href="css/r1-shell.css?v=r1-shell-20261002d" />
+<link rel="stylesheet" href="css/r1-shell.css?v=r1-shell-20261002e" />
 <link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929" />
 
 
@@ -599,7 +603,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
 <script src="js/app.js?v=v2-k1-qa-legacy-export-fix-20261001"></script>
-<script src="js/ui/r1-shell.js?v=r1-shell-20261002d"></script>
+<script src="js/ui/r1-shell.js?v=r1-shell-20261002e"></script>
 
 <script>
 window.addEventListener("load",function(){
