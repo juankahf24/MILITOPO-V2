@@ -125,3 +125,10 @@ body.r1-shell-active #step2 .card-header{margin-bottom:12px}
   .r1-nav-btn svg{width:17px;height:17px}
 }
 @media(prefers-reduced-motion:reduce){.r1-nav-btn,.r1-map-btn,.r1-more-action{transition:none!important}}
+
+/* R1D · iOS/PWA: extender el fondo visual por las zonas seguras. */
+html,body{background-color:#0a0e0a!important}
+body.r1-shell-active{min-height:100dvh;background-color:#0a0e0a!important}
+@supports(padding:max(0px)){
+  body.r1-shell-active{padding-top:0!important}
+}
