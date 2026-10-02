@@ -16,11 +16,7 @@ body.r1-shell-active{padding-top:calc(var(--r1-top) + var(--r1-safe-top) + 12px)
 body.r1-shell-active .hero,
 body.r1-shell-active>.app>.steps{display:none!important}
 body.r1-shell-active>.app{width:min(1440px,100%)!important;padding:14px clamp(10px,2vw,24px) 54px!important}
-body.r1-shell-active #militopoV2AccountBadge{
-  top:calc(var(--r1-safe-top) + var(--r1-top) + 8px)!important;
-  right:max(10px,env(safe-area-inset-right))!important;
-  max-width:min(340px,calc(100vw - 20px))!important;
-}
+body.r1-shell-active #militopoV2AccountBadge{display:none!important}
 
 .r1-topbar{
   position:fixed;left:max(88px,calc(env(safe-area-inset-left) + 88px));right:max(12px,env(safe-area-inset-right));top:var(--r1-safe-top);
@@ -48,8 +44,8 @@ body.r1-shell-active #militopoV2AccountBadge{
   font:800 11px/1.05 system-ui,-apple-system,sans-serif;white-space:nowrap;transition:.16s ease;
 }
 
-.r1-label-races{display:inline-flex;gap:.28em;white-space:nowrap}
-.r1-label-races>span{display:inline;white-space:nowrap}
+.r1-label-races,.r1-label-profile{display:inline-flex;gap:.28em;white-space:nowrap}
+.r1-label-races>span,.r1-label-profile>span{display:inline;white-space:nowrap}
 .r1-nav-btn svg{width:20px;height:20px;stroke-width:1.8}.r1-nav-btn:hover{background:rgba(255,255,255,.72);transform:translateY(-1px)}
 .r1-nav-btn:active{transform:scale(.98)}.r1-nav-btn.is-primary{background:#d8dccb;border-color:rgba(25,34,25,.25)}
 .r1-nav-btn.is-live{background:rgba(204,76,51,.09);border-color:rgba(204,76,51,.24)}
@@ -107,14 +103,14 @@ body.r1-shell-active #step2 .card-header{margin-bottom:12px}
     display:grid;grid-template-rows:20px minmax(0,1fr);place-items:center;align-content:center;gap:2px;
   }
   .r1-nav-btn>span{display:flex;align-items:center;justify-content:center;width:100%;max-width:100%;min-width:0;text-align:center;overflow-wrap:normal;word-break:keep-all;hyphens:none}
-  .r1-label-races{white-space:normal!important;flex-direction:column;line-height:1!important}
-  .r1-label-races>span{display:block;white-space:nowrap;word-break:keep-all;hyphens:none}
+  .r1-label-races,.r1-label-profile{white-space:normal!important;flex-direction:column;line-height:1!important}
+  .r1-label-races>span,.r1-label-profile>span{display:block;white-space:nowrap;word-break:keep-all;hyphens:none}
   .r1-nav-btn svg{width:18px;height:18px;flex:0 0 auto}
   /* En móvil PARTICIPANTES vive dentro de MÁS para que la navegación principal sean 5 botones exactos. */
   .r1-nav-btn:nth-of-type(4){display:none}
-  .r1-map-dock{right:max(8px,env(safe-area-inset-right));top:auto;bottom:calc(18px + env(safe-area-inset-bottom));transform:none}
+  .r1-map-dock{right:max(8px,env(safe-area-inset-right));top:52%;bottom:auto;transform:translateY(-50%)}
   .r1-map-btn{width:46px;height:46px;border-radius:13px}.r1-map-btn svg{width:21px;height:21px}
-  .r1-layer-pop{right:62px;top:auto;bottom:calc(18px + env(safe-area-inset-bottom));width:min(220px,calc(100vw - 78px))}
+  .r1-layer-pop{right:62px;top:52%;bottom:auto;transform:translateY(-50%);width:min(220px,calc(100vw - 78px))}
   .r1-workspace{padding-left:0;padding-right:0;padding-bottom:0}.r1-workspace-shell{border-radius:20px 20px 0 0;border-left:0;border-right:0;border-bottom:0}.r1-workspace-body{padding:6px}.r1-workspace-body>.card{border-radius:16px!important;padding:14px!important}body.r1-shell-active #step2 #map{height:58vh;min-height:390px}.r1-more-grid{grid-template-columns:1fr}.r1-more-action{min-height:64px}
 }
 @media(max-width:390px){
