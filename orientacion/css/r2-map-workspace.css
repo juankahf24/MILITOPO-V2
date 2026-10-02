@@ -20,3 +20,19 @@ body.r1-workspace-open .r2-tool-dock,body.r1-workspace-open .r2-map-hud,body.r1-
  .r2-trace-panel{left:7px;right:7px;bottom:58px;padding:9px;border-radius:14px}.r2-trace-head small{font-size:6.5px}.r2-trace-head strong{font-size:11px}.r2-trace-head>button{width:30px;height:30px}.r2-trace-sequence{font-size:8px;padding:8px 0}.r2-trace-actions{grid-template-columns:1fr 1fr}.r2-trace-actions .is-confirm{grid-column:1/-1}.r2-trace-actions button{min-height:34px;font-size:7px}
 }
 @media(max-width:390px){.r2-map-hud>span{padding:5px 4px}.r2-map-hud b{font-size:7.2px}.r2-map-hud small{font-size:5px}}
+
+
+/* R2D · editor de baliza compacto, mismo lenguaje visual */
+.leaflet-popup.orientation-point-popup .leaflet-popup-content-wrapper{border-width:2px!important;border-radius:16px!important}
+.leaflet-popup.orientation-point-popup .leaflet-popup-content{width:250px!important;max-width:70vw!important}
+.leaflet-popup.orientation-point-popup .leaflet-popup-close-button{width:24px!important;height:24px!important;line-height:22px!important;top:6px!important;right:6px!important;font-size:17px!important}
+.orientation-point-popup .ori-map-popup-header{gap:8px!important;padding:9px 34px 8px 9px!important}
+.orientation-point-popup .ori-map-popup-badge{width:28px!important;height:28px!important}
+.orientation-point-popup .ori-map-popup-title{font-size:.88rem!important}
+.orientation-point-popup .ori-map-popup-subtitle{font-size:.55rem!important;margin-top:2px!important}
+.orientation-point-popup .ori-map-popup-body{padding:9px!important}
+.orientation-point-popup .ori-map-popup-label{font-size:.56rem!important;margin-bottom:4px!important}
+.orientation-point-popup .ori-map-popup-input,.orientation-point-popup .ori-map-popup-textarea{min-height:34px!important;padding:7px 8px!important;margin-bottom:7px!important;border-radius:10px!important;font-size:.76rem!important}
+.orientation-point-popup .ori-map-popup-actions{gap:6px!important}
+.orientation-point-popup .ori-map-popup-btn{min-height:34px!important;font-size:.72rem!important}
+.orientation-point-popup .ori-map-popup-note{margin-top:7px!important;padding:7px 8px!important;border-radius:10px!important;font-size:.58rem!important;line-height:1.2!important}

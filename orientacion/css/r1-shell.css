@@ -135,3 +135,37 @@ body.r1-shell-active>.app{width:100%!important;max-width:none!important;min-heig
 body.r1-shell-active.r1-map-home{overflow:hidden}
 body.r1-shell-active.r1-workspace-open{overflow:hidden}
 body.r1-shell-active.r1-workspace-open .r1-map-dock{display:none!important}
+
+
+/* R2D · barra superior separada, plana y perfil prioritario */
+.r1-topbar{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  border-radius:0!important;padding:0!important;
+}
+.r1-nav{gap:8px!important}
+.r1-nav-btn{
+  background:rgba(239,241,226,.94)!important;
+  border:1px solid rgba(255,255,255,.62)!important;
+  box-shadow:0 7px 18px rgba(0,0,0,.18)!important;
+  backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;
+  border-radius:15px!important;
+}
+.r1-nav-btn.is-live{background:rgba(239,236,220,.94)!important;border-color:rgba(201,78,54,.30)!important}
+.r1-nav-btn.is-active{background:#1f2b20!important;color:#f7f4e7!important;border-color:#1f2b20!important}
+.r1-compass{
+  -webkit-appearance:none!important;appearance:none!important;
+  background:transparent!important;background-color:transparent!important;
+  border:0!important;box-shadow:none!important;outline:0!important;
+  z-index:100001!important;
+}
+.r1-compass img{
+  background:transparent!important;border:0!important;border-radius:50%!important;
+  clip-path:circle(49.7% at 50% 50%);-webkit-clip-path:circle(49.7% at 50% 50%);
+}
+@media(max-width:720px){
+  .r1-topbar{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+  .r1-nav{gap:6px!important}
+  .r1-nav-btn{border-radius:14px!important}
+  .r1-nav-btn[data-r1-action="participants"]{display:none!important}
+}
