@@ -1120,7 +1120,7 @@ function getSavedManualPlanPdfCenter(){
 }
 function ensurePlanPdfAdjustControls(){
     const step2=document.getElementById("step2");
-    const mapEl=step2?.querySelector("#map");
+    const mapEl=document.getElementById("map");
     const quickBlock=step2?.querySelector(".autofill-test-panel");
     if(!step2||!mapEl||!quickBlock)return;
 
