@@ -504,43 +504,17 @@ function hideRouteGenerationLoader(){
 // ROUTE GENERATION LOADER JS END
 
 async function confirmStep2(){
-    if(rejectProtectedRaceMutation("generar o sustituir recorridos"))return;
+    if(rejectProtectedRaceMutation("guardar la configuración de puntos"))return;
     const v=validatePoints();
-    if(!v.ok){
-        toast("Faltan puntos obligatorios");
-        return;
-    }
-    saveState();
-    showRouteGenerationLoader("Preparando desniveles y recorridos...", 4);
-    await routeSleep(80);
-    let ok=false;
-    try{
-        ok=await generateRoutes(true);
-    }catch(e){
-        console.error(e);
-        const summary=document.getElementById("routeSummary");
-        if(summary){
-            summary.className="status err";
-            summary.textContent="Error generando recorridos. Se ha detenido el cálculo para evitar que la pantalla quede bloqueada.";
-        }
-        toast("Error generando recorridos. Revisa puntos y vuelve a intentar.");
-        ok=false;
-    }
-    updateRouteGenerationLoader(ok?"Recorridos generados. Abriendo paso 3...":"No se pudieron generar los recorridos.", ok?100:0);
-    await routeSleep(ok?450:900);
-    hideRouteGenerationLoader();
-    if(ok){publishMilitopoCloudStructure("step2-confirmed");goStep(3);}
-}async function confirmStep3(){
-    if(!state.routes.length){
-        showRouteGenerationLoader("Generando recorridos antes del material...", 8);
-        await routeSleep(80);
-        const ok=await generateRoutes(true);
-        hideRouteGenerationLoader();
-        if(!ok) return;
-    }
-    renderQrPreview();
-    saveState();
-    goStep(4);
+    if(!v.ok){toast("Faltan puntos obligatorios");return;}
+    saveState();publishMilitopoCloudStructure("step2-confirmed-manual");
+    const summary=document.getElementById("routeSummary");
+    if(summary&&!state.routes.length){summary.className="status warn";summary.textContent="Todavía no hay recorridos. Créelos manualmente con TRAZAR sobre el mapa.";}
+    goStep(3);
+}
+async function confirmStep3(){
+    if(!state.routes.length){toast("Crea al menos un recorrido manual con TRAZAR antes de generar el material.");return;}
+    renderQrPreview();saveState();goStep(4);
 }
 function validatePoints(){const requiredOk=["START","FINISH"].every(id=>state.points[id]?.lat!==null&&state.points[id]?.lon!==null);const controls=Object.values(state.points).filter(p=>p.type==="BALIZA"&&p.lat!==null&&p.lon!==null);return{ok:requiredOk&&controls.length>=state.controlsPerRoute,controlsCount:controls.length}}
 function renderPointSelectors(){const sel=document.getElementById("selectedPoint");sel.innerHTML="";Object.values(state.points).forEach(p=>{const opt=document.createElement("option");opt.value=p.id;opt.textContent=`${symbolForType(p.type)} ${p.id} · ${p.desc||p.type}`;sel.appendChild(opt)});sel.value=selectedPointId;sel.onchange=()=>{selectedPointId=sel.value;loadSelectedPointFields();zoomSelectedPoint()};loadSelectedPointFields()}function symbolForType(type){return type==="SALIDA"?"△":type==="LLEGADA"?"◎":"○"}function loadSelectedPointFields(){const p=state.points[selectedPointId];if(!p)return;document.getElementById("selectedUtm").value=p.utm||""}
@@ -3073,20 +3047,23 @@ function renderRoutes(){
         return;
     }
 
-    const dists=state.metrics.map(m=>Number(m.distanceKm||0));
-    const climbs=state.metrics.filter(m=>m?.positiveM!=null&&Number.isFinite(Number(m.positiveM))).map(m=>Number(m.positiveM));
+    const uniqueRouteIndexes=[];const seenRouteIds=new Set();
+    (state.routes||[]).forEach((route,index)=>{const rid=String(route?.routeId||"");if(rid&&!seenRouteIds.has(rid)){seenRouteIds.add(rid);uniqueRouteIndexes.push(index);}});
+    const routeMetrics=uniqueRouteIndexes.map(i=>state.metrics[i]||{});
+    const dists=routeMetrics.map(m=>Number(m.distanceKm||0));
+    const climbs=routeMetrics.filter(m=>m?.positiveM!=null&&Number.isFinite(Number(m.positiveM))).map(m=>Number(m.positiveM));
     const avgD=avg(dists).toFixed(3);
     const avgC=climbs.length?`${Math.round(avg(climbs))} m`:"Sin desnivel real";
     const warnings=Array.isArray(state.routeWarnings)?state.routeWarnings:[];
     const buckets=state.difficultyBuckets||{};
-    const q=state.routeQualitySummary||buildRouteQualitySummary(state.metrics||[]);
+    const q=buildRouteQualitySummary(routeMetrics);
     const hasForced=(q.forced||0)>0 || warnings.some(w=>/forzado/i.test(w));
     const routeSummary=document.getElementById("routeSummary");
     if(routeSummary){
         const forcedCount=q.forced||0;
         const cleanCount=q.clean||0;
         const acceptableCount=q.acceptable||0;
-        const totalRoutes=state.routes.length||0;
+        const totalRoutes=uniqueRouteIndexes.length||0;
         const diffHtml=buckets.total?`<div class="metric difficulty-metric"><small>Dificultad</small><div style="display:grid;gap:2px;margin-top:6px;font-size:16px;font-weight:900;line-height:1.15;"><div style="display:grid;grid-template-columns:28px 1fr;align-items:center;"><b>${buckets.faciles||0}</b><span>fácil</span></div><div style="display:grid;grid-template-columns:28px 1fr;align-items:center;"><b>${buckets.medias||0}</b><span>media</span></div><div style="display:grid;grid-template-columns:28px 1fr;align-items:center;"><b>${buckets.dificiles||0}</b><span>difícil</span></div></div></div>`:"";
         const forcedAdvice=forcedCount>0
             ? `<div style="margin-top:10px;padding:10px 12px;border-radius:14px;background:rgba(255,193,7,.16);border:1px solid rgba(255,193,7,.45);"><b>⚠️ Consejo:</b> hay <b>${forcedCount}</b> recorrido(s) forzado(s). Para reducirlos, añade o mueve balizas, baja controles por recorrido o reduce participantes.</div>`
@@ -3097,8 +3074,8 @@ function renderRoutes(){
             <div style="display:grid;gap:12px;line-height:1.35;">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
                     <div>
-                        <div style="font-size:18px;font-weight:900;">✅ ${totalRoutes} recorridos generados</div>
-                        <div style="font-size:12px;opacity:.8;margin-top:2px;">Resumen automático del paso 3</div>
+                        <div style="font-size:18px;font-weight:900;">✅ ${new Set((state.routes||[]).map(x=>x.routeId)).size} recorridos manuales</div>
+                        <div style="font-size:12px;opacity:.8;margin-top:2px;">Diseños creados manualmente sobre el mapa</div>
                     </div>
                     <div style="font-size:12px;font-weight:900;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.6);border:1px solid rgba(0,0,0,.12);">${hasForced?"REVISAR FORZADOS":"TRAZADO OK"}</div>
                 </div>
@@ -3119,14 +3096,16 @@ function renderRoutes(){
             </div>`;
     }
 
-    state.routes.forEach((r,i)=>{
+    uniqueRouteIndexes.forEach(i=>{
+        const r=state.routes[i];
         const m=state.metrics[i]||{};
+        const assigned=(state.routes||[]).filter(x=>String(x?.routeId||"")===String(r?.routeId||"")).length;
         const div=document.createElement("div");
         div.className="route-card";
         div.dataset.routeIndex=String(i);
         const quality=m.quality||"Recorrido aceptable";
         const qClass=m.qualityCode==="clean"?"ok":(m.qualityCode==="forced"?"err":"warn");
-        div.innerHTML=`<div class="route-title"><span>${escapeHtml(r.routeId)} · ${escapeHtml(r.participantId)}</span><span>${escapeHtml(m.difficulty||"MEDIA")}</span></div>
+        div.innerHTML=`<div class="route-title"><span>${escapeHtml(r.routeId)} · ${assigned} participante${assigned===1?"":"s"}</span><span>${escapeHtml(m.difficulty||"MEDIA")}</span></div>
             <div class="metric-grid">
                 <div class="metric"><small>Distancia</small><b>${escapeHtml(m.distanceKm||"--")} km</b></div>
                 <div class="metric"><small>Tramo largo</small><b>${escapeHtml(m.longestKm||"--")} km</b></div>
@@ -3137,7 +3116,7 @@ function renderRoutes(){
             </div>
             <div class="status ${qClass}" style="margin-top:10px;">${escapeHtml(quality)}${m.routeMode?` · ${escapeHtml(m.routeMode)}`:""}</div>
             <div class="route-line">${r.points.map(escapeHtml).join(" → ")}</div>
-            <div class="btn-row"><button class="btn secondary" onclick="previewRouteByKey(\'${escapeHtml(r.routeId)}\',\'${escapeHtml(r.participantId)}\')">🗺️ VER EN PLANO</button><button class="btn" onclick="regenerateSingleRoute(${i})">🔁 REGENERAR SOLO ESTE</button><button class="btn secondary" onclick="openManualRouteEditor(${i})">✍️ REGENERAR MANUALMENTE</button></div>`;
+            <div class="btn-row"><button class="btn secondary" onclick="previewRouteByKey(\'${escapeHtml(r.routeId)}\',\'${escapeHtml(r.participantId)}\')">🗺️ VER EN PLANO</button><button class="btn secondary" onclick="openManualRouteEditor(${i})">✍️ EDITAR MANUALMENTE</button></div>`;
         grid.appendChild(div);
     });
 }
@@ -3300,7 +3279,7 @@ function drawRoute(idx){
     L.polyline(latlngs,{color:"#ff3ecf",weight:4,opacity:.85}).addTo(routeLayer);
     map.fitBounds(latlngs,{padding:[40,40]});
 }
-function updateRouteCountInfo(){const el=document.getElementById("routeCountInfo");if(!el)return;const unique=Math.max(1,Math.min(state.participantCount||1,state.uniqueRouteCount||state.maxUniqueRoutes||15));el.textContent=`${state.participantCount} participantes · hasta ${unique} recorridos únicos`}
+function updateRouteCountInfo(){const el=document.getElementById("routeCountInfo");if(!el)return;const unique=[...new Set((state.routes||[]).map(r=>String(r?.routeId||"")).filter(Boolean))].length;el.textContent=`${state.participantCount} participantes · ${unique} recorrido${unique===1?"":"s"} manual${unique===1?"":"es"}`}
 function importTextPoints(){const raw=document.getElementById("importText").value.trim();if(!raw)return;const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);let count=0;lines.forEach(line=>{const parts=line.split(/[,;]/).map(x=>x.trim());if(parts.length<2)return;const id=parts[0].toUpperCase(),utm=parts[1].toUpperCase(),desc=parts.slice(2).join(" ")||id;if(!state.points[id])return;const ll=utmToLatLon(utm);if(!ll)return;Object.assign(state.points[id],{utm:normalizeUtm(utm),lat:ll.lat,lon:ll.lon,desc});count++});renderPointsTable();renderMapMarkers();saveState();toast(`${count} puntos importados`)}function exportPointsCsv(){const rows=[["ID","TIPO","UTM"]];Object.values(state.points).forEach(p=>rows.push([p.id,p.type,p.utm||""]));downloadText("balizas_orientacion.csv",rows.map(r=>r.map(csvEscape).join(",")).join("\n"))}
 function normalizeImportPointId(value){
     let s=String(value||"").trim().toUpperCase();
@@ -10990,25 +10969,47 @@ function militopoR2FirstIncompleteControl(){
     const controls=Object.values(state.points||{}).filter(p=>p.type==="BALIZA");
     return (controls.find(p=>p.lat===null||p.lon===null||p.lat===""||p.lon===""||!Number.isFinite(Number(p.lat))||!Number.isFinite(Number(p.lon)))||null)?.id||"";
 }
-function militopoR2CreateFirstManualRoute(controlIds){
+function militopoR2RouteNumber(routeId){const m=String(routeId||"").match(/(\d+)/);return m?Math.max(1,Number(m[1])||1):9999;}
+function militopoR2ManualDesignSnapshots(){
+    const byId=new Map();
+    (state.routes||[]).forEach((route,index)=>{
+        const routeId=String(route?.routeId||"").trim();if(!routeId||byId.has(routeId))return;
+        byId.set(routeId,{routeId,points:Array.isArray(route.points)?route.points.map(String):[],metrics:JSON.parse(JSON.stringify((state.metrics||[])[index]||{}))});
+    });
+    return [...byId.values()].sort((a,b)=>militopoR2RouteNumber(a.routeId)-militopoR2RouteNumber(b.routeId)||a.routeId.localeCompare(b.routeId));
+}
+function militopoR2CreateManualRoute(routeId,controlIds){
     if(rejectProtectedRaceMutation("trazar el recorrido manualmente"))return {ok:false,error:"Carrera bloqueada"};
     syncConfigFromUi();
+    routeId=String(routeId||"").trim().toUpperCase();
+    if(!/^R\d{2,3}$/.test(routeId))return {ok:false,error:"Identificador de recorrido no válido."};
     const ids=[...new Set((Array.isArray(controlIds)?controlIds:[]).map(String))];
     const available=new Set(getAvailableControls().map(c=>String(c.id)));
     const target=Math.min(Math.max(1,Number(state.controlsPerRoute)||1),available.size);
     if(ids.length!==target)return {ok:false,error:`Selecciona exactamente ${target} baliza${target===1?"":"s"}.`};
     if(ids.some(id=>!available.has(id)))return {ok:false,error:"Alguna baliza seleccionada no tiene coordenadas válidas."};
-    if((state.routes||[]).length)return {ok:false,error:"Ya existen recorridos. Edítalos desde RECORRIDOS para no sustituir asignaciones existentes.",existing:true};
     const built=buildManualRouteMetrics(ids);
+    let designs=militopoR2ManualDesignSnapshots();
+    const existed=designs.some(d=>d.routeId===routeId);
+    const item={routeId,points:[...built.pointIds],metrics:{...built.metrics}};
+    designs=designs.filter(d=>d.routeId!==routeId);designs.push(item);
+    designs.sort((a,b)=>militopoR2RouteNumber(a.routeId)-militopoR2RouteNumber(b.routeId)||a.routeId.localeCompare(b.routeId));
+    const designIndex=new Map(designs.map((d,i)=>[d.routeId,i]));
+    const previousAssignment=new Map((state.routes||[]).map(r=>[String(r.participantId||""),String(r.routeId||"")]));
     const count=Math.max(1,Number(state.participantCount)||1);
-    state.routes=Array.from({length:count},(_,i)=>({participantId:"P"+String(i+1).padStart(2,"0"),routeId:"R01",routeDesignIndex:0,points:[...built.pointIds]}));
-    state.metrics=Array.from({length:count},()=>JSON.parse(JSON.stringify(built.metrics)));
-    state.uniqueRouteCount=1;state.skippedRoutes={};state.routeWarnings=[];
-    if(built.quality.overMaxLegs>0)state.routeWarnings.push(`R01: revisa ${(built.quality.overMaxLegList||[]).join(", ")}; hay tramos superiores al objetivo de 800 m.`);
-    if(built.quality.shortControlLegs>0)state.routeWarnings.push(`R01: contiene ${built.quality.shortControlLegs} tramo(s) entre balizas por debajo de 200 m.`);
+    state.routes=Array.from({length:count},(_,i)=>{
+        const participantId="P"+String(i+1).padStart(2,"0");
+        let chosen=null;
+        if(existed){const previous=previousAssignment.get(participantId);chosen=designs.find(d=>d.routeId===previous)||null;}
+        if(!chosen)chosen=designs[i%designs.length];
+        return {participantId,routeId:chosen.routeId,routeDesignIndex:designIndex.get(chosen.routeId)||0,points:[...chosen.points]};
+    });
+    state.metrics=state.routes.map(r=>JSON.parse(JSON.stringify(designs[designIndex.get(r.routeId)]?.metrics||{})));
+    state.uniqueRouteCount=designs.length;state.skippedRoutes={};state.routeWarnings=[];
+    designs.forEach(d=>{const m=d.metrics||{};if(Number(m.overMaxLegs||0)>0)state.routeWarnings.push(`${d.routeId}: revisa tramos superiores al objetivo de 800 m.`);if(Number(m.shortControlLegs||0)>0)state.routeWarnings.push(`${d.routeId}: contiene ${m.shortControlLegs} tramo(s) entre balizas por debajo de 200 m.`);});
     assignBalancedDifficulties(state.metrics);state.routeQualitySummary=buildRouteQualitySummary(state.metrics);
     renderRoutes();renderQrPreview();updateParticipantSelect();updateRouteCountInfo();saveState();publishMilitopoCloudStructure("r2-manual-route");
-    return {ok:true,routeId:"R01",points:[...built.pointIds],metrics:{...built.metrics},quality:built.quality?.label||""};
+    return {ok:true,routeId,created:!existed,replaced:existed,points:[...built.pointIds],metrics:{...built.metrics},quality:built.quality?.label||""};
 }
 window.MILITOPO_R2_BRIDGE={
     getSnapshot(){
@@ -11016,7 +11017,7 @@ window.MILITOPO_R2_BRIDGE={
         const placed=points.filter(p=>p.lat!==null&&p.lon!==null).length;
         const controls=points.filter(p=>p.type==="BALIZA");
         const uniqueRoutes=[...new Set((state.routes||[]).map(r=>String(r.routeId||"")).filter(Boolean))];
-        return {eventId:String(state.eventId||""),eventName:String(state.eventName||""),selectedPointId:String(selectedPointId||""),points,placed,total:points.length,controls,controlsPlaced:controls.filter(p=>p.lat!==null&&p.lon!==null).length,controlsPerRoute:Math.max(1,Number(state.controlsPerRoute)||1),participantCount:Math.max(1,Number(state.participantCount)||1),routeCount:uniqueRoutes.length,routeIds:uniqueRoutes,locked:!!currentMilitopoCloudDesignLock()};
+        return {eventId:String(state.eventId||""),eventName:String(state.eventName||""),selectedPointId:String(selectedPointId||""),points,placed,total:points.length,controls,controlsPlaced:controls.filter(p=>p.lat!==null&&p.lon!==null).length,controlsPerRoute:Math.max(1,Number(state.controlsPerRoute)||1),participantCount:Math.max(1,Number(state.participantCount)||1),routeCount:uniqueRoutes.length,routeIds:uniqueRoutes,maxUniqueRoutes:Math.max(1,Number(state.maxUniqueRoutes)||30),locked:!!currentMilitopoCloudDesignLock()};
     },
     selectPoint(id){if(!state.points?.[id])return false;selectPoint(String(id));return true;},
     clearSelection(){selectedPointId="";const sel=document.getElementById("selectedPoint");if(sel)sel.value="";const utm=document.getElementById("selectedUtm");if(utm)utm.value="";try{map?.closePopup?.()}catch(_){ }return true;},
@@ -11024,7 +11025,8 @@ window.MILITOPO_R2_BRIDGE={
     fitAll(){fitAllPoints();return true;},
     renderDraft(ids){militopoR2RenderDraftRoute(ids);},
     clearDraft(){militopoR2ClearDraftRoute();},
-    createFirstManualRoute(ids){return militopoR2CreateFirstManualRoute(ids);},
+    createManualRoute(routeId,ids){return militopoR2CreateManualRoute(routeId,ids);},
+    createFirstManualRoute(ids){return militopoR2CreateManualRoute("R01",ids);},
     openExistingRoute(routeId="R01"){
         const idx=(state.routes||[]).findIndex(r=>String(r.routeId||"")===String(routeId));
         if(idx<0)return false;return openManualRouteEditor(idx);
