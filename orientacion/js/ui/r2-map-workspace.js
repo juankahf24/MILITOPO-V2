@@ -4,13 +4,15 @@
   window.__MILITOPO_R2_MAP_WORKSPACE__=true;
   const $=(s,r=document)=>r.querySelector(s);
   const bridge=()=>window.MILITOPO_R2_BRIDGE||null;
-  const state={trace:false,selected:[],stage:null,statusTimer:null,lastSelected:"",placeMode:""};
+  const state={trace:false,selected:[],stage:null,statusTimer:null,lastSelected:"",placeMode:"",toolsHidden:false};
   const ico={
     start:'<svg viewBox="0 0 24 24"><path d="M5 21V4m0 1h11l-2.5 3L16 11H5"/></svg>',
     control:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>',
     finish:'<svg viewBox="0 0 24 24"><path d="M5 21V4m0 1h12v8H5"/><path d="M8 5v8m3-8v8m3-8v8M5 9h12"/></svg>',
     route:'<svg viewBox="0 0 24 24"><circle cx="5" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M7 18c6 0 3-10 9-10"/></svg>',
-    fit:'<svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>'
+    fit:'<svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>',
+    eye:'<svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg>',
+    eyeOff:'<svg viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.6 6.2A10.7 10.7 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3 3.8M6.6 6.6C3.5 8.5 2 12 2 12s3.5 6 10 6c1 0 2-.15 2.8-.42"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>'
   };
   function toast(msg){try{if(typeof window.toast==='function')window.toast(msg);else console.info(msg)}catch(_){}}
   function setText(el,value){if(!el)return;const next=String(value??'');if(el.textContent!==next)el.textContent=next}
@@ -20,12 +22,15 @@
     const stage=document.createElement("section");stage.className="r2-map-stage r2-map-home-stage";stage.id="r2MapStage";stage.setAttribute("aria-label","Mapa principal de Orientación");
     stage.innerHTML=`
       <aside class="r2-tool-dock" aria-label="Herramientas de diseño">
-        ${btn("start","SALIDA",ico.start)}
-        ${btn("control","BALIZA",ico.control)}
-        ${btn("finish","LLEGADA",ico.finish)}
-        <i></i>
-        ${btn("route","TRAZAR",ico.route)}
-        ${btn("fit","VER TODO",ico.fit)}
+        <button class="r2-tools-toggle" type="button" data-r2-tools-toggle aria-label="Ocultar herramientas">${ico.eyeOff}<span>OCULTAR</span></button>
+        <div class="r2-tool-list">
+          ${btn("start","SALIDA",ico.start)}
+          ${btn("control","BALIZA",ico.control)}
+          ${btn("finish","LLEGADA",ico.finish)}
+          <i></i>
+          ${btn("route","TRAZAR",ico.route)}
+          ${btn("fit","CENTRAR",ico.fit)}
+        </div>
       </aside>
       <div class="r2-map-slot"></div>
       <div class="r2-map-hud" id="r2MapHud">
@@ -42,9 +47,18 @@
       </div>`;
     document.body.prepend(stage);$(".r2-map-slot",stage).appendChild(map);
     stage.addEventListener("click",onClick);state.stage=stage;window.militopoR2HandleMapPointClick=handleTracePoint;
+    try{state.toolsHidden=localStorage.getItem("militopo_r2_tools_hidden")==="1"}catch(_){}
+    applyToolsVisibility();
     window.MILITOPO_R2_MAP_HOME={activate(){stage.classList.add("is-active");setTimeout(()=>{window.dispatchEvent(new Event("resize"));try{map.dispatchEvent(new Event("militopo:r2-mounted"))}catch(_){}},40);refresh();},refresh};
     refresh();setTimeout(()=>window.MILITOPO_R2_MAP_HOME.activate(),80);return true;
   }
+  function applyToolsVisibility(){
+    if(!state.stage)return;
+    state.stage.querySelector('.r2-tool-dock')?.classList.toggle('is-collapsed',state.toolsHidden);
+    const toggle=state.stage.querySelector('[data-r2-tools-toggle]');
+    if(toggle){toggle.innerHTML=`${state.toolsHidden?ico.eye:ico.eyeOff}<span>${state.toolsHidden?'MOSTRAR':'OCULTAR'}</span>`;toggle.setAttribute('aria-label',state.toolsHidden?'Mostrar herramientas':'Ocultar herramientas');}
+  }
+  function toggleTools(){state.toolsHidden=!state.toolsHidden;try{localStorage.setItem("militopo_r2_tools_hidden",state.toolsHidden?"1":"0")}catch(_){}applyToolsVisibility()}
   function setTool(action){
     state.stage?.querySelectorAll('[data-r2-tool]').forEach(b=>b.classList.toggle('is-active',b.dataset.r2Tool===action));
   }
@@ -60,6 +74,7 @@
     state.lastSelected=id;state.placeMode='control';setTool('control');instruction(`${id} activa · toca el mapa para colocarla. Al guardarla, MILITOPO preparará automáticamente la siguiente baliza pendiente.`);refresh();
   }
   function onClick(e){
+    if(e.target.closest("[data-r2-tools-toggle]")){toggleTools();return}
     const tool=e.target.closest('[data-r2-tool]')?.dataset.r2Tool;
     if(tool){
       if(tool==='start')return selectPoint('START','start');

@@ -10,7 +10,7 @@
     const paths={
       races:'<path d="M4 6h16M4 12h16M4 18h10"/><path d="m17 16 3 2-3 2z"/>',
       plus:'<path d="M12 5v14M5 12h14"/>',
-      map:'<path d="m3 6 5-2 8 2 5-2v14l-5 2-8-2-5 2z"/><path d="M8 4v14M16 6v14"/>',
+      profile:'<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
       users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
       live:'<path d="M8.5 16.5a6 6 0 0 1 0-9M15.5 7.5a6 6 0 0 1 0 9"/><path d="M5 20a11 11 0 0 1 0-16M19 4a11 11 0 0 1 0 16"/><circle cx="12" cy="12" r="2"/>',
       more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
@@ -37,7 +37,7 @@
       <nav class="r1-nav" aria-label="Navegación principal MILITOPO">
         <button class="r1-nav-btn is-primary" type="button" data-r1-action="races">${icon("races")}<span class="r1-label r1-label-races"><span>MIS</span><span>CARRERAS</span></span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="new">${icon("plus")}<span>NUEVA</span></button>
-        <button class="r1-nav-btn" type="button" data-r1-action="map">${icon("map")}<span>MAPA</span></button>
+        <button class="r1-nav-btn" type="button" data-r1-action="profile">${icon("profile")}<span class="r1-label r1-label-profile"><span>MI</span><span>PERFIL</span></span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="participants">${icon("users")}<span>PARTICIPANTES</span></button>
         <button class="r1-nav-btn is-live" type="button" data-r1-action="live">${icon("live")}<span>LIVE</span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="more">${icon("more")}<span>MÁS</span></button>
@@ -105,13 +105,19 @@
   function openMore(){$("#r1More")?.classList.add("is-open")}
   function openRaces(){const btn=$("#m2CloudRecoveryOpen");if(btn){btn.click();return}safeCall("goStep",1);safeCall("toast","Mis carreras se está preparando")}
   function openHistory(){const btn=$("#m2OrganizerHistoryOpen");if(btn){btn.click();return}openInjected(["m2EventHistoricalResults"],"HISTÓRICO Y RESULTADOS",1)}
-  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"||a==="map"){showMapHome();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="new"){closeWorkspace(false);safeCall("createNewRace");setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60);return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
+  function openProfile(){
+    closeMore();
+    const btn=$("#m2AuthAccountBtn");
+    if(btn){btn.click();return}
+    safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
+  }
+  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="new"){closeWorkspace(false);safeCall("createNewRace");setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60);return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
   function runMoreAction(a){if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openInjected(["m2EventHistoricalResults"],"RESULTADOS Y CLASIFICACIÓN",1);if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   function refreshContext(){
     const active=$$(".card.active")[0];const m=active?.id?.match(/^step(\d+)$/);state.currentStep=m?Number(m[1]):state.currentStep;
     const workspaceOpen=!!state.workspace?.classList.contains("is-open");state.mapHome=!workspaceOpen;
     document.body.classList.toggle("r1-map-context",!workspaceOpen);document.body.classList.toggle("r1-map-home",!workspaceOpen);
-    $$(".r1-nav-btn").forEach(b=>b.classList.remove("is-active"));if(!workspaceOpen)$("[data-r1-action='map']")?.classList.add("is-active");
+    $$(".r1-nav-btn").forEach(b=>b.classList.remove("is-active"));
     const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name)name.textContent=currentEventName();if(meta)meta.textContent=currentEventId()||"Sin carrera cargada";
   }
   function setRole(role){state.role=String(role||"organizer");const pill=$("#r1RolePill");if(pill){pill.dataset.role=state.role;$("span",pill).textContent=roleLabel(state.role)}}
