@@ -1,6 +1,6 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r2-map-workspace-20261002";
-const CACHE_PREFIX="militopo-v2-orientacion--r2";
+const BUILD_ID="v2-r2a-loadfix-20261002";
+const CACHE_PREFIX="militopo-v2-orientacion--r2a";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
 const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
@@ -10,17 +10,17 @@ const CORE_ASSETS=[
   "./",
   "./index.html",
   "./css/styles.css?v=v2-i6h-paso7-status-dots-20261001",
-  "./css/r1-shell.css?v=r2-map-workspace-20261002",
-  "./css/r2-map-workspace.css?v=r2-map-workspace-20261002",
-  "./js/app.js?v=r2-map-workspace-20261002",
-  "./js/ui/r1-shell.js?v=r2-map-workspace-20261002",
-  "./js/ui/r2-map-workspace.js?v=r2-map-workspace-20261002",
+  "./css/r1-shell.css?v=r2a-loadfix-20261002",
+  "./css/r2-map-workspace.css?v=r2a-loadfix-20261002",
+  "./js/app.js?v=r2a-loadfix-20261002",
+  "./js/ui/r1-shell.js?v=r2a-loadfix-20261002",
+  "./js/ui/r2-map-workspace.js?v=r2a-loadfix-20261002",
   "./assets/r1/militopo-compass.png",
-  "./js/config/iof-symbols-baked.js?v=v2-r2-map-workspace-20261002",
-  "./js/core/app-main.js?v=v2-r2-map-workspace-20261002",
-  "./js/pdf/pdf-professional.js?v=v2-r2-map-workspace-20261002",
-  "./js/results/results-v16.js?v=v2-r2-map-workspace-20261002",
-  "./js/results/results-classification-fix.js?v=v2-r2-map-workspace-20261002",
+  "./js/config/iof-symbols-baked.js?v=v2-r2a-loadfix-20261002",
+  "./js/core/app-main.js?v=v2-r2a-loadfix-20261002",
+  "./js/pdf/pdf-professional.js?v=v2-r2a-loadfix-20261002",
+  "./js/results/results-v16.js?v=v2-r2a-loadfix-20261002",
+  "./js/results/results-classification-fix.js?v=v2-r2a-loadfix-20261002",
   "./js/config/plan-assets.js?v=v77-reset-seguro-wakelock-20260919",
   "./js/vendor/qr.js?v=modular-fase2",
   "./maps/index.json",
