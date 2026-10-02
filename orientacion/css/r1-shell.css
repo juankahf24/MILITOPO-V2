@@ -47,6 +47,9 @@ body.r1-shell-active #militopoV2AccountBadge{
   display:grid;place-items:center;align-content:center;gap:3px;background:rgba(255,255,255,.45);color:var(--r1-ink);cursor:pointer;
   font:800 11px/1.05 system-ui,-apple-system,sans-serif;white-space:nowrap;transition:.16s ease;
 }
+
+.r1-label-races{display:inline-flex;gap:.28em;white-space:nowrap}
+.r1-label-races>span{display:inline;white-space:nowrap}
 .r1-nav-btn svg{width:20px;height:20px;stroke-width:1.8}.r1-nav-btn:hover{background:rgba(255,255,255,.72);transform:translateY(-1px)}
 .r1-nav-btn:active{transform:scale(.98)}.r1-nav-btn.is-primary{background:#d8dccb;border-color:rgba(25,34,25,.25)}
 .r1-nav-btn.is-live{background:rgba(204,76,51,.09);border-color:rgba(204,76,51,.24)}
@@ -87,11 +90,11 @@ body.r1-shell-active #step2 .card-header{margin-bottom:12px}
   .r1-nav-btn{min-width:72px;min-height:54px;padding:6px 7px;font-size:10px}.r1-nav-btn svg{width:18px;height:18px}
 }
 @media(max-width:720px){
-  :root{--r1-top:66px}
-  .r1-compass{left:max(6px,env(safe-area-inset-left));top:var(--r1-safe-top);width:60px;height:60px}
+  :root{--r1-top:72px}
+  .r1-compass{left:max(6px,env(safe-area-inset-left));top:var(--r1-safe-top);width:72px;height:72px}
   .r1-topbar{
-    left:max(74px,calc(env(safe-area-inset-left) + 74px));right:max(6px,env(safe-area-inset-right));
-    border-radius:18px;padding:6px;min-height:66px;display:block;
+    left:max(84px,calc(env(safe-area-inset-left) + 84px));right:max(6px,env(safe-area-inset-right));
+    border-radius:18px;padding:6px;min-height:72px;height:72px;box-sizing:border-box;display:block;
   }
   .r1-event{display:none}.r1-role-pill{display:none}
   .r1-nav{
@@ -99,11 +102,13 @@ body.r1-shell-active #step2 .card-header{margin-bottom:12px}
     gap:4px;overflow:visible;align-items:stretch;
   }
   .r1-nav-btn{
-    min-width:0;width:100%;min-height:54px;height:54px;border-radius:13px;padding:4px 2px;
+    min-width:0;width:100%;min-height:58px;height:58px;border-radius:13px;padding:4px 2px;
     font-size:clamp(7px,2.15vw,9px);line-height:1.02;white-space:normal;overflow:hidden;
     display:grid;grid-template-rows:20px minmax(0,1fr);place-items:center;align-content:center;gap:2px;
   }
-  .r1-nav-btn span{display:flex;align-items:center;justify-content:center;width:100%;max-width:100%;min-width:0;text-align:center;overflow-wrap:anywhere;word-break:normal;hyphens:auto}
+  .r1-nav-btn>span{display:flex;align-items:center;justify-content:center;width:100%;max-width:100%;min-width:0;text-align:center;overflow-wrap:normal;word-break:keep-all;hyphens:none}
+  .r1-label-races{white-space:normal!important;flex-direction:column;line-height:1!important}
+  .r1-label-races>span{display:block;white-space:nowrap;word-break:keep-all;hyphens:none}
   .r1-nav-btn svg{width:18px;height:18px;flex:0 0 auto}
   /* En móvil PARTICIPANTES vive dentro de MÁS para que la navegación principal sean 5 botones exactos. */
   .r1-nav-btn:nth-of-type(4){display:none}
@@ -113,10 +118,10 @@ body.r1-shell-active #step2 .card-header{margin-bottom:12px}
   .r1-workspace{padding-left:0;padding-right:0;padding-bottom:0}.r1-workspace-shell{border-radius:20px 20px 0 0;border-left:0;border-right:0;border-bottom:0}.r1-workspace-body{padding:6px}.r1-workspace-body>.card{border-radius:16px!important;padding:14px!important}body.r1-shell-active #step2 #map{height:58vh;min-height:390px}.r1-more-grid{grid-template-columns:1fr}.r1-more-action{min-height:64px}
 }
 @media(max-width:390px){
-  .r1-topbar{left:max(70px,calc(env(safe-area-inset-left) + 70px));padding:5px}
-  .r1-compass{width:56px;height:56px}
+  .r1-topbar{left:max(82px,calc(env(safe-area-inset-left) + 82px));padding:5px;height:72px;min-height:72px}
+  .r1-compass{width:72px;height:72px}
   .r1-nav{gap:3px}
-  .r1-nav-btn{height:54px;min-height:54px;padding:4px 1px;font-size:clamp(6.8px,2.05vw,8px)}
+  .r1-nav-btn{height:60px;min-height:60px;padding:4px 1px;font-size:clamp(6.8px,2.05vw,8px)}
   .r1-nav-btn svg{width:17px;height:17px}
 }
 @media(prefers-reduced-motion:reduce){.r1-nav-btn,.r1-map-btn,.r1-more-action{transition:none!important}}
