@@ -13,6 +13,7 @@
     fit:'<svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>'
   };
   function toast(msg){try{if(typeof window.toast==='function')window.toast(msg);else console.info(msg)}catch(_){}}
+  function setText(el,value){if(!el)return;const next=String(value??'');if(el.textContent!==next)el.textContent=next}
   function btn(action,label,icon){return `<button class="r2-tool" type="button" data-r2-tool="${action}">${icon}<span>${label}</span></button>`}
   function build(){
     const step=$('#step2'),map=$('#map');if(!step||!map||step.dataset.r2Ready==='1')return false;
@@ -135,10 +136,10 @@
   }
   function refresh(){
     const snap=bridge()?.getSnapshot?.();if(!snap)return;
-    const selected=$('#r2SelectedPoint');if(selected)selected.textContent=snap.selectedPointId||'—';
-    const pp=$('#r2PlacedPoints');if(pp)pp.textContent=`${snap.placed}/${snap.total}`;
-    const pc=$('#r2PlacedControls');if(pc)pc.textContent=`${snap.controlsPlaced}/${snap.controls.length}`;
-    const rs=$('#r2RouteState');if(rs)rs.textContent=snap.routeCount?`${snap.routeCount} ${snap.routeCount===1?'RECORRIDO':'RECORRIDOS'}`:'SIN RECORRIDO';
+    setText($('#r2SelectedPoint'),snap.selectedPointId||'—');
+    setText($('#r2PlacedPoints'),`${snap.placed}/${snap.total}`);
+    setText($('#r2PlacedControls'),`${snap.controlsPlaced}/${snap.controls.length}`);
+    setText($('#r2RouteState'),snap.routeCount?`${snap.routeCount} ${snap.routeCount===1?'RECORRIDO':'RECORRIDOS'}`:'SIN RECORRIDO');
     if(state.trace)renderTrace();
   }
   function ensure(){
@@ -149,8 +150,11 @@
     window.addEventListener('militopo:v2-orientation-structure',()=>setTimeout(()=>{refresh();maybeAdvanceControl()},40));
     window.addEventListener('militopo:v2-cloud-event-applied',()=>setTimeout(refresh,100));
     document.addEventListener('change',e=>{if(['selectedPoint','controlCount','controlsPerRoute'].includes(e.target?.id))setTimeout(refresh,20)},{passive:true});
-    const obs=new MutationObserver(()=>ensure());obs.observe(document.body,{childList:true,subtree:true});
-    state.statusTimer=setInterval(()=>{if(document.body.classList.contains('r1-map-context'))refresh()},900);
+    if(!state.stage){
+      let attempts=0;
+      const mountTimer=setInterval(()=>{attempts++;ensure();if(state.stage||attempts>=20)clearInterval(mountTimer)},150);
+    }
+    state.statusTimer=setInterval(()=>{if(document.body.classList.contains('r1-map-context'))refresh()},1200);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,120),{once:true});else setTimeout(init,120);
 })();
