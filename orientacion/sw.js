@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-k1-qa-legacy-export-fix-20261001";
+const BUILD_ID="v2-r1-shell-map-first-20261002";
 const CACHE_PREFIX="militopo-v2-orientacion-";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -10,7 +10,10 @@ const CORE_ASSETS=[
   "./",
   "./index.html",
   "./css/styles.css?v=v2-i6h-paso7-status-dots-20261001",
+  "./css/r1-shell.css?v=r1-shell-20261002",
   "./js/app.js?v=v2-k1-qa-legacy-export-fix-20261001",
+  "./js/ui/r1-shell.js?v=r1-shell-20261002",
+  "./assets/r1/militopo-compass.png",
   "./js/config/iof-symbols-baked.js?v=v2-k1-qa-legacy-export-fix-20261001",
   "./js/core/app-main.js?v=v2-k1-qa-legacy-export-fix-20261001",
   "./js/pdf/pdf-professional.js?v=v2-k1-qa-legacy-export-fix-20261001",
