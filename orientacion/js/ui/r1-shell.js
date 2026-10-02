@@ -28,9 +28,11 @@
   function currentEventId(){return String($("#eventId")?.value||"").trim()}
 
   function buildTopbar(){
+    const compass=document.createElement("button");
+    compass.className="r1-compass";compass.type="button";compass.dataset.r1Action="home";compass.setAttribute("aria-label","MILITOPO");
+    compass.innerHTML='<img src="assets/r1/militopo-compass.png" alt="Brújula MILITOPO">';
     const bar=document.createElement("header");bar.className="r1-topbar";bar.id="militopoR1Topbar";
     bar.innerHTML=`
-      <button class="r1-compass" type="button" data-r1-action="home" aria-label="MILITOPO"><img src="assets/r1/militopo-compass.png" alt="Brújula MILITOPO"></button>
       <div class="r1-event"><strong id="r1EventName">${currentEventName()}</strong><span id="r1EventMeta">${currentEventId()||"Sin carrera cargada"}</span></div>
       <nav class="r1-nav" aria-label="Navegación principal MILITOPO">
         <button class="r1-nav-btn is-primary" type="button" data-r1-action="races">${icon("races")}<span>MIS CARRERAS</span></button>
@@ -41,7 +43,8 @@
         <button class="r1-nav-btn" type="button" data-r1-action="more">${icon("more")}<span>MÁS</span></button>
       </nav>
       <div class="r1-role-pill" id="r1RolePill" data-role="${state.role}"><i class="r1-role-dot"></i><span>${roleLabel(state.role)}</span></div>`;
-    document.body.appendChild(bar);
+    document.body.append(compass,bar);
+    compass.addEventListener("click",onTopAction);
     bar.addEventListener("click",onTopAction);
   }
   function buildMapDock(){
@@ -63,6 +66,7 @@
       <div class="r1-more-head"><strong>MÁS HERRAMIENTAS</strong><button class="r1-close" type="button" data-more-close aria-label="Cerrar">×</button></div>
       <div class="r1-more-grid">
         ${moreAction("CONFIGURACIÓN","Datos y reglas de la carrera","config")}
+        ${moreAction("PARTICIPANTES","Invitaciones, censo y asignaciones","participants")}
         ${moreAction("RECORRIDOS","Generar y revisar recorridos","routes")}
         ${moreAction("MATERIAL QR","Planos, QR y exportaciones","material")}
         ${moreAction("SECUENCIA","Salidas, llegadas y control","sequence")}
@@ -97,7 +101,7 @@
   function openRaces(){const btn=$("#m2CloudRecoveryOpen");if(btn){btn.click();return}safeCall("goStep",1);safeCall("toast","Mis carreras se está preparando")}
   function openHistory(){const btn=$("#m2OrganizerHistoryOpen");if(btn){btn.click();return}openInjected(["m2EventHistoricalResults"],"HISTÓRICO Y RESULTADOS",1)}
   function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){closeWorkspace();safeCall("goStep",1);window.scrollTo({top:0,behavior:"smooth"});return}if(a==="races"){closeWorkspace();openRaces();return}if(a==="new"){closeWorkspace();safeCall("createNewRace");setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60);return}if(a==="map"){openStep(2,"MAPA Y BALIZAS");return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
-  function runMoreAction(a){if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openInjected(["m2EventHistoricalResults"],"RESULTADOS Y CLASIFICACIÓN",1);if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
+  function runMoreAction(a){if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openInjected(["m2EventHistoricalResults"],"RESULTADOS Y CLASIFICACIÓN",1);if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   function refreshContext(){
     const active=$$(".card.active")[0];const m=active?.id?.match(/^step(\d+)$/);state.currentStep=m?Number(m[1]):state.currentStep;document.body.classList.toggle("r1-map-context",state.currentStep===2 || !!$("#r1Workspace #step2"));
     $$(".r1-nav-btn").forEach(b=>b.classList.remove("is-active"));if(state.currentStep===2)$("[data-r1-action='map']")?.classList.add("is-active");
