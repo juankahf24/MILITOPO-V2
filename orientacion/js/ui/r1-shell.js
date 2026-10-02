@@ -35,7 +35,7 @@
     bar.innerHTML=`
       <div class="r1-event"><strong id="r1EventName">${currentEventName()}</strong><span id="r1EventMeta">${currentEventId()||"Sin carrera cargada"}</span></div>
       <nav class="r1-nav" aria-label="Navegación principal MILITOPO">
-        <button class="r1-nav-btn is-primary" type="button" data-r1-action="races">${icon("races")}<span>MIS CARRERAS</span></button>
+        <button class="r1-nav-btn is-primary" type="button" data-r1-action="races">${icon("races")}<span class="r1-label r1-label-races"><span>MIS</span><span>CARRERAS</span></span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="new">${icon("plus")}<span>NUEVA</span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="map">${icon("map")}<span>MAPA</span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="participants">${icon("users")}<span>PARTICIPANTES</span></button>
