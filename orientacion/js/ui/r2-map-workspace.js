@@ -16,18 +16,16 @@
   function setText(el,value){if(!el)return;const next=String(value??'');if(el.textContent!==next)el.textContent=next}
   function btn(action,label,icon){return `<button class="r2-tool" type="button" data-r2-tool="${action}">${icon}<span>${label}</span></button>`}
   function build(){
-    const step=$('#step2'),map=$('#map');if(!step||!map||step.dataset.r2Ready==='1')return false;
-    step.dataset.r2Ready='1';step.classList.add('r2-map-workspace-step');
-    const stage=document.createElement('section');stage.className='r2-map-stage';stage.id='r2MapStage';
+    const map=$("#map");if(!map||document.getElementById("r2MapStage"))return !!document.getElementById("r2MapStage");
+    const stage=document.createElement("section");stage.className="r2-map-stage r2-map-home-stage";stage.id="r2MapStage";stage.setAttribute("aria-label","Mapa principal de Orientación");
     stage.innerHTML=`
-      <div class="r2-map-title"><small>WORKSPACE CARTOGRÁFICO</small><strong>DISEÑO DE CARRERA</strong></div>
       <aside class="r2-tool-dock" aria-label="Herramientas de diseño">
-        ${btn('start','SALIDA',ico.start)}
-        ${btn('control','BALIZA',ico.control)}
-        ${btn('finish','LLEGADA',ico.finish)}
+        ${btn("start","SALIDA",ico.start)}
+        ${btn("control","BALIZA",ico.control)}
+        ${btn("finish","LLEGADA",ico.finish)}
         <i></i>
-        ${btn('route','TRAZAR',ico.route)}
-        ${btn('fit','VER TODO',ico.fit)}
+        ${btn("route","TRAZAR",ico.route)}
+        ${btn("fit","VER TODO",ico.fit)}
       </aside>
       <div class="r2-map-slot"></div>
       <div class="r2-map-hud" id="r2MapHud">
@@ -42,15 +40,10 @@
         <div class="r2-trace-sequence" id="r2TraceSequence">SALIDA → … → LLEGADA</div>
         <div class="r2-trace-actions"><button type="button" data-r2-trace="undo">↩ DESHACER</button><button type="button" data-r2-trace="clear">LIMPIAR</button><button class="is-confirm" type="button" data-r2-trace="confirm" disabled>✓ GUARDAR R01</button></div>
       </div>`;
-    const header=step.querySelector(':scope > .card-header');
-    if(header)header.insertAdjacentElement('afterend',stage);else step.prepend(stage);
-    $('.r2-map-slot',stage).appendChild(map);
-    stage.addEventListener('click',onClick);
-    state.stage=stage;
-    window.militopoR2HandleMapPointClick=handleTracePoint;
-    refresh();
-    setTimeout(()=>{window.dispatchEvent(new Event('resize'));try{map.dispatchEvent(new Event('militopo:r2-mounted'))}catch(_){}},80);
-    return true;
+    document.body.prepend(stage);$(".r2-map-slot",stage).appendChild(map);
+    stage.addEventListener("click",onClick);state.stage=stage;window.militopoR2HandleMapPointClick=handleTracePoint;
+    window.MILITOPO_R2_MAP_HOME={activate(){stage.classList.add("is-active");setTimeout(()=>{window.dispatchEvent(new Event("resize"));try{map.dispatchEvent(new Event("militopo:r2-mounted"))}catch(_){}},40);refresh();},refresh};
+    refresh();setTimeout(()=>window.MILITOPO_R2_MAP_HOME.activate(),80);return true;
   }
   function setTool(action){
     state.stage?.querySelectorAll('[data-r2-tool]').forEach(b=>b.classList.toggle('is-active',b.dataset.r2Tool===action));

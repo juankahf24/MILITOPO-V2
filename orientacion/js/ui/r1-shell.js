@@ -3,7 +3,7 @@
   if(window.__MILITOPO_R1_SHELL__) return;
   window.__MILITOPO_R1_SHELL__=true;
 
-  const state={role:"organizer",workspace:null,hosted:[],currentStep:1};
+  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true};
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const icon=(name)=>{
@@ -68,6 +68,7 @@
         ${moreAction("CONFIGURACIÓN","Datos y reglas de la carrera","config")}
         ${moreAction("PARTICIPANTES","Invitaciones, censo y asignaciones","participants")}
         ${moreAction("RECORRIDOS","Generar y revisar recorridos","routes")}
+        ${moreAction("AJUSTES DE MAPA","Importar, buscar, editar y revisar datos cartográficos","maptools")}
         ${moreAction("MATERIAL QR","Planos, QR y exportaciones","material")}
         ${moreAction("SECUENCIA","Salidas, llegadas y control","sequence")}
         ${moreAction("RESULTADOS","Resultados y clasificación","results")}
@@ -84,27 +85,33 @@
   }
   function hostNodes(nodes,title){
     closeWorkspace(false);const body=$("#r1WorkspaceBody"),titleEl=$("#r1WorkspaceTitle");if(!body)return;
+    state.mapHome=false;document.body.classList.add("r1-workspace-open");
     titleEl.textContent=title;body.innerHTML="";state.hosted=[];
     const stack=document.createElement("div");stack.className="r1-module-stack";body.appendChild(stack);
     nodes.filter(Boolean).forEach(node=>{const marker=document.createComment(`r1:${node.id||node.tagName}`);node.parentNode?.insertBefore(marker,node);state.hosted.push({node,marker});node.classList.add("r1-hosted");stack.appendChild(node)});
     state.workspace.classList.add("is-open");document.body.style.overflow="hidden";setTimeout(()=>{window.dispatchEvent(new Event("resize"))},80);
   }
-  function closeWorkspace(restore=true){
-    if(restore)state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
-    else state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
-    state.hosted=[];state.workspace?.classList.remove("is-open");if(state.workspace)$("#r1WorkspaceBody",state.workspace).innerHTML="";document.body.style.overflow="";setTimeout(()=>window.dispatchEvent(new Event("resize")),60);
+  function closeWorkspace(returnToMap=true){
+    state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
+    state.hosted=[];state.workspace?.classList.remove("is-open");if(state.workspace)$("#r1WorkspaceBody",state.workspace).innerHTML="";document.body.style.overflow="";
+    document.body.classList.remove("r1-workspace-open");state.mapHome=!!returnToMap;
+    if(returnToMap){safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;setTimeout(()=>window.MILITOPO_R2_MAP_HOME?.activate?.(),35)}
+    setTimeout(()=>{window.dispatchEvent(new Event("resize"));refreshContext()},60);
   }
-  function openStep(step,title){closeMore();closeWorkspace();safeCall("goStep",step,{noScroll:true});state.currentStep=step;setTimeout(()=>{const node=$(`#step${step}`);if(node)hostNodes([node],title)},50)}
-  function openInjected(ids,title,step=1){closeMore();closeWorkspace();safeCall("goStep",step,{noScroll:true});setTimeout(()=>{const nodes=ids.map(id=>document.getElementById(id)).filter(Boolean);if(nodes.length)hostNodes(nodes,title);else{safeCall("toast","Módulo todavía cargando. Inténtalo de nuevo en un instante.")}},90)}
+  function showMapHome(){closeMore();closeWorkspace(true);window.scrollTo({top:0,behavior:"auto"});}
+  function openStep(step,title){closeMore();closeWorkspace(false);safeCall("goStep",step,{noScroll:true});state.currentStep=step;setTimeout(()=>{const node=$(`#step${step}`);if(node)hostNodes([node],title)},50)}
+  function openInjected(ids,title,step=1){closeMore();closeWorkspace(false);safeCall("goStep",step,{noScroll:true});setTimeout(()=>{const nodes=ids.map(id=>document.getElementById(id)).filter(Boolean);if(nodes.length)hostNodes(nodes,title);else{safeCall("toast","Módulo todavía cargando. Inténtalo de nuevo en un instante.")}},90)}
   function closeMore(){$("#r1More")?.classList.remove("is-open")}
   function openMore(){$("#r1More")?.classList.add("is-open")}
   function openRaces(){const btn=$("#m2CloudRecoveryOpen");if(btn){btn.click();return}safeCall("goStep",1);safeCall("toast","Mis carreras se está preparando")}
   function openHistory(){const btn=$("#m2OrganizerHistoryOpen");if(btn){btn.click();return}openInjected(["m2EventHistoricalResults"],"HISTÓRICO Y RESULTADOS",1)}
-  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){closeWorkspace();safeCall("goStep",1);window.scrollTo({top:0,behavior:"smooth"});return}if(a==="races"){closeWorkspace();openRaces();return}if(a==="new"){closeWorkspace();safeCall("createNewRace");setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60);return}if(a==="map"){openStep(2,"MAPA Y BALIZAS");return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
-  function runMoreAction(a){if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openInjected(["m2EventHistoricalResults"],"RESULTADOS Y CLASIFICACIÓN",1);if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
+  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"||a==="map"){showMapHome();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="new"){closeWorkspace(false);safeCall("createNewRace");setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60);return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
+  function runMoreAction(a){if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openInjected(["m2EventHistoricalResults"],"RESULTADOS Y CLASIFICACIÓN",1);if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   function refreshContext(){
-    const active=$$(".card.active")[0];const m=active?.id?.match(/^step(\d+)$/);state.currentStep=m?Number(m[1]):state.currentStep;document.body.classList.toggle("r1-map-context",state.currentStep===2 || !!$("#r1Workspace #step2"));
-    $$(".r1-nav-btn").forEach(b=>b.classList.remove("is-active"));if(state.currentStep===2)$("[data-r1-action='map']")?.classList.add("is-active");
+    const active=$$(".card.active")[0];const m=active?.id?.match(/^step(\d+)$/);state.currentStep=m?Number(m[1]):state.currentStep;
+    const workspaceOpen=!!state.workspace?.classList.contains("is-open");state.mapHome=!workspaceOpen;
+    document.body.classList.toggle("r1-map-context",!workspaceOpen);document.body.classList.toggle("r1-map-home",!workspaceOpen);
+    $$(".r1-nav-btn").forEach(b=>b.classList.remove("is-active"));if(!workspaceOpen)$("[data-r1-action='map']")?.classList.add("is-active");
     const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name)name.textContent=currentEventName();if(meta)meta.textContent=currentEventId()||"Sin carrera cargada";
   }
   function setRole(role){state.role=String(role||"organizer");const pill=$("#r1RolePill");if(pill){pill.dataset.role=state.role;$("span",pill).textContent=roleLabel(state.role)}}
@@ -120,7 +127,8 @@
     document.body.classList.add("r1-shell-active");
     try{setRole(localStorage.getItem("militopo_v2_last_role")||"organizer")}catch(_){}
     buildTopbar();buildMapDock();buildMore();buildWorkspace();bindEvents();refreshContext();
-    setTimeout(refreshContext,600);setTimeout(refreshContext,1600);
+    setTimeout(()=>{safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;state.mapHome=true;window.MILITOPO_R2_MAP_HOME?.activate?.();refreshContext()},260);
+    setTimeout(refreshContext,700);setTimeout(refreshContext,1600);
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init,{once:true});else init();
 })();
