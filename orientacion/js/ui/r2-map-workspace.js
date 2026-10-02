@@ -4,7 +4,7 @@
   window.__MILITOPO_R2_MAP_WORKSPACE__=true;
   const $=(s,r=document)=>r.querySelector(s);
   const bridge=()=>window.MILITOPO_R2_BRIDGE||null;
-  const state={trace:false,selected:[],stage:null,statusTimer:null,lastSelected:"",placeMode:"",toolsHidden:false,activeTool:""};
+  const state={trace:false,traceRouteId:"",selected:[],stage:null,statusTimer:null,lastSelected:"",placeMode:"",toolsHidden:false,activeTool:""};
   const ico={
     start:'<svg viewBox="0 0 24 24"><path d="M5 21V4m0 1h11l-2.5 3L16 11H5"/></svg>',
     control:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg>',
@@ -41,9 +41,16 @@
       </div>
       <div class="r2-context-tip" id="r2ContextTip">Selecciona una herramienta y trabaja directamente sobre el mapa.</div>
       <div class="r2-trace-panel" id="r2TracePanel" hidden>
-        <div class="r2-trace-head"><div><small>TRAZADO MANUAL · R01</small><strong id="r2TraceCount">0/0 BALIZAS</strong></div><button type="button" data-r2-trace="cancel" aria-label="Cancelar">×</button></div>
+        <div class="r2-trace-head"><div><small id="r2TraceRouteLabel">TRAZADO MANUAL · R01</small><strong id="r2TraceCount">0/0 BALIZAS</strong></div><button type="button" data-r2-trace="cancel" aria-label="Cancelar">×</button></div>
         <div class="r2-trace-sequence" id="r2TraceSequence">SALIDA → … → LLEGADA</div>
-        <div class="r2-trace-actions"><button type="button" data-r2-trace="undo">↩ DESHACER</button><button type="button" data-r2-trace="clear">LIMPIAR</button><button class="is-confirm" type="button" data-r2-trace="confirm" disabled>✓ GUARDAR R01</button></div>
+        <div class="r2-trace-actions"><button type="button" data-r2-trace="undo">↩ DESHACER</button><button type="button" data-r2-trace="clear">LIMPIAR</button><button class="is-confirm" id="r2TraceConfirm" type="button" data-r2-trace="confirm" disabled>✓ GUARDAR R01</button></div>
+      </div>
+      <div class="r2-route-picker" id="r2RoutePicker" hidden>
+        <section class="r2-route-picker-card" role="dialog" aria-modal="true" aria-labelledby="r2RoutePickerTitle">
+          <div class="r2-route-picker-head"><div><small>RECORRIDOS MANUALES</small><strong id="r2RoutePickerTitle">¿QUÉ RECORRIDO QUIERES TRAZAR?</strong></div><button class="r2-route-picker-close" type="button" data-r2-picker-close aria-label="Cerrar">×</button></div>
+          <p class="r2-route-picker-help">Cada recorrido se crea desde cero seleccionando las balizas en el orden deseado. MILITOPO no genera el trazado automáticamente.</p>
+          <div class="r2-route-picker-grid" id="r2RoutePickerGrid"></div>
+        </section>
       </div>`;
     document.body.prepend(stage);$(".r2-map-slot",stage).appendChild(map);
     stage.addEventListener("click",onClick);state.stage=stage;window.militopoR2HandleMapPointClick=handleTracePoint;
@@ -86,26 +93,36 @@
       if(tool==='control'){if(state.activeTool==='control')return cancelActiveTool('BALIZA deseleccionada.');return selectControl()}
       if(tool==='finish'){if(state.activeTool==='finish')return cancelActiveTool('LLEGADA deseleccionada.');return selectPoint('FINISH','finish')}
       if(tool==='fit'){bridge()?.fitAll?.();setTool('');instruction('Mapa centrado en todos los puntos colocados.');return}
-      if(tool==='route'){if(state.trace||state.activeTool==='route')return exitTrace(true);return startTrace()}
+      if(tool==='route'){if(state.trace||state.activeTool==='route')return exitTrace(true);return openRoutePicker()}
     }
+    if(e.target.closest('[data-r2-picker-close]')){closeRoutePicker();setTool('');return}
+    const routeChoice=e.target.closest('[data-r2-route-choice]')?.dataset.r2RouteChoice;
+    if(routeChoice){closeRoutePicker();return beginTrace(routeChoice)}
     const trace=e.target.closest('[data-r2-trace]')?.dataset.r2Trace;
     if(trace==='cancel')return exitTrace(true);
     if(trace==='undo'){state.selected.pop();renderTrace();return}
     if(trace==='clear'){state.selected=[];renderTrace();return}
     if(trace==='confirm')return confirmTrace();
   }
-  function startTrace(){
+  function openRoutePicker(){
     const b=bridge(),snap=b?.getSnapshot?.();if(!snap)return;
     if(snap.locked){toast('La carrera está bloqueada para edición.');return}
-    if(snap.routeCount>0){
-      const rid=snap.routeIds?.[0]||'R01';
-      toast(`Ya existen recorridos · abriendo ${rid} para edición manual.`);
-      b.openExistingRoute?.(rid);return;
-    }
-    if(snap.controlsPlaced<snap.controlsPerRoute){toast(`Coloca al menos ${snap.controlsPerRoute} balizas antes de trazar el recorrido.`);return}
-    state.trace=true;state.selected=[];window.__MILITOPO_R2_TRACE_MODE__=true;setTool('route');
+    if(snap.controlsPlaced<snap.controlsPerRoute){toast(`Coloca al menos ${snap.controlsPerRoute} balizas antes de trazar un recorrido.`);return}
+    const max=Math.max(1,Math.min(Number(snap.participantCount)||1,Number(snap.maxUniqueRoutes)||30));
+    const existing=new Set(snap.routeIds||[]);
+    const grid=$('#r2RoutePickerGrid');if(!grid)return;
+    grid.innerHTML=Array.from({length:max},(_,i)=>{const rid='R'+String(i+1).padStart(2,'0'),exists=existing.has(rid);return `<button type="button" class="r2-route-choice${exists?' is-existing':''}" data-r2-route-choice="${rid}"><b>${rid}</b><small>${exists?'EXISTE · REHACER':'CREAR DESDE 0'}</small></button>`}).join('');
+    $('#r2RoutePicker')?.removeAttribute('hidden');setTool('route');
+    instruction('TRAZAR · elige primero qué recorrido quieres crear manualmente.');
+  }
+  function closeRoutePicker(){$('#r2RoutePicker')?.setAttribute('hidden','')}
+  function beginTrace(routeId){
+    const b=bridge(),snap=b?.getSnapshot?.();if(!snap)return;
+    state.trace=true;state.traceRouteId=String(routeId||'R01');state.selected=[];window.__MILITOPO_R2_TRACE_MODE__=true;setTool('route');
     state.stage?.classList.add('is-tracing');$('#r2TracePanel')?.removeAttribute('hidden');
-    instruction('TRAZADO MANUAL activo · toca las balizas del mapa en el orden exacto del recorrido.');renderTrace();
+    const label=$('#r2TraceRouteLabel');if(label)label.textContent=`TRAZADO MANUAL · ${state.traceRouteId}`;
+    const confirm=$('#r2TraceConfirm');if(confirm)confirm.textContent=`✓ GUARDAR ${state.traceRouteId}`;
+    instruction(`${state.traceRouteId} · selecciona las balizas del mapa en el orden exacto del recorrido.`);renderTrace();
   }
   function handleTracePoint(id){
     if(!state.trace)return false;
@@ -129,13 +146,13 @@
     bridge()?.renderDraft?.([...state.selected]);
   }
   function confirmTrace(){
-    const result=bridge()?.createFirstManualRoute?.([...state.selected]);
+    const result=bridge()?.createManualRoute?.(state.traceRouteId,[...state.selected]);
     if(!result?.ok){toast(result?.error||'No se pudo guardar el recorrido');if(result?.existing)exitTrace(true);return}
-    toast(`${result.routeId||'R01'} guardado · recorrido manual listo.`);exitTrace(false);refresh();
-    instruction(`${result.routeId||'R01'} guardado correctamente. Puedes continuar configurando la carrera o abrir RECORRIDOS para revisarlo.`);
+    toast(`${result.routeId||state.traceRouteId||'R01'} guardado · recorrido manual listo.`);exitTrace(false);refresh();
+    instruction(`${result.routeId||'R01'} guardado correctamente. Pulsa TRAZAR para crear o rehacer otro recorrido.`);
   }
   function exitTrace(cancelled){
-    state.trace=false;window.__MILITOPO_R2_TRACE_MODE__=false;bridge()?.clearDraft?.();state.selected=[];
+    state.trace=false;state.traceRouteId='';window.__MILITOPO_R2_TRACE_MODE__=false;bridge()?.clearDraft?.();state.selected=[];closeRoutePicker();
     state.placeMode='';state.lastSelected='';bridge()?.clearSelection?.();
     state.stage?.classList.remove('is-tracing');$('#r2TracePanel')?.setAttribute('hidden','');setTool('');
     if(cancelled)instruction('Trazado manual cancelado · no se ha modificado ningún recorrido.');
@@ -146,7 +163,7 @@
     const current=snap.points.find(p=>p.id===state.lastSelected);
     if(!current||current.lat===null||current.lon===null)return;
     const next=b.selectNextControl?.();
-    if(next&&next!==state.lastSelected){state.lastSelected=next;instruction(`${next} preparada · toca el mapa para colocarla.`);}else if(!next){state.placeMode='';state.lastSelected='';bridge()?.clearSelection?.();setTool('');instruction('Todas las balizas están colocadas. Ya puedes trazar el recorrido manualmente.');}
+    if(next&&next!==state.lastSelected){state.lastSelected=next;instruction(`${next} preparada · toca el mapa para colocarla.`);}else if(!next){state.placeMode='';state.lastSelected='';bridge()?.clearSelection?.();setTool('');instruction('Todas las balizas están colocadas. Pulsa TRAZAR y elige el recorrido que quieres crear manualmente.');}
   }
   function refresh(){
     const snap=bridge()?.getSnapshot?.();if(!snap)return;

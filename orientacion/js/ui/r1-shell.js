@@ -28,8 +28,8 @@
   function currentEventId(){return String($("#eventId")?.value||"").trim()}
 
   function buildTopbar(){
-    const compass=document.createElement("button");
-    compass.className="r1-compass";compass.type="button";compass.dataset.r1Action="home";compass.setAttribute("aria-label","MILITOPO");
+    const compass=document.createElement("div");
+    compass.className="r1-compass";compass.dataset.r1Action="home";compass.setAttribute("role","button");compass.tabIndex=0;compass.setAttribute("aria-label","MILITOPO");
     compass.innerHTML='<img src="assets/r1/militopo-compass.png" alt="Brújula MILITOPO">';
     const bar=document.createElement("header");bar.className="r1-topbar";bar.id="militopoR1Topbar";
     bar.innerHTML=`
@@ -45,6 +45,7 @@
       <div class="r1-role-pill" id="r1RolePill" data-role="${state.role}"><i class="r1-role-dot"></i><span>${roleLabel(state.role)}</span></div>`;
     document.body.append(compass,bar);
     compass.addEventListener("click",onTopAction);
+    compass.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();onTopAction(event)}});
     bar.addEventListener("click",onTopAction);
   }
   function buildMapDock(){
@@ -67,7 +68,7 @@
       <div class="r1-more-grid">
         ${moreAction("CONFIGURACIÓN","Datos y reglas de la carrera","config")}
         ${moreAction("PARTICIPANTES","Invitaciones, censo y asignaciones","participants")}
-        ${moreAction("RECORRIDOS","Generar y revisar recorridos","routes")}
+        ${moreAction("RECORRIDOS","Crear y revisar recorridos manuales","routes")}
         ${moreAction("AJUSTES DE MAPA","Importar, buscar, editar y revisar datos cartográficos","maptools")}
         ${moreAction("MATERIAL QR","Planos, QR y exportaciones","material")}
         ${moreAction("SECUENCIA","Salidas, llegadas y control","sequence")}
