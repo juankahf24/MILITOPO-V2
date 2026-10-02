@@ -866,7 +866,8 @@ function cleanupStep2ImportAndTableUi(){
                 styleLayerPillButtons();
                 layerPills.addEventListener("click",()=>setTimeout(styleLayerPillButtons,0));
 
-                layerPills.insertAdjacentElement("afterend", mapEl);
+                const r2Slot=document.querySelector("#r2MapStage .r2-map-slot");
+                if(r2Slot)r2Slot.appendChild(mapEl);else layerPills.insertAdjacentElement("afterend", mapEl);
 
                 const selectedPoint=document.getElementById("selectedPoint");
                 const editBlock=selectedPoint?selectedPoint.closest(".block"):null;
@@ -1287,7 +1288,7 @@ function renderPlanPdfPreview(){
     });
 }
 
-function initMap(){if(map)return;const step2MaxZoom=24;const pnoaNativeMaxZoom=19;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=L.tileLayer("https://www.ign.es/wmts/mapa-raster?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=MTN&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© Instituto Geográfico Nacional",maxNativeZoom:18,maxZoom:step2MaxZoom,keepBuffer:6,updateWhenZooming:true});layers.pnoa=L.tileLayer("https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© PNOA Máxima Actualidad · IGN",maxNativeZoom:pnoaNativeMaxZoom,maxZoom:22,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:true,crossOrigin:true,className:"pnoa-overzoom-tile"});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(initialLayer==="pnoa"?22:step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;document.getElementById("selectedUtm").value=utm;renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
+function initMap(){if(map)return;const step2MaxZoom=24;const pnoaNativeMaxZoom=19;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=L.tileLayer("https://www.ign.es/wmts/mapa-raster?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=MTN&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© Instituto Geográfico Nacional",maxNativeZoom:18,maxZoom:step2MaxZoom,keepBuffer:6,updateWhenZooming:true});layers.pnoa=L.tileLayer("https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© PNOA Máxima Actualidad · IGN",maxNativeZoom:pnoaNativeMaxZoom,maxZoom:22,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:true,crossOrigin:true,className:"pnoa-overzoom-tile"});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(initialLayer==="pnoa"?22:step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(window.__MILITOPO_R2_TRACE_MODE__===true)return;if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;document.getElementById("selectedUtm").value=utm;renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
 function bringPlanPreviewToFront(){
     try{
         if(pdfPlanPreviewRectangle&&typeof pdfPlanPreviewRectangle.bringToFront==="function")pdfPlanPreviewRectangle.bringToFront();
@@ -1403,7 +1404,7 @@ function deleteOrientationPopupPoint(pointId){
 }
 // ORIENTATION POINT POPUP JS END
 
-function renderMapMarkers(){if(!markersLayer)return;markersLayer.clearLayers();routeLayer?.clearLayers();renderPlanPdfPreview();Object.values(state.points).forEach(p=>{if(p.lat===null||p.lon===null)return;const icon=L.divIcon({html:`<div class="${iconClassForType(p.type)}">${p.type==="BALIZA"?p.id.replace("B",""):""}</div>`,className:"",iconSize:[16,16],iconAnchor:[8,8]});const marker=L.marker([p.lat,p.lon],{icon,draggable:!currentMilitopoCloudDesignLock()}).bindTooltip(`${p.id}`,{permanent:true,direction:"right",className:"marker-label"}).on("dragend",ev=>{if(rejectProtectedRaceMutation("mover balizas")){renderMapMarkers();return;}const ll=ev.target.getLatLng();p.lat=ll.lat;p.lon=ll.lng;p.utm=latLonToUtm(ll.lat,ll.lng);p.elevation=null;selectedPointId=p.id;renderPointsTable();loadSelectedPointFields();saveState();renderPlanPdfPreview();marker.setPopupContent(buildOrientationPointPopup(p.id))}).on("click",()=>openOrientationPointPopup(marker,p.id)).addTo(markersLayer);marker.bindPopup(buildOrientationPointPopup(p.id),{className:"orientation-point-popup",closeButton:true,autoPan:true,maxWidth:330})})}function iconClassForType(type){return type==="SALIDA"?"ori-start-icon":type==="LLEGADA"?"ori-finish-icon":"ori-control-icon"}function zoomSelectedPoint(){const p=state.points[selectedPointId];if(!map||!p||p.lat===null)return;map.setView([p.lat,p.lon],19)}function fitAllPoints(){
+function renderMapMarkers(){if(!markersLayer)return;markersLayer.clearLayers();routeLayer?.clearLayers();renderPlanPdfPreview();Object.values(state.points).forEach(p=>{if(p.lat===null||p.lon===null)return;const icon=L.divIcon({html:`<div class="${iconClassForType(p.type)}">${p.type==="BALIZA"?p.id.replace("B",""):""}</div>`,className:"",iconSize:[16,16],iconAnchor:[8,8]});const marker=L.marker([p.lat,p.lon],{icon,draggable:!currentMilitopoCloudDesignLock()}).bindTooltip(`${p.id}`,{permanent:true,direction:"right",className:"marker-label"}).on("dragend",ev=>{if(rejectProtectedRaceMutation("mover balizas")){renderMapMarkers();return;}const ll=ev.target.getLatLng();p.lat=ll.lat;p.lon=ll.lng;p.utm=latLonToUtm(ll.lat,ll.lng);p.elevation=null;selectedPointId=p.id;renderPointsTable();loadSelectedPointFields();saveState();renderPlanPdfPreview();marker.setPopupContent(buildOrientationPointPopup(p.id))}).on("click",ev=>{if(window.__MILITOPO_R2_TRACE_MODE__===true&&typeof window.militopoR2HandleMapPointClick==="function"){try{L.DomEvent.stopPropagation(ev);}catch(_){ }window.militopoR2HandleMapPointClick(p.id);return;}openOrientationPointPopup(marker,p.id)}).addTo(markersLayer);marker.bindPopup(buildOrientationPointPopup(p.id),{className:"orientation-point-popup",closeButton:true,autoPan:true,maxWidth:330})})}function iconClassForType(type){return type==="SALIDA"?"ori-start-icon":type==="LLEGADA"?"ori-finish-icon":"ori-control-icon"}function zoomSelectedPoint(){const p=state.points[selectedPointId];if(!map||!p||p.lat===null)return;map.setView([p.lat,p.lon],19)}function fitAllPoints(){
     if(!map)return;
     const latlngs=Object.values(state.points||{})
         .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon))
@@ -10956,6 +10957,74 @@ async function scanStep5ResultQrCameraLoop(){
 function downloadText(filename,content){const blob=new Blob([content],{type:"text/plain;charset=utf-8"});saveAs(blob,filename)}function csvEscape(v){const s=String(v??"");return /[",\n;]/.test(s)?`"${s.replaceAll('"','""')}"`:s}function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]))}
 const __renderPointsTableBase=renderPointsTable;renderPointsTable=function(){__renderPointsTableBase();renderIofDescriptionsEditor()};
 
+
+
+
+/* MILITOPO · REDISEÑO R2 · puente seguro entre el workspace cartográfico y la lógica validada. */
+let __militopoR2DraftRouteLayer=null;
+function militopoR2EnsureDraftLayer(){
+    if(!map||typeof L==="undefined")return null;
+    if(!__militopoR2DraftRouteLayer)__militopoR2DraftRouteLayer=L.layerGroup().addTo(map);
+    return __militopoR2DraftRouteLayer;
+}
+function militopoR2RenderDraftRoute(controlIds=[]){
+    const layer=militopoR2EnsureDraftLayer();if(!layer)return;
+    layer.clearLayers();
+    const ids=["START",...(Array.isArray(controlIds)?controlIds:[])];
+    const target=Math.max(1,Number(state.controlsPerRoute)||1);
+    if(controlIds.length===target)ids.push("FINISH");
+    const latlngs=ids.map(id=>state.points?.[id]).filter(p=>p&&p.lat!==null&&p.lon!==null&&p.lat!==""&&p.lon!==""&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))).map(p=>[Number(p.lat),Number(p.lon)]);
+    if(latlngs.length>1)L.polyline(latlngs,{color:"#f2c96c",weight:5,opacity:.98,lineCap:"round",lineJoin:"round",dashArray:"11 7",className:"r2-draft-route-line"}).addTo(layer);
+    (Array.isArray(controlIds)?controlIds:[]).forEach((id,index)=>{
+        const p=state.points?.[id];if(!p||p.lat===null||p.lon===null||p.lat===""||p.lon===""||!Number.isFinite(Number(p.lat))||!Number.isFinite(Number(p.lon)))return;
+        const icon=L.divIcon({className:"r2-route-order-wrap",html:`<span class="r2-route-order">${index+1}</span>`,iconSize:[26,26],iconAnchor:[13,13]});
+        L.marker([Number(p.lat),Number(p.lon)],{icon,interactive:false,zIndexOffset:1400}).addTo(layer);
+    });
+}
+function militopoR2ClearDraftRoute(){try{__militopoR2DraftRouteLayer?.clearLayers()}catch(_){} }
+function militopoR2FirstIncompleteControl(){
+    const controls=Object.values(state.points||{}).filter(p=>p.type==="BALIZA");
+    return (controls.find(p=>p.lat===null||p.lon===null||p.lat===""||p.lon===""||!Number.isFinite(Number(p.lat))||!Number.isFinite(Number(p.lon)))||null)?.id||"";
+}
+function militopoR2CreateFirstManualRoute(controlIds){
+    if(rejectProtectedRaceMutation("trazar el recorrido manualmente"))return {ok:false,error:"Carrera bloqueada"};
+    syncConfigFromUi();
+    const ids=[...new Set((Array.isArray(controlIds)?controlIds:[]).map(String))];
+    const available=new Set(getAvailableControls().map(c=>String(c.id)));
+    const target=Math.min(Math.max(1,Number(state.controlsPerRoute)||1),available.size);
+    if(ids.length!==target)return {ok:false,error:`Selecciona exactamente ${target} baliza${target===1?"":"s"}.`};
+    if(ids.some(id=>!available.has(id)))return {ok:false,error:"Alguna baliza seleccionada no tiene coordenadas válidas."};
+    if((state.routes||[]).length)return {ok:false,error:"Ya existen recorridos. Edítalos desde RECORRIDOS para no sustituir asignaciones existentes.",existing:true};
+    const built=buildManualRouteMetrics(ids);
+    const count=Math.max(1,Number(state.participantCount)||1);
+    state.routes=Array.from({length:count},(_,i)=>({participantId:"P"+String(i+1).padStart(2,"0"),routeId:"R01",routeDesignIndex:0,points:[...built.pointIds]}));
+    state.metrics=Array.from({length:count},()=>JSON.parse(JSON.stringify(built.metrics)));
+    state.uniqueRouteCount=1;state.skippedRoutes={};state.routeWarnings=[];
+    if(built.quality.overMaxLegs>0)state.routeWarnings.push(`R01: revisa ${(built.quality.overMaxLegList||[]).join(", ")}; hay tramos superiores al objetivo de 800 m.`);
+    if(built.quality.shortControlLegs>0)state.routeWarnings.push(`R01: contiene ${built.quality.shortControlLegs} tramo(s) entre balizas por debajo de 200 m.`);
+    assignBalancedDifficulties(state.metrics);state.routeQualitySummary=buildRouteQualitySummary(state.metrics);
+    renderRoutes();renderQrPreview();updateParticipantSelect();updateRouteCountInfo();saveState();publishMilitopoCloudStructure("r2-manual-route");
+    return {ok:true,routeId:"R01",points:[...built.pointIds],metrics:{...built.metrics},quality:built.quality?.label||""};
+}
+window.MILITOPO_R2_BRIDGE={
+    getSnapshot(){
+        const points=Object.values(state.points||{}).map(p=>({id:String(p.id||""),type:String(p.type||""),desc:String(p.desc||""),lat:(p.lat!==null&&p.lat!==""&&Number.isFinite(Number(p.lat)))?Number(p.lat):null,lon:(p.lon!==null&&p.lon!==""&&Number.isFinite(Number(p.lon)))?Number(p.lon):null,utm:String(p.utm||"")}));
+        const placed=points.filter(p=>p.lat!==null&&p.lon!==null).length;
+        const controls=points.filter(p=>p.type==="BALIZA");
+        const uniqueRoutes=[...new Set((state.routes||[]).map(r=>String(r.routeId||"")).filter(Boolean))];
+        return {eventId:String(state.eventId||""),eventName:String(state.eventName||""),selectedPointId:String(selectedPointId||""),points,placed,total:points.length,controls,controlsPlaced:controls.filter(p=>p.lat!==null&&p.lon!==null).length,controlsPerRoute:Math.max(1,Number(state.controlsPerRoute)||1),participantCount:Math.max(1,Number(state.participantCount)||1),routeCount:uniqueRoutes.length,routeIds:uniqueRoutes,locked:!!currentMilitopoCloudDesignLock()};
+    },
+    selectPoint(id){if(!state.points?.[id])return false;selectPoint(String(id));return true;},
+    selectNextControl(){const id=militopoR2FirstIncompleteControl();if(!id)return "";selectPoint(id);return id;},
+    fitAll(){fitAllPoints();return true;},
+    renderDraft(ids){militopoR2RenderDraftRoute(ids);},
+    clearDraft(){militopoR2ClearDraftRoute();},
+    createFirstManualRoute(ids){return militopoR2CreateFirstManualRoute(ids);},
+    openExistingRoute(routeId="R01"){
+        const idx=(state.routes||[]).findIndex(r=>String(r.routeId||"")===String(routeId));
+        if(idx<0)return false;return openManualRouteEditor(idx);
+    }
+};
 
 function bootMilitopoOrientation(){try{init()}catch(error){console.error("MILITOPO Orientación · arranque",error)}}
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bootMilitopoOrientation,{once:true});
