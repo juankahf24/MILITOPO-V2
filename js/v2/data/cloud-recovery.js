@@ -22,6 +22,7 @@ const state = {
   events: [],
   overlayMode: "events",
   openResultsAfterRecover: "",
+  manageAfterRecover: null,
   filter: "all"
 };
 
@@ -156,7 +157,7 @@ function ensureStyles() {
     .m2-cloud-event-status{flex:0 0 auto}.m2-r3-event-id{font-size:.67rem;opacity:.48;margin:5px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .m2-r3-event-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 11px}
     .m2-r3-event-metric{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:7px 4px;text-align:center;background:rgba(0,0,0,.12)}
-    .m2-r3-event-metric strong{display:block;font-size:.91rem}.m2-r3-event-metric span{display:block;margin-top:2px;font-size:.49rem;opacity:.58;letter-spacing:.05em}.m2-r3-event-metric.is-route-controls span{display:flex;align-items:center;justify-content:center;min-height:2.15em;margin-top:2px;padding:0 1px;font-size:clamp(.39rem,1.55vw,.47rem);line-height:1.06;letter-spacing:.025em;white-space:normal;overflow-wrap:normal;word-break:keep-all}
+    .m2-r3-event-metric strong{display:block;font-size:.91rem}.m2-r3-event-metric span{display:block;margin-top:2px;font-size:.49rem;opacity:.58;letter-spacing:.05em}.m2-r3-event-metric.is-route-controls span{display:flex;align-items:center;justify-content:center;min-height:2.15em;margin-top:2px;padding:0 1px;font-size:clamp(.44rem,1.72vw,.53rem);line-height:1.08;letter-spacing:.025em;white-space:normal;overflow-wrap:normal;word-break:keep-all}
     .m2-r3-event-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.m2-r3-event-updated{font-size:.66rem;opacity:.52;min-width:0}
     .m2-cloud-event-open{min-height:42px;flex:0 0 auto;border-radius:10px;padding:9px 13px;background:#e5ead8;color:#111811}.m2-cloud-event-open:disabled{opacity:.55}
     @media(max-width:760px){.m2-cloud-recovery-overlay{padding:0}.m2-cloud-recovery-panel{width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;padding:14px}.m2-cloud-recovery-head{top:-14px;margin:-14px -14px 12px;padding:calc(14px + env(safe-area-inset-top)) 14px 12px}.m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:1fr}.m2-r3-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r3-head-actions .m2-r3-head-btn:not(.is-new){display:none}}
@@ -588,12 +589,17 @@ async function recoverEvent(eventId, options = {}) {
   const row = state.events.find(item => item.eventId === eventId);
   if (!row) return;
   state.openResultsAfterRecover = options?.openResults ? eventId : "";
+  state.manageAfterRecover = options?.openResults ? null : { ...row };
   const ok = confirm(
     `Se va a abrir “${row.eventName}” (${row.eventId}) desde Firestore.\n\n` +
     `MILITOPO guardará primero una copia duradera del evento que tengas abierto en este dispositivo. ` +
     `Después cargará la configuración, balizas y recorridos de la nube.\n\n¿Continuar?`
   );
-  if (!ok) return;
+  if (!ok) {
+    state.manageAfterRecover = null;
+    state.openResultsAfterRecover = "";
+    return;
+  }
 
   state.busy = true;
   state.list?.querySelectorAll("button").forEach(button => { button.disabled = true; });
@@ -610,6 +616,8 @@ async function recoverEvent(eventId, options = {}) {
     paintStatus(`☁️ Aplicando ${eventId} en el organizador…`, "warn");
     closeOverlay();
   } catch (error) {
+    state.manageAfterRecover = null;
+    state.openResultsAfterRecover = "";
     console.error("[MILITOPO C3] recover", error);
     paintStatus(`⚠️ ${error?.message || "No se pudo recuperar el evento."} El evento local sigue intacto.`, "warn");
     state.list?.querySelectorAll("button").forEach(button => { button.disabled = false; });
@@ -631,6 +639,13 @@ function onApplied(event) {
   if (detail.ok) {
     const eventId = cleanString(detail.eventId, 120);
     paintStatus(`✅ Evento recuperado desde Firestore · ${eventId}`, "ok");
+    if (state.manageAfterRecover && state.manageAfterRecover.eventId === eventId && !state.openResultsAfterRecover) {
+      const event = { ...state.manageAfterRecover, eventId };
+      state.manageAfterRecover = null;
+      setTimeout(() => {
+        globalThis.dispatchEvent(new CustomEvent("militopo:r3-race-manager-open", { detail:{ event } }));
+      }, 220);
+    }
     if (state.openResultsAfterRecover && state.openResultsAfterRecover === eventId) {
       state.openResultsAfterRecover = "";
       // H7.1: al abrir una carrera desde el histórico, mostrarla en PASO 1.
