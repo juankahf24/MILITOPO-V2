@@ -104,6 +104,7 @@ function militopoCloudCheckpointSnapshots(){
         lat:militopoCloudFinite(point?.lat),
         lon:militopoCloudFinite(point?.lon),
         elevationM:militopoCloudFinite(point?.elevation),
+        elevationReal:point?.elevationReal===true,
         iof:militopoCloudIofSnapshot(String(point?.id||""))
     })).filter(point=>point.checkpointId);
 }
@@ -9421,7 +9422,8 @@ function militopoCloudRecoveredPointMap(checkpoints){
             desc:String(item?.description??item?.desc??""),
             lat:militopoCloudFinite(item?.lat),
             lon:militopoCloudFinite(item?.lon),
-            elevation:militopoCloudFinite(item?.elevationM??item?.elevation)
+            elevation:militopoCloudFinite(item?.elevationM??item?.elevation),
+            elevationReal:item?.elevationReal===true || (typeof item?.elevationReal==="undefined" && militopoCloudFinite(item?.elevationM??item?.elevation)!==null)
         };
     });
     return out;
@@ -10982,7 +10984,54 @@ function militopoR2ManualDesignSnapshots(){
     });
     return [...byId.values()].sort((a,b)=>militopoR2RouteNumber(a.routeId)-militopoR2RouteNumber(b.routeId)||a.routeId.localeCompare(b.routeId));
 }
-function militopoR2CreateManualRoute(routeId,controlIds){
+/* R2G · cotas reales para recorridos manuales.
+   El generador automático antiguo obtenía elevaciones antes de calcular métricas;
+   el nuevo trazado manual R2E/R2F no pasaba por ese flujo. Este puente recupera
+   la misma consulta real (Open-Meteo + fallbacks) sin borrar cotas válidas ya guardadas. */
+async function militopoR2EnsureRealElevations(pointIds,timeoutMs=15000){
+    const ids=[...new Set((Array.isArray(pointIds)?pointIds:[]).map(String))];
+    const routePoints=ids.map(id=>state.points?.[id]).filter(p=>p&&p.lat!==null&&p.lon!==null&&p.lat!==""&&p.lon!==""&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon)));
+    const missing=routePoints.filter(pointNeedsElevation);
+    if(!missing.length){
+        return {realCount:routePoints.filter(p=>p.elevationReal===true&&Number.isFinite(Number(p.elevation))).length,total:routePoints.length,source:"cached"};
+    }
+    const controller=typeof AbortController!=="undefined"?new AbortController():null;
+    let timer=null;
+    try{
+        if(controller)timer=setTimeout(()=>controller.abort(),Math.max(4000,Number(timeoutMs)||15000));
+        const samples=missing.map(p=>({id:String(p.id),lat:Number(p.lat),lon:Number(p.lon)}));
+        const realValues=new Map();
+        const chunkSize=20;
+        for(let i=0;i<samples.length;i+=chunkSize){
+            const chunk=samples.slice(i,i+chunkSize);
+            throwIfElevationAborted(controller?.signal||null);
+            const elevs=await fetchElevationChunk(chunk,5500,controller?.signal||null);
+            if(Array.isArray(elevs))chunk.forEach((sample,j)=>{
+                const e=Number(elevs[j]);
+                if(Number.isFinite(e))realValues.set(sample.id,{elevation:Math.round(e),lat:sample.lat,lon:sample.lon});
+            });
+        }
+        realValues.forEach((value,id)=>{
+            const current=state.points?.[id];
+            if(!current)return;
+            /* No aplicar una respuesta antigua si el usuario movió el punto mientras llegaba la API. */
+            if(Math.abs(Number(current.lat)-value.lat)>1e-8||Math.abs(Number(current.lon)-value.lon)>1e-8)return;
+            current.elevation=value.elevation;
+            current.elev=value.elevation;
+            current.elevationReal=true;
+        });
+    }catch(error){
+        if(error?.name!=="AbortError")console.warn("R2G · no se pudo obtener alguna cota real",error);
+    }finally{if(timer)clearTimeout(timer)}
+    const placed=Object.values(state.points||{}).filter(p=>p&&p.lat!==null&&p.lon!==null&&p.lat!==""&&p.lon!=="");
+    const placedReal=placed.filter(p=>p.elevationReal===true&&Number.isFinite(Number(p.elevation))).length;
+    state.elevationSource=placed.length&&placedReal===placed.length?"real":placedReal?"partial":"unavailable";
+    saveState();
+    const realCount=routePoints.filter(p=>p.elevationReal===true&&Number.isFinite(Number(p.elevation))).length;
+    return {realCount,total:routePoints.length,source:realCount===routePoints.length&&routePoints.length?"real":realCount?"partial":"unavailable"};
+}
+
+async function militopoR2CreateManualRoute(routeId,controlIds){
     if(rejectProtectedRaceMutation("trazar el recorrido manualmente"))return {ok:false,error:"Carrera bloqueada"};
     syncConfigFromUi();
     routeId=String(routeId||"").trim().toUpperCase();
@@ -10992,6 +11041,8 @@ function militopoR2CreateManualRoute(routeId,controlIds){
     const target=Math.min(Math.max(1,Number(state.controlsPerRoute)||1),available.size);
     if(ids.length!==target)return {ok:false,error:`Selecciona exactamente ${target} baliza${target===1?"":"s"}.`};
     if(ids.some(id=>!available.has(id)))return {ok:false,error:"Alguna baliza seleccionada no tiene coordenadas válidas."};
+    const routePointIds=["START",...ids,"FINISH"];
+    const elevationInfo=await militopoR2EnsureRealElevations(routePointIds,15000);
     const built=buildManualRouteMetrics(ids);
     let designs=militopoR2ManualDesignSnapshots();
     const existed=designs.some(d=>d.routeId===routeId);
@@ -11015,7 +11066,7 @@ function militopoR2CreateManualRoute(routeId,controlIds){
     renderRoutes();renderQrPreview();updateParticipantSelect();updateRouteCountInfo();saveState();publishMilitopoCloudStructure("r2-manual-route");
     militopoR2RenderSavedRoute(routeId,{fit:false});
     militopoR2NotifyRouteUi(routeId,existed?"route-replaced":"route-created");
-    return {ok:true,routeId,created:!existed,replaced:existed,points:[...built.pointIds],metrics:{...built.metrics},quality:built.quality?.label||""};
+    return {ok:true,routeId,created:!existed,replaced:existed,points:[...built.pointIds],metrics:{...built.metrics},quality:built.quality?.label||"",elevationInfo};
 }
 
 /* R2F · recorrido activo en el mapa principal + sincronización de geometría/metricas. */
@@ -11117,6 +11168,8 @@ function militopoR2NotifyRouteUi(routeId,reason="update"){
     try{window.dispatchEvent(new CustomEvent("militopo:r2-route-updated",{detail:{routeId:String(routeId||details?.routeId||""),reason,details}}))}catch(_){}
 }
 function militopoR2OnPointGeometryChanged(pointId){
+    const changed=state.points?.[String(pointId||"")];
+    if(changed){changed.elevation=null;changed.elev=null;changed.elevationReal=false;}
     if(Array.isArray(state.routes)&&state.routes.length){
         militopoR2RecalculateRouteMetrics();
         try{renderRoutes()}catch(_){}
@@ -11126,6 +11179,25 @@ function militopoR2OnPointGeometryChanged(pointId){
     }
     if(__militopoR2SavedRouteId)militopoR2RenderSavedRoute(__militopoR2SavedRouteId);
     militopoR2NotifyRouteUi(__militopoR2SavedRouteId,"point:"+String(pointId||""));
+
+    /* Al colocar/mover SALIDA, LLEGADA o una baliza obtenemos su altitud real
+       en segundo plano y recalculamos todos los recorridos afectados. */
+    if(!changed||changed.lat===null||changed.lon===null||changed.lat===""||changed.lon===""||!Number.isFinite(Number(changed.lat))||!Number.isFinite(Number(changed.lon)))return;
+    const id=String(changed.id||pointId||"");
+    militopoR2EnsureRealElevations([id],12000).then(info=>{
+        if(Array.isArray(state.routes)&&state.routes.length){
+            militopoR2RecalculateRouteMetrics();
+            try{renderRoutes()}catch(_){}
+            try{renderQrPreview()}catch(_){}
+            try{updateParticipantSelect()}catch(_){}
+            try{updateRouteCountInfo()}catch(_){}
+        }
+        saveState();
+        try{publishMilitopoCloudStructure("r2-real-elevation-refresh")}catch(_){}
+        if(__militopoR2SavedRouteId)militopoR2RenderSavedRoute(__militopoR2SavedRouteId);
+        militopoR2NotifyRouteUi(__militopoR2SavedRouteId,"elevation:"+id);
+        try{window.dispatchEvent(new CustomEvent("militopo:r2-elevation-updated",{detail:{pointId:id,info}}))}catch(_){}
+    }).catch(error=>console.warn("R2G · actualización de cota",error));
 }
 window.MILITOPO_R2_BRIDGE={
     getSnapshot(){
@@ -11144,6 +11216,21 @@ window.MILITOPO_R2_BRIDGE={
     getRouteDetails(routeId){return militopoR2GetRouteDetails(routeId);},
     showSavedRoute(routeId,options){return militopoR2RenderSavedRoute(routeId,options||{});},
     clearSavedRoute(){militopoR2ClearSavedRoute();return true;},
+    async ensureRouteElevations(){
+        const ids=[...new Set((state.routes||[]).flatMap(route=>Array.isArray(route?.points)?route.points.map(String):[]))];
+        if(!ids.length)return {realCount:0,total:0,source:"empty"};
+        const info=await militopoR2EnsureRealElevations(ids,15000);
+        militopoR2RecalculateRouteMetrics();
+        try{renderRoutes()}catch(_){}
+        try{renderQrPreview()}catch(_){}
+        try{updateParticipantSelect()}catch(_){}
+        try{updateRouteCountInfo()}catch(_){}
+        saveState();
+        try{publishMilitopoCloudStructure("r2-real-elevation-repair")}catch(_){}
+        if(__militopoR2SavedRouteId)militopoR2RenderSavedRoute(__militopoR2SavedRouteId);
+        militopoR2NotifyRouteUi(__militopoR2SavedRouteId,"elevation-repair");
+        return info;
+    },
     createManualRoute(routeId,ids){return militopoR2CreateManualRoute(routeId,ids);},
     createFirstManualRoute(ids){return militopoR2CreateManualRoute("R01",ids);},
     openExistingRoute(routeId="R01"){
