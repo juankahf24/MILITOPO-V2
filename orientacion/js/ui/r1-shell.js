@@ -3,7 +3,7 @@
   if(window.__MILITOPO_R1_SHELL__) return;
   window.__MILITOPO_R1_SHELL__=true;
 
-  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true};
+  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null};
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const icon=(name)=>{
@@ -18,6 +18,11 @@
       locate:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
       zoomin:'<path d="M12 5v14M5 12h14"/>',
       zoomout:'<path d="M5 12h14"/>',
+      settings:'<path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.09A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.09A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.09A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.08.37.29.71.6 1 .3.27.68.41 1.1.4H21v4h-.09c-.42-.01-.8.13-1.1.4-.31.29-.52.63-.6 1z"/>',
+      route:'<path d="M5 6h8a3 3 0 0 1 0 6H9a3 3 0 0 0 0 6h10"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/>',
+      flag:'<path d="M5 21V4"/><path d="M5 5h11l-2 4 2 4H5"/>',
+      chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+      qr:'<rect x="3" y="3" width="6" height="6"/><rect x="15" y="3" width="6" height="6"/><rect x="3" y="15" width="6" height="6"/><path d="M15 15h2v2h-2zM19 15h2v6h-2M15 19h2v2h-2"/>',
       close:'<path d="m6 6 12 12M18 6 6 18"/>'
     };
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]||paths.more}</svg>`;
@@ -68,6 +73,7 @@
     const wrap=document.createElement("div");wrap.className="r1-more-backdrop";wrap.id="r1More";wrap.innerHTML=`<section class="r1-more-panel" role="dialog" aria-modal="true" aria-label="Más herramientas">
       <div class="r1-more-head"><strong>MÁS HERRAMIENTAS</strong><button class="r1-close" type="button" data-more-close aria-label="Cerrar">×</button></div>
       <div class="r1-more-grid">
+        ${moreAction("GESTIÓN DE CARRERA","Panel principal de la carrera cargada","manager")}
         ${moreAction("CONFIGURACIÓN","Datos y reglas de la carrera","config")}
         ${moreAction("PARTICIPANTES","Invitaciones, censo y asignaciones","participants")}
         ${moreAction("RECORRIDOS","Crear y revisar recorridos manuales","routes")}
@@ -96,7 +102,7 @@
   }
   function closeWorkspace(returnToMap=true){
     state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
-    state.hosted=[];state.workspace?.classList.remove("is-open");if(state.workspace)$("#r1WorkspaceBody",state.workspace).innerHTML="";document.body.style.overflow="";
+    state.hosted=[];state.managerOpen=false;state.workspace?.classList.remove("is-open");if(state.workspace)$("#r1WorkspaceBody",state.workspace).innerHTML="";document.body.style.overflow="";
     document.body.classList.remove("r1-workspace-open");state.mapHome=!!returnToMap;
     if(returnToMap){safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;setTimeout(()=>window.MILITOPO_R2_MAP_HOME?.activate?.(),35)}
     setTimeout(()=>{window.dispatchEvent(new Event("resize"));refreshContext()},60);
@@ -131,7 +137,85 @@
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
   function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="new"){startNewRace();return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
-  function runMoreAction(a){if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openInjected(["m2EventHistoricalResults"],"RESULTADOS Y CLASIFICACIÓN",1);if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
+  function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openStep(6,"RESULTADOS Y CONTROL");if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
+  const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"};
+  const R3_ORDER=["draft","prepared","published","live","finished","archived"];
+  function numValue(id,fallback=0){const n=Number($("#"+id)?.value);return Number.isFinite(n)?n:fallback}
+  function routeCountFromUi(fallback=0){const text=String($("#routeCountInfo")?.textContent||"");const match=text.match(/·\s*(\d+)\s+recorrido/i);return match?Number(match[1]):Number(fallback)||0}
+  function currentManagerContext(extra={}){
+    const lifecycle=window.MILITOPO_V2_EVENT_STATUS||state.eventStatus||{};
+    const prior=state.managerEvent||{};
+    return {
+      ...prior,...extra,
+      eventId:currentEventId()||extra.eventId||prior.eventId||"",
+      eventName:currentEventName()||extra.eventName||prior.eventName||"MILITOPO ORIENTACIÓN",
+      status:String(lifecycle.status||extra.status||prior.status||"draft"),
+      participantCount:numValue("participantCount",extra.participantCount??prior.participantCount??0),
+      controlCount:numValue("controlCount",extra.controlCount??prior.controlCount??0),
+      controlsPerRoute:numValue("controlsPerRoute",extra.controlsPerRoute??prior.controlsPerRoute??0),
+      courseSyncedCount:routeCountFromUi(extra.courseSyncedCount??prior.courseSyncedCount??0)
+    };
+  }
+  function managerTrack(status){const current=Math.max(0,R3_ORDER.indexOf(status));return R3_ORDER.map((key,index)=>`<span class="r3-manager-stage ${index<current?"is-done":index===current?"is-current":""}">${R3_STATUS[key]}</span>`).join("")}
+  function managerCard(action,title,desc,iconName,tone="") {return `<button type="button" class="r3-manager-card ${tone}" data-r3-manager-action="${action}"><span class="r3-manager-icon">${icon(iconName)}</span><span class="r3-manager-card-copy"><strong>${title}</strong><small>${desc}</small></span><span class="r3-manager-arrow">›</span></button>`}
+  function renderRaceManager(){
+    const body=$("#r1WorkspaceBody");if(!body)return;
+    const ctx=currentManagerContext();state.managerEvent=ctx;state.managerOpen=true;
+    const status=R3_STATUS[ctx.status]||String(ctx.status||"BORRADOR").toUpperCase();
+    body.innerHTML=`<section class="r3-manager" aria-label="Gestión de carrera">
+      <div class="r3-manager-hero">
+        <div class="r3-manager-title"><span>GESTIÓN DE CARRERA</span><h2>${String(ctx.eventName).replace(/[&<>"]/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[s]||s))}</h2><small>${ctx.eventId||"Sin identificador"}</small></div>
+        <span class="r3-manager-status" data-status="${ctx.status}">${status}</span>
+      </div>
+      <div class="r3-manager-track">${managerTrack(ctx.status)}</div>
+      <div class="r3-manager-metrics">
+        <div><strong>${ctx.participantCount||"—"}</strong><span>PARTICIPANTES</span></div>
+        <div><strong>${ctx.controlCount||"—"}</strong><span>BALIZAS</span></div>
+        <div><strong>${ctx.courseSyncedCount||"—"}</strong><span>RECORRIDOS</span></div>
+        <div><strong>${ctx.controlsPerRoute||"—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
+      </div>
+      <div class="r3-manager-section-head"><strong>GESTIONAR</strong><span>Accede a cada área sin navegar por PASOS.</span></div>
+      <div class="r3-manager-grid">
+        ${managerCard("map","MAPA Y BALIZAS","Diseñar salida, llegada, balizas y trazado","layers","is-primary")}
+        ${managerCard("config","CONFIGURACIÓN","Datos generales y reglas de la carrera","settings")}
+        ${managerCard("routes","RECORRIDOS","Revisar recorridos manuales y asignaciones","route")}
+        ${managerCard("participants","PARTICIPANTES","Invitaciones, censo y asignación de recorrido","users")}
+        ${managerCard("lifecycle","ESTADO Y PUBLICACIÓN","Preparar, publicar, iniciar, finalizar y archivar","flag","is-state")}
+        ${managerCard("live","LIVE","Centro de seguimiento en tiempo real","live","is-live")}
+        ${managerCard("material","MATERIAL QR","Planos, QR y exportaciones","qr")}
+        ${managerCard("sequence","SECUENCIA","Salidas, llegadas y control de carrera","flag")}
+        ${managerCard("results","RESULTADOS","Resultados y control de participantes","chart")}
+        ${managerCard("analysis","ANÁLISIS","Reproductor y análisis post-carrera","chart")}
+      </div>
+      <div class="r3-manager-footer"><button type="button" data-r3-manager-action="races">← MIS CARRERAS</button><button type="button" class="is-map" data-r3-manager-action="map">VOLVER AL MAPA</button></div>
+    </section>`;
+    body.querySelectorAll("[data-r3-manager-action]").forEach(button=>button.addEventListener("click",()=>runManagerAction(button.dataset.r3ManagerAction)));
+  }
+  function openRaceManager(event={}){
+    closeMore();
+    const ctx=currentManagerContext(event);
+    if(!ctx.eventId){safeCall("toast","Carga primero una carrera desde MIS CARRERAS.");openRaces();return}
+    state.managerEvent=ctx;
+    closeWorkspace(false);
+    const titleEl=$("#r1WorkspaceTitle");if(titleEl)titleEl.textContent="GESTIÓN DE CARRERA";
+    state.mapHome=false;document.body.classList.add("r1-workspace-open");
+    state.workspace?.classList.add("is-open");document.body.style.overflow="hidden";
+    renderRaceManager();setTimeout(()=>window.dispatchEvent(new Event("resize")),60);
+  }
+  function runManagerAction(action){
+    state.managerOpen=false;
+    if(action==="races"){closeWorkspace(true);setTimeout(openRaces,60);return}
+    if(action==="map"){closeWorkspace(true);return}
+    if(action==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");
+    if(action==="routes")return openStep(3,"RECORRIDOS");
+    if(action==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);
+    if(action==="lifecycle")return openInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);
+    if(action==="live")return openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);
+    if(action==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");
+    if(action==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");
+    if(action==="results")return openStep(6,"RESULTADOS Y CONTROL");
+    if(action==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");
+  }
   function refreshContext(){
     const active=$$(".card.active")[0];const m=active?.id?.match(/^step(\d+)$/);state.currentStep=m?Number(m[1]):state.currentStep;
     const workspaceOpen=!!state.workspace?.classList.contains("is-open");state.mapHome=!workspaceOpen;
@@ -144,6 +228,9 @@
     window.addEventListener("militopo:v2-auth-ready",e=>setRole(e.detail?.role));
     window.addEventListener("militopo:v2-orientation-header",e=>{const h=e.detail?.header||{};const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name&&h.eventName)name.textContent=h.eventName;if(meta&&h.eventId)meta.textContent=h.eventId});
     window.addEventListener("militopo:v2-cloud-event-applied",()=>setTimeout(refreshContext,100));
+    window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
+    window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
+    window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
     window.addEventListener("militopo:r2-config-updated",event=>{
       /* R2H · una sola pulsación en SINCRONIZAR aplica reglas y vuelve al mapa
          sin recargar ni cerrar la PWA. */
@@ -159,6 +246,7 @@
     const observer=new MutationObserver(refreshContext);$$('.card').forEach(card=>observer.observe(card,{attributes:true,attributeFilter:["class"]}));
   }
   
+  globalThis.MILITOPO_R3_ORGANIZER_MANAGER=Object.freeze({open:(event)=>openRaceManager(event||{}),close:()=>closeWorkspace(true)});
   globalThis.addEventListener("militopo:r3-new-race",startNewRace);
 function init(){
     document.body.classList.add("r1-shell-active");
