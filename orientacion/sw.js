@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r3a-organizer-center-20261003";
+const BUILD_ID="v2-r3a1-organizer-polish-20261003";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -13,7 +13,7 @@ const CORE_ASSETS=[
   "./css/r1-shell.css?v=r2l-hide-leaflet-zoom-under-logo-20261003",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./js/app.js?v=r2k-compass-direct-img-20261003",
-  "./js/ui/r1-shell.js?v=r3a-organizer-center-20261003",
+  "./js/ui/r1-shell.js?v=r3a1-organizer-polish-20261003",
   "./js/ui/r2-map-workspace.js?v=r2k-compass-direct-img-20261003",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
@@ -40,7 +40,7 @@ const CORE_ASSETS=[
   "../js/v2/data/participants-admin.js?v=v2-h4-23-route-assignment-20260925",
   "../js/v2/data/events.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/orientation-structure.js?v=v2-r2h-live-rules-20261003",
-  "../js/v2/data/cloud-recovery.js?v=v2-r3a-organizer-center-20261003",
+  "../js/v2/data/cloud-recovery.js?v=v2-r3a1-organizer-polish-20261003",
   "../js/v2/data/event-lifecycle.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924",
