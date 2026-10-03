@@ -187,24 +187,32 @@ body.r1-shell-active.r1-workspace-open .r1-map-dock{display:none!important}
   clip-path:circle(49% at 50% 50%)!important;-webkit-clip-path:circle(49% at 50% 50%)!important;
 }
 
-/* R2F · iOS/Safari: eliminar cualquier halo/cuadrado blanco del logo. */
+/* R2I · brújula definitiva sin halo blanco.
+   1) El asset se sirve con borde transparente corregido.
+   2) El contenedor recorta en círculo real, sin ampliar la imagen ni desplazarla.
+   3) Se añade una máscara radial de WebKit para evitar fringes al componer alpha en iPhone/PWA. */
 .r1-compass{
   overflow:hidden!important;
   border-radius:50%!important;
   background:transparent!important;
   contain:paint;
+  isolation:isolate;
+  -webkit-mask-image:-webkit-radial-gradient(white, black);
+  mask-image:radial-gradient(circle,#fff 98%,#000 100%);
 }
 .r1-compass img{
-  width:104%!important;height:104%!important;
-  max-width:none!important;max-height:none!important;
-  margin:-2%!important;
-  object-fit:cover!important;
+  width:100%!important;height:100%!important;
+  max-width:100%!important;max-height:100%!important;
+  margin:0!important;
+  object-fit:contain!important;
   border-radius:50%!important;
   clip-path:none!important;-webkit-clip-path:none!important;
   filter:none!important;
   background:transparent!important;
-  transform:translateZ(0);
-  -webkit-transform:translateZ(0);
+  transform:translateZ(0)!important;
+  -webkit-transform:translateZ(0)!important;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
 }
 
 
@@ -263,8 +271,10 @@ html.militopo-ios-pwa .r1-compass img{
   will-change:auto!important;
 }
 html.militopo-ios-pwa .r1-compass img{
-  transform:none!important;
-  -webkit-transform:none!important;
+  transform:translateZ(0)!important;
+  -webkit-transform:translateZ(0)!important;
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
 }
 html.militopo-ios-pwa .r1-nav-btn{
   background:#eff1e2!important;
