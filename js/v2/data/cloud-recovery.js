@@ -141,9 +141,13 @@ function ensureStyles() {
     .m2-r3-summary[hidden],.m2-r3-filters[hidden]{display:none!important}
     .m2-r3-summary-card{min-width:0;border:1px solid rgba(255,255,255,.10);border-radius:13px;padding:9px 8px;background:rgba(255,255,255,.035);text-align:center}
     .m2-r3-summary-card strong{display:block;font-size:1.12rem;line-height:1}.m2-r3-summary-card span{display:block;margin-top:4px;font-size:.55rem;opacity:.63;letter-spacing:.08em}
-    .m2-r3-filters{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.m2-r3-filters::-webkit-scrollbar{display:none}
-    .m2-r3-filter{flex:0 0 auto;min-height:36px;border:1px solid rgba(255,255,255,.13);border-radius:999px;padding:7px 11px;background:rgba(255,255,255,.045);color:#dce4d6;font-size:.68rem;font-weight:900;cursor:pointer}
-    .m2-r3-filter.is-active{background:#e8ecd9;color:#162017;border-color:#e8ecd9}
+    .m2-r3-filters{padding:2px 0 12px}
+    .m2-r3-filterbar{display:grid;grid-template-columns:auto minmax(190px,300px);align-items:center;justify-content:space-between;gap:12px;border:1px solid rgba(255,255,255,.11);border-radius:13px;padding:8px 10px;background:rgba(255,255,255,.035)}
+    .m2-r3-filter-copy{display:grid;gap:2px;min-width:0}.m2-r3-filter-copy strong{font-size:.72rem;letter-spacing:.06em}.m2-r3-filter-copy span{font-size:.60rem;opacity:.58}
+    .m2-r3-filter-select-wrap{position:relative;min-width:0}
+    .m2-r3-filter-select{appearance:none;-webkit-appearance:none;width:100%;min-height:40px;border:1px solid rgba(255,255,255,.17);border-radius:10px;padding:8px 38px 8px 12px;background:#e8ecd9;color:#162017;font:900 .72rem/1 system-ui,-apple-system,sans-serif;cursor:pointer;outline:none}
+    .m2-r3-filter-select-wrap::after{content:"⌄";position:absolute;right:13px;top:50%;transform:translateY(-55%);color:#162017;font-size:1rem;font-weight:900;pointer-events:none}
+    .m2-r3-filter-select:focus{box-shadow:0 0 0 3px rgba(232,236,217,.14);border-color:#e8ecd9}
     .m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .m2-cloud-event{position:relative;overflow:hidden;border-radius:16px;padding:14px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025))}
     .m2-cloud-event::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#69766a}
@@ -156,7 +160,7 @@ function ensureStyles() {
     .m2-r3-event-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.m2-r3-event-updated{font-size:.66rem;opacity:.52;min-width:0}
     .m2-cloud-event-open{min-height:42px;flex:0 0 auto;border-radius:10px;padding:9px 13px;background:#e5ead8;color:#111811}.m2-cloud-event-open:disabled{opacity:.55}
     @media(max-width:760px){.m2-cloud-recovery-overlay{padding:0}.m2-cloud-recovery-panel{width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;padding:14px}.m2-cloud-recovery-head{top:-14px;margin:-14px -14px 12px;padding:calc(14px + env(safe-area-inset-top)) 14px 12px}.m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:1fr}.m2-r3-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r3-head-actions .m2-r3-head-btn:not(.is-new){display:none}}
-    @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:auto}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-r3-event-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.m2-r3-event-footer{align-items:flex-end}}
+    @media(max-width:480px){.m2-r3-filterbar{grid-template-columns:1fr;gap:7px}.m2-r3-filter-select-wrap{width:100%}.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:auto}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-r3-event-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.m2-r3-event-footer{align-items:flex-end}}
   `;
   document.head.appendChild(style);
 }
@@ -227,7 +231,8 @@ function ensureOverlay() {
   `;
   overlay.querySelector(".m2-cloud-recovery-close")?.addEventListener("click", closeOverlay);
   overlay.querySelector("#m2R3NewRace")?.addEventListener("click", () => {
-    closeOverlay();
+    /* R3A.1: no cerramos MIS CARRERAS antes de confirmar. Si el usuario
+       cancela createNewRace(), el centro permanece exactamente donde estaba. */
     globalThis.dispatchEvent(new CustomEvent("militopo:r3-new-race"));
   });
   overlay.querySelector("#m2R3Refresh")?.addEventListener("click", () => {
@@ -356,11 +361,21 @@ function renderEventList(rows) {
   ];
   if (filters) {
     filters.hidden = false;
-    filters.innerHTML = filterDefs.map(([key,label]) => `<button type="button" class="m2-r3-filter${state.filter === key ? " is-active" : ""}" data-r3-filter="${key}">${label}${key === "all" ? ` · ${rows.length}` : ` · ${counts[key] || 0}`}</button>`).join("");
-    filters.querySelectorAll("[data-r3-filter]").forEach(button => button.addEventListener("click", () => {
-      state.filter = button.dataset.r3Filter || "all";
+    const options = filterDefs.map(([key,label]) => {
+      const count = key === "all" ? rows.length : (counts[key] || 0);
+      return `<option value="${key}"${state.filter === key ? " selected" : ""}>${label} · ${count}</option>`;
+    }).join("");
+    filters.innerHTML = `
+      <div class="m2-r3-filterbar">
+        <div class="m2-r3-filter-copy"><strong>FILTRAR CARRERAS</strong><span>Selecciona un estado para actualizar la lista</span></div>
+        <div class="m2-r3-filter-select-wrap">
+          <select id="m2R3FilterSelect" class="m2-r3-filter-select" aria-label="Filtrar carreras por estado">${options}</select>
+        </div>
+      </div>`;
+    filters.querySelector("#m2R3FilterSelect")?.addEventListener("change", event => {
+      state.filter = event.target.value || "all";
       renderEventList(rows);
-    }));
+    });
   }
   const visible = state.filter === "all" ? rows : rows.filter(row => String(row.status || "draft") === state.filter);
   state.list.classList.add("m2-r3-grid");
@@ -372,7 +387,7 @@ function renderEventList(rows) {
     const archived = row.status === "archived";
     const own = String(row.ownerUid || "") === String(state.auth?.uid || "");
     const routeCount = Math.max(Number(row.courseSyncedCount || 0), 0);
-    const pointCount = Math.max(Number(row.checkpointSyncedCount || 0), Number(row.controlCount || 0) + (row.controlCount ? 2 : 0));
+    const controlsPerRoute = Math.max(0, Number(row.controlsPerRoute || 0));
     return `
       <article class="m2-cloud-event${archived ? " archived" : ""}" data-status="${esc(row.status || "draft")}">
         <div class="m2-r3-event-title">
@@ -384,7 +399,7 @@ function renderEventList(rows) {
           <div class="m2-r3-event-metric"><strong>${row.participantCount}</strong><span>PARTICIPANTES</span></div>
           <div class="m2-r3-event-metric"><strong>${row.controlCount}</strong><span>BALIZAS</span></div>
           <div class="m2-r3-event-metric"><strong>${routeCount || "—"}</strong><span>RECORRIDOS</span></div>
-          <div class="m2-r3-event-metric"><strong>${pointCount || "—"}</strong><span>PUNTOS</span></div>
+          <div class="m2-r3-event-metric"><strong>${controlsPerRoute || "—"}</strong><span>BALIZAS / RUTA</span></div>
         </div>
         <div class="m2-r3-event-footer">
           <div class="m2-r3-event-updated">Actualizada · ${esc(formatDate(row.updatedAt))}</div>
