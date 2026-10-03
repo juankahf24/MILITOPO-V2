@@ -21,7 +21,8 @@ const state = {
   status: null,
   events: [],
   overlayMode: "events",
-  openResultsAfterRecover: ""
+  openResultsAfterRecover: "",
+  filter: "all"
 };
 
 function cleanRole(role) {
@@ -129,7 +130,33 @@ function ensureStyles() {
     .m2-cloud-history-best{font-size:.77rem;line-height:1.4;margin:0 0 10px;color:#e8f6df}
     .m2-cloud-recovery-empty{padding:14px;border:1px dashed rgba(255,255,255,.25);border-radius:10px;opacity:.82}
     @media(max-width:600px){.m2-cloud-history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-cloud-history-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
-    @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:100%}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    /* R3A · Centro profesional MIS CARRERAS */
+    .m2-cloud-recovery-panel{width:min(1180px,100%);max-height:calc(100dvh - 28px);background:linear-gradient(180deg,#151d14,#0e140d);border-radius:22px;padding:18px}
+    .m2-cloud-recovery-head{position:sticky;top:-18px;z-index:3;margin:-18px -18px 14px;padding:18px;background:linear-gradient(180deg,#182217 82%,rgba(24,34,23,.96));border-bottom:1px solid rgba(255,255,255,.09)}
+    .m2-r3-head-copy{min-width:0}.m2-r3-head-copy h2{font-size:clamp(1.12rem,3vw,1.55rem);letter-spacing:.02em}.m2-r3-head-copy p{margin:5px 0 0;font-size:.80rem;opacity:.68}
+    .m2-r3-head-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .m2-r3-head-btn{min-height:42px;border:1px solid rgba(255,255,255,.15);border-radius:11px;padding:8px 12px;background:#283326;color:#f6f4e8;font-weight:900;cursor:pointer}
+    .m2-r3-head-btn.is-new{background:#e9eddc;color:#152016;border-color:#e9eddc}.m2-r3-head-btn:disabled{opacity:.5;cursor:not-allowed}
+    .m2-r3-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin:0 0 10px}
+    .m2-r3-summary[hidden],.m2-r3-filters[hidden]{display:none!important}
+    .m2-r3-summary-card{min-width:0;border:1px solid rgba(255,255,255,.10);border-radius:13px;padding:9px 8px;background:rgba(255,255,255,.035);text-align:center}
+    .m2-r3-summary-card strong{display:block;font-size:1.12rem;line-height:1}.m2-r3-summary-card span{display:block;margin-top:4px;font-size:.55rem;opacity:.63;letter-spacing:.08em}
+    .m2-r3-filters{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.m2-r3-filters::-webkit-scrollbar{display:none}
+    .m2-r3-filter{flex:0 0 auto;min-height:36px;border:1px solid rgba(255,255,255,.13);border-radius:999px;padding:7px 11px;background:rgba(255,255,255,.045);color:#dce4d6;font-size:.68rem;font-weight:900;cursor:pointer}
+    .m2-r3-filter.is-active{background:#e8ecd9;color:#162017;border-color:#e8ecd9}
+    .m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .m2-cloud-event{position:relative;overflow:hidden;border-radius:16px;padding:14px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025))}
+    .m2-cloud-event::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#69766a}
+    .m2-cloud-event[data-status="draft"]::before{background:#8b9189}.m2-cloud-event[data-status="prepared"]::before{background:#c5a65b}.m2-cloud-event[data-status="published"]::before{background:#69a86f}.m2-cloud-event[data-status="live"]::before{background:#d46045}.m2-cloud-event[data-status="finished"]::before{background:#6e8da5}.m2-cloud-event[data-status="archived"]::before{background:#555e56}
+    .m2-r3-event-title{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.m2-r3-event-title h3{font-size:1.02rem;line-height:1.15;margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis}
+    .m2-cloud-event-status{flex:0 0 auto}.m2-r3-event-id{font-size:.67rem;opacity:.48;margin:5px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .m2-r3-event-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 11px}
+    .m2-r3-event-metric{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:7px 4px;text-align:center;background:rgba(0,0,0,.12)}
+    .m2-r3-event-metric strong{display:block;font-size:.91rem}.m2-r3-event-metric span{display:block;margin-top:2px;font-size:.49rem;opacity:.58;letter-spacing:.05em}
+    .m2-r3-event-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.m2-r3-event-updated{font-size:.66rem;opacity:.52;min-width:0}
+    .m2-cloud-event-open{min-height:42px;flex:0 0 auto;border-radius:10px;padding:9px 13px;background:#e5ead8;color:#111811}.m2-cloud-event-open:disabled{opacity:.55}
+    @media(max-width:760px){.m2-cloud-recovery-overlay{padding:0}.m2-cloud-recovery-panel{width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;padding:14px}.m2-cloud-recovery-head{top:-14px;margin:-14px -14px 12px;padding:calc(14px + env(safe-area-inset-top)) 14px 12px}.m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:1fr}.m2-r3-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r3-head-actions .m2-r3-head-btn:not(.is-new){display:none}}
+    @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:auto}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-r3-event-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.m2-r3-event-footer{align-items:flex-end}}
   `;
   document.head.appendChild(style);
 }
@@ -183,16 +210,30 @@ function ensureOverlay() {
   overlay.innerHTML = `
     <section class="m2-cloud-recovery-panel" role="dialog" aria-modal="true" aria-labelledby="m2CloudRecoveryTitle">
       <div class="m2-cloud-recovery-head">
-        <div>
-          <h2 id="m2CloudRecoveryTitle" style="margin:0">Eventos en Firestore</h2>
-          <div id="m2CloudRecoverySubtitle" style="font-size:.86rem;opacity:.72;margin-top:3px">Organizer: tus eventos. Super admin: todos los eventos accesibles.</div>
+        <div class="m2-r3-head-copy">
+          <h2 id="m2CloudRecoveryTitle" style="margin:0">MIS CARRERAS</h2>
+          <p id="m2CloudRecoverySubtitle">Centro de gestión del organizador · Firestore</p>
         </div>
-        <button type="button" class="m2-cloud-recovery-close" aria-label="Cerrar">×</button>
+        <div class="m2-r3-head-actions">
+          <button type="button" id="m2R3NewRace" class="m2-r3-head-btn is-new">＋ NUEVA</button>
+          <button type="button" id="m2R3Refresh" class="m2-r3-head-btn">↻ ACTUALIZAR</button>
+          <button type="button" class="m2-cloud-recovery-close" aria-label="Cerrar">×</button>
+        </div>
       </div>
+      <div id="m2R3RaceSummary" class="m2-r3-summary"></div>
+      <div id="m2R3RaceFilters" class="m2-r3-filters"></div>
       <div id="m2CloudRecoveryList" class="m2-cloud-recovery-list"></div>
     </section>
   `;
   overlay.querySelector(".m2-cloud-recovery-close")?.addEventListener("click", closeOverlay);
+  overlay.querySelector("#m2R3NewRace")?.addEventListener("click", () => {
+    closeOverlay();
+    globalThis.dispatchEvent(new CustomEvent("militopo:r3-new-race"));
+  });
+  overlay.querySelector("#m2R3Refresh")?.addEventListener("click", () => {
+    if (state.overlayMode === "history") openHistoryPicker();
+    else openCloudPicker(false);
+  });
   overlay.addEventListener("click", event => {
     if (event.target === overlay) closeOverlay();
   });
@@ -227,7 +268,9 @@ function normalizeHeader(id, data = {}) {
     resultCount: Math.max(0, Math.trunc(Number(data.resultCount) || 0)),
     resultFinishedCount: Math.max(0, Math.trunc(Number(data.resultFinishedCount) || 0)),
     resultIncompleteCount: Math.max(0, Math.trunc(Number(data.resultIncompleteCount) || 0)),
-    resultNotStartedCount: Math.max(0, Math.trunc(Number(data.resultNotStartedCount) || 0))
+    resultNotStartedCount: Math.max(0, Math.trunc(Number(data.resultNotStartedCount) || 0)),
+    checkpointSyncedCount: Math.max(0, Math.trunc(Number(data.checkpointSyncedCount) || 0)),
+    courseSyncedCount: Math.max(0, Math.trunc(Number(data.courseSyncedCount) || 0))
   };
 }
 function normalizeCheckpoint(id, data = {}) {
@@ -295,34 +338,64 @@ async function loadEventList() {
 
 function renderEventList(rows) {
   if (!state.list) return;
-  if (!rows.length) {
-    state.list.innerHTML = `<div class="m2-cloud-recovery-empty">No hay eventos de Orientación guardados en Firestore para esta cuenta.</div>`;
+  const summary = document.getElementById("m2R3RaceSummary");
+  const filters = document.getElementById("m2R3RaceFilters");
+  const statuses = ["draft","prepared","published","live","finished","archived"];
+  const counts = Object.fromEntries(statuses.map(key => [key, 0]));
+  rows.forEach(row => { const key = String(row.status || "draft"); if (key in counts) counts[key] += 1; });
+  if (summary) {
+    summary.hidden = false;
+    summary.innerHTML = [
+      [rows.length,"TOTAL"],[counts.draft,"BORRADOR"],[counts.prepared,"PREPARADO"],
+      [counts.published,"PUBLICADO"],[counts.live,"EN DIRECTO"],[counts.finished + counts.archived,"CERRADAS"]
+    ].map(([value,label]) => `<div class="m2-r3-summary-card"><strong>${value}</strong><span>${label}</span></div>`).join("");
+  }
+  const filterDefs = [
+    ["all","TODAS"],["draft","BORRADOR"],["prepared","PREPARADO"],["published","PUBLICADO"],
+    ["live","EN DIRECTO"],["finished","FINALIZADO"],["archived","ARCHIVADO"]
+  ];
+  if (filters) {
+    filters.hidden = false;
+    filters.innerHTML = filterDefs.map(([key,label]) => `<button type="button" class="m2-r3-filter${state.filter === key ? " is-active" : ""}" data-r3-filter="${key}">${label}${key === "all" ? ` · ${rows.length}` : ` · ${counts[key] || 0}`}</button>`).join("");
+    filters.querySelectorAll("[data-r3-filter]").forEach(button => button.addEventListener("click", () => {
+      state.filter = button.dataset.r3Filter || "all";
+      renderEventList(rows);
+    }));
+  }
+  const visible = state.filter === "all" ? rows : rows.filter(row => String(row.status || "draft") === state.filter);
+  state.list.classList.add("m2-r3-grid");
+  if (!visible.length) {
+    state.list.innerHTML = `<div class="m2-cloud-recovery-empty">No hay carreras en este estado.</div>`;
     return;
   }
-  state.list.innerHTML = rows.map(row => {
+  state.list.innerHTML = visible.map(row => {
     const archived = row.status === "archived";
     const own = String(row.ownerUid || "") === String(state.auth?.uid || "");
+    const routeCount = Math.max(Number(row.courseSyncedCount || 0), 0);
+    const pointCount = Math.max(Number(row.checkpointSyncedCount || 0), Number(row.controlCount || 0) + (row.controlCount ? 2 : 0));
     return `
-      <article class="m2-cloud-event${archived ? " archived" : ""}">
-        <h3>${esc(row.eventName)}</h3>
-        <div class="m2-cloud-event-meta">
+      <article class="m2-cloud-event${archived ? " archived" : ""}" data-status="${esc(row.status || "draft")}">
+        <div class="m2-r3-event-title">
+          <h3>${esc(row.eventName)}</h3>
           <span class="m2-cloud-event-status">${esc(statusLabel(row.status))}</span>
-          <span>${esc(row.eventId)}</span>
-          <span>${row.participantCount} participantes</span>
-          <span>${row.controlCount} balizas</span>
-          <span>${esc(row.cloudStage || "C1")}</span>
-          ${isSuperAdmin() ? `<span>${own ? "PROPIO" : "OTRO ORGANIZADOR"}</span>` : ""}
-          <span>${esc(formatDate(row.updatedAt))}</span>
         </div>
-        <button type="button" class="m2-cloud-event-open" data-event-id="${esc(row.eventId)}">${archived ? "ABRIR ARCHIVADO" : "ABRIR ESTE EVENTO"}</button>
-      </article>
-    `;
+        <div class="m2-r3-event-id">${esc(row.eventId)}${isSuperAdmin() ? ` · ${own ? "PROPIO" : "OTRO ORGANIZADOR"}` : ""}</div>
+        <div class="m2-r3-event-metrics">
+          <div class="m2-r3-event-metric"><strong>${row.participantCount}</strong><span>PARTICIPANTES</span></div>
+          <div class="m2-r3-event-metric"><strong>${row.controlCount}</strong><span>BALIZAS</span></div>
+          <div class="m2-r3-event-metric"><strong>${routeCount || "—"}</strong><span>RECORRIDOS</span></div>
+          <div class="m2-r3-event-metric"><strong>${pointCount || "—"}</strong><span>PUNTOS</span></div>
+        </div>
+        <div class="m2-r3-event-footer">
+          <div class="m2-r3-event-updated">Actualizada · ${esc(formatDate(row.updatedAt))}</div>
+          <button type="button" class="m2-cloud-event-open" data-event-id="${esc(row.eventId)}">${archived ? "ABRIR ARCHIVADA" : "GESTIONAR"}</button>
+        </div>
+      </article>`;
   }).join("");
   state.list.querySelectorAll(".m2-cloud-event-open").forEach(button => {
     button.addEventListener("click", () => recoverEvent(button.dataset.eventId));
   });
 }
-
 async function loadHistorySummary(row) {
   const { firestore } = await services();
   const snap = await getDocs(collection(firestore, "events", row.eventId, "results"));
@@ -416,8 +489,12 @@ async function openHistoryPicker() {
   state.overlayMode = "history";
   const title = document.getElementById("m2CloudRecoveryTitle");
   const subtitle = document.getElementById("m2CloudRecoverySubtitle");
-  if (title) title.textContent = "Histórico del organizador";
+  if (title) title.textContent = "HISTÓRICO DEL ORGANIZADOR";
   if (subtitle) subtitle.textContent = "Carreras finalizadas y archivadas · resultados permanentes en Firestore.";
+  document.getElementById("m2R3RaceSummary")?.setAttribute("hidden", "");
+  document.getElementById("m2R3RaceFilters")?.setAttribute("hidden", "");
+  const newRaceButton = document.getElementById("m2R3NewRace"); if (newRaceButton) newRaceButton.hidden = true;
+  state.list?.classList.remove("m2-r3-grid");
   state.overlay.hidden = false; state.overlay.style.display = "grid";
   if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Construyendo histórico y resultados…</div>`;
   if (launcher) launcher.disabled = true;
@@ -434,32 +511,38 @@ async function openHistoryPicker() {
   }
 }
 
-async function openCloudPicker() {
+async function openCloudPicker(resetFilter = true) {
   const launcher = document.getElementById("m2CloudRecoveryOpen");
   if (state.busy) return;
   ensureOverlay();
+  if (resetFilter) state.filter = "all";
   state.overlayMode = "events";
   const title = document.getElementById("m2CloudRecoveryTitle");
   const subtitle = document.getElementById("m2CloudRecoverySubtitle");
-  if (title) title.textContent = "Eventos en Firestore";
-  if (subtitle) subtitle.textContent = "Organizer: tus eventos. Super admin: todos los eventos accesibles.";
+  if (title) title.textContent = "MIS CARRERAS";
+  if (subtitle) subtitle.textContent = isSuperAdmin()
+    ? "Centro de gestión · todas las carreras accesibles"
+    : "Centro de gestión del organizador · tus carreras";
+  const summary = document.getElementById("m2R3RaceSummary"); if (summary) summary.hidden = false;
+  const filters = document.getElementById("m2R3RaceFilters"); if (filters) filters.hidden = false;
+  const newRaceButton = document.getElementById("m2R3NewRace"); if (newRaceButton) newRaceButton.hidden = false;
+  state.list?.classList.add("m2-r3-grid");
   state.overlay.hidden = false;
   state.overlay.style.display = "grid";
-  if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Consultando Firestore…</div>`;
+  if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Consultando tus carreras en Firestore…</div>`;
   if (launcher) launcher.disabled = true;
   try {
     const rows = await loadEventList();
     renderEventList(rows);
-    paintStatus(`☁️ ${rows.length} evento${rows.length === 1 ? "" : "s"} disponible${rows.length === 1 ? "" : "s"} en el centro de eventos.`, "ok");
+    paintStatus(`☁️ ${rows.length} carrera${rows.length === 1 ? "" : "s"} disponible${rows.length === 1 ? "" : "s"}.`, "ok");
   } catch (error) {
-    console.error("[MILITOPO C3] list", error);
+    console.error("[MILITOPO R3A] list", error);
     if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">⚠️ ${esc(error?.message || "No se pudo consultar Firestore.")}</div>`;
-    paintStatus("⚠️ No se pudo consultar la lista de eventos. El guardado local no se ha tocado.", "warn");
+    paintStatus("⚠️ No se pudo consultar la lista de carreras. El guardado local no se ha tocado.", "warn");
   } finally {
     if (launcher) launcher.disabled = false;
   }
 }
-
 async function fetchCloudEvent(eventId) {
   const { firestore } = await services();
   const eventRef = doc(firestore, "events", eventId);
@@ -557,11 +640,22 @@ function onApplied(event) {
   }
 }
 
+globalThis.MILITOPO_V2_ORGANIZER_CENTER = Object.freeze({
+  open: () => openCloudPicker(true),
+  refresh: () => openCloudPicker(false),
+  close: closeOverlay
+});
+
 function init() {
   ensureLauncher();
   ensureOverlay();
   globalThis.addEventListener("militopo:v2-auth-ready", onAuthReady);
   globalThis.addEventListener("militopo:v2-cloud-event-applied", onApplied);
+  globalThis.addEventListener("militopo:v2-event-status-changed", () => {
+    if (state.overlayMode === "events" && state.overlay && !state.overlay.hidden) {
+      setTimeout(() => openCloudPicker(false), 180);
+    }
+  });
   globalThis.addEventListener("online", () => {
     if (canManage()) paintStatus("☁️ Recuperación nube preparada.", "ok");
   });
