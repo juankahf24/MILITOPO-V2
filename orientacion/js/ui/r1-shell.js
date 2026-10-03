@@ -43,8 +43,8 @@
       <div class="r1-event"><strong id="r1EventName">${currentEventName()}</strong><span id="r1EventMeta">${currentEventId()||"Sin carrera cargada"}</span></div>
       <nav class="r1-nav" aria-label="Navegación principal MILITOPO">
         <button class="r1-nav-btn" type="button" data-r1-action="profile">${icon("profile")}<span class="r1-label r1-label-profile"><span>MI</span><span>PERFIL</span></span></button>
-        <button class="r1-nav-btn is-primary" type="button" data-r1-action="races">${icon("races")}<span class="r1-label r1-label-races"><span>MIS</span><span>CARRERAS</span></span></button>
-        <button class="r1-nav-btn" type="button" data-r1-action="new">${icon("plus")}<span>NUEVA</span></button>
+        <button class="r1-nav-btn is-primary" type="button" data-r1-action="races">${icon("plus")}<span class="r1-label r1-label-load"><span>CARGAR</span><span>CARRERA</span></span></button>
+        <button class="r1-nav-btn is-manager" type="button" data-r1-action="manager">${icon("settings")}<span class="r1-label r1-label-manager"><span>GESTIONAR</span><span>CARRERA</span></span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="participants">${icon("users")}<span>PARTICIPANTES</span></button>
         <button class="r1-nav-btn is-live" type="button" data-r1-action="live">${icon("live")}<span>LIVE</span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="more">${icon("more")}<span>MÁS</span></button>
@@ -73,7 +73,6 @@
     const wrap=document.createElement("div");wrap.className="r1-more-backdrop";wrap.id="r1More";wrap.innerHTML=`<section class="r1-more-panel" role="dialog" aria-modal="true" aria-label="Más herramientas">
       <div class="r1-more-head"><strong>MÁS HERRAMIENTAS</strong><button class="r1-close" type="button" data-more-close aria-label="Cerrar">×</button></div>
       <div class="r1-more-grid">
-        ${moreAction("GESTIÓN DE CARRERA","Panel principal de la carrera cargada","manager")}
         ${moreAction("CONFIGURACIÓN","Datos y reglas de la carrera","config")}
         ${moreAction("PARTICIPANTES","Invitaciones, censo y asignaciones","participants")}
         ${moreAction("RECORRIDOS","Crear y revisar recorridos manuales","routes")}
@@ -136,7 +135,7 @@
     if(btn){btn.click();return}
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
-  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="new"){startNewRace();return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
+  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
   function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openStep(6,"RESULTADOS Y CONTROL");if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"};
   const R3_ORDER=["draft","prepared","published","live","finished","archived"];
