@@ -97,7 +97,11 @@
     titleEl.textContent=title;body.innerHTML="";state.hosted=[];
     const stack=document.createElement("div");stack.className="r1-module-stack";body.appendChild(stack);
     nodes.filter(Boolean).forEach(node=>{const marker=document.createComment(`r1:${node.id||node.tagName}`);node.parentNode?.insertBefore(marker,node);state.hosted.push({node,marker});node.classList.add("r1-hosted");stack.appendChild(node)});
-    state.workspace.classList.add("is-open");document.body.style.overflow="hidden";setTimeout(()=>{window.dispatchEvent(new Event("resize"))},80);
+    state.workspace.classList.add("is-open");document.body.style.overflow="hidden";
+    /* R3D: todos los módulos se abren siempre desde arriba. En especial evita que
+       ESTADO Y PUBLICACIÓN conserve el scroll del módulo anterior. */
+    const resetWorkspaceScroll=()=>{try{body.scrollTop=0;body.scrollLeft=0;body.scrollTo({top:0,left:0,behavior:"auto"});if(state.workspace){state.workspace.scrollTop=0;state.workspace.scrollLeft=0}}catch(_){}};
+    resetWorkspaceScroll();requestAnimationFrame(resetWorkspaceScroll);setTimeout(()=>{resetWorkspaceScroll();window.dispatchEvent(new Event("resize"))},80);
   }
   function closeWorkspace(returnToMap=true){
     state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
