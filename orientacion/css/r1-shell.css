@@ -186,3 +186,23 @@ body.r1-shell-active.r1-workspace-open .r1-map-dock{display:none!important}
   border:0!important;box-shadow:none!important;outline:0!important;
   clip-path:circle(49% at 50% 50%)!important;-webkit-clip-path:circle(49% at 50% 50%)!important;
 }
+
+/* R2F · iOS/Safari: eliminar cualquier halo/cuadrado blanco del logo. */
+.r1-compass{
+  overflow:hidden!important;
+  border-radius:50%!important;
+  background:transparent!important;
+  contain:paint;
+}
+.r1-compass img{
+  width:104%!important;height:104%!important;
+  max-width:none!important;max-height:none!important;
+  margin:-2%!important;
+  object-fit:cover!important;
+  border-radius:50%!important;
+  clip-path:none!important;-webkit-clip-path:none!important;
+  filter:none!important;
+  background:transparent!important;
+  transform:translateZ(0);
+  -webkit-transform:translateZ(0);
+}
