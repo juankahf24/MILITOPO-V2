@@ -318,7 +318,88 @@ function syncPlanScaleSettingUi(){
     if(e)e.value=String(state.planEquidistanceM||5);
 }
 
-function confirmStep1(){if(rejectProtectedRaceMutation("cambiar la configuración del evento"))return;rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();updateParticipantSelect();updateRouteCountInfo();__militopoCloudHeaderArmed=true;saveState();publishMilitopoCloudHeader("step1-confirmed");publishMilitopoCloudStructure("step1-confirmed");toast("Configuración guardada");goStep(2)}
+function militopoR2SyncRoutesWithCurrentRules(){
+    const validPointIds=new Set(Object.keys(state.points||{}));
+    const wantedControls=Math.max(1,Number(state.controlsPerRoute)||1);
+    const maxRoutes=Math.max(1,Number(state.maxUniqueRoutes)||30);
+    const previousDesigns=typeof militopoR2ManualDesignSnapshots==="function"?militopoR2ManualDesignSnapshots():[];
+    const dropped=[];
+    const kept=[];
+    previousDesigns.forEach(design=>{
+        const routeId=String(design?.routeId||"");
+        const points=Array.isArray(design?.points)?design.points.map(String):[];
+        const controls=points.filter(id=>id!=="START"&&id!=="FINISH");
+        const structurallyValid=points.length>=2&&points[0]==="START"&&points[points.length-1]==="FINISH"&&points.every(id=>validPointIds.has(id))&&controls.length===wantedControls;
+        if(!structurallyValid){if(routeId)dropped.push(routeId);return;}
+        kept.push({routeId,points:[...points],metrics:JSON.parse(JSON.stringify(design.metrics||{}))});
+    });
+    kept.sort((a,b)=>(typeof militopoR2RouteNumber==="function"?militopoR2RouteNumber(a.routeId):0)-(typeof militopoR2RouteNumber==="function"?militopoR2RouteNumber(b.routeId):0)||a.routeId.localeCompare(b.routeId));
+    if(kept.length>maxRoutes){kept.slice(maxRoutes).forEach(x=>dropped.push(x.routeId));kept.length=maxRoutes;}
+    const designs=kept;
+    const previousAssignment=new Map((state.routes||[]).map(r=>[String(r?.participantId||""),String(r?.routeId||"")]));
+    if(!designs.length){
+        state.routes=[];state.metrics=[];state.uniqueRouteCount=0;state.routeWarnings=[];state.skippedRoutes={};
+        try{militopoR2ClearSavedRoute()}catch(_){}
+        return {kept:[],dropped:[...new Set(dropped)]};
+    }
+    const designById=new Map(designs.map((d,i)=>[d.routeId,{...d,index:i}]));
+    const count=Math.max(1,Number(state.participantCount)||1);
+    state.routes=Array.from({length:count},(_,i)=>{
+        const participantId="P"+String(i+1).padStart(2,"0");
+        const previous=designById.get(previousAssignment.get(participantId)||"");
+        const chosen=previous||designs[i%designs.length];
+        return {participantId,routeId:chosen.routeId,routeDesignIndex:designById.get(chosen.routeId)?.index||0,points:[...chosen.points]};
+    });
+    state.metrics=state.routes.map(route=>JSON.parse(JSON.stringify(designById.get(String(route.routeId))?.metrics||{})));
+    state.uniqueRouteCount=designs.length;state.skippedRoutes={};state.routeWarnings=[];
+    try{militopoR2RecalculateRouteMetrics()}catch(error){console.warn("R2H · recalculo tras reglas",error)}
+    try{assignBalancedDifficulties(state.metrics)}catch(_){}
+    try{state.routeQualitySummary=buildRouteQualitySummary(state.metrics)}catch(_){}
+    if(typeof __militopoR2SavedRouteId!=="undefined"&&__militopoR2SavedRouteId&&!designById.has(String(__militopoR2SavedRouteId))){try{militopoR2ClearSavedRoute()}catch(_){}}
+    return {kept:designs.map(x=>x.routeId),dropped:[...new Set(dropped)]};
+}
+function militopoR2ApplyRulesLive(reason="step1-confirmed"){
+    const beforeControls=Math.max(0,Number(state.controlCount)||0);
+    const beforePerRoute=Math.max(0,Number(state.controlsPerRoute)||0);
+    const beforeParticipants=Math.max(0,Number(state.participantCount)||0);
+    rebuildPointsFromConfig(true);
+    if(!state.points?.[selectedPointId])selectedPointId="START";
+    const routesResult=militopoR2SyncRoutesWithCurrentRules();
+    renderPointSelectors();
+    renderPointsTable();
+    try{renderIofDescriptionsEditor()}catch(_){}
+    updateParticipantSelect();
+    updateRouteCountInfo();
+    try{renderMapMarkers()}catch(error){console.warn("R2H · actualización inmediata del mapa",error)}
+    try{renderRoutes()}catch(_){}
+    try{renderQrPreview()}catch(_){}
+    __militopoCloudHeaderArmed=true;
+    saveState();
+    publishMilitopoCloudHeader(reason);
+    publishMilitopoCloudStructure(reason);
+    const detail={
+        reason,
+        eventId:String(state.eventId||""),
+        controlCount:Math.max(0,Number(state.controlCount)||0),
+        controlsPerRoute:Math.max(0,Number(state.controlsPerRoute)||0),
+        participantCount:Math.max(0,Number(state.participantCount)||0),
+        maxUniqueRoutes:Math.max(1,Number(state.maxUniqueRoutes)||1),
+        previous:{controlCount:beforeControls,controlsPerRoute:beforePerRoute,participantCount:beforeParticipants},
+        keptRouteIds:routesResult.kept||[],
+        droppedRouteIds:routesResult.dropped||[]
+    };
+    try{window.MILITOPO_R2_MAP_HOME?.refresh?.()}catch(_){}
+    try{window.dispatchEvent(new CustomEvent("militopo:r2-config-updated",{detail}))}catch(_){}
+    try{window.dispatchEvent(new Event("resize"))}catch(_){}
+    return detail;
+}
+function confirmStep1(){
+    if(rejectProtectedRaceMutation("cambiar la configuración del evento"))return;
+    const detail=militopoR2ApplyRulesLive("step1-confirmed");
+    const dropped=detail?.droppedRouteIds?.length||0;
+    toast(dropped?`Reglas sincronizadas · ${detail.controlCount} balizas · ${dropped} recorrido${dropped===1?"":"s"} incompatible${dropped===1?"":"s"} retirado${dropped===1?"":"s"}.`:`Reglas sincronizadas · ${detail.controlCount} balizas · pantalla principal actualizada.`);
+    goStep(2,{silent:true,noScroll:true});
+}
 // AUTOFILL TEST POINTS JS START
 function getAutofillOrientationBaseCenter(){
     // Prioridad 1: centro visible actual del mapa. Si el usuario ha buscado una zona,
