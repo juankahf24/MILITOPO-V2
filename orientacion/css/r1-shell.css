@@ -229,3 +229,46 @@ body.r1-shell-active.r1-workspace-open .r1-map-dock{display:none!important}
   .r2-tools-toggle{background:rgba(26,35,27,.97)!important}
   .r2-map-hud{background:rgba(235,239,226,.975)!important}
 }
+
+/* R2H · iOS PWA nítida.
+   En WebKit standalone, los materiales translúcidos/scroll-edge pueden crear una
+   banda borrosa sobre el mapa aunque display-mode no se detecte bien. La clase
+   se añade en <head> usando también navigator.standalone. */
+html.militopo-ios-pwa,
+html.militopo-ios-pwa body{
+  overscroll-behavior:none!important;
+  -webkit-overflow-scrolling:auto!important;
+}
+html.militopo-ios-pwa body.r1-shell-active.r1-map-home{
+  position:fixed!important;
+  inset:0!important;
+  width:100%!important;
+  height:100dvh!important;
+  min-height:100dvh!important;
+  overflow:hidden!important;
+}
+html.militopo-ios-pwa body.r1-shell-active.r1-map-home *,
+html.militopo-ios-pwa body.r1-shell-active.r1-map-home *::before,
+html.militopo-ios-pwa body.r1-shell-active.r1-map-home *::after{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+html.militopo-ios-pwa .r1-topbar,
+html.militopo-ios-pwa .r1-nav,
+html.militopo-ios-pwa .r1-nav-btn,
+html.militopo-ios-pwa .r1-compass,
+html.militopo-ios-pwa .r1-compass img{
+  filter:none!important;
+  -webkit-filter:none!important;
+  will-change:auto!important;
+}
+html.militopo-ios-pwa .r1-compass img{
+  transform:none!important;
+  -webkit-transform:none!important;
+}
+html.militopo-ios-pwa .r1-nav-btn{
+  background:#eff1e2!important;
+}
+html.militopo-ios-pwa .r1-nav-btn.is-live{
+  background:#efecdc!important;
+}
