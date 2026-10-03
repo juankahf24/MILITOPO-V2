@@ -106,7 +106,13 @@
   function openInjected(ids,title,step=1){closeMore();closeWorkspace(false);safeCall("goStep",step,{noScroll:true});setTimeout(()=>{const nodes=ids.map(id=>document.getElementById(id)).filter(Boolean);if(nodes.length)hostNodes(nodes,title);else{safeCall("toast","Módulo todavía cargando. Inténtalo de nuevo en un instante.")}},90)}
   function closeMore(){$("#r1More")?.classList.remove("is-open")}
   function openMore(){$("#r1More")?.classList.add("is-open")}
-  function openRaces(){const btn=$("#m2CloudRecoveryOpen");if(btn){btn.click();return}safeCall("goStep",1);safeCall("toast","Mis carreras se está preparando")}
+  function openRaces(){
+    const center=window.MILITOPO_V2_ORGANIZER_CENTER;
+    if(center&&typeof center.open==="function"){center.open();return}
+    const btn=$("#m2CloudRecoveryOpen");if(btn){btn.click();return}
+    safeCall("goStep",1);safeCall("toast","Mis carreras se está preparando");
+  }
+  function startNewRace(){closeMore();closeWorkspace(false);safeCall("createNewRace");setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60)}
   function openHistory(){const btn=$("#m2OrganizerHistoryOpen");if(btn){btn.click();return}openInjected(["m2EventHistoricalResults"],"HISTÓRICO Y RESULTADOS",1)}
   function openProfile(){
     closeMore();
@@ -114,7 +120,7 @@
     if(btn){btn.click();return}
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
-  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="new"){closeWorkspace(false);safeCall("createNewRace");setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60);return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
+  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="new"){startNewRace();return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
   function runMoreAction(a){if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openInjected(["m2EventHistoricalResults"],"RESULTADOS Y CLASIFICACIÓN",1);if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   function refreshContext(){
     const active=$$(".card.active")[0];const m=active?.id?.match(/^step(\d+)$/);state.currentStep=m?Number(m[1]):state.currentStep;
@@ -142,7 +148,9 @@
     document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if($("#r1More")?.classList.contains("is-open"))closeMore();else if(state.workspace?.classList.contains("is-open"))closeWorkspace();});
     const observer=new MutationObserver(refreshContext);$$('.card').forEach(card=>observer.observe(card,{attributes:true,attributeFilter:["class"]}));
   }
-  function init(){
+  
+  globalThis.addEventListener("militopo:r3-new-race",startNewRace);
+function init(){
     document.body.classList.add("r1-shell-active");
     try{setRole(localStorage.getItem("militopo_v2_last_role")||"organizer")}catch(_){}
     buildTopbar();buildMapDock();buildMore();buildWorkspace();bindEvents();refreshContext();
