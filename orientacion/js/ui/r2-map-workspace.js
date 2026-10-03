@@ -168,13 +168,25 @@
     const clear=$('[data-r2-trace="clear"]');if(clear)clear.disabled=count===0;
     bridge()?.renderDraft?.([...state.selected]);
   }
-  function confirmTrace(){
-    const result=bridge()?.createManualRoute?.(state.traceRouteId,[...state.selected]);
-    if(!result?.ok){toast(result?.error||'No se pudo guardar el recorrido');if(result?.existing)exitTrace(true);return}
+  async function confirmTrace(){
+    const confirm=$('[data-r2-trace="confirm"]');
+    const original=confirm?.textContent||`✓ GUARDAR ${state.traceRouteId||'R01'}`;
+    if(confirm){confirm.disabled=true;confirm.textContent='OBTENIENDO ALTITUD…'}
+    instruction(`${state.traceRouteId||'RECORRIDO'} · obteniendo cotas reales antes de calcular distancia y desnivel.`);
+    let result=null;
+    try{result=await Promise.resolve(bridge()?.createManualRoute?.(state.traceRouteId,[...state.selected]))}
+    catch(error){console.warn('R2G · guardado de recorrido',error);result={ok:false,error:'No se pudo guardar el recorrido.'}}
+    if(!result?.ok){
+      if(confirm){confirm.disabled=false;confirm.textContent=original}
+      toast(result?.error||'No se pudo guardar el recorrido');if(result?.existing)exitTrace(true);return
+    }
     const savedRouteId=result.routeId||state.traceRouteId||'R01';
-    toast(`${savedRouteId} guardado · recorrido manual listo.`);exitTrace(false);refresh();
+    const elev=result.elevationInfo||{};
+    const allReal=Number(elev.total)>0&&Number(elev.realCount)===Number(elev.total);
+    toast(allReal?`${savedRouteId} guardado · altitud y desnivel reales calculados.`:`${savedRouteId} guardado · no fue posible obtener todas las cotas reales.`);
+    exitTrace(false);refresh();
     showRouteDetails(savedRouteId,true);
-    instruction(`${savedRouteId} guardado correctamente. Sus datos y trazado están visibles en la pantalla principal.`);
+    instruction(allReal?`${savedRouteId} guardado correctamente · distancia, altitud y desnivel reales actualizados.`:`${savedRouteId} guardado. Falta alguna cota real; se reintentará cuando muevas/actualices puntos con conexión.`);
   }
   function exitTrace(cancelled){
     state.trace=false;state.traceRouteId='';window.__MILITOPO_R2_TRACE_MODE__=false;bridge()?.clearDraft?.();state.selected=[];closeRoutePicker();
@@ -257,6 +269,9 @@
   }
   function init(){
     ensure();
+    /* R2G: repara también recorridos ya existentes al abrir la versión nueva,
+       sin obligar a borrarlos ni volver a trazarlos. */
+    setTimeout(()=>{Promise.resolve(bridge()?.ensureRouteElevations?.()).then(()=>{refresh();refreshRouteDetails()}).catch(()=>{})},450);
     window.addEventListener('militopo:v2-orientation-structure',()=>setTimeout(()=>{refresh();maybeAdvanceControl();refreshRouteDetails()},40));
     window.addEventListener('militopo:v2-cloud-event-applied',()=>setTimeout(()=>{refresh();refreshRouteDetails()},100));
     window.addEventListener('militopo:r2-route-updated',event=>{
@@ -265,6 +280,7 @@
       if(!state.detailRouteId)state.detailRouteId=routeId;
       if(state.detailRouteId===routeId&&state.detailsVisible)showRouteDetails(routeId,false);
     });
+    window.addEventListener('militopo:r2-elevation-updated',()=>setTimeout(()=>{refresh();refreshRouteDetails()},30));
     document.addEventListener('change',e=>{if(['selectedPoint','controlCount','controlsPerRoute'].includes(e.target?.id))setTimeout(refresh,20)},{passive:true});
     if(!state.stage){
       let attempts=0;
