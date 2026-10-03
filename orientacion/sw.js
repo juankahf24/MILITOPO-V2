@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r2k-compass-direct-img-20261003";
+const BUILD_ID="v2-r2l-hide-leaflet-zoom-under-logo-20261003";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -10,7 +10,7 @@ const CORE_ASSETS=[
   "./",
   "./index.html",
   "./css/styles.css?v=v2-i6h-paso7-status-dots-20261001",
-  "./css/r1-shell.css?v=r2k-compass-direct-img-20261003",
+  "./css/r1-shell.css?v=r2l-hide-leaflet-zoom-under-logo-20261003",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./js/app.js?v=r2k-compass-direct-img-20261003",
   "./js/ui/r1-shell.js?v=r2k-compass-direct-img-20261003",
