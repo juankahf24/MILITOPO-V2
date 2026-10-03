@@ -186,14 +186,14 @@
         ${managerCard("results","RESULTADOS","Resultados y control de participantes","chart")}
         ${managerCard("analysis","ANÁLISIS","Reproductor y análisis post-carrera","chart")}
       </div>
-      <div class="r3-manager-footer"><button type="button" data-r3-manager-action="races">← MIS CARRERAS</button><button type="button" class="is-map" data-r3-manager-action="map">VOLVER AL MAPA</button></div>
+      <div class="r3-manager-footer"><button type="button" data-r3-manager-action="races">← CARGAR CARRERA</button><button type="button" class="is-map" data-r3-manager-action="map">VOLVER AL MAPA</button></div>
     </section>`;
     body.querySelectorAll("[data-r3-manager-action]").forEach(button=>button.addEventListener("click",()=>runManagerAction(button.dataset.r3ManagerAction)));
   }
   function openRaceManager(event={}){
     closeMore();
     const ctx=currentManagerContext(event);
-    if(!ctx.eventId){safeCall("toast","Carga primero una carrera desde MIS CARRERAS.");openRaces();return}
+    if(!ctx.eventId){safeCall("toast","Carga primero una carrera desde CARGAR CARRERA.");openRaces();return}
     state.managerEvent=ctx;
     closeWorkspace(false);
     const titleEl=$("#r1WorkspaceTitle");if(titleEl)titleEl.textContent="GESTIÓN DE CARRERA";
