@@ -43,7 +43,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <link rel="stylesheet" href="css/styles.css?v=v2-i6h-paso7-status-dots-20261001" />
-<link rel="stylesheet" href="css/r1-shell.css?v=r3b1-main-nav-manager-20261004" />
+<link rel="stylesheet" href="css/r1-shell.css?v=r3d-config-professional-20261004" />
 <link rel="stylesheet" href="css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003" />
 <link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929" />
 
@@ -128,23 +128,62 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 </div>
 </div></div></header>
 <nav class="steps"><button class="step-tab active" data-step="1">PASO 1 · CONFIGURAR</button><button class="step-tab" data-step="2">PASO 2 · BALIZAS Y MAPA</button><button class="step-tab" data-step="3">PASO 3 · RECORRIDOS</button><button class="step-tab" data-step="4">PASO 4 · MATERIAL QR</button><button class="step-tab" data-step="5">PASO 5 · 🚦 SECUENCIA</button><button class="step-tab" data-step="6">PASO 6 · RESULTADOS</button><button class="step-tab" data-step="7">PASO 7 · ANÁLISIS</button></nav>
-<section id="step1" class="card active"><div class="card-header"><h2>⚙️ CONFIGURAR PRUEBA</h2></div><div class="grid two"><div class="block"><label>Nombre de la prueba</label><input id="eventName" value="ENTRENAMIENTO ORIENTACIÓN"><div class="help">Se usa para identificar el evento y para el ZIP.</div>
-            <div class="grid-2">
-                <div>
-                    <label>Escala del plano</label>
-                    <select id="planScaleSelect" onchange="updatePlanScaleSetting()">
-                        <option value="10000">1:10.000</option>
-                        <option value="7500">1:7.500</option>
-                    </select>
-                    <div class="help">Se aplica a todos los planos imprimibles.</div>
-                </div>
-                <div>
-                    <label>Equidistancia del plano</label>
-                    <input id="planEquidistanceInput" type="number" min="1" step="0.5" value="5" onchange="updatePlanScaleSetting()">
-                    <div class="help">Por defecto 5 m. Cámbiala solo si el plano real usa otra.</div>
-                </div>
-            </div>
-</div><div class="block"><label>Identificador interno</label><input id="eventId" readonly><div class="help">Identificador estable del evento. Tras confirmar el PASO 1, la cabecera se sincroniza con Firestore sin sustituir el guardado local.</div></div><div class="block"><label>Participantes</label><select id="participantCount"></select></div><div class="block"><label>Máximo de recorridos únicos</label><select id="maxUniqueRoutes"></select><div class="help">Por defecto 15. Los recorridos se reparten de forma cíclica: con 15 diseños, P01, P16 y P31 reciben R01.</div></div><div class="block"><label>Balizas totales</label><select id="controlCount"></select></div><div class="block"><label>Balizas por recorrido</label><select id="controlsPerRoute"></select></div><div class="block"><label>Máximo uso por baliza</label><select id="maxControlReuse"></select><div class="help">Limita que una misma baliza aparezca en demasiados recorridos.</div></div></div><div class="nav-row"><button class="btn secondary" onclick="createNewRace()">➕ CREAR CARRERA NUEVA</button><button class="btn green" onclick="confirmStep1()">SINCRONIZAR REGLAS Y VOLVER AL MAPA →</button><button class="btn red" onclick="resetSavedEvent()">🗑️ BORRAR EVENTO GUARDADO</button></div></section>
+<section id="step1" class="card active r3-config-card">
+  <div class="r3-config-head">
+    <div>
+      <span>ORGANIZADOR · CONFIGURACIÓN</span>
+      <h2>CONFIGURACIÓN DE CARRERA</h2>
+      <p>Define la identidad, el plano y las reglas estructurales. Al sincronizar, el mapa principal se actualiza sin recargar la PWA.</p>
+    </div>
+    <div class="r3-config-sync-pill">REGLAS DE CARRERA</div>
+  </div>
+
+  <section class="r3-config-section">
+    <div class="r3-config-section-title"><span>01</span><div><strong>IDENTIDAD Y CARTOGRAFÍA</strong><small>Datos generales y parámetros del plano.</small></div></div>
+    <div class="r3-config-grid r3-config-grid-identity">
+      <div class="block r3-config-field r3-config-field-wide">
+        <label>Nombre de la prueba</label>
+        <input id="eventName" value="ENTRENAMIENTO ORIENTACIÓN">
+        <div class="help">Identifica la carrera en Cargar Carrera, resultados y exportaciones.</div>
+      </div>
+      <div class="block r3-config-field">
+        <label>Identificador interno</label>
+        <input id="eventId" readonly>
+        <div class="help">ID estable sincronizado con Firestore.</div>
+      </div>
+      <div class="block r3-config-field">
+        <label>Escala del plano</label>
+        <select id="planScaleSelect" onchange="updatePlanScaleSetting()">
+          <option value="10000">1:10.000</option>
+          <option value="7500">1:7.500</option>
+        </select>
+        <div class="help">Se aplica a todos los planos imprimibles.</div>
+      </div>
+      <div class="block r3-config-field">
+        <label>Equidistancia del plano</label>
+        <input id="planEquidistanceInput" type="number" min="1" step="0.5" value="5" onchange="updatePlanScaleSetting()">
+        <div class="help">Por defecto 5 m. Usa la equidistancia real del plano.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="r3-config-section">
+    <div class="r3-config-section-title"><span>02</span><div><strong>CAPACIDAD Y RECORRIDOS</strong><small>Reglas que determinan cuántas balizas y recorridos podrás diseñar.</small></div></div>
+    <div class="r3-config-grid">
+      <div class="block r3-config-field"><label>Participantes</label><select id="participantCount"></select><div class="help">Capacidad prevista de la carrera.</div></div>
+      <div class="block r3-config-field"><label>Máximo de recorridos únicos</label><select id="maxUniqueRoutes"></select><div class="help">Los recorridos se asignan de forma cíclica cuando hay más participantes que diseños.</div></div>
+      <div class="block r3-config-field"><label>Balizas totales</label><select id="controlCount"></select><div class="help">Número total de balizas disponibles en el mapa.</div></div>
+      <div class="block r3-config-field"><label>Balizas por recorrido</label><select id="controlsPerRoute"></select><div class="help">Número de controles que compondrá cada recorrido.</div></div>
+      <div class="block r3-config-field"><label>Máximo uso por baliza</label><select id="maxControlReuse"></select><div class="help">Limita la repetición de una misma baliza entre recorridos.</div></div>
+    </div>
+  </section>
+
+  <div class="r3-config-actions">
+    <button class="btn secondary" onclick="createNewRace()">➕ CREAR CARRERA NUEVA</button>
+    <button class="btn green r3-config-save" onclick="confirmStep1()">SINCRONIZAR REGLAS Y VOLVER AL MAPA →</button>
+    <button class="btn red r3-config-delete" onclick="resetSavedEvent()">🗑️ BORRAR EVENTO GUARDADO</button>
+  </div>
+</section>
 <section id="step2" class="card"><div class="card-header"><h2>🗺️ EDITAR BALIZAS Y MAPA</h2><div class="mode-pill">Salida · Llegada · Balizas con etiqueta</div></div>
 <div class="block"><label>Buscar zona del mapa</label><div class="map-tools"><input id="searchBox" placeholder="Lugar, dirección o coordenada UTM"><button class="btn" onclick="searchPlace()">🔍 BUSCAR</button><button class="btn secondary" onclick="fitAllPoints()">🧭 VER TODO</button></div></div>
 <div class="geotiff-map-manager">
@@ -610,7 +649,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
 <script src="js/app.js?v=r2k-compass-direct-img-20261003"></script>
-<script src="js/ui/r1-shell.js?v=r3c-lifecycle-panel-20261004"></script>
+<script src="js/ui/r1-shell.js?v=r3d-config-professional-20261004"></script>
 <script src="js/ui/r2-map-workspace.js?v=r2k-compass-direct-img-20261003"></script>
 
 <script>
