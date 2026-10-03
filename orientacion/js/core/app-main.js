@@ -531,13 +531,15 @@ function saveSelectedPoint(){
     p.lat=ll.lat;
     p.lon=ll.lon;
     p.desc=p.desc||p.id;
+    p.elevation=null;
+    militopoR2OnPointGeometryChanged(p.id);
     renderPointsTable();
     renderMapMarkers();
     renderIofDescriptionsEditor();
     saveState();
     toast(`${p.id} guardado`);
 }
-function clearSelectedPoint(){if(rejectProtectedRaceMutation("eliminar una baliza"))return;const p=state.points[selectedPointId];if(!p)return;p.utm="";p.lat=null;p.lon=null;p.elevation=null;renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} limpiado`)}
+function clearSelectedPoint(){if(rejectProtectedRaceMutation("eliminar una baliza"))return;const p=state.points[selectedPointId];if(!p)return;p.utm="";p.lat=null;p.lon=null;p.elevation=null;militopoR2OnPointGeometryChanged(p.id);renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} limpiado`)}
 function normalizeUtmText(value){
     return String(value||"").trim().replace(/\s+/g," ").toUpperCase();
 }
@@ -1262,7 +1264,7 @@ function renderPlanPdfPreview(){
     });
 }
 
-function initMap(){if(map)return;const step2MaxZoom=24;const pnoaNativeMaxZoom=19;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=L.tileLayer("https://www.ign.es/wmts/mapa-raster?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=MTN&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© Instituto Geográfico Nacional",maxNativeZoom:18,maxZoom:step2MaxZoom,keepBuffer:6,updateWhenZooming:true});layers.pnoa=L.tileLayer("https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© PNOA Máxima Actualidad · IGN",maxNativeZoom:pnoaNativeMaxZoom,maxZoom:22,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:true,crossOrigin:true,className:"pnoa-overzoom-tile"});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(initialLayer==="pnoa"?22:step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(window.__MILITOPO_R2_TRACE_MODE__===true)return;if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;document.getElementById("selectedUtm").value=utm;renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
+function initMap(){if(map)return;const step2MaxZoom=24;const pnoaNativeMaxZoom=19;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=L.tileLayer("https://www.ign.es/wmts/mapa-raster?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=MTN&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© Instituto Geográfico Nacional",maxNativeZoom:18,maxZoom:step2MaxZoom,keepBuffer:6,updateWhenZooming:true});layers.pnoa=L.tileLayer("https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}",{attribution:"© PNOA Máxima Actualidad · IGN",maxNativeZoom:pnoaNativeMaxZoom,maxZoom:22,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:true,crossOrigin:true,className:"pnoa-overzoom-tile"});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(initialLayer==="pnoa"?22:step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(window.__MILITOPO_R2_TRACE_MODE__===true)return;if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;p.elevation=null;document.getElementById("selectedUtm").value=utm;militopoR2OnPointGeometryChanged(p.id);renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
 function bringPlanPreviewToFront(){
     try{
         if(pdfPlanPreviewRectangle&&typeof pdfPlanPreviewRectangle.bringToFront==="function")pdfPlanPreviewRectangle.bringToFront();
@@ -1352,6 +1354,7 @@ function saveOrientationPopupPoint(pointId){
     p.lon=ll.lon;
     p.desc=p.desc||p.id;
     p.elevation=null;
+    militopoR2OnPointGeometryChanged(p.id);
 
     selectedPointId=pointId;
     renderPointSelectors();
@@ -1371,6 +1374,7 @@ function deleteOrientationPopupPoint(pointId){
     p.lon=null;
     p.elevation=null;
     p.desc=p.type==="BALIZA"?p.id:p.type;
+    militopoR2OnPointGeometryChanged(p.id);
 
     selectedPointId=pointId;
     renderPointSelectors();
@@ -1382,7 +1386,7 @@ function deleteOrientationPopupPoint(pointId){
 }
 // ORIENTATION POINT POPUP JS END
 
-function renderMapMarkers(){if(!markersLayer)return;markersLayer.clearLayers();routeLayer?.clearLayers();renderPlanPdfPreview();Object.values(state.points).forEach(p=>{if(p.lat===null||p.lon===null)return;const icon=L.divIcon({html:`<div class="${iconClassForType(p.type)}">${p.type==="BALIZA"?p.id.replace("B",""):""}</div>`,className:"",iconSize:[16,16],iconAnchor:[8,8]});const marker=L.marker([p.lat,p.lon],{icon,draggable:!currentMilitopoCloudDesignLock()}).bindTooltip(`${p.id}`,{permanent:true,direction:"right",className:"marker-label"}).on("dragend",ev=>{if(rejectProtectedRaceMutation("mover balizas")){renderMapMarkers();return;}const ll=ev.target.getLatLng();p.lat=ll.lat;p.lon=ll.lng;p.utm=latLonToUtm(ll.lat,ll.lng);p.elevation=null;selectedPointId=p.id;renderPointsTable();loadSelectedPointFields();saveState();renderPlanPdfPreview();const popup=marker.getPopup?.();if(popup)marker.setPopupContent(buildOrientationPointPopup(p.id))}).on("click",ev=>{if(window.__MILITOPO_R2_TRACE_MODE__===true&&typeof window.militopoR2HandleMapPointClick==="function"){try{L.DomEvent.stopPropagation(ev);}catch(_){ }try{marker.closePopup()}catch(_){ }window.militopoR2HandleMapPointClick(p.id);return;}openOrientationPointPopup(marker,p.id)}).addTo(markersLayer)})}function iconClassForType(type){return type==="SALIDA"?"ori-start-icon":type==="LLEGADA"?"ori-finish-icon":"ori-control-icon"}function zoomSelectedPoint(){const p=state.points[selectedPointId];if(!map||!p||p.lat===null)return;map.setView([p.lat,p.lon],19)}function fitAllPoints(){
+function renderMapMarkers(){if(!markersLayer)return;markersLayer.clearLayers();routeLayer?.clearLayers();renderPlanPdfPreview();Object.values(state.points).forEach(p=>{if(p.lat===null||p.lon===null)return;const icon=L.divIcon({html:`<div class="${iconClassForType(p.type)}">${p.type==="BALIZA"?p.id.replace("B",""):""}</div>`,className:"",iconSize:[16,16],iconAnchor:[8,8]});const marker=L.marker([p.lat,p.lon],{icon,draggable:!currentMilitopoCloudDesignLock()}).bindTooltip(`${p.id}`,{permanent:true,direction:"right",className:"marker-label"}).on("dragend",ev=>{if(rejectProtectedRaceMutation("mover balizas")){renderMapMarkers();return;}const ll=ev.target.getLatLng();p.lat=ll.lat;p.lon=ll.lng;p.utm=latLonToUtm(ll.lat,ll.lng);p.elevation=null;selectedPointId=p.id;militopoR2OnPointGeometryChanged(p.id);renderPointsTable();loadSelectedPointFields();saveState();renderMapMarkers();const popup=marker.getPopup?.();if(popup)marker.setPopupContent(buildOrientationPointPopup(p.id))}).on("click",ev=>{if(window.__MILITOPO_R2_TRACE_MODE__===true&&typeof window.militopoR2HandleMapPointClick==="function"){try{L.DomEvent.stopPropagation(ev);}catch(_){ }try{marker.closePopup()}catch(_){ }window.militopoR2HandleMapPointClick(p.id);return;}openOrientationPointPopup(marker,p.id)}).addTo(markersLayer)})}function iconClassForType(type){return type==="SALIDA"?"ori-start-icon":type==="LLEGADA"?"ori-finish-icon":"ori-control-icon"}function zoomSelectedPoint(){const p=state.points[selectedPointId];if(!map||!p||p.lat===null)return;map.setView([p.lat,p.lon],19)}function fitAllPoints(){
     if(!map)return;
     const latlngs=Object.values(state.points||{})
         .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon))
@@ -11009,7 +11013,119 @@ function militopoR2CreateManualRoute(routeId,controlIds){
     designs.forEach(d=>{const m=d.metrics||{};if(Number(m.overMaxLegs||0)>0)state.routeWarnings.push(`${d.routeId}: revisa tramos superiores al objetivo de 800 m.`);if(Number(m.shortControlLegs||0)>0)state.routeWarnings.push(`${d.routeId}: contiene ${m.shortControlLegs} tramo(s) entre balizas por debajo de 200 m.`);});
     assignBalancedDifficulties(state.metrics);state.routeQualitySummary=buildRouteQualitySummary(state.metrics);
     renderRoutes();renderQrPreview();updateParticipantSelect();updateRouteCountInfo();saveState();publishMilitopoCloudStructure("r2-manual-route");
+    militopoR2RenderSavedRoute(routeId,{fit:false});
+    militopoR2NotifyRouteUi(routeId,existed?"route-replaced":"route-created");
     return {ok:true,routeId,created:!existed,replaced:existed,points:[...built.pointIds],metrics:{...built.metrics},quality:built.quality?.label||""};
+}
+
+/* R2F · recorrido activo en el mapa principal + sincronización de geometría/metricas. */
+let __militopoR2SavedRouteLayer=null;
+let __militopoR2SavedRouteId="";
+function militopoR2EnsureSavedRouteLayer(){
+    if(!map||typeof L==="undefined")return null;
+    if(!__militopoR2SavedRouteLayer)__militopoR2SavedRouteLayer=L.layerGroup().addTo(map);
+    return __militopoR2SavedRouteLayer;
+}
+function militopoR2RouteById(routeId){
+    routeId=String(routeId||"").trim();
+    return (state.routes||[]).find(r=>String(r?.routeId||"")===routeId)||null;
+}
+function militopoR2RouteControlIds(route){
+    return (Array.isArray(route?.points)?route.points:[])
+        .map(String)
+        .filter(id=>id!=="START"&&id!=="FINISH");
+}
+function militopoR2GetRouteDetails(routeId){
+    const route=militopoR2RouteById(routeId);
+    if(!route)return null;
+    const finiteOrNull=value=>(value!==null&&value!==""&&Number.isFinite(Number(value)))?Number(value):null;
+    const idx=(state.routes||[]).findIndex(r=>String(r?.routeId||"")===String(route.routeId||""));
+    const metric=(state.metrics||[])[idx]||{};
+    const points=(route.points||[]).map(id=>state.points?.[id]).filter(Boolean).map(point=>({
+        id:String(point.id||""),
+        type:String(point.type||""),
+        lat:finiteOrNull(point.lat),
+        lon:finiteOrNull(point.lon),
+        elevation:finiteOrNull(point.elevation),
+        elevationReal:point.elevationReal===true
+    }));
+    return {
+        routeId:String(route.routeId||""),
+        controls:militopoR2RouteControlIds(route),
+        points,
+        metrics:{
+            distanceKm:finiteOrNull(metric.distanceKm),
+            longestKm:finiteOrNull(metric.longestKm),
+            positiveM:finiteOrNull(metric.positiveM),
+            negativeM:finiteOrNull(metric.negativeM),
+            globalM:finiteOrNull(metric.globalM),
+            difficulty:String(metric.difficulty||"MEDIA"),
+            quality:String(metric.quality||""),
+            qualityCode:String(metric.qualityCode||""),
+            routeMode:String(metric.routeMode||"")
+        }
+    };
+}
+function militopoR2RenderSavedRoute(routeId,{fit=false}={}){
+    const layer=militopoR2EnsureSavedRouteLayer();if(!layer)return false;
+    layer.clearLayers();
+    const details=militopoR2GetRouteDetails(routeId);
+    if(!details){__militopoR2SavedRouteId="";return false}
+    const latlngs=details.points.filter(p=>p.lat!==null&&p.lon!==null).map(p=>[p.lat,p.lon]);
+    if(latlngs.length<2){__militopoR2SavedRouteId=details.routeId;return false}
+    L.polyline(latlngs,{color:"#17361f",weight:8,opacity:.42,lineCap:"round",lineJoin:"round",interactive:false}).addTo(layer);
+    L.polyline(latlngs,{color:"#43d064",weight:4,opacity:.96,dashArray:"12 8",lineCap:"round",lineJoin:"round",interactive:false,className:"r2-saved-route-line"}).addTo(layer);
+    __militopoR2SavedRouteId=details.routeId;
+    if(fit)try{map.fitBounds(latlngs,{padding:[54,54],maxZoom:19,animate:false})}catch(_){}
+    return true;
+}
+function militopoR2ClearSavedRoute(){
+    try{__militopoR2SavedRouteLayer?.clearLayers()}catch(_){}
+    __militopoR2SavedRouteId="";
+}
+function militopoR2RecalculateRouteMetrics(){
+    if(!Array.isArray(state.routes)||!state.routes.length)return;
+    const byRoute=new Map();
+    (state.routes||[]).forEach(route=>{
+        const routeId=String(route?.routeId||"");
+        if(!routeId||byRoute.has(routeId))return;
+        try{
+            const routePointIds=["START",...militopoR2RouteControlIds(route),"FINISH"];
+            const hasGeometry=routePointIds.every(id=>{
+                const point=state.points?.[id];
+                return point&&point.lat!==null&&point.lat!==""&&point.lon!==null&&point.lon!==""&&Number.isFinite(Number(point.lat))&&Number.isFinite(Number(point.lon));
+            });
+            if(!hasGeometry)return;
+            const built=buildManualRouteMetrics(militopoR2RouteControlIds(route));
+            byRoute.set(routeId,{points:[...built.pointIds],metrics:{...built.metrics}});
+        }catch(error){console.warn("R2F · no se pudieron recalcular métricas",routeId,error)}
+    });
+    state.routes=(state.routes||[]).map(route=>{
+        const fresh=byRoute.get(String(route?.routeId||""));
+        return fresh?{...route,points:[...fresh.points]}:route;
+    });
+    const previousMetrics=Array.isArray(state.metrics)?state.metrics:[];
+    state.metrics=(state.routes||[]).map((route,index)=>{
+        const fresh=byRoute.get(String(route?.routeId||""));
+        return fresh?JSON.parse(JSON.stringify(fresh.metrics)):JSON.parse(JSON.stringify(previousMetrics[index]||{}));
+    });
+    assignBalancedDifficulties(state.metrics);
+    state.routeQualitySummary=buildRouteQualitySummary(state.metrics);
+}
+function militopoR2NotifyRouteUi(routeId,reason="update"){
+    const details=militopoR2GetRouteDetails(routeId||__militopoR2SavedRouteId);
+    try{window.dispatchEvent(new CustomEvent("militopo:r2-route-updated",{detail:{routeId:String(routeId||details?.routeId||""),reason,details}}))}catch(_){}
+}
+function militopoR2OnPointGeometryChanged(pointId){
+    if(Array.isArray(state.routes)&&state.routes.length){
+        militopoR2RecalculateRouteMetrics();
+        try{renderRoutes()}catch(_){}
+        try{renderQrPreview()}catch(_){}
+        try{updateParticipantSelect()}catch(_){}
+        try{updateRouteCountInfo()}catch(_){}
+    }
+    if(__militopoR2SavedRouteId)militopoR2RenderSavedRoute(__militopoR2SavedRouteId);
+    militopoR2NotifyRouteUi(__militopoR2SavedRouteId,"point:"+String(pointId||""));
 }
 window.MILITOPO_R2_BRIDGE={
     getSnapshot(){
@@ -11025,6 +11141,9 @@ window.MILITOPO_R2_BRIDGE={
     fitAll(){fitAllPoints();return true;},
     renderDraft(ids){militopoR2RenderDraftRoute(ids);},
     clearDraft(){militopoR2ClearDraftRoute();},
+    getRouteDetails(routeId){return militopoR2GetRouteDetails(routeId);},
+    showSavedRoute(routeId,options){return militopoR2RenderSavedRoute(routeId,options||{});},
+    clearSavedRoute(){militopoR2ClearSavedRoute();return true;},
     createManualRoute(routeId,ids){return militopoR2CreateManualRoute(routeId,ids);},
     createFirstManualRoute(ids){return militopoR2CreateManualRoute("R01",ids);},
     openExistingRoute(routeId="R01"){
