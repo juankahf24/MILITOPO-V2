@@ -112,7 +112,17 @@
     const btn=$("#m2CloudRecoveryOpen");if(btn){btn.click();return}
     safeCall("goStep",1);safeCall("toast","Mis carreras se está preparando");
   }
-  function startNewRace(){closeMore();closeWorkspace(false);safeCall("createNewRace");setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60)}
+  async function startNewRace(){
+    closeMore();
+    /* createNewRace devuelve false al pulsar CANCELAR. No cambiamos de pantalla
+       ni cerramos MIS CARRERAS hasta que el usuario confirme de verdad. */
+    const created=await safeCall("createNewRace");
+    if(created!==true)return false;
+    try{window.MILITOPO_V2_ORGANIZER_CENTER?.close?.()}catch(_){}
+    closeWorkspace(false);
+    setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60);
+    return true;
+  }
   function openHistory(){const btn=$("#m2OrganizerHistoryOpen");if(btn){btn.click();return}openInjected(["m2EventHistoricalResults"],"HISTÓRICO Y RESULTADOS",1)}
   function openProfile(){
     closeMore();
