@@ -336,3 +336,14 @@ img.r1-compass::after{content:none!important;display:none!important}
 @media(max-width:390px){
   img.r1-compass{width:72px!important;height:72px!important}
 }
+
+/* R2L · FIX HOME: ocultar el control de zoom nativo de Leaflet que quedaba
+   debajo de la brújula. Sus dos botones blancos (+ / −) eran los "trozos blancos"
+   visibles únicamente en la pantalla cartográfica principal. El control sigue en
+   el DOM para que los botones de zoom MILITOPO de la derecha puedan accionarlo
+   programáticamente; solo deja de pintarse y de recibir toques directos. */
+body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
