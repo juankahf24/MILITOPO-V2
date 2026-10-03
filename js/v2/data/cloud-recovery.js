@@ -145,9 +145,9 @@ function ensureStyles() {
     .m2-r3-filterbar{display:grid;grid-template-columns:auto minmax(190px,300px);align-items:center;justify-content:space-between;gap:12px;border:1px solid rgba(255,255,255,.11);border-radius:13px;padding:8px 10px;background:rgba(255,255,255,.035)}
     .m2-r3-filter-copy{display:grid;gap:2px;min-width:0}.m2-r3-filter-copy strong{font-size:.72rem;letter-spacing:.06em}.m2-r3-filter-copy span{font-size:.60rem;opacity:.58}
     .m2-r3-filter-select-wrap{position:relative;min-width:0}
-    .m2-r3-filter-select{appearance:none;-webkit-appearance:none;width:100%;min-height:40px;border:1px solid rgba(255,255,255,.17);border-radius:10px;padding:8px 38px 8px 12px;background:#e8ecd9;color:#162017;font:900 .72rem/1 system-ui,-apple-system,sans-serif;cursor:pointer;outline:none}
-    .m2-r3-filter-select-wrap::after{content:"⌄";position:absolute;right:13px;top:50%;transform:translateY(-55%);color:#162017;font-size:1rem;font-weight:900;pointer-events:none}
-    .m2-r3-filter-select:focus{box-shadow:0 0 0 3px rgba(232,236,217,.14);border-color:#e8ecd9}
+    .m2-r3-filter-select{appearance:none;-webkit-appearance:none;width:100%;min-height:42px;border:1px solid #d7dcc7;border-radius:10px;padding:9px 38px 9px 12px;background:#f7f3df!important;color:#101810!important;-webkit-text-fill-color:#101810!important;font:900 .78rem/1.25 system-ui,-apple-system,sans-serif;cursor:pointer;outline:none;opacity:1!important;color-scheme:light}
+    .m2-r3-filter-select-wrap::after{content:"⌄";position:absolute;right:13px;top:50%;transform:translateY(-55%);color:#101810!important;font-size:1rem;font-weight:900;pointer-events:none}
+    .m2-r3-filter-select:focus{box-shadow:0 0 0 3px rgba(247,243,223,.18);border-color:#f7f3df}.m2-r3-filter-select option{background:#fffef7!important;color:#101810!important;-webkit-text-fill-color:#101810!important}
     .m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .m2-cloud-event{position:relative;overflow:hidden;border-radius:16px;padding:14px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025))}
     .m2-cloud-event::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#69766a}
@@ -156,7 +156,7 @@ function ensureStyles() {
     .m2-cloud-event-status{flex:0 0 auto}.m2-r3-event-id{font-size:.67rem;opacity:.48;margin:5px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .m2-r3-event-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 11px}
     .m2-r3-event-metric{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:7px 4px;text-align:center;background:rgba(0,0,0,.12)}
-    .m2-r3-event-metric strong{display:block;font-size:.91rem}.m2-r3-event-metric span{display:block;margin-top:2px;font-size:.49rem;opacity:.58;letter-spacing:.05em}
+    .m2-r3-event-metric strong{display:block;font-size:.91rem}.m2-r3-event-metric span{display:block;margin-top:2px;font-size:.49rem;opacity:.58;letter-spacing:.05em}.m2-r3-event-metric.is-route-controls span{display:flex;align-items:center;justify-content:center;min-height:2.15em;margin-top:2px;padding:0 1px;font-size:clamp(.39rem,1.55vw,.47rem);line-height:1.06;letter-spacing:.025em;white-space:normal;overflow-wrap:normal;word-break:keep-all}
     .m2-r3-event-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.m2-r3-event-updated{font-size:.66rem;opacity:.52;min-width:0}
     .m2-cloud-event-open{min-height:42px;flex:0 0 auto;border-radius:10px;padding:9px 13px;background:#e5ead8;color:#111811}.m2-cloud-event-open:disabled{opacity:.55}
     @media(max-width:760px){.m2-cloud-recovery-overlay{padding:0}.m2-cloud-recovery-panel{width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;padding:14px}.m2-cloud-recovery-head{top:-14px;margin:-14px -14px 12px;padding:calc(14px + env(safe-area-inset-top)) 14px 12px}.m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:1fr}.m2-r3-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r3-head-actions .m2-r3-head-btn:not(.is-new){display:none}}
@@ -399,7 +399,7 @@ function renderEventList(rows) {
           <div class="m2-r3-event-metric"><strong>${row.participantCount}</strong><span>PARTICIPANTES</span></div>
           <div class="m2-r3-event-metric"><strong>${row.controlCount}</strong><span>BALIZAS</span></div>
           <div class="m2-r3-event-metric"><strong>${routeCount || "—"}</strong><span>RECORRIDOS</span></div>
-          <div class="m2-r3-event-metric"><strong>${controlsPerRoute || "—"}</strong><span>BALIZAS / RUTA</span></div>
+          <div class="m2-r3-event-metric is-route-controls"><strong>${controlsPerRoute || "—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
         </div>
         <div class="m2-r3-event-footer">
           <div class="m2-r3-event-updated">Actualizada · ${esc(formatDate(row.updatedAt))}</div>
