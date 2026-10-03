@@ -30,7 +30,7 @@
   function buildTopbar(){
     const compass=document.createElement("div");
     compass.className="r1-compass";compass.dataset.r1Action="home";compass.setAttribute("role","button");compass.tabIndex=0;compass.setAttribute("aria-label","MILITOPO");
-    compass.innerHTML='<img src="assets/r1/militopo-compass.png" alt="Brújula MILITOPO">';
+    compass.innerHTML='<img src="assets/r1/militopo-compass.png?v=r2f-logo-20261003" alt="Brújula MILITOPO">';
     const bar=document.createElement("header");bar.className="r1-topbar";bar.id="militopoR1Topbar";
     bar.innerHTML=`
       <div class="r1-event"><strong id="r1EventName">${currentEventName()}</strong><span id="r1EventMeta">${currentEventId()||"Sin carrera cargada"}</span></div>
