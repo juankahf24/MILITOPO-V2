@@ -126,6 +126,16 @@
     window.addEventListener("militopo:v2-auth-ready",e=>setRole(e.detail?.role));
     window.addEventListener("militopo:v2-orientation-header",e=>{const h=e.detail?.header||{};const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name&&h.eventName)name.textContent=h.eventName;if(meta&&h.eventId)meta.textContent=h.eventId});
     window.addEventListener("militopo:v2-cloud-event-applied",()=>setTimeout(refreshContext,100));
+    window.addEventListener("militopo:r2-config-updated",event=>{
+      /* R2H · una sola pulsación en SINCRONIZAR aplica reglas y vuelve al mapa
+         sin recargar ni cerrar la PWA. */
+      closeMore();
+      closeWorkspace(true);
+      setTimeout(()=>{
+        try{window.MILITOPO_R2_MAP_HOME?.activate?.();window.MILITOPO_R2_MAP_HOME?.refresh?.()}catch(_){}
+        refreshContext();
+      },45);
+    });
     document.addEventListener("input",e=>{if(e.target?.id==="eventName")refreshContext()},{passive:true});
     document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if($("#r1More")?.classList.contains("is-open"))closeMore();else if(state.workspace?.classList.contains("is-open"))closeWorkspace();});
     const observer=new MutationObserver(refreshContext);$$('.card').forEach(card=>observer.observe(card,{attributes:true,attributeFilter:["class"]}));

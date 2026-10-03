@@ -274,6 +274,15 @@
     setTimeout(()=>{Promise.resolve(bridge()?.ensureRouteElevations?.()).then(()=>{refresh();refreshRouteDetails()}).catch(()=>{})},450);
     window.addEventListener('militopo:v2-orientation-structure',()=>setTimeout(()=>{refresh();maybeAdvanceControl();refreshRouteDetails()},40));
     window.addEventListener('militopo:v2-cloud-event-applied',()=>setTimeout(()=>{refresh();refreshRouteDetails()},100));
+    window.addEventListener('militopo:r2-config-updated',event=>{
+      if(state.trace)exitTrace(true);
+      state.placeMode='';state.lastSelected='';setTool('');
+      const d=event.detail||{};
+      setTimeout(()=>{
+        refresh();refreshRouteDetails();
+        instruction(`Reglas sincronizadas · ${Number(d.controlCount)||0} balizas · ${Number(d.controlsPerRoute)||0} por recorrido. Los cambios ya están activos.`);
+      },20);
+    });
     window.addEventListener('militopo:r2-route-updated',event=>{
       const routeId=String(event.detail?.routeId||'');
       if(!routeId||state.trace)return;
