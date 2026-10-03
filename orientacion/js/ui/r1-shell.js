@@ -28,9 +28,11 @@
   function currentEventId(){return String($("#eventId")?.value||"").trim()}
 
   function buildTopbar(){
-    const compass=document.createElement("div");
+    const compass=document.createElement("img");
     compass.className="r1-compass";compass.dataset.r1Action="home";compass.setAttribute("role","button");compass.tabIndex=0;compass.setAttribute("aria-label","MILITOPO");
-    compass.innerHTML='<img src="assets/r1/militopo-compass-r2j.png?v=r2j-home-logo-clean-20261003" alt="Brújula MILITOPO">';
+    compass.src="assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003";
+    compass.alt="Brújula MILITOPO";
+    compass.draggable=false;
     const bar=document.createElement("header");bar.className="r1-topbar";bar.id="militopoR1Topbar";
     bar.innerHTML=`
       <div class="r1-event"><strong id="r1EventName">${currentEventName()}</strong><span id="r1EventMeta">${currentEventId()||"Sin carrera cargada"}</span></div>
