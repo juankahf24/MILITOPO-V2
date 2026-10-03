@@ -291,10 +291,12 @@ async function syncLatest() {
       remote.checkpoints = new Map([...wantedCheckpoints].map(([id, item]) => [id, item.hash]));
       remote.courses = new Map([...wantedCourses].map(([id, item]) => [id, item.hash]));
       paintStatus(`✅ Estructura sincronizada · ${packet.checkpoints.length} puntos · ${packet.courses.length} recorridos`, "ok");
+      try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-synced", { detail: { eventId: packet.eventId, checkpointCount: packet.checkpoints.length, courseCount: packet.courses.length, changed: true, reason: packet.reason } })); } catch (_) {}
       return true;
     }
 
     paintStatus(`☁️ Estructura al día · ${packet.checkpoints.length} puntos · ${packet.courses.length} recorridos`, "ok");
+    try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-synced", { detail: { eventId: packet.eventId, checkpointCount: packet.checkpoints.length, courseCount: packet.courses.length, changed: false, reason: packet.reason } })); } catch (_) {}
     return true;
   } finally {
     state.busy = false;
@@ -310,8 +312,8 @@ function acceptPacket(detail) {
     paintStatus("☁️ Estructura: confirma primero el PASO 1.", "warn");
     return;
   }
-  const fastReasons = new Set(["step2-confirmed", "routes-generated", "route-regenerated"]);
-  scheduleSync(fastReasons.has(state.latest.reason) ? 180 : 1100);
+  const fastReasons = new Set(["step1-confirmed", "r2-config-live", "step2-confirmed", "routes-generated", "route-regenerated", "r2-manual-route"]);
+  scheduleSync(fastReasons.has(state.latest.reason) ? 60 : 1100);
 }
 function onAuthReady(event) {
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
