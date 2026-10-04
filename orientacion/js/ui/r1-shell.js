@@ -241,7 +241,24 @@
     }
     selectParticipantsTab(state.participantsTab||"roster");refreshParticipantsHub();refreshAssignmentsHub();
     try{state.participantsObserver?.disconnect?.()}catch(_){}
-    const observer=new MutationObserver(()=>{refreshParticipantsHub();refreshAssignmentsHub()});observer.observe(stack,{subtree:true,childList:true,characterData:true,attributes:true});state.participantsObserver=observer;
+    /* R4B.1: observar solo los módulos fuente. Antes se observaba todo el stack,
+       incluido el panel ASIGNACIONES que nosotros mismos reescribimos. Cada
+       refresh generaba otra mutación y podía entrar en un bucle de MutationObserver
+       que dejaba la interfaz sin responder (X, volver, pestañas, etc.). */
+    let refreshQueued=false;
+    const observer=new MutationObserver(()=>{
+      if(refreshQueued)return;
+      refreshQueued=true;
+      requestAnimationFrame(()=>{
+        refreshQueued=false;
+        refreshParticipantsHub();
+        refreshAssignmentsHub();
+      });
+    });
+    const observerOptions={subtree:true,childList:true,characterData:true};
+    observer.observe(roster,observerOptions);
+    observer.observe(invites,observerOptions);
+    state.participantsObserver=observer;
     setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},220);setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},700);
     return true;
   }
