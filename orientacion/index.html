@@ -43,7 +43,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <link rel="stylesheet" href="css/styles.css?v=v2-i6h-paso7-status-dots-20261001" />
-<link rel="stylesheet" href="css/r1-shell.css?v=r3e-routes-professional-20261004" />
+<link rel="stylesheet" href="css/r1-shell.css?v=r3e1-routes-completion-qr-lock-20261004" />
 <link rel="stylesheet" href="css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003" />
 <link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929" />
 
@@ -259,13 +259,22 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
     <div>
       <span>ORGANIZADOR · DISEÑO</span>
       <h2>RECORRIDOS</h2>
-      <p>Revisa los recorridos creados manualmente. La creación y edición se realiza siempre sobre el mapa principal con <b>TRAZAR</b>.</p>
+      <p>Comprueba cuántos recorridos debe tener la carrera y cuántos están ya terminados. La creación y edición se realiza siempre sobre el mapa principal con <b>TRAZAR</b>.</p>
     </div>
-    <button class="r3-routes-map-btn" type="button" onclick="window.MILITOPO_R3_ORGANIZER_MANAGER?.close?.()">MAPA Y TRAZAR</button>
+    <button class="r3-routes-map-btn" type="button" onclick="window.MILITOPO_R3_ORGANIZER_MANAGER?.mapAndTrace?.()">MAPA Y TRAZAR</button>
+  </div>
+
+  <div class="r3-routes-progress" aria-live="polite">
+    <div class="r3-routes-progress-card"><span>RECORRIDOS A CREAR</span><strong id="r3RoutesRequired">--</strong></div>
+    <div class="r3-routes-progress-card is-created"><span>COMPLETADOS</span><strong id="r3RoutesCreated">--</strong></div>
+    <div class="r3-routes-progress-card is-missing"><span>PENDIENTES</span><strong id="r3RoutesMissing">--</strong></div>
+  </div>
+  <div id="r3RoutesCompletion" class="r3-routes-completion is-pending">
+    <div><strong>COMPROBANDO RECORRIDOS…</strong><span>MILITOPO está revisando los recorridos configurados.</span></div>
   </div>
 
   <div class="r3-routes-overview">
-    <div class="r3-routes-count"><span>RECORRIDOS DISPONIBLES</span><strong id="routeCountInfo">--</strong></div>
+    <div class="r3-routes-count"><span>RESUMEN ACTUAL</span><strong id="routeCountInfo">--</strong></div>
     <div id="routeSummary" class="status warn r3-routes-summary">Todavía no hay recorridos. Créelos manualmente con TRAZAR sobre el mapa.</div>
   </div>
 
@@ -289,7 +298,6 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 
   <div class="r3-routes-footer">
     <button class="btn secondary" type="button" onclick="window.MILITOPO_R3_ORGANIZER_MANAGER?.open?.()">← GESTIÓN DE CARRERA</button>
-    <button class="btn green" type="button" onclick="confirmStep3()">MATERIAL QR →</button>
   </div>
 </section>
 <section id="step4" class="card">
@@ -670,8 +678,8 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
 <script src="js/app.js?v=r2k-compass-direct-img-20261003"></script>
-<script src="js/ui/r1-shell.js?v=r3e-routes-professional-20261004"></script>
-<script src="js/ui/r2-map-workspace.js?v=r2k-compass-direct-img-20261003"></script>
+<script src="js/ui/r1-shell.js?v=r3e1-routes-completion-qr-lock-20261004"></script>
+<script src="js/ui/r2-map-workspace.js?v=r3e1-routes-completion-qr-lock-20261004"></script>
 
 <script>
 window.addEventListener("load",function(){
