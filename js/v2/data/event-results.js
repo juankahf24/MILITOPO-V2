@@ -37,7 +37,8 @@ const state = {
   classLoading: false,
   classError: "",
   classView: "general",
-  classToken: 0
+  classToken: 0,
+  mainView: "results"
 };
 const organizerPlaybackCache = new Map();
 
@@ -105,21 +106,14 @@ function injectStyle() {
   const style = document.createElement("style");
   style.id = "m2H2ResultsStyle";
   style.textContent = `
-    .m2-h2{margin:16px 0;padding:15px;border-radius:20px;border:1px solid rgba(111,184,229,.32);background:linear-gradient(180deg,rgba(7,19,28,.94),rgba(5,14,20,.96))}
-    .m2-h2-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-    .m2-h2-title{font-weight:900;letter-spacing:.075em;color:#d8efff}.m2-h2-chip{padding:6px 10px;border-radius:999px;border:1px solid rgba(111,184,229,.34);font-size:.70rem;font-weight:900}
-    .m2-h2-message{margin:10px 0 11px;font-size:.78rem;line-height:1.45;opacity:.84}
-    .m2-h2-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0 12px}
-    .m2-h2-metric{padding:9px 5px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);text-align:center}
-    .m2-h2-metric strong{display:block;font-size:1.02rem}.m2-h2-metric span{display:block;margin-top:2px;font-size:.56rem;opacity:.66}
-    .m2-h2-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0 9px;flex-wrap:wrap}.m2-h2-source{font-size:.64rem;opacity:.62}
-    .m2-h2-refresh{min-height:34px;padding:6px 10px;border-radius:10px;border:1px solid rgba(111,184,229,.30);background:rgba(111,184,229,.10);color:inherit;font:inherit;font-size:.65rem;font-weight:900;cursor:pointer}
-    .m2-h2-table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:14px;max-height:390px}.m2-h2-table{width:100%;border-collapse:collapse;min-width:930px;background:rgba(0,0,0,.10)}
-    .m2-h2-table th,.m2-h2-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.62rem;text-align:left;white-space:nowrap}.m2-h2-table th{font-size:.55rem;color:#cfeaff;letter-spacing:.045em;position:sticky;top:0;background:#0a1921;z-index:1}
-    .m2-h2-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.14);font-size:.54rem;font-weight:900}.m2-h2-state.finished{color:#dcffd0;border-color:rgba(126,220,150,.35);background:rgba(82,145,66,.15)}.m2-h2-state.incomplete{color:#ffe4a8;border-color:rgba(245,204,121,.34);background:rgba(160,114,43,.14)}.m2-h2-state.not_started{color:#d2d8dc;opacity:.72}
-    .m2-h2-empty{padding:18px;text-align:center;font-size:.72rem;opacity:.68}.m2-h2-num{font-variant-numeric:tabular-nums}
-    .m2-h5{margin-top:14px;padding-top:14px;border-top:1px solid rgba(111,184,229,.18)}.m2-h5-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.m2-h5-title{font-weight:900;letter-spacing:.075em;color:#f6e2a6}.m2-h5-note{margin:7px 0 9px;font-size:.66rem;line-height:1.4;opacity:.72}.m2-h5-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.m2-h5-tab{min-height:34px;padding:6px 10px;border-radius:999px;border:1px solid rgba(240,193,106,.28);background:rgba(240,193,106,.06);color:inherit;font:inherit;font-size:.62rem;font-weight:900}.m2-h5-tab.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2-h5-table-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:14px;max-height:430px}.m2-h5-table{width:100%;border-collapse:collapse;min-width:900px}.m2-h5-table th,.m2-h5-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.62rem;text-align:left;white-space:nowrap}.m2-h5-table th{font-size:.55rem;color:#f3dfa8;position:sticky;top:0;background:#0a1921;z-index:1}.m2-h5-rank{font-weight:900;color:#f6e2a6}.m2-h5-gap{font-variant-numeric:tabular-nums}.m2-h5-own{background:rgba(240,193,106,.08)}
-    @media(max-width:600px){.m2-h2-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-h2{padding:13px 11px}}
+    .m2-h2{margin:0;padding:14px;border-radius:18px;border:1px solid rgba(255,255,255,.09);background:linear-gradient(180deg,#1c281d,#151f16);color:#f4f2e7;min-width:0;max-width:100%;box-sizing:border-box}
+    .m2-h2-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}.m2-h2-heading{display:grid;gap:3px}.m2-h2-heading span{font:850 .53rem/1 system-ui;letter-spacing:.11em;color:#96a394}.m2-h2-title{font:950 1.18rem/1 system-ui;letter-spacing:.025em;color:#f3f2e7}.m2-h2-chip{padding:6px 10px;border-radius:999px;border:1px solid rgba(216,180,94,.28);background:rgba(216,180,94,.08);font-size:.68rem;font-weight:900;color:#f1dda6}
+    .m2-h2-message{margin:9px 0 11px;font-size:.68rem;line-height:1.4;color:#adb8ac}.m2-h2-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0 12px}.m2-h2-metric{min-width:0;padding:10px 5px;border-radius:12px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);text-align:center}.m2-h2-metric strong{display:block;font:950 1.08rem/1 system-ui}.m2-h2-metric span{display:block;margin-top:4px;font:850 .49rem/1.08 system-ui;letter-spacing:.045em;color:#99a499}
+    .m2-h2-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0 10px;flex-wrap:wrap}.m2-h2-source{font-size:.61rem;color:#89958a}.m2-h2-refresh{min-height:36px;padding:6px 12px;border-radius:10px;border:1px solid rgba(216,180,94,.28);background:rgba(216,180,94,.09);color:#f5e6b7;font:900 .62rem/1 system-ui;cursor:pointer}.m2-h2-refresh:disabled{opacity:.45;cursor:not-allowed}
+    .m2-r4-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}.m2-r4-tab{min-height:42px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.16);color:#d7ddd3;font:900 .67rem/1 system-ui;letter-spacing:.045em;cursor:pointer}.m2-r4-tab.active{background:#d8b45e;color:#211708;border-color:#f1d88e}.m2-r4-view[hidden]{display:none!important}
+    .m2-h2-table-wrap,.m2-h5-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-width:100%}.m2-h2-table{width:100%;border-collapse:collapse;min-width:1180px;background:rgba(0,0,0,.08)}.m2-h2-table th,.m2-h2-table td,.m2-h5-table th,.m2-h5-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.055);font-size:.61rem;text-align:left;white-space:nowrap}.m2-h2-table th,.m2-h5-table th{font-size:.52rem;color:#d9c792;letter-spacing:.04em;position:sticky;top:0;background:#172219;z-index:2}.m2-h2-table td:first-child,.m2-h5-table td:nth-child(2){white-space:normal;min-width:170px}.m2-h2-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.13);font-size:.53rem;font-weight:900}.m2-h2-state.finished{color:#dcffd0;border-color:rgba(126,220,150,.35);background:rgba(82,145,66,.15)}.m2-h2-state.incomplete{color:#ffe4a8;border-color:rgba(245,204,121,.34);background:rgba(160,114,43,.14)}.m2-h2-state.not_started{color:#d2d8dc;opacity:.72}.m2-h2-empty{padding:18px!important;text-align:center!important;font-size:.70rem!important;color:#9ba69d}.m2-h2-num{font-variant-numeric:tabular-nums}.m2-h2-official{font-weight:950;color:#f4e2ad}.m2-h2-penalty{font-weight:900;color:#ffc98b}
+    .m2-h5{margin:0}.m2-h5-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px}.m2-h5-title{font:950 .78rem/1 system-ui;letter-spacing:.07em;color:#f3dfa8}.m2-h5-note{margin:7px 0 9px;font-size:.65rem;line-height:1.4;color:#9da79e}.m2-h5-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.m2-h5-tab{min-height:35px;padding:6px 10px;border-radius:999px;border:1px solid rgba(240,193,106,.28);background:rgba(240,193,106,.06);color:#f1ede0;font:900 .61rem/1 system-ui;cursor:pointer}.m2-h5-tab.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2-h5-table{width:100%;border-collapse:collapse;min-width:900px}.m2-h5-rank{font-weight:950;color:#f6e2a6}.m2-h5-gap{font-variant-numeric:tabular-nums}.m2-h5-own{background:rgba(240,193,106,.08)}
+    @media(max-width:600px){.m2-h2{padding:10px}.m2-h2-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-h2-heading .m2-h2-title{font-size:1.02rem}.m2-r4-tab{min-height:40px;font-size:.61rem}}
   `;
   document.head.appendChild(style);
 }
@@ -133,17 +127,25 @@ function ensurePanel() {
   panel.id = "m2EventHistoricalResults";
   panel.className = "m2-h2";
   panel.innerHTML = `
-    <div class="m2-h2-head"><div class="m2-h2-title">🏁 RESULTADOS E HISTÓRICO · EVENTO</div><div id="m2H2Chip" class="m2-h2-chip">SIN EVENTO</div></div>
-    <div id="m2H2Message" class="m2-h2-message">Carga un evento para consultar los resultados persistentes.</div>
+    <div class="m2-h2-head"><div class="m2-h2-heading"><span>ORGANIZACIÓN · CARRERA</span><div class="m2-h2-title">RESULTADOS Y CLASIFICACIÓN</div></div><div id="m2H2Chip" class="m2-h2-chip">SIN CARRERA</div></div>
+    <div id="m2H2Message" class="m2-h2-message">Carga una carrera para consultar sus resultados.</div>
     <div class="m2-h2-metrics">
       <div class="m2-h2-metric"><strong id="m2H2Total">0</strong><span>RESULTADOS</span></div>
       <div class="m2-h2-metric"><strong id="m2H2Finished">0</strong><span>FINALIZADOS</span></div>
       <div class="m2-h2-metric"><strong id="m2H2Incomplete">0</strong><span>INCOMPLETOS</span></div>
       <div class="m2-h2-metric"><strong id="m2H2NotStarted">0</strong><span>NO SALIERON</span></div>
     </div>
-    <div class="m2-h2-tools"><div class="m2-h2-source">Fuente: Firestore · histórico permanente H1/H2</div><button id="m2H2Refresh" class="m2-h2-refresh" type="button">ACTUALIZAR</button></div>
-    <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>CORREDOR</th><th>ESTADO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO</th><th>DISTANCIA</th><th>BALIZAS</th><th>GPS</th><th>RUN</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="9" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
-    <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">🏆 CLASIFICACIÓN H5</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes independientemente del recorrido. POR RECORRIDO compara únicamente corredores con el mismo Rxx.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>CORREDOR</th><th>PLAZA</th><th>RECORRIDO</th><th>D. REDUCIDA</th><th>TIEMPO OFICIAL</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="8" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>`;
+    <div class="m2-h2-tools"><div class="m2-h2-source">Resultados persistentes de la carrera</div><button id="m2H2Refresh" class="m2-h2-refresh" type="button">ACTUALIZAR</button></div>
+    <div class="m2-r4-tabs" role="tablist" aria-label="Vista de resultados">
+      <button type="button" class="m2-r4-tab active" data-r4-results-view="results">RESULTADOS</button>
+      <button type="button" class="m2-r4-tab" data-r4-results-view="classification">CLASIFICACIÓN</button>
+    </div>
+    <section id="m2R4ResultsView" class="m2-r4-view">
+      <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>RECORRIDO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO REAL</th><th>PENALIZACIÓN</th><th>TIEMPO OFICIAL</th><th>BALIZAS</th><th>DISTANCIA</th><th>TRACK GPS</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="11" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
+    </section>
+    <section id="m2R4ClassView" class="m2-r4-view" hidden>
+      <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">CLASIFICACIÓN</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes. POR RECORRIDO compara únicamente corredores con el mismo recorrido.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>PARTICIPANTE</th><th>PLAZA</th><th>RECORRIDO</th><th>DISTANCIA</th><th>TIEMPO OFICIAL</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="8" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>
+    </section>`;
   if (mapPanel?.parentNode) mapPanel.insertAdjacentElement("afterend", panel);
   else if (monitor?.parentNode) monitor.insertAdjacentElement("afterend", panel);
   else {
@@ -152,6 +154,8 @@ function ensurePanel() {
   }
   panel.querySelector("#m2H2Refresh")?.addEventListener("click", () => { bindResults(true); loadClassification(true); });
   panel.addEventListener("click", event => {
+    const main = event.target.closest("[data-r4-results-view]");
+    if (main) { state.mainView = String(main.dataset.r4ResultsView || "results"); renderMainView(); return; }
     const btn = event.target.closest("[data-h5-view]");
     if (!btn) return;
     state.classView = String(btn.dataset.h5View || "general");
@@ -164,6 +168,26 @@ function ensurePanel() {
 function setText(id, value) {
   const node = state.panel?.querySelector(`#${id}`);
   if (node) node.textContent = String(value ?? "");
+}
+function renderMainView() {
+  if (!state.panel) return;
+  const view = state.mainView === "classification" ? "classification" : "results";
+  state.mainView = view;
+  const results = state.panel.querySelector("#m2R4ResultsView");
+  const classification = state.panel.querySelector("#m2R4ClassView");
+  if (results) results.hidden = view !== "results";
+  if (classification) classification.hidden = view !== "classification";
+  state.panel.querySelectorAll("[data-r4-results-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.r4ResultsView === view));
+}
+function penaltyMs(row = {}) {
+  const candidates = [row.penaltyMs, row.controlPenaltyMs, row.totalPenaltyMs, row.discardPenaltyMs, row.discardPenaltyTotalMs];
+  for (const value of candidates) { const n = Number(value); if (Number.isFinite(n) && n >= 0) return n; }
+  return 0;
+}
+function officialDurationMs(row = {}) {
+  for (const value of [row.officialDurationMs, row.adjustedDurationMs, row.officialTimeMs]) { const n = Number(value); if (Number.isFinite(n) && n >= 0) return n; }
+  const real = Number(row.durationMs);
+  return Number.isFinite(real) && real >= 0 ? real + penaltyMs(row) : NaN;
 }
 function formatDateTime(value) {
   const ms = Number(value || 0);
@@ -199,6 +223,7 @@ function classRows() {
 }
 function renderClassification() {
   ensurePanel();
+  renderMainView();
   if (!state.panel) return;
   const tabs = state.panel.querySelector("#m2H5Tabs");
   const body = state.panel.querySelector("#m2H5Body");
@@ -269,9 +294,9 @@ function sortedRows() {
   return [...state.rows].sort((a,b) => {
     const rs = (rank[String(a.status)] ?? 9) - (rank[String(b.status)] ?? 9);
     if (rs) return rs;
-    const at = Number(a.finishedAtMs || a.startedAtMs || 0);
-    const bt = Number(b.finishedAtMs || b.startedAtMs || 0);
-    if (at !== bt) return at - bt;
+    const ao = officialDurationMs(a), bo = officialDurationMs(b);
+    if (Number.isFinite(ao) && Number.isFinite(bo) && ao !== bo) return ao - bo;
+    if (Number.isFinite(ao) !== Number.isFinite(bo)) return Number.isFinite(ao) ? -1 : 1;
     return runnerName(a).localeCompare(runnerName(b), "es");
   });
 }
@@ -285,22 +310,22 @@ function render() {
 
   if (!canManage()) {
     setText("m2H2Chip", "SIN PERMISOS");
-    setText("m2H2Message", "Los resultados del evento solo están disponibles para organizer o super_admin verificados.");
+    setText("m2H2Message", "Los resultados de la carrera solo están disponibles para ORGANIZADOR o SÚPER ADMINISTRADOR verificados.");
     state.rows = [];
   } else if (!eventId) {
     setText("m2H2Chip", "SIN EVENTO");
-    setText("m2H2Message", "Carga o recupera un evento para consultar su histórico.");
+    setText("m2H2Message", "Carga una carrera para consultar sus resultados.");
     state.rows = [];
   } else {
     setText("m2H2Chip", STATUS_ES[state.eventStatus] || (state.eventStatus ? state.eventStatus.toUpperCase() : "CARGADO"));
     if (state.error) setText("m2H2Message", `⚠️ ${state.error}`);
     else if (!state.rows.length) {
       const live = state.eventStatus === "live";
-      setText("m2H2Message", live ? "El evento está EN DIRECTO. Los corredores aparecerán aquí cuando su resultado se consolide." : "Todavía no hay resultados persistentes para este evento.");
+      setText("m2H2Message", live ? "La carrera está EN DIRECTO. Los participantes aparecerán aquí cuando su resultado se consolide." : "Todavía no hay resultados guardados para esta carrera.");
     } else if (state.eventStatus === "live") {
-      setText("m2H2Message", "Resultados parciales persistentes. Al FINALIZAR el evento se consolidarán también incompletos y corredores que no salieron.");
+      setText("m2H2Message", "Resultados parciales. Al FINALIZAR la carrera se consolidarán también incompletos y participantes que no salieron.");
     } else {
-      setText("m2H2Message", "Histórico leído desde Firestore. Estos resultados permanecen disponibles aunque la sesión Live deje de utilizarse.");
+      setText("m2H2Message", "Resultados consolidados y disponibles para consulta permanente.");
     }
   }
 
@@ -313,24 +338,29 @@ function render() {
 
   if (!body) return;
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="9" class="m2-h2-empty">${state.error ? "No se pudieron leer los resultados." : "Sin resultados guardados para este evento."}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" class="m2-h2-empty">${state.error ? "No se pudieron leer los resultados." : "Sin resultados guardados para esta carrera."}</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(row => {
     const status = ["finished","incomplete","not_started"].includes(String(row.status)) ? String(row.status) : "not_started";
-    const run = String(row.runId || "");
+    const penalty = penaltyMs(row);
+    const official = officialDurationMs(row);
+    const route = String(row.routeId || row.routeCode || row.recorrido || "—");
     return `<tr>
       <td><strong>${esc(runnerName(row))}</strong></td>
       <td><span class="m2-h2-state ${esc(status)}">${esc(RESULT_ES[status])}</span></td>
+      <td>${esc(route)}</td>
       <td class="m2-h2-num">${esc(formatDateTime(row.startedAtMs))}</td>
       <td class="m2-h2-num">${esc(formatDateTime(row.finishedAtMs))}</td>
-      <td class="m2-h2-num"><strong>${esc(formatDuration(row.durationMs))}</strong></td>
+      <td class="m2-h2-num">${esc(formatDuration(row.durationMs))}</td>
+      <td class="m2-h2-num m2-h2-penalty">${penalty > 0 ? `+${esc(formatDuration(penalty))}` : "—"}</td>
+      <td class="m2-h2-num m2-h2-official">${esc(formatDuration(official))}</td>
+      <td class="m2-h2-num">${Number(row.controlExpectedCount||0)>0?`${esc(Number(row.controlDetectedCount ?? row.controlCompletedCount ?? 0))} / ${esc(Number(row.controlExpectedCount||0))}`:"—"}</td>
       <td class="m2-h2-num">${esc(formatDistance(row.trackDistanceM))}</td>
-      <td class="m2-h2-num">${Number(row.controlExpectedCount||0)>0?`${esc(Number(row.controlDetectedCount||0))} / ${esc(Number(row.controlExpectedCount||0))}`:"—"}</td>
-      <td class="m2-h2-num">${esc(Number(row.trackPointCount || 0))} pts · ${esc(Number(row.trackChunkCount || 0))} bloques</td>
-      <td title="${esc(run)}">${esc(run ? run.slice(0,18) + (run.length > 18 ? "…" : "") : "—")}</td>
+      <td class="m2-h2-num">${esc(Number(row.trackPointCount || 0))} puntos · ${esc(Number(row.trackChunkCount || 0))} bloques</td>
     </tr>`;
   }).join("");
+  renderMainView();
   renderClassification();
 }
 function stopResults() {
@@ -422,6 +452,11 @@ function init() {
     setTimeout(() => { bindResults(); loadClassification(); }, 220);
   }
 }
+
+globalThis.MILITOPO_V2_RESULTS_SET_VIEW = view => {
+  state.mainView = view === "classification" ? "classification" : "results";
+  renderMainView();
+};
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once:true });
 else init();
