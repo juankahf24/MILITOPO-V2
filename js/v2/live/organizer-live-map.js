@@ -5,7 +5,7 @@ import "../bootstrap.js";
 import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-i6d-live-map-modern-20261001";
+const VERSION = "v2-r4c-live-center-20261004";
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const DEFAULT_RACE_PLAN_ID = "el-valle-matizado";
 
@@ -81,11 +81,11 @@ function ensureStyles() {
   const style = document.createElement("style");
   style.id = "m2G5MapStyles";
   style.textContent = `
-    .m2-g5map{margin:16px 0;padding:16px;border-radius:20px;border:1px solid rgba(126,220,150,.30);background:linear-gradient(180deg,rgba(8,26,14,.94),rgba(5,17,9,.96))}
+    .m2-g5map{margin:0;padding:14px;border-radius:18px;border:1px solid rgba(255,255,255,.09);background:linear-gradient(180deg,#1c281d,#151f16);color:#f4f2e7;min-width:0;max-width:100%;box-sizing:border-box}
     .m2-g5map-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-    .m2-g5map-title{font-weight:900;letter-spacing:.08em;color:#e6f6d7}
+    .m2-g5map-title{font:950 .76rem/1 system-ui,-apple-system,sans-serif;letter-spacing:.09em;color:#eef2e5}
     .m2-g5map-chip{padding:6px 11px;border-radius:999px;border:1px solid rgba(126,220,150,.36);font-size:.72rem;font-weight:900}
-    .m2-g5map-message{margin:10px 0 10px;font-size:.78rem;line-height:1.45;opacity:.84}
+    .m2-g5map-message{margin:9px 0 10px;font-size:.66rem;line-height:1.35;color:#aeb7ac}
     .m2-g5map-layers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin:0 0 8px}
     .m2-g5-layer-btn{min-width:0;min-height:34px;padding:6px 4px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.23);color:#f7f2e8;font:900 clamp(.54rem,1.75vw,.68rem)/1.05 Arial,sans-serif;letter-spacing:.025em;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .m2-g5-layer-btn.active{background:#d8b45e;color:#201608;border-color:#f2d58f;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset}
@@ -95,7 +95,7 @@ function ensureStyles() {
     .m2-g5map-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;margin-bottom:10px}
     .m2-g5map-select,.m2-g5map-btn{min-height:38px;border-radius:11px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.22);color:#f7f2e8;padding:0 11px;font:inherit;font-size:.70rem;font-weight:800}
     .m2-g5map-btn{cursor:pointer;white-space:nowrap}.m2-g5map-btn:disabled{opacity:.45;cursor:not-allowed}
-    .m2-g5map-canvas{height:410px;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.12);background:#182017;position:relative}
+    .m2-g5map-canvas{height:430px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.10);background:#182017;position:relative}
     .m2-g5map-empty{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;font-size:.76rem;opacity:.68;pointer-events:none;z-index:700}
     .m2-g5map-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:9px;font-size:.62rem;opacity:.75}
     .m2-g5map-legend span{display:inline-flex;align-items:center;gap:5px}
@@ -107,7 +107,7 @@ function ensureStyles() {
     .m2-g5-runner-label small{display:block;margin-top:2px;font-size:7px;font-weight:800;opacity:.92}
     .m2-g5-checkpoint{position:relative;width:30px;height:30px;display:grid;place-items:center;filter:drop-shadow(0 4px 7px rgba(0,0,0,.48))}.m2-g5-checkpoint svg{width:30px;height:30px;overflow:visible}.m2-g5-checkpoint text{fill:#fff;font:950 8px/1 "Courier New",monospace;paint-order:stroke;stroke:rgba(0,0,0,.62);stroke-width:2px}.m2-g5-checkpoint.control .cp-ring{fill:rgba(17,30,20,.94);stroke:#f0cf82;stroke-width:3}.m2-g5-checkpoint.control .cp-core{fill:#f0cf82}.m2-g5-checkpoint.start .cp-start{fill:#357b54;stroke:#effff4;stroke-width:2.6;stroke-linejoin:round}.m2-g5-checkpoint.finish .cp-finish-outer{fill:#3b2020;stroke:#fff1ed;stroke-width:3}.m2-g5-checkpoint.finish .cp-finish-inner{fill:none;stroke:#df746d;stroke-width:2.3}
     .m2-g5map .leaflet-control-attribution{font-size:9px}
-    @media(max-width:700px){.m2-g5map{padding:13px}.m2-g5map-toolbar{grid-template-columns:1fr 1fr}.m2-g5map-select{grid-column:1/-1}.m2-g5map-canvas{height:340px}.m2-g5map-layers{gap:4px}.m2-g5-layer-btn{padding:6px 2px;letter-spacing:0}}
+    @media(max-width:700px){.m2-g5map{padding:10px}.m2-g5map-toolbar{grid-template-columns:1fr 1fr}.m2-g5map-select{grid-column:1/-1}.m2-g5map-canvas{height:360px}.m2-g5map-layers{gap:4px}.m2-g5-layer-btn{padding:6px 2px;letter-spacing:0}}
   `;
   document.head.appendChild(style);
 }
@@ -123,10 +123,10 @@ function ensurePanel() {
   panel.className = "m2-g5map";
   panel.innerHTML = `
     <div class="m2-g5map-head">
-      <div class="m2-g5map-title">🗺️ MAPA LIVE V2 · ORGANIZADOR</div>
+      <div class="m2-g5map-title">MAPA EN DIRECTO</div>
       <div id="m2G5MapChip" class="m2-g5map-chip">ESPERANDO</div>
     </div>
-    <div id="m2G5MapMessage" class="m2-g5map-message">Carga un evento para preparar el mapa Live.</div>
+    <div id="m2G5MapMessage" class="m2-g5map-message">Carga una carrera para preparar el mapa de seguimiento.</div>
     <div class="m2-g5map-layers" role="tablist" aria-label="Cartografía del mapa Live">
       <button class="m2-g5-layer-btn active" type="button" data-live-layer="mapant">MAPANT</button>
       <button class="m2-g5-layer-btn" type="button" data-live-layer="ign">IGN</button>
@@ -469,7 +469,7 @@ function render() {
   const withGps = Object.values(state.participants || {}).filter(row => validCoord(row?.gps?.lat,row?.gps?.lng)).length;
   chip.textContent = state.runId ? (state.runStatus === "finished" ? "FINALIZADO" : "EN DIRECTO") : String(state.eventStatus || "ESPERANDO").toUpperCase();
   if (state.lastError) message.textContent = state.lastError;
-  else if (!state.eventId) message.textContent = "Carga un evento para preparar el mapa Live.";
+  else if (!state.eventId) message.textContent = "Carga una carrera para preparar el mapa de seguimiento.";
   else if (!state.runId) message.textContent = "Mapa preparado. Al iniciar el evento aparecerán aquí las posiciones GPS de los corredores.";
   else message.textContent = withGps
     ? `${withGps} corredor${withGps === 1 ? "" : "es"} con posición GPS. Selecciona uno para visualizar su traza completa.`

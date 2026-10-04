@@ -112,25 +112,25 @@ function hideLegacyOrganizerLive() {
   style.textContent = `
     /* F2C: el panel V77 no se elimina; solo queda fuera de la UI del organizador. */
     #militopoLivePhase2Panel{display:none!important}
-    .m2-f2c{margin:16px 0;padding:16px;border-radius:20px;border:1px solid rgba(126,220,150,.30);background:linear-gradient(180deg,rgba(8,26,14,.94),rgba(5,17,9,.96))}
+    .m2-f2c{margin:0;padding:14px;border-radius:18px;border:1px solid rgba(255,255,255,.09);background:linear-gradient(180deg,#1c281d,#151f16);color:#f4f2e7;min-width:0;max-width:100%;box-sizing:border-box}
     .m2-f2c-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-    .m2-f2c-title{font-weight:900;letter-spacing:.08em;color:#e6f6d7}
-    .m2-f2c-chip{padding:6px 11px;border-radius:999px;border:1px solid rgba(126,220,150,.36);font-size:.74rem;font-weight:900}
-    .m2-f2c-message{margin:11px 0 12px;line-height:1.45;font-size:.80rem;opacity:.86}
-    .m2-f2c-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
-    .m2-f2c-metric{padding:10px 5px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);text-align:center}
-    .m2-f2c-metric strong{display:block;font-size:1.08rem}.m2-f2c-metric span{display:block;margin-top:3px;font-size:.58rem;opacity:.68}
-    .m2-f2c-run{padding:9px 11px;border-radius:13px;background:rgba(0,0,0,.16);font-size:.68rem;line-height:1.4;word-break:break-word}
-    .m2-f2c-table-wrap{margin-top:12px;overflow-x:auto;border:1px solid rgba(255,255,255,.08);border-radius:15px}
-    .m2-f2c-table{width:100%;border-collapse:collapse;min-width:1520px;background:rgba(0,0,0,.11)}
-    .m2-f2c-table th,.m2-f2c-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.06);font-size:.64rem;text-align:left;vertical-align:middle}
-    .m2-f2c-table th{font-size:.57rem;color:#f5d18b;letter-spacing:.04em;white-space:nowrap}.m2-f2c-table td{white-space:nowrap}.m2-f2c-table td:first-child{white-space:normal;min-width:180px}.m2-f2c-time{font-variant-numeric:tabular-nums;font-weight:800}.m2-f2c-penalty{color:#ffd28c;font-weight:900}
-    .m2-f2c-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.12);font-size:.56rem;font-weight:900}
+    .m2-f2c-title{font:950 .76rem/1 system-ui,-apple-system,sans-serif;letter-spacing:.09em;color:#eef2e5}
+    .m2-f2c-chip{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.045);font:900 .60rem/1 system-ui;letter-spacing:.06em}
+    .m2-f2c-message{margin:9px 0 10px;line-height:1.35;font-size:.66rem;color:#aeb7ac}
+    .m2-f2c-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0}
+    .m2-f2c-metric{min-width:0;padding:9px 5px;border-radius:12px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);text-align:center}
+    .m2-f2c-metric strong{display:block;font:950 1.08rem/1 system-ui}.m2-f2c-metric span{display:block;margin-top:4px;font:850 .48rem/1.05 system-ui;letter-spacing:.05em;color:#98a398}
+    .m2-f2c-run{padding:8px 10px;border-radius:11px;border:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.13);font-size:.60rem;line-height:1.35;color:#b4beb2;word-break:break-word}
+    .m2-f2c-table-wrap{margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-width:100%}
+    .m2-f2c-table{width:100%;border-collapse:collapse;min-width:1280px;background:rgba(0,0,0,.08)}
+    .m2-f2c-table th,.m2-f2c-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.055);font-size:.61rem;text-align:left;vertical-align:middle}
+    .m2-f2c-table th{font-size:.52rem;color:#d9c792;letter-spacing:.045em;white-space:nowrap;position:sticky;top:0;background:#172219;z-index:2}.m2-f2c-table td{white-space:nowrap}.m2-f2c-table td:first-child{white-space:normal;min-width:185px;position:sticky;left:0;background:#172219;z-index:1}.m2-f2c-time{font-variant-numeric:tabular-nums;font-weight:850}.m2-f2c-penalty{color:#ffd28c;font-weight:900}
+    .m2-f2c-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.12);font-size:.53rem;font-weight:900}
     .m2-f2c-state.racing{color:#d7ecff;border-color:rgba(102,172,242,.35);background:rgba(76,136,197,.14)}
     .m2-f2c-state.finished{color:#e8ffd7;border-color:rgba(126,220,150,.34);background:rgba(96,160,77,.14)}
     .m2-f2c-state.pending{color:#ffe6a7;border-color:rgba(245,204,121,.34);background:rgba(170,121,43,.12)}
-    .m2-f2c-online{font-weight:900}.m2-f2c-online.ok{color:#bde99c}.m2-f2c-online.off{opacity:.58}.m2-f2c-gps{font-weight:900}.m2-f2c-gps.ok{color:#c9e9ff}.m2-f2c-gps.off{opacity:.58}
-    @media(max-width:600px){.m2-f2c-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    .m2-f2c-signal{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;font:800 .47rem/1.05 system-ui}.m2-f2c-signal .ok{color:#bde99c}.m2-f2c-signal .off{color:#889188}.m2-f2c-signal .gps{color:#b9dcf2}
+    @media(max-width:600px){.m2-f2c{padding:10px}.m2-f2c-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-f2c-table-wrap{border-radius:11px}}
   `;
   document.head.appendChild(style);
 }
@@ -145,7 +145,7 @@ function ensurePanel() {
   panel.className = "m2-f2c";
   panel.innerHTML = `
     <div class="m2-f2c-head">
-      <div class="m2-f2c-title">📡 SEGUIMIENTO LIVE V2 · ORGANIZADOR</div>
+      <div class="m2-f2c-title">SEGUIMIENTO EN DIRECTO</div>
       <div id="m2F2CChip" class="m2-f2c-chip">ESPERANDO</div>
     </div>
     <div id="m2F2CMessage" class="m2-f2c-message">Carga un evento para conectar el seguimiento V2.</div>
@@ -155,11 +155,11 @@ function ensurePanel() {
       <div class="m2-f2c-metric"><strong id="m2F2CRacing">0</strong><span>EN CARRERA</span></div>
       <div class="m2-f2c-metric"><strong id="m2F2CFinished">0</strong><span>FINALIZADOS</span></div>
     </div>
-    <div id="m2F2CRun" class="m2-f2c-run">Sin sesión Live V2 cargada.</div>
+    <div id="m2F2CRun" class="m2-f2c-run">Sin sesión de seguimiento cargada.</div>
     <div class="m2-f2c-table-wrap">
       <table class="m2-f2c-table">
-        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>PROGRESO</th><th>PUNTOS PENDIENTES</th><th>PUNTOS DESCARTADOS</th><th>TIEMPO OFICIAL</th><th>PENALIZACIÓN CONTROLES</th><th>TIEMPO REAL</th><th>ÚLTIMA SINCRONIZACIÓN</th><th>HORA SALIDA</th><th>HORA LLEGADA</th><th>CONEXIÓN</th><th>GPS</th></tr></thead>
-        <tbody id="m2F2CBody"><tr><td colspan="13">Todavía no hay una sesión Live V2 activa.</td></tr></tbody>
+        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>PROGRESO</th><th>PUNTOS PENDIENTES</th><th>PUNTOS DESCARTADOS</th><th>TIEMPO AJUSTADO</th><th>PENALIZACIÓN CONTROLES</th><th>TIEMPO REAL</th><th>ÚLTIMA SINCRONIZACIÓN</th><th>HORA SALIDA</th><th>HORA LLEGADA</th></tr></thead>
+        <tbody id="m2F2CBody"><tr><td colspan="11">Todavía no hay una sesión de seguimiento activa.</td></tr></tbody>
       </table>
     </div>`;
   if (foundation?.parentNode) foundation.insertAdjacentElement("afterend", panel);
@@ -232,7 +232,7 @@ function render() {
   const body = panel.querySelector("#m2F2CBody");
   if (!canManage()) {
     chip.textContent = "SIN PERMISOS";
-    message.textContent = "Se necesita rol organizer o super_admin verificado.";
+    message.textContent = "Se necesita una cuenta verificada de ORGANIZADOR o SÚPER ADMINISTRADOR.";
     return;
   }
   const rows = participantRows();
@@ -251,24 +251,24 @@ function render() {
   if (state.lastError) message.textContent = state.lastError;
   else if (!state.eventId) message.textContent = "Carga un evento para conectar el seguimiento V2.";
   else if (!state.runId) message.textContent = rows.length
-    ? `${rows.length} corredor${rows.length === 1 ? "" : "es"} autorizado${rows.length === 1 ? "" : "s"}. El seguimiento de carrera se activará al iniciar el evento.`
+    ? `${rows.length} corredor${rows.length === 1 ? "" : "es"} autorizado${rows.length === 1 ? "" : "s"}. El seguimiento se activará al iniciar la carrera.`
     : (state.eventStatus === "published"
       ? "Evento PUBLICADO. No hay corredores autorizados todavía."
       : `Evento ${eventLabel}. No hay corredores autorizados todavía.`);
   else message.textContent = state.runStatus === "finished"
-    ? "Sesión Live V2 finalizada. Se conserva la última tabla recibida."
-    : "Monitor conectado a Realtime Database V2.";
+    ? "Carrera finalizada. Se conserva la última tabla recibida."
+    : "Seguimiento conectado en tiempo real.";
 
   run.textContent = state.runId
     ? `Sesión: ${state.runId} · ${runLabel} · ${rows.length} participante${rows.length === 1 ? "" : "s"}`
     : `Pre-salida · ${rows.length} corredor${rows.length === 1 ? "" : "es"} autorizado${rows.length === 1 ? "" : "s"}`;
 
   if (!state.runId && !rows.length) {
-    body.innerHTML = `<tr><td colspan="13">Todavía no hay corredores autorizados para Live V2.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11">Todavía no hay corredores autorizados para el seguimiento.</td></tr>`;
     return;
   }
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="13">La sesión no tiene corredores autorizados.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11">La sesión no tiene corredores autorizados.</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(row => {
@@ -302,7 +302,7 @@ function render() {
     const finalOfficial = st === "finished" && row.officialDurationMs != null && Number.isFinite(Number(row.officialDurationMs)) ? Math.max(0, Number(row.officialDurationMs)) : (rawDuration == null ? null : rawDuration + finalPenalty);
     const lastSeen = Math.max(0, Number(row.lastSeen || row.updatedAt || 0));
     return `<tr data-started-at="${startedAt}" data-finished-at="${finishedAt}" data-penalty-ms="${finalPenalty}" data-last-seen="${lastSeen}">
-      <td><strong>${esc(name)}</strong><br><span style="opacity:.62">${esc(sub)}</span></td>
+      <td><strong>${esc(name)}</strong><br><span style="opacity:.62">${esc(sub)}</span><span class="m2-f2c-signal"><span class="${online ? "ok" : "off"}">${state.runId ? (online ? "● EN LÍNEA" : "○ SIN CONEXIÓN") : "EN ESPERA"}</span><span class="gps">${esc(gpsLabel)}</span></span></td>
       <td><span class="m2-f2c-state ${cls}">${esc(label)}</span></td>
       <td><strong style="color:${progressDone ? "#bde99c" : "#f5d18b"}">${esc(progressLabel)}</strong></td>
       <td><strong>${pendingControls}</strong></td>
@@ -313,8 +313,6 @@ function render() {
       <td data-role="last-sync">${esc(fmtAgo(lastSeen))}</td>
       <td>${esc(fmtTime(startedAt))}</td>
       <td>${esc(fmtTime(finishedAt))}</td>
-      <td><span class="m2-f2c-online ${online ? "ok" : "off"}">${state.runId ? (online ? "● ONLINE" : "○ OFFLINE") : "— ESPERANDO"}</span></td>
-      <td><span class="m2-f2c-gps ${gpsActive ? "ok" : "off"}">${esc(gpsLabel)}</span></td>
     </tr>`;
   }).join("");
   refreshOfficialClocks();
