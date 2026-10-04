@@ -286,6 +286,11 @@ function filteredRows() {
     return bm - am;
   });
 }
+
+function eventStatusLabelEs(value) {
+  const key = String(value || "draft").toLowerCase();
+  return ({ draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"ARCHIVADO" })[key] || "BORRADOR";
+}
 function actionLabel(type) {
   if (type === "pending") return "PENDIENTE";
   if (type === "removed") return "RETIRADO";
@@ -293,7 +298,7 @@ function actionLabel(type) {
 }
 function render() {
   if (!ensureUi()) return;
-  const eventState = String(state.event?.status || "").toUpperCase();
+  const eventState = eventStatusLabelEs(state.event?.status || "draft");
   const chip = state.root.querySelector("#m2RosterState");
   if (chip) chip.textContent = state.event ? eventState || "BORRADOR" : (currentEventId() ? "COMPROBANDO" : "SIN EVENTO");
   const active = state.members.filter(row => String(row.status || "active") === "active").length;
@@ -304,7 +309,7 @@ function render() {
   state.root.querySelector("#m2RosterRemoved").textContent = String(removed);
 
   if (!canManage()) {
-    setStatus("Esta zona requiere una cuenta organizer o super_admin verificada.");
+    setStatus("Esta zona requiere una cuenta de organizador o súper administrador verificada.");
     state.list.innerHTML = "";
     renderBulk();
     return;
@@ -414,11 +419,12 @@ async function startRealtimeRoster(eventId) {
       snap.forEach(d => members.push({ id:d.id, ...(d.data() || {}), uid:String((d.data() || {}).uid || d.id) }));
       await resolveDirectory(members.map(row => row.uid));
       if (seq !== state.realtimeSeq) return;
-      const signature = members.map(row => `${row.uid}:${String(row.status || "active")}`).sort().join("|");
+      const signature = members.map(row => `${row.uid}:${String(row.status || "active")}:${String(row.participantId||"")}:${String(row.routeId||"")}`).sort().join("|");
       const changed = signature !== state.lastRealtimeMemberSignature;
       state.lastRealtimeMemberSignature = signature;
       state.members = members;
       refreshRosterUi();
+      try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-roster-snapshot", { detail: { eventId, members: members.length } })); } catch (_) {}
       if (changed) {
         try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-roster-changed", { detail: { eventId, members: members.length } })); } catch (_) {}
       }
@@ -623,5 +629,28 @@ function init() {
   if (globalThis.MILITOPO_V2_AUTH) scheduleLoad(120, true);
 }
 
+
+
+globalThis.MILITOPO_V2_PARTICIPANTS_ADMIN = {
+  getSnapshot() {
+    return {
+      eventId: currentEventId(),
+      eventStatus: String(state.event?.status || "draft"),
+      members: state.members.map(row => ({
+        uid:String(row.uid||""),
+        status:String(row.status||"active"),
+        displayName:String(row.displayName||directoryForUid(row.uid)?.displayName||""),
+        username:String(row.username||directoryForUid(row.uid)?.usernameKey||directoryForUid(row.uid)?.username||"").replace(/^@+/,""),
+        email:String(row.email||""),
+        participantId:String(row.participantId||""),
+        routeId:String(row.routeId||""),
+        routeDistanceKm:row.routeDistanceKm==null?null:Number(row.routeDistanceKm),
+        routeControlCount:row.routeControlCount==null?null:Number(row.routeControlCount)
+      })),
+      invitations: state.invitations.map(row => ({ id:String(row.id||""), status:String(row.status||"pending"), targetUsername:String(row.targetUsername||""), targetEmail:String(row.targetEmail||"") }))
+    };
+  },
+  refresh() { return loadAll({ force:true }); }
+};
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once:true });
 else init();

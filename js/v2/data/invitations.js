@@ -80,6 +80,11 @@ function shareMessage(row) {
   const who = row.targetUsername ? `@${row.targetUsername}` : row.targetEmail || "participante";
   return `Hola ${who}. Te han invitado a participar en ${eventName} con MILITOPO.\n\nAbre este enlace para iniciar sesión y unirte a la carrera:\n${invitationUrl(row.id)}`;
 }
+
+function eventStatusLabelEs(value) {
+  const key = String(value || "draft").toLowerCase();
+  return ({ draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"ARCHIVADO" })[key] || "BORRADOR";
+}
 function statusLabel(row) {
   const status = String(row.status || "pending");
   if (status === "accepted") return "ACEPTADA";
@@ -181,7 +186,7 @@ function paint(message = "") {
   ensurePanel(); if (!state.panel) return;
   const chip = state.panel.querySelector("#m2InviteChip");
   if (!canManage()) {
-    chip.textContent = "SIN PERMISOS"; state.status.textContent = "Se necesita una cuenta organizer o super_admin verificada.";
+    chip.textContent = "SIN PERMISOS"; state.status.textContent = "Se necesita una cuenta de organizador o súper administrador verificada.";
     state.create.disabled = true; state.bulkCreate.disabled = true; state.selectedCreate.disabled = true;
     state.target.disabled = true; state.bulk.disabled = true; state.userSearch.disabled = true; return;
   }
@@ -191,12 +196,12 @@ function paint(message = "") {
     chip.textContent = currentEventId() ? "COMPROBANDO" : "SIN EVENTO";
     state.status.textContent = message || "Publica el evento para habilitar las invitaciones."; state.create.disabled = true; state.bulkCreate.disabled = true; state.selectedCreate.disabled = true; return;
   }
-  const status = String(state.event.status || "draft"); chip.textContent = status.toUpperCase();
+  const status = String(state.event.status || "draft"); chip.textContent = eventStatusLabelEs(status);
   const allowed = ALLOWED_EVENT_STATES.has(status);
   state.create.disabled = state.busy || !allowed || !navigator.onLine;
   state.bulkCreate.disabled = state.busy || !allowed || !navigator.onLine;
   state.selectedCreate.disabled = state.busy || !allowed || !navigator.onLine || state.selectedUsers.size === 0;
-  state.status.textContent = message || (allowed ? "Busca por @usuario si ya tiene cuenta MILITOPO, o usa su correo si todavía no está registrado." : `Primero publica el evento. Las invitaciones solo se habilitan cuando el estado es PUBLICADO. Estado actual: ${status.toUpperCase()}.`);
+  state.status.textContent = message || (allowed ? "Busca por @usuario si ya tiene cuenta MILITOPO, o usa su correo si todavía no está registrado." : `Para invitar, la carrera debe estar PUBLICADA. Estado actual: ${eventStatusLabelEs(status)}.`);
 }
 async function loadEvent({ force = false } = {}) {
   ensurePanel(); const eventId = currentEventId();
