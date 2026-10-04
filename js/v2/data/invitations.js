@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   setDoc,
   startAt,
+  startAfter,
   updateDoc,
   where
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -39,6 +40,9 @@ const state = {
   selectedCreate: null,
   selectedUsers: new Map(),
   directoryCache: new Map(),
+  directoryIndex: [],
+  directoryIndexPromise: null,
+  directoryIndexLoadedAt: 0,
   directorySearchTimer: null,
   loadedEventId: "",
   loading: false
@@ -53,6 +57,16 @@ function currentEventId() { return String(document.getElementById("eventId")?.va
 function normalizedEmail(value) { return String(value || "").trim().toLowerCase().slice(0, 254); }
 function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
 function normalizeUsername(value) { return String(value || "").trim().toLowerCase().replace(/^@+/, "").slice(0, 24); }
+function normalizeDirectorySearch(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+}
 function validUsername(value) { return /^[a-z0-9._-]{3,24}$/.test(normalizeUsername(value)); }
 function esc(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -138,9 +152,9 @@ function ensurePanel() {
     </div>
     <div class="m2-user-picker">
       <label>Buscar usuarios registrados en MILITOPO
-        <input id="m2InviteUserSearch" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Escribe c, ca, @casper…">
+        <input id="m2InviteUserSearch" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Nombre o @usuario: Marta, cala…">
       </label>
-      <small>Escribe una o más letras. La lista se filtra por @usuario mientras escribes. Pulsa un usuario para añadirlo a la selección.</small>
+      <small>Busca por nombre o por @usuario. No hace falta escribirlo completo.</small>
       <div id="m2InviteUserResults" class="m2-user-results" hidden></div>
       <div id="m2InviteSelected" class="m2-selected-users"></div>
       <button id="m2InviteSelectedCreate" class="m2-selected-create" type="button" disabled>INVITAR USUARIOS SELECCIONADOS</button>
@@ -247,16 +261,16 @@ function renderSelectedUsers() {
   const status = String(state.event?.status || "");
   state.selectedCreate.disabled = state.busy || !ALLOWED_EVENT_STATES.has(status) || !navigator.onLine || rows.length === 0;
 }
-function renderDirectoryResults(rows, prefix = "") {
+function renderDirectoryResults(rows, search = "") {
   if (!state.userResults) return;
   if (!rows.length) {
     state.userResults.hidden = false;
-    state.userResults.innerHTML = `<div style="padding:8px;font-size:.8rem;opacity:.7">${prefix ? `No hay usuarios que empiecen por @${esc(prefix)}.` : "Todavía no hay usuarios para mostrar."}</div>`;
+    state.userResults.innerHTML = `<div style="padding:8px;font-size:.8rem;opacity:.7">${search ? `No hay usuarios que coincidan con “${esc(search)}”.` : "Todavía no hay usuarios para mostrar."}</div>`;
     return;
   }
   state.userResults.hidden = false;
   state.userResults.innerHTML = rows.map(row => {
-    const username = normalizeUsername(row.usernameKey || row.username);
+    const username = normalizeUsername(row.usernameKey || row.username || row.id);
     const own = String(row.uid || "") === String(state.auth?.uid || "");
     const selected = state.selectedUsers.has(username);
     const label = own ? "TU CUENTA" : selected ? "AÑADIDO" : "AÑADIR";
@@ -266,31 +280,70 @@ function renderDirectoryResults(rows, prefix = "") {
     </button>`;
   }).join("");
 }
+async function loadDirectoryIndex({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && state.directoryIndex.length && now - state.directoryIndexLoadedAt < 5 * 60 * 1000) return state.directoryIndex;
+  if (state.directoryIndexPromise) return state.directoryIndexPromise;
+  state.directoryIndexPromise = (async () => {
+    const { firestore } = await services();
+    const base = collection(firestore, "usernames");
+    const rows = [];
+    const pageSize = 250;
+    let last = null;
+    for (;;) {
+      const q = last
+        ? query(base, orderBy(documentId()), startAfter(last), limit(pageSize))
+        : query(base, orderBy(documentId()), limit(pageSize));
+      const snap = await getDocs(q);
+      snap.forEach(d => rows.push({ id:d.id, ...(d.data() || {}) }));
+      if (snap.size < pageSize) break;
+      last = snap.docs[snap.docs.length - 1];
+      if (!last) break;
+    }
+    state.directoryIndex = rows;
+    state.directoryIndexLoadedAt = Date.now();
+    return rows;
+  })();
+  try { return await state.directoryIndexPromise; }
+  finally { state.directoryIndexPromise = null; }
+}
+function directoryMatches(rows, raw) {
+  const needle = normalizeDirectorySearch(raw);
+  if (!needle) return rows.slice(0, 12);
+  return rows
+    .map(row => {
+      const username = normalizeDirectorySearch(row.usernameKey || row.username || row.id);
+      const name = normalizeDirectorySearch(row.displayName || "");
+      const usernameAt = username.indexOf(needle);
+      const nameAt = name.indexOf(needle);
+      if (usernameAt < 0 && nameAt < 0) return null;
+      let rank = 9;
+      if (usernameAt === 0) rank = 0;
+      else if (nameAt === 0) rank = 1;
+      else if (usernameAt > 0) rank = 2;
+      else if (nameAt > 0) rank = 3;
+      return { row, rank, username, name };
+    })
+    .filter(Boolean)
+    .sort((a,b) => a.rank - b.rank || a.name.localeCompare(b.name, "es") || a.username.localeCompare(b.username, "es"))
+    .slice(0, 20)
+    .map(item => item.row);
+}
 async function searchDirectory(raw = "") {
   if (!canManage() || !navigator.onLine || !state.userResults) return;
-  const prefix = normalizeUsername(raw);
-  if (String(raw || "").trim() && !/^[a-z0-9._-]{1,24}$/.test(prefix)) {
-    renderDirectoryResults([], prefix);
-    return;
-  }
-  const cacheKey = prefix || "*";
+  const search = normalizeDirectorySearch(raw);
+  const cacheKey = search || "*";
   if (state.directoryCache.has(cacheKey)) {
-    renderDirectoryResults(state.directoryCache.get(cacheKey), prefix);
+    renderDirectoryResults(state.directoryCache.get(cacheKey), search);
     return;
   }
   state.userResults.hidden = false;
   state.userResults.innerHTML = `<div style="padding:8px;font-size:.8rem;opacity:.7">Buscando usuarios…</div>`;
   try {
-    const { firestore } = await services();
-    const base = collection(firestore, "usernames");
-    const q = prefix
-      ? query(base, orderBy(documentId()), startAt(prefix), endAt(`${prefix}\uf8ff`), limit(12))
-      : query(base, orderBy(documentId()), limit(12));
-    const snap = await getDocs(q);
-    const rows = [];
-    snap.forEach(d => rows.push({ id:d.id, ...(d.data() || {}) }));
-    state.directoryCache.set(cacheKey, rows);
-    renderDirectoryResults(rows, prefix);
+    const rows = await loadDirectoryIndex();
+    const matches = directoryMatches(rows, search);
+    state.directoryCache.set(cacheKey, matches);
+    renderDirectoryResults(matches, search);
   } catch (error) {
     console.error("[MILITOPO E2] directory search", error);
     state.userResults.hidden = false;
@@ -315,7 +368,8 @@ function onDirectoryClick(event) {
     displayName: String(row.displayName || "").slice(0, 80)
   });
   renderSelectedUsers();
-  renderDirectoryResults((state.directoryCache.get(normalizeUsername(state.userSearch?.value || "") || "*") || []), normalizeUsername(state.userSearch?.value || ""));
+  const search = normalizeDirectorySearch(state.userSearch?.value || "");
+  renderDirectoryResults((state.directoryCache.get(search || "*") || []), search);
 }
 function onSelectedClick(event) {
   const button = event.target.closest("[data-remove-user]");
