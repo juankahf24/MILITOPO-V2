@@ -426,3 +426,44 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
 .r3-readiness-main{min-height:42px;border:1px solid #e8ecd9;border-radius:11px;background:#e8ecd9;color:#172018;font:900 .63rem/1 system-ui;letter-spacing:.025em;cursor:pointer}
 .r3-readiness.is-ready .r3-readiness-main{background:#dfead8;border-color:#dfead8}
 @media(max-width:720px){.r3-readiness-list{grid-template-columns:1fr}.r3-readiness-item{min-height:62px}.r3-readiness-head small{font-size:.58rem}}
+
+
+/* R3G · cierre arquitectura Organizer: panel Gestión ajustado al viewport y navegación coherente. */
+.r1-workspace-body.r3-manager-view{
+  width:100%!important;max-width:100%!important;min-width:0!important;
+  overflow-x:hidden!important;box-sizing:border-box!important;
+}
+.r1-workspace-body.r3-manager-view .r3-manager{
+  width:100%!important;max-width:100%!important;min-width:0!important;
+  overflow:hidden!important;box-sizing:border-box!important;
+}
+.r1-workspace-body.r3-manager-view .r3-manager>*{min-width:0;max-width:100%;box-sizing:border-box}
+.r1-workspace-body.r3-manager-view .r3-manager-hero,
+.r1-workspace-body.r3-manager-view .r3-manager-track,
+.r1-workspace-body.r3-manager-view .r3-manager-metrics,
+.r1-workspace-body.r3-manager-view .r3-readiness,
+.r1-workspace-body.r3-manager-view .r3-manager-grid,
+.r1-workspace-body.r3-manager-view .r3-manager-footer{width:100%;max-width:100%;min-width:0}
+.r3-manager-title h2,.r3-manager-title small{max-width:100%}
+.r3-manager-card-copy small,.r3-readiness-item small{overflow-wrap:anywhere}
+
+/* Barra de contexto al entrar en un módulo desde GESTIONAR CARRERA. */
+.r3-module-nav{
+  width:100%;max-width:100%;min-width:0;box-sizing:border-box;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:0 0 10px;padding:10px 12px;border:1px solid rgba(255,255,255,.09);
+  border-radius:14px;background:linear-gradient(145deg,#263326,#1b271c);color:#f4f2e7;
+}
+.r3-module-nav>div{min-width:0;display:grid;gap:3px}.r3-module-nav span{font:900 .52rem/1 system-ui;letter-spacing:.12em;color:#9eaa9d}.r3-module-nav strong{font:900 .72rem/1.05 system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.r3-module-nav small{font:650 .56rem/1.1 system-ui;color:#aeb7ac;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r3-module-nav button{flex:0 0 auto;min-height:38px;padding:8px 10px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:#e8ecd9;color:#172018;font:900 .58rem/1 system-ui;cursor:pointer}
+@media(max-width:720px){
+  .r1-workspace-body.r3-manager-view{padding-left:6px!important;padding-right:6px!important}
+  .r3-manager-hero{flex-wrap:wrap}.r3-manager-status{max-width:100%}
+  .r3-manager-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .r3-manager-footer{display:grid;grid-template-columns:1fr 1fr}.r3-manager-footer button{min-width:0;width:100%}
+  .r3-module-nav{align-items:stretch;flex-direction:column}.r3-module-nav button{width:100%}
+}
+@media(max-width:390px){
+  .r3-manager-track{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .r3-manager-footer{grid-template-columns:1fr}
+}
