@@ -146,25 +146,78 @@
     return true;
   }
   function participantHubNumber(id){const n=Number(String($(id)?.textContent||"0").replace(/[^0-9-]/g,""));return Number.isFinite(n)?n:0}
+  function lifecycleLabelEs(status){return R3_STATUS[String(status||"draft").toLowerCase()]||"BORRADOR"}
+  function participantsSnapshot(){try{return window.MILITOPO_V2_PARTICIPANTS_ADMIN?.getSnapshot?.()||null}catch(_){return null}}
+  function openLifecycleFromParticipants(){
+    const status=currentLifecycleStatus(),label=lifecycleLabelEs(status);
+    const message=`La carrera está en ${label}. Para enviar invitaciones debe estar PUBLICADA.\n\n¿Quieres ir a ESTADO Y PUBLICACIÓN?`;
+    if(!window.confirm(message))return false;
+    state.managerEvent=currentManagerContext(state.managerEvent||{});
+    state.managerModuleTitle="ESTADO Y PUBLICACIÓN";
+    return openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);
+  }
   function refreshParticipantsHub(){
     const hub=$("#r4ParticipantsHub");if(!hub)return;
     const capacity=Math.max(0,Number($("#participantCount")?.value)||0);
     const active=participantHubNumber("#m2RosterActive"),pending=participantHubNumber("#m2RosterPending"),removed=participantHubNumber("#m2RosterRemoved");
-    const status=currentLifecycleStatus(),published=status==="published";
+    const status=currentLifecycleStatus(),published=status==="published",label=lifecycleLabelEs(status);
     const set=(id,value)=>{const el=$(id,hub);if(el)el.textContent=String(value)};
     set("#r4PartCapacity",capacity||"—");set("#r4PartActive",active);set("#r4PartPending",pending);set("#r4PartRemoved",removed);
-    const chip=$("#r4PartState",hub);if(chip){chip.textContent=R3_STATUS[status]||status.toUpperCase();chip.dataset.status=status}
-    const inviteTab=$("[data-r4-part-tab='invites']",hub);if(inviteTab){inviteTab.classList.toggle("is-locked",!published);inviteTab.querySelector("small").textContent=published?"AÑADIR Y COMPARTIR":"DISPONIBLE EN PUBLICADO"}
-    const notice=$("#r4PartNotice",hub);if(notice){notice.className="r4-participants-notice "+(published?"is-open":"is-locked");notice.innerHTML=published?"<strong>INVITACIONES ACTIVAS</strong><span>La carrera está PUBLICADA. Ya puedes invitar participantes por @usuario, correo o lote.</span>":`<strong>INVITACIONES BLOQUEADAS</strong><span>El censo puede revisarse ahora. Las nuevas invitaciones se habilitan únicamente cuando la carrera esté PUBLICADA. Estado actual: ${R3_STATUS[status]||status.toUpperCase()}.</span>`}
+    const chip=$("#r4PartState",hub);if(chip){chip.textContent=label;chip.dataset.status=status}
+    const inviteTab=$("[data-r4-part-tab='invites']",hub);if(inviteTab){inviteTab.classList.toggle("is-locked",!published);inviteTab.querySelector("small").textContent=published?"AÑADIR Y COMPARTIR":"REQUIERE PUBLICADO"}
+    const notice=$("#r4PartNotice",hub);if(notice){
+      notice.className="r4-participants-notice "+(published?"is-open":"is-locked");
+      notice.innerHTML=published
+        ? `<strong>PUBLICADO</strong><span>Invitaciones habilitadas.</span>`
+        : `<strong>${label}</strong><span>Para invitar, la carrera debe estar PUBLICADA.</span><button type="button" data-r4-go-lifecycle>IR A ESTADO Y PUBLICACIÓN</button>`;
+    }
+    refreshAssignmentsHub();
+  }
+  function assignmentRouteCard(routeId,members){
+    const details=window.MILITOPO_R2_BRIDGE?.getRouteDetails?.(routeId)||null;
+    const assigned=members.filter(row=>String(row.routeId||"")===String(routeId));
+    const distance=Number(details?.metrics?.distanceKm),positive=Number(details?.metrics?.positiveM);
+    const distanceText=Number.isFinite(distance)?`${distance.toFixed(2)} km`:"—";
+    const positiveText=Number.isFinite(positive)?`+${Math.round(positive)} m`:"—";
+    const difficulty=String(details?.metrics?.difficulty||"—").toUpperCase();
+    return `<article class="r4-assignment-route"><div><strong>${routeId}</strong><span>${assigned.length} asignado${assigned.length===1?"":"s"}</span></div><small>${distanceText} · ${positiveText} · ${difficulty}</small></article>`;
+  }
+  function refreshAssignmentsHub(){
+    const panel=$("#r4AssignmentsPanel");if(!panel)return;
+    const snap=participantsSnapshot();
+    const plan=routePlanSnapshot();
+    const members=(snap?.members||[]).filter(row=>String(row.status||"active")==="active");
+    const assigned=members.filter(row=>row.participantId&&row.routeId);
+    const unassigned=members.filter(row=>!row.participantId||!row.routeId);
+    const capacity=Math.max(0,Number($("#participantCount")?.value)||Number(plan?.participantCount)||0);
+    const free=Math.max(0,capacity-members.length);
+    const routeIds=(plan?.routeIds||[]).map(String);
+    const pending=(snap?.invitations||[]).filter(row=>String(row.status||"pending")==="pending");
+    const metrics=panel.querySelector("[data-r4-assignment-metrics]");if(metrics)metrics.innerHTML=`
+      <div><strong>${assigned.length}</strong><span>ASIGNADOS</span></div>
+      <div class="${unassigned.length?"is-warn":""}"><strong>${unassigned.length}</strong><span>SIN RECORRIDO</span></div>
+      <div><strong>${free}</strong><span>PLAZAS LIBRES</span></div>
+      <div><strong>${routeIds.length}</strong><span>RECORRIDOS</span></div>`;
+    const routes=panel.querySelector("[data-r4-assignment-routes]");if(routes)routes.innerHTML=routeIds.length?routeIds.map(id=>assignmentRouteCard(id,members)).join(""):`<div class="r4-assignment-empty">Todavía no hay recorridos creados.</div>`;
+    const list=panel.querySelector("[data-r4-assignment-list]");if(list){
+      const rows=members.map(row=>{
+        const name=String(row.displayName||row.username||row.email||"Participante");
+        const assignment=row.participantId&&row.routeId?`${row.participantId} · ${row.routeId}`:"SIN ASIGNAR";
+        return `<div class="r4-assignment-person ${row.participantId&&row.routeId?"":"is-warn"}"><span>${name.replace(/[&<>\"]/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[s]||s))}</span><strong>${assignment}</strong></div>`;
+      });
+      if(pending.length)rows.push(`<div class="r4-assignment-pending"><strong>${pending.length} invitación${pending.length===1?"":"es"} pendiente${pending.length===1?"":"s"}</strong><span>El recorrido se asignará automáticamente al aceptar.</span></div>`);
+      list.innerHTML=rows.length?rows.join(""):`<div class="r4-assignment-empty">Todavía no hay participantes unidos.</div>`;
+    }
   }
   function selectParticipantsTab(tab){
-    const hub=$("#r4ParticipantsHub"),roster=$("#m2ParticipantsAdmin"),invites=$("#m2Invitations");if(!hub||!roster||!invites)return;
-    state.participantsTab=tab==="invites"?"invites":"roster";
+    const hub=$("#r4ParticipantsHub"),roster=$("#m2ParticipantsAdmin"),invites=$("#m2Invitations"),assignments=$("#r4AssignmentsPanel");if(!hub||!roster||!invites||!assignments)return;
+    state.participantsTab=["roster","assignments","invites"].includes(tab)?tab:"roster";
     hub.querySelectorAll("[data-r4-part-tab]").forEach(b=>b.classList.toggle("is-active",b.dataset.r4PartTab===state.participantsTab));
     roster.classList.toggle("r4-panel-hidden",state.participantsTab!=="roster");
     invites.classList.toggle("r4-panel-hidden",state.participantsTab!=="invites");
+    assignments.classList.toggle("r4-panel-hidden",state.participantsTab!=="assignments");
     const body=$("#r1WorkspaceBody");if(body){body.scrollTop=0;body.scrollLeft=0}
-    refreshParticipantsHub();
+    refreshParticipantsHub();refreshAssignmentsHub();
   }
   function decorateParticipantsModule(){
     const body=$("#r1WorkspaceBody"),stack=$(".r1-module-stack",body),roster=$("#m2ParticipantsAdmin",body),invites=$("#m2Invitations",body);if(!body||!stack||!roster||!invites)return false;
@@ -174,15 +227,22 @@
       hub=document.createElement("section");hub.id="r4ParticipantsHub";hub.className="r4-participants-hub";
       hub.innerHTML=`<div class="r4-participants-hero"><div><span>ORGANIZACIÓN · PARTICIPANTES</span><h2>PARTICIPANTES</h2><small>${currentEventName()}</small></div><b id="r4PartState">—</b></div>
         <div class="r4-participants-metrics"><div><strong id="r4PartCapacity">—</strong><span>PLAZAS</span></div><div><strong id="r4PartActive">0</strong><span>UNIDOS</span></div><div><strong id="r4PartPending">0</strong><span>PENDIENTES</span></div><div><strong id="r4PartRemoved">0</strong><span>RETIRADOS</span></div></div>
-        <div class="r4-participants-tabs"><button type="button" data-r4-part-tab="roster"><strong>CENSO</strong><small>LISTA Y ASIGNACIONES</small></button><button type="button" data-r4-part-tab="invites"><strong>INVITACIONES</strong><small>AÑADIR Y COMPARTIR</small></button></div>
+        <div class="r4-participants-tabs"><button type="button" data-r4-part-tab="roster"><strong>CENSO</strong><small>LISTA</small></button><button type="button" data-r4-part-tab="assignments"><strong>ASIGNACIONES</strong><small>PLAZAS Y RECORRIDOS</small></button><button type="button" data-r4-part-tab="invites"><strong>INVITACIONES</strong><small>AÑADIR Y COMPARTIR</small></button></div>
         <div id="r4PartNotice" class="r4-participants-notice"></div>`;
       stack.parentNode.insertBefore(hub,stack);
-      hub.addEventListener("click",event=>{const b=event.target.closest("[data-r4-part-tab]");if(b)selectParticipantsTab(b.dataset.r4PartTab)});
+      hub.addEventListener("click",event=>{const lifecycle=event.target.closest("[data-r4-go-lifecycle]");if(lifecycle){openLifecycleFromParticipants();return}const b=event.target.closest("[data-r4-part-tab]");if(b)selectParticipantsTab(b.dataset.r4PartTab)});
     }
-    selectParticipantsTab(state.participantsTab||"roster");refreshParticipantsHub();
+    let assignments=$("#r4AssignmentsPanel",body);
+    if(!assignments){
+      assignments=document.createElement("section");assignments.id="r4AssignmentsPanel";assignments.className="r4-assignments-panel r4-panel-hidden";
+      assignments.innerHTML=`<div class="r4-assignment-head"><div><strong>ASIGNACIÓN DE RECORRIDOS</strong><span>La plaza y el recorrido se asignan automáticamente al aceptar la invitación.</span></div><button type="button" data-r4-refresh-assignments>ACTUALIZAR</button></div><div class="r4-assignment-metrics" data-r4-assignment-metrics></div><div class="r4-assignment-section"><strong>DISTRIBUCIÓN POR RECORRIDO</strong><div class="r4-assignment-routes" data-r4-assignment-routes></div></div><div class="r4-assignment-section"><strong>PARTICIPANTES</strong><div class="r4-assignment-list" data-r4-assignment-list></div></div>`;
+      stack.parentNode.insertBefore(assignments,stack);
+      assignments.addEventListener("click",event=>{if(event.target.closest("[data-r4-refresh-assignments]")){try{window.MILITOPO_V2_PARTICIPANTS_ADMIN?.refresh?.()}catch(_){}setTimeout(refreshAssignmentsHub,180)}});
+    }
+    selectParticipantsTab(state.participantsTab||"roster");refreshParticipantsHub();refreshAssignmentsHub();
     try{state.participantsObserver?.disconnect?.()}catch(_){}
-    const observer=new MutationObserver(()=>refreshParticipantsHub());observer.observe(stack,{subtree:true,childList:true,characterData:true,attributes:true});state.participantsObserver=observer;
-    setTimeout(refreshParticipantsHub,220);setTimeout(refreshParticipantsHub,700);
+    const observer=new MutationObserver(()=>{refreshParticipantsHub();refreshAssignmentsHub()});observer.observe(stack,{subtree:true,childList:true,characterData:true,attributes:true});state.participantsObserver=observer;
+    setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},220);setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},700);
     return true;
   }
   function openParticipantsModule(fromManager=false){
@@ -413,7 +473,8 @@
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
     window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
     window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();refreshParticipantsHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
-    window.addEventListener("militopo:v2-roster-changed",()=>setTimeout(refreshParticipantsHub,60));
+    window.addEventListener("militopo:v2-roster-changed",()=>setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},60));
+    window.addEventListener("militopo:v2-roster-snapshot",()=>setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},60));
     window.addEventListener("militopo:r2-route-updated",()=>{if(state.currentStep===3)setTimeout(refreshRoutesProfessional,70);if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,90)});
     window.addEventListener("militopo:r2-config-updated",event=>{
       /* R2H · una sola pulsación en SINCRONIZAR aplica reglas y vuelve al mapa
