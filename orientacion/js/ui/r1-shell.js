@@ -211,6 +211,42 @@
   }
   function managerTrack(status){const current=Math.max(0,R3_ORDER.indexOf(status));return R3_ORDER.map((key,index)=>`<span class="r3-manager-stage ${index<current?"is-done":index===current?"is-current":""}">${R3_STATUS[key]}</span>`).join("")}
   function managerCard(action,title,desc,iconName,tone="") {return `<button type="button" class="r3-manager-card ${tone}" data-r3-manager-action="${action}"><span class="r3-manager-icon">${icon(iconName)}</span><span class="r3-manager-card-copy"><strong>${title}</strong><small>${desc}</small></span><span class="r3-manager-arrow">›</span></button>`}
+  function designReadinessSnapshot(){
+    const snap=window.MILITOPO_R2_BRIDGE?.getSnapshot?.();
+    const routePlan=routePlanSnapshot();
+    if(!snap)return null;
+    const points=Array.isArray(snap.points)?snap.points:[];
+    const start=points.find(p=>p.type==="SALIDA");
+    const finish=points.find(p=>p.type==="LLEGADA");
+    const hasStart=!!start&&start.lat!==null&&start.lon!==null;
+    const hasFinish=!!finish&&finish.lat!==null&&finish.lon!==null;
+    const controlTotal=Array.isArray(snap.controls)?snap.controls.length:0;
+    const controlsPlaced=Number(snap.controlsPlaced)||0;
+    const rulesOk=Number(snap.participantCount)>0&&controlTotal>0&&Number(snap.controlsPerRoute)>0&&Number(snap.controlsPerRoute)<=controlTotal&&Number(snap.maxUniqueRoutes)>0;
+    const mapOk=hasStart&&hasFinish&&controlsPlaced>=controlTotal;
+    const routesOk=!!routePlan&&routePlan.missing===0;
+    const items=[
+      {key:"config",title:"REGLAS DE CARRERA",ok:rulesOk,detail:rulesOk?`${snap.participantCount} participantes · ${controlTotal} balizas · ${snap.controlsPerRoute} por recorrido`:`Revisa participantes, balizas y balizas por recorrido.`},
+      {key:"map",title:"MAPA Y BALIZAS",ok:mapOk,detail:mapOk?`SALIDA + ${controlsPlaced} balizas + LLEGADA colocadas`:`${hasStart?"SALIDA ✓":"Falta SALIDA"} · ${controlsPlaced}/${controlTotal} balizas · ${hasFinish?"LLEGADA ✓":"Falta LLEGADA"}`},
+      {key:"routes",title:"RECORRIDOS",ok:routesOk,detail:routePlan?(routesOk?`${routePlan.created}/${routePlan.required} recorridos completos`:`${routePlan.created}/${routePlan.required} completos · faltan ${routePlan.missingIds.join(", ")||routePlan.missing}`):"No se pudo leer el plan de recorridos."}
+    ];
+    return {items,ready:items.every(item=>item.ok),done:items.filter(item=>item.ok).length,total:items.length};
+  }
+  function readinessHtml(){
+    const ready=designReadinessSnapshot();
+    if(!ready)return "";
+    const firstPending=ready.items.find(item=>!item.ok);
+    const status=currentLifecycleStatus();
+    const title=ready.ready?(status==="draft"?"DISEÑO LISTO PARA PREPARAR":"DISEÑO COMPLETO"):"PREPARACIÓN PENDIENTE";
+    const subtitle=ready.ready?(status==="draft"?"La estructura básica está completa. Revisa ESTADO Y PUBLICACIÓN para pasar a PREPARADO.":"La estructura cartográfica obligatoria está completa."):`${ready.done}/${ready.total} bloques básicos completados antes de preparar la carrera.`;
+    const action=ready.ready?"lifecycle":(firstPending?.key||"config");
+    const actionLabel=ready.ready?(status==="draft"?"REVISAR ESTADO Y PUBLICACIÓN":"VER ESTADO"):(action==="routes"?"COMPLETAR RECORRIDOS":action==="map"?"COMPLETAR MAPA":"REVISAR CONFIGURACIÓN");
+    return `<section class="r3-readiness ${ready.ready?"is-ready":"is-pending"}" aria-label="Preparación de carrera">
+      <div class="r3-readiness-head"><div><span>CONTROL DE PREPARACIÓN</span><strong>${title}</strong><small>${subtitle}</small></div><b>${ready.done}/${ready.total}</b></div>
+      <div class="r3-readiness-list">${ready.items.map(item=>`<button type="button" class="r3-readiness-item ${item.ok?"is-ok":"is-warn"}" data-r3-manager-action="${item.key}"><i>${item.ok?"✓":"!"}</i><span><strong>${item.title}</strong><small>${item.detail}</small></span><em>›</em></button>`).join("")}</div>
+      <button type="button" class="r3-readiness-main" data-r3-manager-action="${action}">${actionLabel}</button>
+    </section>`;
+  }
   function renderRaceManager(){
     const body=$("#r1WorkspaceBody");if(!body)return;
     const ctx=currentManagerContext();state.managerEvent=ctx;state.managerOpen=true;
@@ -227,6 +263,7 @@
         <div><strong>${ctx.courseSyncedCount||"—"}</strong><span>RECORRIDOS</span></div>
         <div><strong>${ctx.controlsPerRoute||"—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
       </div>
+      ${readinessHtml()}
       <div class="r3-manager-section-head"><strong>GESTIONAR</strong><span>Accede a cada área sin navegar por PASOS.</span></div>
       <div class="r3-manager-grid">
         ${managerCard("map","MAPA Y BALIZAS","Diseñar salida, llegada, balizas y trazado","layers","is-primary")}
@@ -284,7 +321,7 @@
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
     window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
     window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
-    window.addEventListener("militopo:r2-route-updated",()=>{if(state.currentStep===3)setTimeout(refreshRoutesProfessional,70)});
+    window.addEventListener("militopo:r2-route-updated",()=>{if(state.currentStep===3)setTimeout(refreshRoutesProfessional,70);if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,90)});
     window.addEventListener("militopo:r2-config-updated",event=>{
       /* R2H · una sola pulsación en SINCRONIZAR aplica reglas y vuelve al mapa
          sin recargar ni cerrar la PWA. */
@@ -294,6 +331,7 @@
         try{window.MILITOPO_R2_MAP_HOME?.activate?.();window.MILITOPO_R2_MAP_HOME?.refresh?.()}catch(_){}
         refreshContext();
         if(state.currentStep===3)refreshRoutesProfessional();
+        if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager();
       },45);
     });
     document.addEventListener("input",e=>{if(e.target?.id==="eventName")refreshContext()},{passive:true});
