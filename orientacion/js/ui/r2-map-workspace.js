@@ -79,8 +79,25 @@
       refresh,
       openTracePicker(){
         stage.classList.add("is-active");
+        state.toolsHidden=false;
+        try{localStorage.setItem("militopo_r2_tools_hidden","0")}catch(_){}
+        applyToolsVisibility();
         refresh();
         requestAnimationFrame(()=>setTimeout(()=>openRoutePicker(),35));
+      },
+      activatePlacementTool(tool,message=""){
+        stage.classList.add("is-active");
+        state.toolsHidden=false;
+        try{localStorage.setItem("militopo_r2_tools_hidden","0")}catch(_){}
+        applyToolsVisibility();
+        refresh();
+        requestAnimationFrame(()=>setTimeout(()=>{
+          if(tool==='start')selectPoint('START','start');
+          else if(tool==='control')selectControl();
+          else if(tool==='finish')selectPoint('FINISH','finish');
+          else {setTool('');return}
+          if(message)instruction(message);
+        },35));
       }
     };
     refresh();setTimeout(()=>window.MILITOPO_R2_MAP_HOME.activate(),80);return true;

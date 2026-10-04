@@ -232,6 +232,39 @@
     ];
     return {items,ready:items.every(item=>item.ok),done:items.filter(item=>item.ok).length,total:items.length};
   }
+  function missingMapPlan(){
+    const snap=window.MILITOPO_R2_BRIDGE?.getSnapshot?.();
+    if(!snap)return {tool:"",message:""};
+    const points=Array.isArray(snap.points)?snap.points:[];
+    const start=points.find(p=>p.type==="SALIDA");
+    const finish=points.find(p=>p.type==="LLEGADA");
+    const hasStart=!!start&&start.lat!==null&&start.lon!==null;
+    const hasFinish=!!finish&&finish.lat!==null&&finish.lon!==null;
+    const total=Array.isArray(snap.controls)?snap.controls.length:0;
+    const placed=Number(snap.controlsPlaced)||0;
+    const missingControls=Math.max(0,total-placed);
+    const missing=[];
+    if(!hasStart)missing.push("SALIDA");
+    if(missingControls)missing.push(`${missingControls} ${missingControls===1?"BALIZA":"BALIZAS"}`);
+    if(!hasFinish)missing.push("LLEGADA");
+    const prefix=missing.length?`FALTA${missing.length>1?"N":""}: ${missing.join(" · ")}. `:"";
+    if(!hasStart)return {tool:"start",message:`${prefix}SALIDA activada · toca el mapa para colocarla.`};
+    if(missingControls)return {tool:"control",message:`${prefix}BALIZA activada · coloca las balizas pendientes una a una.`};
+    if(!hasFinish)return {tool:"finish",message:`${prefix}LLEGADA activada · toca el mapa para colocarla.`};
+    return {tool:"",message:"Mapa completo · SALIDA, todas las balizas y LLEGADA están colocadas."};
+  }
+  function openMapForMissing(){
+    const plan=missingMapPlan();
+    closeMore();closeWorkspace(true);
+    setTimeout(()=>{try{window.MILITOPO_R2_MAP_HOME?.activate?.();window.MILITOPO_R2_MAP_HOME?.refresh?.()}catch(_){}},25);
+    setTimeout(()=>{
+      try{
+        if(plan.tool)window.MILITOPO_R2_MAP_HOME?.activatePlacementTool?.(plan.tool,plan.message);
+        else safeCall("toast",plan.message);
+      }catch(_){safeCall("toast",plan.message||"Abre la herramienta correspondiente en el mapa.")}
+    },115);
+  }
+  function openMissingRoutes(){openMapAndTrace()}
   function readinessHtml(){
     const ready=designReadinessSnapshot();
     if(!ready)return "";
@@ -240,11 +273,12 @@
     const title=ready.ready?(status==="draft"?"DISEÑO LISTO PARA PREPARAR":"DISEÑO COMPLETO"):"PREPARACIÓN PENDIENTE";
     const subtitle=ready.ready?(status==="draft"?"La estructura básica está completa. Revisa ESTADO Y PUBLICACIÓN para pasar a PREPARADO.":"La estructura cartográfica obligatoria está completa."):`${ready.done}/${ready.total} bloques básicos completados antes de preparar la carrera.`;
     const action=ready.ready?"lifecycle":(firstPending?.key||"config");
+    const smartAction=action==="map"?"complete-map":action==="routes"?"complete-routes":action;
     const actionLabel=ready.ready?(status==="draft"?"REVISAR ESTADO Y PUBLICACIÓN":"VER ESTADO"):(action==="routes"?"COMPLETAR RECORRIDOS":action==="map"?"COMPLETAR MAPA":"REVISAR CONFIGURACIÓN");
     return `<section class="r3-readiness ${ready.ready?"is-ready":"is-pending"}" aria-label="Preparación de carrera">
       <div class="r3-readiness-head"><div><span>CONTROL DE PREPARACIÓN</span><strong>${title}</strong><small>${subtitle}</small></div><b>${ready.done}/${ready.total}</b></div>
-      <div class="r3-readiness-list">${ready.items.map(item=>`<button type="button" class="r3-readiness-item ${item.ok?"is-ok":"is-warn"}" data-r3-manager-action="${item.key}"><i>${item.ok?"✓":"!"}</i><span><strong>${item.title}</strong><small>${item.detail}</small></span><em>›</em></button>`).join("")}</div>
-      <button type="button" class="r3-readiness-main" data-r3-manager-action="${action}">${actionLabel}</button>
+      <div class="r3-readiness-list">${ready.items.map(item=>{const itemAction=!item.ok&&item.key==="map"?"complete-map":!item.ok&&item.key==="routes"?"complete-routes":item.key;return `<button type="button" class="r3-readiness-item ${item.ok?"is-ok":"is-warn"}" data-r3-manager-action="${itemAction}"><i>${item.ok?"✓":"!"}</i><span><strong>${item.title}</strong><small>${item.detail}</small></span><em>›</em></button>`}).join("")}</div>
+      <button type="button" class="r3-readiness-main" data-r3-manager-action="${smartAction}">${actionLabel}</button>
     </section>`;
   }
   function renderRaceManager(){
@@ -266,7 +300,7 @@
       ${readinessHtml()}
       <div class="r3-manager-section-head"><strong>GESTIONAR</strong><span>Accede a cada área sin navegar por PASOS.</span></div>
       <div class="r3-manager-grid">
-        ${managerCard("map","MAPA Y BALIZAS","Diseñar salida, llegada, balizas y trazado","layers","is-primary")}
+        ${managerCard((designReadinessSnapshot()?.items.find(i=>i.key==="map")?.ok)?"map":"complete-map","MAPA Y BALIZAS","Diseñar salida, llegada, balizas y trazado","layers","is-primary")}
         ${managerCard("config","CONFIGURACIÓN","Datos generales y reglas de la carrera","settings")}
         ${managerCard("routes","RECORRIDOS","Revisar recorridos manuales y asignaciones","route")}
         ${managerCard("participants","PARTICIPANTES","Invitaciones, censo y asignación de recorrido","users")}
@@ -295,6 +329,8 @@
   function runManagerAction(action){
     state.managerOpen=false;
     if(action==="races"){closeWorkspace(true);setTimeout(openRaces,60);return}
+    if(action==="complete-map")return openMapForMissing();
+    if(action==="complete-routes")return openMissingRoutes();
     if(action==="map"){closeWorkspace(true);return}
     if(action==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");
     if(action==="routes")return openRoutesModule();
