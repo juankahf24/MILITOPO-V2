@@ -399,3 +399,19 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
 .r3-routes-grid{margin-top:0!important;gap:8px!important}.r3-routes-grid>.block{margin:0!important;border-radius:14px!important;border-color:rgba(255,255,255,.08)!important;background:rgba(255,255,255,.035)!important}
 .r3-routes-footer{display:flex;justify-content:space-between;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}.r3-routes-footer .btn{min-height:44px!important;border-radius:12px!important;font-weight:900!important}
 @media(max-width:720px){.r3-routes-card{padding:10px!important}.r3-routes-head{padding:12px;flex-direction:column}.r3-routes-map-btn{width:100%}.r3-routes-overview{grid-template-columns:1fr}.r3-routes-count{grid-template-columns:1fr auto;align-items:center}.r3-routes-count strong{font-size:.9rem}.r3-routes-map{min-height:320px;height:52vh}.r3-routes-footer{display:grid;grid-template-columns:1fr}.r3-routes-footer .btn{width:100%!important}}
+
+
+/* R3E.1 · progreso obligatorio de recorridos + Material QR bloqueado hasta PREPARADO */
+.r3-routes-progress{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 8px}
+.r3-routes-progress-card{min-width:0;padding:12px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.04);display:grid;gap:6px}
+.r3-routes-progress-card span{font:850 .56rem/1.15 system-ui;letter-spacing:.075em;color:#9eaa9d}.r3-routes-progress-card strong{font:950 1.35rem/1 system-ui;color:#f5f2e7}
+.r3-routes-progress-card.is-created strong{color:#dfe9d7}.r3-routes-progress-card.is-missing strong{color:#f3c27f}
+.r3-routes-completion{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 13px;margin:0 0 9px;border-radius:14px;border:1px solid rgba(255,255,255,.10)}
+.r3-routes-completion>div{min-width:0;display:grid;gap:4px}.r3-routes-completion strong{font:900 .7rem/1.1 system-ui;letter-spacing:.055em}.r3-routes-completion span{font:650 .62rem/1.35 system-ui;color:#adb6aa}
+.r3-routes-completion.is-pending{background:rgba(155,97,32,.14);border-color:rgba(235,172,91,.28)}.r3-routes-completion.is-pending strong{color:#ffd49a}
+.r3-routes-completion.is-complete{background:rgba(87,126,79,.15);border-color:rgba(147,190,137,.25)}.r3-routes-completion.is-complete strong{color:#dcefd5}
+.r3-routes-completion button{flex:0 0 auto;min-height:40px;padding:9px 11px;border:1px solid #eadfb9;border-radius:11px;background:#eadfb9;color:#172018;font:900 .61rem/1 system-ui;cursor:pointer}
+.r1-more-action.is-locked,.r3-manager-card.is-locked{opacity:.64;border-color:rgba(255,255,255,.08)!important;background:rgba(255,255,255,.025)!important}
+.r1-more-action.is-locked{position:relative;padding-right:34px}.r1-more-action.is-locked::after{content:"🔒";position:absolute;right:11px;top:50%;transform:translateY(-50%);font-size:15px}
+.r3-manager-card.is-locked .r3-manager-arrow{font-size:0}.r3-manager-card.is-locked .r3-manager-arrow::after{content:"🔒";font-size:15px}
+@media(max-width:720px){.r3-routes-progress{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.r3-routes-progress-card{padding:10px 8px}.r3-routes-progress-card span{font-size:.49rem}.r3-routes-progress-card strong{font-size:1.2rem}.r3-routes-completion{align-items:stretch;flex-direction:column}.r3-routes-completion button{width:100%}}
