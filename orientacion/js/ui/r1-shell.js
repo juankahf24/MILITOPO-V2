@@ -3,7 +3,7 @@
   if(window.__MILITOPO_R1_SHELL__) return;
   window.__MILITOPO_R1_SHELL__=true;
 
-  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null};
+  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,participantsTab:"roster"};
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const icon=(name)=>{
@@ -94,7 +94,8 @@
   function hostNodes(nodes,title){
     closeWorkspace(false);const body=$("#r1WorkspaceBody"),titleEl=$("#r1WorkspaceTitle");if(!body)return;
     state.mapHome=false;document.body.classList.add("r1-workspace-open");
-    titleEl.textContent=title;body.innerHTML="";state.hosted=[];body.classList.remove("r3-manager-view");
+    try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;
+    titleEl.textContent=title;body.innerHTML="";state.hosted=[];body.classList.remove("r3-manager-view","r4-participants-view");
     const managerTitle=state.managerModuleTitle;state.managerModuleTitle=null;
     if(managerTitle){
       const nav=document.createElement("div");nav.className="r3-module-nav";
@@ -111,7 +112,7 @@
   }
   function closeWorkspace(returnToMap=true){
     state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
-    state.hosted=[];state.managerOpen=false;state.workspace?.classList.remove("is-open");if(state.workspace)$("#r1WorkspaceBody",state.workspace).innerHTML="";document.body.style.overflow="";
+    state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view");if(body)body.innerHTML=""}document.body.style.overflow="";
     document.body.classList.remove("r1-workspace-open");state.mapHome=!!returnToMap;
     if(returnToMap){safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;setTimeout(()=>window.MILITOPO_R2_MAP_HOME?.activate?.(),35)}
     setTimeout(()=>{window.dispatchEvent(new Event("resize"));refreshContext()},60);
@@ -144,6 +145,52 @@
     setTimeout(()=>openStep(1,"NUEVA CARRERA · CONFIGURACIÓN"),60);
     return true;
   }
+  function participantHubNumber(id){const n=Number(String($(id)?.textContent||"0").replace(/[^0-9-]/g,""));return Number.isFinite(n)?n:0}
+  function refreshParticipantsHub(){
+    const hub=$("#r4ParticipantsHub");if(!hub)return;
+    const capacity=Math.max(0,Number($("#participantCount")?.value)||0);
+    const active=participantHubNumber("#m2RosterActive"),pending=participantHubNumber("#m2RosterPending"),removed=participantHubNumber("#m2RosterRemoved");
+    const status=currentLifecycleStatus(),published=status==="published";
+    const set=(id,value)=>{const el=$(id,hub);if(el)el.textContent=String(value)};
+    set("#r4PartCapacity",capacity||"—");set("#r4PartActive",active);set("#r4PartPending",pending);set("#r4PartRemoved",removed);
+    const chip=$("#r4PartState",hub);if(chip){chip.textContent=R3_STATUS[status]||status.toUpperCase();chip.dataset.status=status}
+    const inviteTab=$("[data-r4-part-tab='invites']",hub);if(inviteTab){inviteTab.classList.toggle("is-locked",!published);inviteTab.querySelector("small").textContent=published?"AÑADIR Y COMPARTIR":"DISPONIBLE EN PUBLICADO"}
+    const notice=$("#r4PartNotice",hub);if(notice){notice.className="r4-participants-notice "+(published?"is-open":"is-locked");notice.innerHTML=published?"<strong>INVITACIONES ACTIVAS</strong><span>La carrera está PUBLICADA. Ya puedes invitar participantes por @usuario, correo o lote.</span>":`<strong>INVITACIONES BLOQUEADAS</strong><span>El censo puede revisarse ahora. Las nuevas invitaciones se habilitan únicamente cuando la carrera esté PUBLICADA. Estado actual: ${R3_STATUS[status]||status.toUpperCase()}.</span>`}
+  }
+  function selectParticipantsTab(tab){
+    const hub=$("#r4ParticipantsHub"),roster=$("#m2ParticipantsAdmin"),invites=$("#m2Invitations");if(!hub||!roster||!invites)return;
+    state.participantsTab=tab==="invites"?"invites":"roster";
+    hub.querySelectorAll("[data-r4-part-tab]").forEach(b=>b.classList.toggle("is-active",b.dataset.r4PartTab===state.participantsTab));
+    roster.classList.toggle("r4-panel-hidden",state.participantsTab!=="roster");
+    invites.classList.toggle("r4-panel-hidden",state.participantsTab!=="invites");
+    const body=$("#r1WorkspaceBody");if(body){body.scrollTop=0;body.scrollLeft=0}
+    refreshParticipantsHub();
+  }
+  function decorateParticipantsModule(){
+    const body=$("#r1WorkspaceBody"),stack=$(".r1-module-stack",body),roster=$("#m2ParticipantsAdmin",body),invites=$("#m2Invitations",body);if(!body||!stack||!roster||!invites)return false;
+    body.classList.add("r4-participants-view");
+    let hub=$("#r4ParticipantsHub",body);
+    if(!hub){
+      hub=document.createElement("section");hub.id="r4ParticipantsHub";hub.className="r4-participants-hub";
+      hub.innerHTML=`<div class="r4-participants-hero"><div><span>ORGANIZACIÓN · PARTICIPANTES</span><h2>PARTICIPANTES</h2><small>${currentEventName()}</small></div><b id="r4PartState">—</b></div>
+        <div class="r4-participants-metrics"><div><strong id="r4PartCapacity">—</strong><span>PLAZAS</span></div><div><strong id="r4PartActive">0</strong><span>UNIDOS</span></div><div><strong id="r4PartPending">0</strong><span>PENDIENTES</span></div><div><strong id="r4PartRemoved">0</strong><span>RETIRADOS</span></div></div>
+        <div class="r4-participants-tabs"><button type="button" data-r4-part-tab="roster"><strong>CENSO</strong><small>LISTA Y ASIGNACIONES</small></button><button type="button" data-r4-part-tab="invites"><strong>INVITACIONES</strong><small>AÑADIR Y COMPARTIR</small></button></div>
+        <div id="r4PartNotice" class="r4-participants-notice"></div>`;
+      stack.parentNode.insertBefore(hub,stack);
+      hub.addEventListener("click",event=>{const b=event.target.closest("[data-r4-part-tab]");if(b)selectParticipantsTab(b.dataset.r4PartTab)});
+    }
+    selectParticipantsTab(state.participantsTab||"roster");refreshParticipantsHub();
+    try{state.participantsObserver?.disconnect?.()}catch(_){}
+    const observer=new MutationObserver(()=>refreshParticipantsHub());observer.observe(stack,{subtree:true,childList:true,characterData:true,attributes:true});state.participantsObserver=observer;
+    setTimeout(refreshParticipantsHub,220);setTimeout(refreshParticipantsHub,700);
+    return true;
+  }
+  function openParticipantsModule(fromManager=false){
+    if(fromManager)state.managerModuleTitle="PARTICIPANTES";
+    state.participantsTab="roster";
+    openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);
+    setTimeout(decorateParticipantsModule,150);setTimeout(decorateParticipantsModule,360);
+  }
   function openHistory(){const btn=$("#m2OrganizerHistoryOpen");if(btn){btn.click();return}openInjected(["m2EventHistoricalResults"],"HISTÓRICO Y RESULTADOS",1)}
   function openProfile(){
     closeMore();
@@ -151,8 +198,8 @@
     if(btn){btn.click();return}
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
-  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
-  function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openStep(6,"RESULTADOS Y CONTROL");if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
+  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openParticipantsModule(false);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
+  function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openParticipantsModule(false);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openStep(6,"RESULTADOS Y CONTROL");if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"};
   const R3_ORDER=["draft","prepared","published","live","finished","archived"];
   function currentLifecycleStatus(){return String(window.MILITOPO_V2_EVENT_STATUS?.status||state.eventStatus?.status||state.managerEvent?.status||"draft")}
@@ -343,7 +390,7 @@
     if(action==="map"){closeWorkspace(true);return}
     if(action==="config")return openManagerStep(1,"CONFIGURACIÓN DE CARRERA");
     if(action==="routes"){state.managerModuleTitle="RECORRIDOS";return openRoutesModule()}
-    if(action==="participants")return openManagerInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);
+    if(action==="participants")return openParticipantsModule(true);
     if(action==="lifecycle")return openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);
     if(action==="live")return openManagerInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);
     if(action==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openManagerStep(4,"MATERIAL QR Y EXPORTACIÓN")}
@@ -365,7 +412,8 @@
     window.addEventListener("militopo:v2-cloud-event-applied",()=>setTimeout(refreshContext,100));
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
     window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
-    window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
+    window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();refreshParticipantsHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
+    window.addEventListener("militopo:v2-roster-changed",()=>setTimeout(refreshParticipantsHub,60));
     window.addEventListener("militopo:r2-route-updated",()=>{if(state.currentStep===3)setTimeout(refreshRoutesProfessional,70);if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,90)});
     window.addEventListener("militopo:r2-config-updated",event=>{
       /* R2H · una sola pulsación en SINCRONIZAR aplica reglas y vuelve al mapa
