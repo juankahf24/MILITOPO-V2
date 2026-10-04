@@ -43,7 +43,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <link rel="stylesheet" href="css/styles.css?v=v2-i6h-paso7-status-dots-20261001" />
-<link rel="stylesheet" href="css/r1-shell.css?v=r3d-config-professional-20261004" />
+<link rel="stylesheet" href="css/r1-shell.css?v=r3e-routes-professional-20261004" />
 <link rel="stylesheet" href="css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003" />
 <link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929" />
 
@@ -254,23 +254,44 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
     </div>
 </div>
 <div class="nav-row"><button class="btn secondary" onclick="goStep(1)">← ANTERIOR</button><button class="btn green" onclick="confirmStep2()">REVISAR RECORRIDOS →</button></div></section>
-<section id="step3" class="card"><div class="card-header"><h2>🏃 RECORRIDOS MANUALES</h2></div><div class="grid one"><div class="block"><label>Recorridos</label><div class="status" id="routeCountInfo">--</div></div></div><div id="routeSummary" class="status warn">Todavía no hay recorridos. Créelos manualmente con TRAZAR sobre el mapa.</div>
-<div id="step3MapPanel" class="block" style="display:none;margin-top:14px;">
-    <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px;">
-        <div>
-            <div style="color:#cbb894;font-size:.72rem;font-weight:900;letter-spacing:1px;">🗺️ PLANO DEL RECORRIDO SELECCIONADO</div>
-            <h3 id="step3MapTitle" style="margin:4px 0 0;color:#f0c16a;">Recorrido</h3>
-        </div>
-        <button class="btn secondary" type="button" onclick="hideStep3Map()">OCULTAR PLANO</button>
+<section id="step3" class="card r3-routes-card">
+  <div class="r3-routes-head">
+    <div>
+      <span>ORGANIZADOR · DISEÑO</span>
+      <h2>RECORRIDOS</h2>
+      <p>Revisa los recorridos creados manualmente. La creación y edición se realiza siempre sobre el mapa principal con <b>TRAZAR</b>.</p>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <button class="btn secondary" type="button" onclick="switchStep3MapLayer('mapant')">🧭 MAPANT</button>
-        <button class="btn secondary" type="button" onclick="switchStep3MapLayer('ign')">🗺️ IGN</button>
-        <button class="btn secondary" type="button" onclick="switchStep3MapLayer('pnoa')">🛰️ PNOA</button>
-        <button class="btn secondary" type="button" onclick="switchStep3MapLayer('custom')">📐 MI PLANO</button>
+    <button class="r3-routes-map-btn" type="button" onclick="window.MILITOPO_R3_ORGANIZER_MANAGER?.close?.()">MAPA Y TRAZAR</button>
+  </div>
+
+  <div class="r3-routes-overview">
+    <div class="r3-routes-count"><span>RECORRIDOS DISPONIBLES</span><strong id="routeCountInfo">--</strong></div>
+    <div id="routeSummary" class="status warn r3-routes-summary">Todavía no hay recorridos. Créelos manualmente con TRAZAR sobre el mapa.</div>
+  </div>
+
+  <div class="r3-routes-section-head"><div><strong>LISTADO Y REVISIÓN</strong><small>Selecciona un recorrido para consultar su información y plano.</small></div></div>
+
+  <div id="step3MapPanel" class="block r3-routes-map-panel" style="display:none;">
+    <div class="r3-routes-map-head">
+      <div><span>PLANO DEL RECORRIDO SELECCIONADO</span><h3 id="step3MapTitle">Recorrido</h3></div>
+      <button class="btn secondary" type="button" onclick="hideStep3Map()">OCULTAR PLANO</button>
     </div>
-    <div id="step3RouteMap" style="width:100%;height:min(58vh,560px);min-height:380px;border-radius:22px;overflow:hidden;border:2px solid rgba(230,188,122,.42);background:#d9d1b8;"></div>
-</div><div id="routesGrid" class="grid two" style="margin-top:16px"></div><div class="nav-row"><button class="btn secondary" onclick="goStep(2)">← ANTERIOR</button><button class="btn green" onclick="confirmStep3()">GENERAR MATERIAL →</button></div></section>
+    <div class="r3-routes-layers">
+      <button class="btn secondary" type="button" onclick="switchStep3MapLayer('mapant')">MAPANT</button>
+      <button class="btn secondary" type="button" onclick="switchStep3MapLayer('ign')">IGN</button>
+      <button class="btn secondary" type="button" onclick="switchStep3MapLayer('pnoa')">AÉREO</button>
+      <button class="btn secondary" type="button" onclick="switchStep3MapLayer('custom')">MI PLANO</button>
+    </div>
+    <div id="step3RouteMap" class="r3-routes-map"></div>
+  </div>
+
+  <div id="routesGrid" class="grid two r3-routes-grid"></div>
+
+  <div class="r3-routes-footer">
+    <button class="btn secondary" type="button" onclick="window.MILITOPO_R3_ORGANIZER_MANAGER?.open?.()">← GESTIÓN DE CARRERA</button>
+    <button class="btn green" type="button" onclick="confirmStep3()">MATERIAL QR →</button>
+  </div>
+</section>
 <section id="step4" class="card">
   <div class="card-header">
     <h2>📦 MATERIAL · PLANOS · QR</h2>
@@ -649,7 +670,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
 <script src="js/app.js?v=r2k-compass-direct-img-20261003"></script>
-<script src="js/ui/r1-shell.js?v=r3d-config-professional-20261004"></script>
+<script src="js/ui/r1-shell.js?v=r3e-routes-professional-20261004"></script>
 <script src="js/ui/r2-map-workspace.js?v=r2k-compass-direct-img-20261003"></script>
 
 <script>
