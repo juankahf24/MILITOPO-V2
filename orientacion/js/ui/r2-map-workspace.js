@@ -74,7 +74,15 @@
     stage.addEventListener("click",onClick);state.stage=stage;window.militopoR2HandleMapPointClick=handleTracePoint;
     try{state.toolsHidden=localStorage.getItem("militopo_r2_tools_hidden")==="1"}catch(_){}
     applyToolsVisibility();
-    window.MILITOPO_R2_MAP_HOME={activate(){stage.classList.add("is-active");setTimeout(()=>{window.dispatchEvent(new Event("resize"));try{map.dispatchEvent(new Event("militopo:r2-mounted"))}catch(_){}},40);refresh();},refresh};
+    window.MILITOPO_R2_MAP_HOME={
+      activate(){stage.classList.add("is-active");setTimeout(()=>{window.dispatchEvent(new Event("resize"));try{map.dispatchEvent(new Event("militopo:r2-mounted"))}catch(_){}},40);refresh();},
+      refresh,
+      openTracePicker(){
+        stage.classList.add("is-active");
+        refresh();
+        requestAnimationFrame(()=>setTimeout(()=>openRoutePicker(),35));
+      }
+    };
     refresh();setTimeout(()=>window.MILITOPO_R2_MAP_HOME.activate(),80);return true;
   }
   function applyToolsVisibility(){

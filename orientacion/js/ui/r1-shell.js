@@ -111,10 +111,16 @@
     setTimeout(()=>{window.dispatchEvent(new Event("resize"));refreshContext()},60);
   }
   function showMapHome(){closeMore();closeWorkspace(true);window.scrollTo({top:0,behavior:"auto"});}
-  function openStep(step,title){closeMore();closeWorkspace(false);safeCall("goStep",step,{noScroll:true});state.currentStep=step;setTimeout(()=>{const node=$(`#step${step}`);if(node)hostNodes([node],title)},50)}
+  function openStep(step,title){
+    closeMore();
+    if(Number(step)===4&&!materialQrUnlocked()){showMaterialLockedNotice();return false}
+    closeWorkspace(false);safeCall("goStep",step,{noScroll:true});state.currentStep=step;
+    setTimeout(()=>{const node=$(`#step${step}`);if(node){hostNodes([node],title);if(Number(step)===3)setTimeout(refreshRoutesProfessional,35)}},50);
+    return true;
+  }
   function openInjected(ids,title,step=1){closeMore();closeWorkspace(false);safeCall("goStep",step,{noScroll:true});setTimeout(()=>{const nodes=ids.map(id=>document.getElementById(id)).filter(Boolean);if(nodes.length)hostNodes(nodes,title);else{safeCall("toast","Módulo todavía cargando. Inténtalo de nuevo en un instante.")}},90)}
   function closeMore(){$("#r1More")?.classList.remove("is-open")}
-  function openMore(){$("#r1More")?.classList.add("is-open")}
+  function openMore(){refreshMaterialAccess();$("#r1More")?.classList.add("is-open")}
   function openRaces(){
     const center=window.MILITOPO_V2_ORGANIZER_CENTER;
     if(center&&typeof center.open==="function"){center.open();return}
@@ -140,9 +146,53 @@
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
   function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
-  function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openStep(3,"RECORRIDOS");if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openStep(6,"RESULTADOS Y CONTROL");if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
+  function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openStep(6,"RESULTADOS Y CONTROL");if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"};
   const R3_ORDER=["draft","prepared","published","live","finished","archived"];
+  function currentLifecycleStatus(){return String(window.MILITOPO_V2_EVENT_STATUS?.status||state.eventStatus?.status||state.managerEvent?.status||"draft")}
+  function materialQrUnlocked(){return R3_ORDER.indexOf(currentLifecycleStatus())>=R3_ORDER.indexOf("prepared")}
+  function showMaterialLockedNotice(){
+    closeMore();
+    const message="MATERIAL QR está bloqueado mientras la carrera esté en BORRADOR. Estará disponible cuando la carrera pase a PREPARADO.";
+    try{window.alert(message)}catch(_){safeCall("toast",message)}
+    return false;
+  }
+  function refreshMaterialAccess(){
+    const locked=!materialQrUnlocked();
+    const more=$("[data-more-action='material']");
+    if(more){more.classList.toggle("is-locked",locked);more.setAttribute("aria-disabled",locked?"true":"false");const small=$("small",more);if(small)small.textContent=locked?"🔒 Disponible desde PREPARADO":"Planos, QR y exportaciones";}
+  }
+  function routePlanSnapshot(){
+    const snap=window.MILITOPO_R2_BRIDGE?.getSnapshot?.();
+    if(!snap)return null;
+    const required=Math.max(1,Math.min(Number(snap.participantCount)||1,Number(snap.maxUniqueRoutes)||1));
+    const ids=[...new Set((snap.routeIds||[]).map(String))];
+    const created=ids.length;
+    const expected=Array.from({length:required},(_,i)=>"R"+String(i+1).padStart(2,"0"));
+    const missingIds=expected.filter(id=>!ids.includes(id));
+    return {...snap,required,created,missing:Math.max(0,required-created),missingIds};
+  }
+  function refreshRoutesProfessional(){
+    const plan=routePlanSnapshot();if(!plan)return;
+    const required=$("#r3RoutesRequired"),created=$("#r3RoutesCreated"),missing=$("#r3RoutesMissing"),box=$("#r3RoutesCompletion");
+    if(required)required.textContent=String(plan.required);if(created)created.textContent=String(plan.created);if(missing)missing.textContent=String(plan.missing);
+    if(!box)return;
+    if(plan.missing>0){
+      const noun=plan.missing===1?"recorrido":"recorridos";
+      box.className="r3-routes-completion is-pending";
+      box.innerHTML=`<div><strong>FALTAN ${plan.missing} ${noun.toUpperCase()}</strong><span>Debes completar ${plan.required} en total. Pendientes: ${plan.missingIds.join(", ")||"—"}.</span></div><button type="button" data-r3-complete-routes>COMPLETAR RECORRIDOS</button>`;
+      box.querySelector("[data-r3-complete-routes]")?.addEventListener("click",openMapAndTrace);
+    }else{
+      box.className="r3-routes-completion is-complete";
+      box.innerHTML=`<div><strong>RECORRIDOS COMPLETOS</strong><span>Ya están creados los ${plan.required} recorridos previstos para esta carrera.</span></div>`;
+    }
+  }
+  function openMapAndTrace(){
+    closeMore();closeWorkspace(true);
+    setTimeout(()=>{try{window.MILITOPO_R2_MAP_HOME?.activate?.();window.MILITOPO_R2_MAP_HOME?.refresh?.()}catch(_){}},25);
+    setTimeout(()=>{try{window.MILITOPO_R2_MAP_HOME?.openTracePicker?.()}catch(_){safeCall("toast","Pulsa TRAZAR para seleccionar el recorrido.")}},110);
+  }
+  function openRoutesModule(){const ok=openStep(3,"RECORRIDOS");if(ok!==false)setTimeout(refreshRoutesProfessional,120);return ok}
   function numValue(id,fallback=0){const n=Number($("#"+id)?.value);return Number.isFinite(n)?n:fallback}
   function routeCountFromUi(fallback=0){const text=String($("#routeCountInfo")?.textContent||"");const match=text.match(/·\s*(\d+)\s+recorrido/i);return match?Number(match[1]):Number(fallback)||0}
   function currentManagerContext(extra={}){
@@ -185,7 +235,7 @@
         ${managerCard("participants","PARTICIPANTES","Invitaciones, censo y asignación de recorrido","users")}
         ${managerCard("lifecycle","ESTADO Y PUBLICACIÓN","Preparar, publicar, iniciar, finalizar y archivar","flag","is-state")}
         ${managerCard("live","LIVE","Centro de seguimiento en tiempo real","live","is-live")}
-        ${managerCard("material","MATERIAL QR","Planos, QR y exportaciones","qr")}
+        ${managerCard("material","MATERIAL QR",materialQrUnlocked()?"Planos, QR y exportaciones":"🔒 Disponible desde PREPARADO","qr",materialQrUnlocked()?"":"is-locked")}
         ${managerCard("sequence","SECUENCIA","Salidas, llegadas y control de carrera","flag")}
         ${managerCard("results","RESULTADOS","Resultados y control de participantes","chart")}
         ${managerCard("analysis","ANÁLISIS","Reproductor y análisis post-carrera","chart")}
@@ -210,11 +260,11 @@
     if(action==="races"){closeWorkspace(true);setTimeout(openRaces,60);return}
     if(action==="map"){closeWorkspace(true);return}
     if(action==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");
-    if(action==="routes")return openStep(3,"RECORRIDOS");
+    if(action==="routes")return openRoutesModule();
     if(action==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);
     if(action==="lifecycle")return openInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);
     if(action==="live")return openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);
-    if(action==="material")return openStep(4,"MATERIAL QR Y EXPORTACIÓN");
+    if(action==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}
     if(action==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");
     if(action==="results")return openStep(6,"RESULTADOS Y CONTROL");
     if(action==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");
@@ -232,8 +282,9 @@
     window.addEventListener("militopo:v2-orientation-header",e=>{const h=e.detail?.header||{};const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name&&h.eventName)name.textContent=h.eventName;if(meta&&h.eventId)meta.textContent=h.eventId});
     window.addEventListener("militopo:v2-cloud-event-applied",()=>setTimeout(refreshContext,100));
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
-    window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
-    window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
+    window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
+    window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
+    window.addEventListener("militopo:r2-route-updated",()=>{if(state.currentStep===3)setTimeout(refreshRoutesProfessional,70)});
     window.addEventListener("militopo:r2-config-updated",event=>{
       /* R2H · una sola pulsación en SINCRONIZAR aplica reglas y vuelve al mapa
          sin recargar ni cerrar la PWA. */
@@ -242,6 +293,7 @@
       setTimeout(()=>{
         try{window.MILITOPO_R2_MAP_HOME?.activate?.();window.MILITOPO_R2_MAP_HOME?.refresh?.()}catch(_){}
         refreshContext();
+        if(state.currentStep===3)refreshRoutesProfessional();
       },45);
     });
     document.addEventListener("input",e=>{if(e.target?.id==="eventName")refreshContext()},{passive:true});
@@ -249,7 +301,7 @@
     const observer=new MutationObserver(refreshContext);$$('.card').forEach(card=>observer.observe(card,{attributes:true,attributeFilter:["class"]}));
   }
   
-  globalThis.MILITOPO_R3_ORGANIZER_MANAGER=Object.freeze({open:(event)=>openRaceManager(event||{}),close:()=>closeWorkspace(true)});
+  globalThis.MILITOPO_R3_ORGANIZER_MANAGER=Object.freeze({open:(event)=>openRaceManager(event||{}),close:()=>closeWorkspace(true),mapAndTrace:openMapAndTrace,refreshRoutes:refreshRoutesProfessional});
   globalThis.addEventListener("militopo:r3-new-race",startNewRace);
 function init(){
     document.body.classList.add("r1-shell-active");
