@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r3f-readiness-manager-20261004";
+const BUILD_ID="v2-r3f1-smart-completion-20261004";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -10,11 +10,11 @@ const CORE_ASSETS=[
   "./",
   "./index.html",
   "./css/styles.css?v=v2-i6h-paso7-status-dots-20261001",
-  "./css/r1-shell.css?v=r3f-readiness-manager-20261004",
+  "./css/r1-shell.css?v=r3f1-smart-completion-20261004",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./js/app.js?v=r2k-compass-direct-img-20261003",
-  "./js/ui/r1-shell.js?v=r3f-readiness-manager-20261004",
-  "./js/ui/r2-map-workspace.js?v=r3f-readiness-manager-20261004",
+  "./js/ui/r1-shell.js?v=r3f1-smart-completion-20261004",
+  "./js/ui/r2-map-workspace.js?v=r3f1-smart-completion-20261004",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
   "./js/core/app-main.js?v=v2-r2k-compass-direct-img-20261003",
