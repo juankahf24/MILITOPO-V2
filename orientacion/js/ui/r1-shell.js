@@ -95,7 +95,7 @@
     closeWorkspace(false);const body=$("#r1WorkspaceBody"),titleEl=$("#r1WorkspaceTitle");if(!body)return;
     state.mapHome=false;document.body.classList.add("r1-workspace-open");
     try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;
-    titleEl.textContent=title;body.innerHTML="";state.hosted=[];body.classList.remove("r3-manager-view","r4-participants-view");
+    titleEl.textContent=title;body.innerHTML="";state.hosted=[];body.classList.remove("r3-manager-view","r4-participants-view","r4-live-view");
     const managerTitle=state.managerModuleTitle;state.managerModuleTitle=null;
     if(managerTitle){
       const nav=document.createElement("div");nav.className="r3-module-nav";
@@ -112,7 +112,7 @@
   }
   function closeWorkspace(returnToMap=true){
     state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
-    state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view");if(body)body.innerHTML=""}document.body.style.overflow="";
+    state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view","r4-live-view");if(body)body.innerHTML=""}document.body.style.overflow="";
     document.body.classList.remove("r1-workspace-open");state.mapHome=!!returnToMap;
     if(returnToMap){safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;setTimeout(()=>window.MILITOPO_R2_MAP_HOME?.activate?.(),35)}
     setTimeout(()=>{window.dispatchEvent(new Event("resize"));refreshContext()},60);
@@ -268,6 +268,43 @@
     openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);
     setTimeout(decorateParticipantsModule,150);setTimeout(decorateParticipantsModule,360);
   }
+  function refreshLiveHub(){
+    const hub=$("#r4LiveHub");if(!hub)return;
+    const status=currentLifecycleStatus(),label=lifecycleLabelEs(status);
+    const chip=$("#r4LiveStatus",hub);if(chip){chip.textContent=label;chip.dataset.status=status}
+    const total=participantHubNumber("#m2F2CTotal"),pending=participantHubNumber("#m2F2CPending"),racing=participantHubNumber("#m2F2CRacing"),finished=participantHubNumber("#m2F2CFinished");
+    const values=[["#r4LiveTotal",total],["#r4LivePending",pending],["#r4LiveRacing",racing],["#r4LiveFinished",finished]];values.forEach(([id,v])=>{const el=$(id,hub);if(el)el.textContent=String(v)});
+    const note=$("#r4LiveNotice",hub);if(note){
+      if(status==="live"){note.className="r4-live-notice is-live";note.innerHTML="<strong>EN DIRECTO</strong><span>Posiciones, progreso y tiempos se actualizan automáticamente.</span>"}
+      else if(status==="finished"||status==="archived"){note.className="r4-live-notice";note.innerHTML=`<strong>${label}</strong><span>Se muestra la última información registrada de la carrera.</span>`}
+      else{note.className="r4-live-notice is-warn";note.innerHTML=`<strong>${label}</strong><span>El seguimiento en directo se activa al iniciar la carrera.</span><button type="button" data-r4-live-lifecycle>ESTADO Y PUBLICACIÓN</button>`}
+    }
+  }
+  function decorateLiveModule(){
+    const body=$("#r1WorkspaceBody"),stack=$(".r1-module-stack",body),monitor=$("#m2OrganizerLiveMonitor",body),map=$("#m2OrganizerLiveMap",body);if(!body||!stack||!monitor||!map)return false;
+    body.classList.add("r4-live-view");
+    let hub=$("#r4LiveHub",body);
+    if(!hub){
+      hub=document.createElement("section");hub.id="r4LiveHub";hub.className="r4-live-hub";hub.innerHTML=`<div class="r4-live-hero"><div><span>ORGANIZACIÓN · SEGUIMIENTO</span><h2>LIVE</h2><small>${currentEventName()}</small></div><b id="r4LiveStatus">—</b></div><div class="r4-live-metrics"><div><strong id="r4LiveTotal">0</strong><span>PARTICIPANTES</span></div><div><strong id="r4LivePending">0</strong><span>SIN SALIR</span></div><div><strong id="r4LiveRacing">0</strong><span>EN CARRERA</span></div><div><strong id="r4LiveFinished">0</strong><span>FINALIZADOS</span></div></div><div id="r4LiveNotice" class="r4-live-notice"></div><div class="r4-live-jumps"><button type="button" data-r4-live-jump="map">MAPA</button><button type="button" data-r4-live-jump="table">TABLA DE SEGUIMIENTO</button></div>`;
+      stack.parentNode.insertBefore(hub,stack);
+      hub.addEventListener("click",event=>{
+        if(event.target.closest("[data-r4-live-lifecycle]")){state.managerModuleTitle="ESTADO Y PUBLICACIÓN";openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);return}
+        const jump=event.target.closest("[data-r4-live-jump]")?.dataset.r4LiveJump;if(!jump)return;const target=jump==="map"?$("#m2OrganizerLiveMap",body):$("#m2OrganizerLiveMonitor",body);target?.scrollIntoView?.({behavior:"smooth",block:"start"});
+      });
+    }
+    /* El mapa es la vista principal y la tabla queda justo debajo. */
+    map.style.order="1";monitor.style.order="2";
+    refreshLiveHub();
+    let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;refreshLiveHub()})});
+    observer.observe(monitor,{subtree:true,childList:true,characterData:true});
+    setTimeout(()=>{refreshLiveHub();try{window.dispatchEvent(new Event("resize"))}catch(_){}},120);
+    return true;
+  }
+  function openLiveModule(fromManager=false){
+    if(fromManager)state.managerModuleTitle="LIVE";
+    openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);
+    setTimeout(decorateLiveModule,150);setTimeout(decorateLiveModule,380);
+  }
   function openHistory(){const btn=$("#m2OrganizerHistoryOpen");if(btn){btn.click();return}openInjected(["m2EventHistoricalResults"],"HISTÓRICO Y RESULTADOS",1)}
   function openProfile(){
     closeMore();
@@ -275,7 +312,7 @@
     if(btn){btn.click();return}
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
-  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openParticipantsModule(false);return}if(a==="live"){openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);return}if(a==="more"){openMore();return}}
+  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openParticipantsModule(false);return}if(a==="live"){openLiveModule(false);return}if(a==="more"){openMore();return}}
   function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openParticipantsModule(false);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openStep(6,"RESULTADOS Y CONTROL");if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"};
   const R3_ORDER=["draft","prepared","published","live","finished","archived"];
@@ -469,7 +506,7 @@
     if(action==="routes"){state.managerModuleTitle="RECORRIDOS";return openRoutesModule()}
     if(action==="participants")return openParticipantsModule(true);
     if(action==="lifecycle")return openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);
-    if(action==="live")return openManagerInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);
+    if(action==="live")return openLiveModule(true);
     if(action==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openManagerStep(4,"MATERIAL QR Y EXPORTACIÓN")}
     if(action==="sequence")return openManagerStep(5,"SECUENCIA DE SALIDA Y LLEGADA");
     if(action==="results")return openManagerStep(6,"RESULTADOS Y CONTROL");
@@ -488,8 +525,8 @@
     window.addEventListener("militopo:v2-orientation-header",e=>{const h=e.detail?.header||{};const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name&&h.eventName)name.textContent=h.eventName;if(meta&&h.eventId)meta.textContent=h.eventId});
     window.addEventListener("militopo:v2-cloud-event-applied",()=>setTimeout(refreshContext,100));
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
-    window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
-    window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();refreshParticipantsHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
+    window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();refreshLiveHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
+    window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();refreshParticipantsHub();refreshLiveHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
     window.addEventListener("militopo:v2-roster-changed",()=>setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},60));
     window.addEventListener("militopo:v2-roster-snapshot",()=>setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},60));
     window.addEventListener("militopo:r2-route-updated",()=>{if(state.currentStep===3)setTimeout(refreshRoutesProfessional,70);if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,90)});
