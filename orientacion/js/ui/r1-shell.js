@@ -3,7 +3,7 @@
   if(window.__MILITOPO_R1_SHELL__) return;
   window.__MILITOPO_R1_SHELL__=true;
 
-  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null};
+  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null};
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const icon=(name)=>{
@@ -94,12 +94,18 @@
   function hostNodes(nodes,title){
     closeWorkspace(false);const body=$("#r1WorkspaceBody"),titleEl=$("#r1WorkspaceTitle");if(!body)return;
     state.mapHome=false;document.body.classList.add("r1-workspace-open");
-    titleEl.textContent=title;body.innerHTML="";state.hosted=[];
+    titleEl.textContent=title;body.innerHTML="";state.hosted=[];body.classList.remove("r3-manager-view");
+    const managerTitle=state.managerModuleTitle;state.managerModuleTitle=null;
+    if(managerTitle){
+      const nav=document.createElement("div");nav.className="r3-module-nav";
+      nav.innerHTML=`<div><span>GESTIÓN DE CARRERA</span><strong>${managerTitle}</strong><small>${currentEventName()}</small></div><button type="button" data-r3-back-manager>← VOLVER A GESTIONAR</button>`;
+      nav.querySelector("[data-r3-back-manager]")?.addEventListener("click",()=>openRaceManager(state.managerEvent||{}));
+      body.appendChild(nav);
+    }
     const stack=document.createElement("div");stack.className="r1-module-stack";body.appendChild(stack);
     nodes.filter(Boolean).forEach(node=>{const marker=document.createComment(`r1:${node.id||node.tagName}`);node.parentNode?.insertBefore(marker,node);state.hosted.push({node,marker});node.classList.add("r1-hosted");stack.appendChild(node)});
     state.workspace.classList.add("is-open");document.body.style.overflow="hidden";
-    /* R3D: todos los módulos se abren siempre desde arriba. En especial evita que
-       ESTADO Y PUBLICACIÓN conserve el scroll del módulo anterior. */
+    /* R3D/R3G: cada módulo abre arriba y sin conservar desplazamiento horizontal. */
     const resetWorkspaceScroll=()=>{try{body.scrollTop=0;body.scrollLeft=0;body.scrollTo({top:0,left:0,behavior:"auto"});if(state.workspace){state.workspace.scrollTop=0;state.workspace.scrollLeft=0}}catch(_){}};
     resetWorkspaceScroll();requestAnimationFrame(resetWorkspaceScroll);setTimeout(()=>{resetWorkspaceScroll();window.dispatchEvent(new Event("resize"))},80);
   }
@@ -324,23 +330,26 @@
     const titleEl=$("#r1WorkspaceTitle");if(titleEl)titleEl.textContent="GESTIÓN DE CARRERA";
     state.mapHome=false;document.body.classList.add("r1-workspace-open");
     state.workspace?.classList.add("is-open");document.body.style.overflow="hidden";
-    renderRaceManager();setTimeout(()=>window.dispatchEvent(new Event("resize")),60);
+    const body=$("#r1WorkspaceBody");if(body){body.classList.add("r3-manager-view");body.scrollLeft=0;body.scrollTop=0}
+    renderRaceManager();setTimeout(()=>{if(body){body.scrollLeft=0;body.scrollTop=0}window.dispatchEvent(new Event("resize"))},60);
   }
+  function openManagerStep(step,title){state.managerModuleTitle=title;return openStep(step,title)}
+  function openManagerInjected(ids,title,step=1){state.managerModuleTitle=title;return openInjected(ids,title,step)}
   function runManagerAction(action){
     state.managerOpen=false;
     if(action==="races"){closeWorkspace(true);setTimeout(openRaces,60);return}
     if(action==="complete-map")return openMapForMissing();
     if(action==="complete-routes")return openMissingRoutes();
     if(action==="map"){closeWorkspace(true);return}
-    if(action==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");
-    if(action==="routes")return openRoutesModule();
-    if(action==="participants")return openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);
-    if(action==="lifecycle")return openInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);
-    if(action==="live")return openInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);
-    if(action==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}
-    if(action==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");
-    if(action==="results")return openStep(6,"RESULTADOS Y CONTROL");
-    if(action==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");
+    if(action==="config")return openManagerStep(1,"CONFIGURACIÓN DE CARRERA");
+    if(action==="routes"){state.managerModuleTitle="RECORRIDOS";return openRoutesModule()}
+    if(action==="participants")return openManagerInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);
+    if(action==="lifecycle")return openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);
+    if(action==="live")return openManagerInjected(["m2OrganizerLiveMonitor","m2OrganizerLiveMap"],"LIVE · CENTRO DE SEGUIMIENTO",1);
+    if(action==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openManagerStep(4,"MATERIAL QR Y EXPORTACIÓN")}
+    if(action==="sequence")return openManagerStep(5,"SECUENCIA DE SALIDA Y LLEGADA");
+    if(action==="results")return openManagerStep(6,"RESULTADOS Y CONTROL");
+    if(action==="analysis")return openManagerStep(7,"ANÁLISIS Y REPRODUCTOR");
   }
   function refreshContext(){
     const active=$$(".card.active")[0];const m=active?.id?.match(/^step(\d+)$/);state.currentStep=m?Number(m[1]):state.currentStep;
