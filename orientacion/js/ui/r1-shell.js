@@ -3,7 +3,7 @@
   if(window.__MILITOPO_R1_SHELL__) return;
   window.__MILITOPO_R1_SHELL__=true;
 
-  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,participantsTab:"roster"};
+  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,participantsTab:"roster",managerTab:"design"};
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const icon=(name)=>{
@@ -489,29 +489,36 @@
         <div><strong>${ctx.controlsPerRoute||"—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
       </div>
       ${readinessHtml()}
-      <div class="r3-manager-group">
-        <div class="r3-manager-group-head"><div><strong>DISEÑO Y PREPARACIÓN</strong><small>Configura lo necesario antes de publicar la carrera.</small></div><span>PREPARACIÓN</span></div>
-        <div class="r3-manager-grid">
-          ${managerCard((designReadinessSnapshot()?.items.find(i=>i.key==="map")?.ok)?"map":"complete-map","MAPA Y BALIZAS","Diseñar salida, llegada, balizas y trazado","layers","is-primary")}
-          ${managerCard("config","CONFIGURACIÓN","Datos generales y reglas de la carrera","settings")}
-          ${managerCard("routes","RECORRIDOS","Revisar y completar recorridos manuales","route")}
-          ${managerCard("lifecycle","ESTADO Y PUBLICACIÓN","Preparar, publicar, iniciar, finalizar y archivar","flag","is-state")}
-          ${managerCard("material","MATERIAL QR",materialQrUnlocked()?"Planos, QR y exportaciones":"🔒 Disponible desde PREPARADO","qr",materialQrUnlocked()?"":"is-locked")}
-          ${managerCard("sequence","SECUENCIA","Salidas, llegadas y control de carrera","flag")}
+      <div class="r3-manager-tabs" role="tablist" aria-label="Áreas de gestión">
+        <button type="button" role="tab" aria-selected="${state.managerTab!=="operation"}" class="${state.managerTab!=="operation"?"is-active":""}" data-r3-manager-tab="design"><strong>DISEÑO Y PREPARACIÓN</strong><small>Preparar carrera</small></button>
+        <button type="button" role="tab" aria-selected="${state.managerTab==="operation"}" class="${state.managerTab==="operation"?"is-active":""}" data-r3-manager-tab="operation"><strong>OPERACIÓN Y POST CARRERA</strong><small>Competición y análisis</small></button>
+      </div>
+      <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"":"is-active"}" data-r3-manager-panel="design" role="tabpanel">
+        <div class="r3-manager-grid r3-manager-grid-compact">
+          ${managerCard((designReadinessSnapshot()?.items.find(i=>i.key==="map")?.ok)?"map":"complete-map","MAPA Y BALIZAS","Salida, llegada y controles","layers","is-primary")}
+          ${managerCard("config","CONFIGURACIÓN","Datos y reglas","settings")}
+          ${managerCard("routes","RECORRIDOS","Revisar y completar","route")}
+          ${managerCard("lifecycle","ESTADO Y PUBLICACIÓN","Preparar y publicar","flag","is-state")}
+          ${managerCard("material","MATERIAL QR",materialQrUnlocked()?"Planos, QR y exportación":"🔒 Desde PREPARADO","qr",materialQrUnlocked()?"":"is-locked")}
+          ${managerCard("sequence","SECUENCIA","Salidas y llegadas","flag")}
         </div>
       </div>
-      <div class="r3-manager-group">
-        <div class="r3-manager-group-head"><div><strong>OPERACIÓN Y POST-CARRERA</strong><small>Participantes, seguimiento, clasificación y análisis.</small></div><span>OPERACIÓN</span></div>
-        <div class="r3-manager-grid">
-          ${managerCard("participants","PARTICIPANTES","Censo, invitaciones y asignación de recorrido","users")}
-          ${managerCard("live","LIVE","Centro de seguimiento en tiempo real","live","is-live")}
-          ${managerCard("results","RESULTADOS","Resultados y clasificación oficial","chart")}
-          ${managerCard("analysis","ANÁLISIS","Reproductor y análisis post-carrera","chart")}
+      <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"is-active":""}" data-r3-manager-panel="operation" role="tabpanel">
+        <div class="r3-manager-grid r3-manager-grid-compact">
+          ${managerCard("participants","PARTICIPANTES","Censo e invitaciones","users")}
+          ${managerCard("live","LIVE","Seguimiento en tiempo real","live","is-live")}
+          ${managerCard("results","RESULTADOS","Clasificación oficial","chart")}
+          ${managerCard("analysis","ANÁLISIS","Reproductor y análisis","chart")}
         </div>
       </div>
       <div class="r3-manager-footer"><button type="button" data-r3-manager-action="races">← CARGAR CARRERA</button><button type="button" class="is-map" data-r3-manager-action="map">VOLVER AL MAPA</button></div>
     </section>`;
     body.querySelectorAll("[data-r3-manager-action]").forEach(button=>button.addEventListener("click",()=>runManagerAction(button.dataset.r3ManagerAction)));
+    body.querySelectorAll("[data-r3-manager-tab]").forEach(button=>button.addEventListener("click",()=>{
+      state.managerTab=button.dataset.r3ManagerTab==="operation"?"operation":"design";
+      body.querySelectorAll("[data-r3-manager-tab]").forEach(tab=>{const active=tab.dataset.r3ManagerTab===state.managerTab;tab.classList.toggle("is-active",active);tab.setAttribute("aria-selected",String(active))});
+      body.querySelectorAll("[data-r3-manager-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.r3ManagerPanel===state.managerTab));
+    }));
   }
   function openRaceManager(event={}){
     closeMore();
