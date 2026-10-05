@@ -415,8 +415,8 @@ let MODULOS = 8;
         }
     }
 
-    function resetTopografiaEjercicioCompleto() {
-        const ok = confirm("¿Seguro que quieres borrar todo el ejercicio de Topografía y empezar de cero?");
+    async function resetTopografiaEjercicioCompleto() {
+        const ok = await globalThis.MILITOPO_CONFIRM("¿Seguro que quieres borrar todo el ejercicio de Topografía y empezar de cero?",{title:"NUEVO EJERCICIO",confirmText:"BORRAR Y EMPEZAR",danger:true});
         if (!ok) return;
 
         [
@@ -626,8 +626,8 @@ let MODULOS = 8;
     }
 
 
-    function limpiarTodosLosPuntos() {
-        if (!confirm("¿Seguro que quieres borrar todos los puntos, coordenadas y descripciones?")) return;
+    async function limpiarTodosLosPuntos() {
+        if (!await globalThis.MILITOPO_CONFIRM("¿Seguro que quieres borrar todos los puntos, coordenadas y descripciones?",{title:"LIMPIAR TODOS LOS PUNTOS",confirmText:"LIMPIAR",danger:true})) return;
         for (let m = 1; m <= MODULOS; m++) {
             for (let p = 1; p <= PUNTOS_POR_MODULO; p++) {
                 const id = getPuntoId(m, p);
@@ -2962,8 +2962,8 @@ let MODULOS = 8;
         if (marker) refreshMarkerPopup(marker);
     }
 
-    window.eliminarPunto = function(pointId) {
-        if (!confirm(`¿Eliminar el punto ${pointId}? Se borrarán sus coordenadas y descripción.`)) return;
+    window.eliminarPunto = async function(pointId) {
+        if (!await globalThis.MILITOPO_CONFIRM(`¿Eliminar el punto ${pointId}? Se borrarán sus coordenadas y descripción.`,{title:"ELIMINAR PUNTO",confirmText:"ELIMINAR",danger:true})) return;
         removeMarkerByPointId(pointId);
         if (!puntosData[pointId]) puntosData[pointId] = { coordsUTM: "", descripcion: "" };
         puntosData[pointId].coordsUTM = "";
@@ -3032,10 +3032,10 @@ let MODULOS = 8;
         marker.on('click', () => refreshMarkerPopup(marker));
         marker.on('dragstart', () => { originalLatLng = marker.getLatLng(); });
 
-        marker.on('dragend', () => {
+        marker.on('dragend', async () => {
             const newLatLng = marker.getLatLng();
             const newCoordText = latLonToCoordText(newLatLng.lat, newLatLng.lng);
-            const confirmMove = confirm(`¿Mover punto ${pointId} a la nueva ubicación?\nNueva coordenada: ${newCoordText}`);
+            const confirmMove = await globalThis.MILITOPO_CONFIRM(`¿Mover punto ${pointId} a la nueva ubicación?\nNueva coordenada: ${newCoordText}`,{title:"MOVER PUNTO",confirmText:"MOVER"});
             if (confirmMove) {
                 persistPointLocation(pointId, newLatLng);
                 marker.openPopup();
@@ -3721,10 +3721,10 @@ function showGeoTiffPointPopup(pointId){
 
     const deleteBtn=popup.querySelector(".geotiff-ign-delete");
     if(deleteBtn){
-        deleteBtn.addEventListener("click",(e)=>{
+        deleteBtn.addEventListener("click",async (e)=>{
             e.preventDefault();
             e.stopPropagation();
-            if(!confirm(`¿Eliminar el punto ${pointId}? Se borrarán sus coordenadas y descripción.`))return;
+            if(!await globalThis.MILITOPO_CONFIRM(`¿Eliminar el punto ${pointId}? Se borrarán sus coordenadas y descripción.`,{title:"ELIMINAR PUNTO",confirmText:"ELIMINAR",danger:true}))return;
             if(!puntosData[pointId])puntosData[pointId]={coordsUTM:"",descripcion:""};
             puntosData[pointId].coordsUTM="";
             puntosData[pointId].descripcion="";
@@ -4142,7 +4142,7 @@ function openMapModal() {
         }
     }
 
-    function changeModeWithPrompt(targetMode) {
+    async function changeModeWithPrompt(targetMode) {
         if (!hasUnsavedChanges) {
             appMode = targetMode;
             try { localStorage.setItem("militopo_v2_topo_app_mode", appMode); } catch (e) {}
@@ -4151,7 +4151,7 @@ function openMapModal() {
             return;
         }
 
-        const guardar = confirm("Tienes cambios sin guardar. Pulsa Aceptar para guardar antes de cambiar de modo.");
+        const guardar = await globalThis.MILITOPO_CONFIRM("Tienes cambios sin guardar. ¿Quieres guardarlos antes de cambiar de modo?",{title:"CAMBIOS SIN GUARDAR",confirmText:"GUARDAR Y CONTINUAR"});
         if (guardar) {
             const ok = saveCurrentWork();
             if (!ok) {
@@ -4165,7 +4165,7 @@ function openMapModal() {
             return;
         }
 
-        const salir = confirm("¿Quieres salir sin guardar los cambios?");
+        const salir = await globalThis.MILITOPO_CONFIRM("¿Quieres salir sin guardar los cambios?",{title:"SALIR SIN GUARDAR",confirmText:"SALIR SIN GUARDAR",danger:true});
         if (!salir) return;
 
         clearUnsavedChanges();
