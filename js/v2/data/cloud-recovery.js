@@ -22,8 +22,9 @@ const state = {
   events: [],
   overlayMode: "events",
   openResultsAfterRecover: "",
-  manageAfterRecover: null,
-  filter: "all"
+  filter: "all",
+  historyFilter: "all",
+  historyRows: []
 };
 
 function cleanRole(role) {
@@ -80,6 +81,18 @@ function formatDuration(ms) {
   const sec = total % 60;
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
 }
+function resultPenaltyMs(row = {}) {
+  for (const value of [row.penaltyMs,row.controlPenaltyMs,row.totalPenaltyMs,row.discardPenaltyMs,row.discardPenaltyTotalMs]) {
+    const n=Number(value); if(Number.isFinite(n)&&n>=0)return n;
+  }
+  return 0;
+}
+function officialDurationMs(row = {}) {
+  for (const value of [row.officialDurationMs,row.adjustedDurationMs,row.officialTimeMs]) {
+    const n=Number(value); if(Number.isFinite(n)&&n>=0)return n;
+  }
+  const real=Number(row.durationMs);return Number.isFinite(real)&&real>=0?real+resultPenaltyMs(row):NaN;
+}
 function resultName(row = {}) {
   const display = cleanString(row.displayName, 120);
   const username = cleanString(row.username, 40).replace(/^@/, "");
@@ -129,8 +142,11 @@ function ensureStyles() {
     .m2-cloud-history-metric{border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:7px 5px;text-align:center;background:rgba(255,255,255,.025)}
     .m2-cloud-history-metric strong{display:block;font-size:.91rem}.m2-cloud-history-metric span{display:block;font-size:.53rem;opacity:.66;margin-top:2px}
     .m2-cloud-history-best{font-size:.77rem;line-height:1.4;margin:0 0 10px;color:#e8f6df}
+    .m2-r4-history-tools{display:flex;align-items:end;justify-content:space-between;gap:10px;margin:0 0 12px;padding:10px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:rgba(255,255,255,.025)}
+    .m2-r4-history-tools label{display:grid;gap:5px;min-width:min(300px,100%);font-size:.57rem;font-weight:900;letter-spacing:.08em;color:#aeb8aa}.m2-r4-history-tools select{width:100%;min-height:40px;box-sizing:border-box;border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:8px 34px 8px 10px;background:#eef1df;color:#172018;font:900 .68rem/1 system-ui}.m2-r4-history-tools span{font-size:.58rem;color:#99a498;text-align:right}
+    .m2-cloud-history-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.m2-cloud-history-card-head h3{min-width:0;overflow:hidden;text-overflow:ellipsis}.m2-cloud-history-best strong{color:#f5d48b}
     .m2-cloud-recovery-empty{padding:14px;border:1px dashed rgba(255,255,255,.25);border-radius:10px;opacity:.82}
-    @media(max-width:600px){.m2-cloud-history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-cloud-history-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:600px){.m2-cloud-history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-cloud-history-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r4-history-tools{align-items:stretch;flex-direction:column}.m2-r4-history-tools span{text-align:left}}
     /* R3A · Centro profesional MIS CARRERAS */
     .m2-cloud-recovery-panel{width:min(1180px,100%);max-height:calc(100dvh - 28px);background:linear-gradient(180deg,#151d14,#0e140d);border-radius:22px;padding:18px}
     .m2-cloud-recovery-head{position:sticky;top:-18px;z-index:3;margin:-18px -18px 14px;padding:18px;background:linear-gradient(180deg,#182217 82%,rgba(24,34,23,.96));border-bottom:1px solid rgba(255,255,255,.09)}
@@ -142,13 +158,9 @@ function ensureStyles() {
     .m2-r3-summary[hidden],.m2-r3-filters[hidden]{display:none!important}
     .m2-r3-summary-card{min-width:0;border:1px solid rgba(255,255,255,.10);border-radius:13px;padding:9px 8px;background:rgba(255,255,255,.035);text-align:center}
     .m2-r3-summary-card strong{display:block;font-size:1.12rem;line-height:1}.m2-r3-summary-card span{display:block;margin-top:4px;font-size:.55rem;opacity:.63;letter-spacing:.08em}
-    .m2-r3-filters{padding:2px 0 12px}
-    .m2-r3-filterbar{display:grid;grid-template-columns:auto minmax(190px,300px);align-items:center;justify-content:space-between;gap:12px;border:1px solid rgba(255,255,255,.11);border-radius:13px;padding:8px 10px;background:rgba(255,255,255,.035)}
-    .m2-r3-filter-copy{display:grid;gap:2px;min-width:0}.m2-r3-filter-copy strong{font-size:.72rem;letter-spacing:.06em}.m2-r3-filter-copy span{font-size:.60rem;opacity:.58}
-    .m2-r3-filter-select-wrap{position:relative;min-width:0}
-    .m2-r3-filter-select{appearance:none;-webkit-appearance:none;width:100%;min-height:42px;border:1px solid #d7dcc7;border-radius:10px;padding:9px 38px 9px 12px;background:#f7f3df!important;color:#101810!important;-webkit-text-fill-color:#101810!important;font:900 .78rem/1.25 system-ui,-apple-system,sans-serif;cursor:pointer;outline:none;opacity:1!important;color-scheme:light}
-    .m2-r3-filter-select-wrap::after{content:"⌄";position:absolute;right:13px;top:50%;transform:translateY(-55%);color:#101810!important;font-size:1rem;font-weight:900;pointer-events:none}
-    .m2-r3-filter-select:focus{box-shadow:0 0 0 3px rgba(247,243,223,.18);border-color:#f7f3df}.m2-r3-filter-select option{background:#fffef7!important;color:#101810!important;-webkit-text-fill-color:#101810!important}
+    .m2-r3-filters{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.m2-r3-filters::-webkit-scrollbar{display:none}
+    .m2-r3-filter{flex:0 0 auto;min-height:36px;border:1px solid rgba(255,255,255,.13);border-radius:999px;padding:7px 11px;background:rgba(255,255,255,.045);color:#dce4d6;font-size:.68rem;font-weight:900;cursor:pointer}
+    .m2-r3-filter.is-active{background:#e8ecd9;color:#162017;border-color:#e8ecd9}
     .m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .m2-cloud-event{position:relative;overflow:hidden;border-radius:16px;padding:14px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.025))}
     .m2-cloud-event::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#69766a}
@@ -157,11 +169,11 @@ function ensureStyles() {
     .m2-cloud-event-status{flex:0 0 auto}.m2-r3-event-id{font-size:.67rem;opacity:.48;margin:5px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .m2-r3-event-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:0 0 11px}
     .m2-r3-event-metric{border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:7px 4px;text-align:center;background:rgba(0,0,0,.12)}
-    .m2-r3-event-metric strong{display:block;font-size:.91rem}.m2-r3-event-metric span{display:block;margin-top:2px;font-size:.49rem;opacity:.58;letter-spacing:.05em}.m2-r3-event-metric.is-route-controls span{display:flex;align-items:center;justify-content:center;min-height:2.15em;margin-top:2px;padding:0 1px;font-size:clamp(.47rem,1.84vw,.57rem);line-height:1.08;letter-spacing:.025em;white-space:normal;overflow-wrap:normal;word-break:keep-all}
+    .m2-r3-event-metric strong{display:block;font-size:.91rem}.m2-r3-event-metric span{display:block;margin-top:2px;font-size:.49rem;opacity:.58;letter-spacing:.05em}
     .m2-r3-event-footer{display:flex;align-items:center;justify-content:space-between;gap:10px}.m2-r3-event-updated{font-size:.66rem;opacity:.52;min-width:0}
     .m2-cloud-event-open{min-height:42px;flex:0 0 auto;border-radius:10px;padding:9px 13px;background:#e5ead8;color:#111811}.m2-cloud-event-open:disabled{opacity:.55}
     @media(max-width:760px){.m2-cloud-recovery-overlay{padding:0}.m2-cloud-recovery-panel{width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;padding:14px}.m2-cloud-recovery-head{top:-14px;margin:-14px -14px 12px;padding:calc(14px + env(safe-area-inset-top)) 14px 12px}.m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:1fr}.m2-r3-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r3-head-actions .m2-r3-head-btn:not(.is-new){display:none}}
-    @media(max-width:480px){.m2-r3-filterbar{grid-template-columns:1fr;gap:7px}.m2-r3-filter-select-wrap{width:100%}.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:auto}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-r3-event-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.m2-r3-event-footer{align-items:flex-end}}
+    @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:auto}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-r3-event-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.m2-r3-event-footer{align-items:flex-end}}
   `;
   document.head.appendChild(style);
 }
@@ -232,8 +244,7 @@ function ensureOverlay() {
   `;
   overlay.querySelector(".m2-cloud-recovery-close")?.addEventListener("click", closeOverlay);
   overlay.querySelector("#m2R3NewRace")?.addEventListener("click", () => {
-    /* R3A.1: no cerramos MIS CARRERAS antes de confirmar. Si el usuario
-       cancela createNewRace(), el centro permanece exactamente donde estaba. */
+    closeOverlay();
     globalThis.dispatchEvent(new CustomEvent("militopo:r3-new-race"));
   });
   overlay.querySelector("#m2R3Refresh")?.addEventListener("click", () => {
@@ -362,21 +373,11 @@ function renderEventList(rows) {
   ];
   if (filters) {
     filters.hidden = false;
-    const options = filterDefs.map(([key,label]) => {
-      const count = key === "all" ? rows.length : (counts[key] || 0);
-      return `<option value="${key}"${state.filter === key ? " selected" : ""}>${label} · ${count}</option>`;
-    }).join("");
-    filters.innerHTML = `
-      <div class="m2-r3-filterbar">
-        <div class="m2-r3-filter-copy"><strong>FILTRAR CARRERAS</strong><span>Selecciona un estado para actualizar la lista</span></div>
-        <div class="m2-r3-filter-select-wrap">
-          <select id="m2R3FilterSelect" class="m2-r3-filter-select" aria-label="Filtrar carreras por estado">${options}</select>
-        </div>
-      </div>`;
-    filters.querySelector("#m2R3FilterSelect")?.addEventListener("change", event => {
-      state.filter = event.target.value || "all";
+    filters.innerHTML = filterDefs.map(([key,label]) => `<button type="button" class="m2-r3-filter${state.filter === key ? " is-active" : ""}" data-r3-filter="${key}">${label}${key === "all" ? ` · ${rows.length}` : ` · ${counts[key] || 0}`}</button>`).join("");
+    filters.querySelectorAll("[data-r3-filter]").forEach(button => button.addEventListener("click", () => {
+      state.filter = button.dataset.r3Filter || "all";
       renderEventList(rows);
-    });
+    }));
   }
   const visible = state.filter === "all" ? rows : rows.filter(row => String(row.status || "draft") === state.filter);
   state.list.classList.add("m2-r3-grid");
@@ -388,7 +389,7 @@ function renderEventList(rows) {
     const archived = row.status === "archived";
     const own = String(row.ownerUid || "") === String(state.auth?.uid || "");
     const routeCount = Math.max(Number(row.courseSyncedCount || 0), 0);
-    const controlsPerRoute = Math.max(0, Number(row.controlsPerRoute || 0));
+    const pointCount = Math.max(Number(row.checkpointSyncedCount || 0), Number(row.controlCount || 0) + (row.controlCount ? 2 : 0));
     return `
       <article class="m2-cloud-event${archived ? " archived" : ""}" data-status="${esc(row.status || "draft")}">
         <div class="m2-r3-event-title">
@@ -400,7 +401,7 @@ function renderEventList(rows) {
           <div class="m2-r3-event-metric"><strong>${row.participantCount}</strong><span>PARTICIPANTES</span></div>
           <div class="m2-r3-event-metric"><strong>${row.controlCount}</strong><span>BALIZAS</span></div>
           <div class="m2-r3-event-metric"><strong>${routeCount || "—"}</strong><span>RECORRIDOS</span></div>
-          <div class="m2-r3-event-metric is-route-controls"><strong>${controlsPerRoute || "—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
+          <div class="m2-r3-event-metric"><strong>${pointCount || "—"}</strong><span>PUNTOS</span></div>
         </div>
         <div class="m2-r3-event-footer">
           <div class="m2-r3-event-updated">Actualizada · ${esc(formatDate(row.updatedAt))}</div>
@@ -422,7 +423,7 @@ async function loadHistorySummary(row) {
     const status = String(result.status || "not_started").toLowerCase();
     if (status === "finished") {
       counts.finished += 1;
-      const durationMs = Number(result.durationMs);
+      const durationMs = officialDurationMs(result);
       if (Number.isFinite(durationMs) && durationMs >= 0 && (!best || durationMs < best.durationMs)) {
         best = { durationMs, name: resultName(result), routeId: cleanString(result.routeId, 40) };
       }
@@ -452,36 +453,45 @@ async function loadHistoryRows() {
   return out;
 }
 
-function renderHistoryList(rows) {
+function renderHistoryList(rows = state.historyRows) {
   if (!state.list) return;
-  if (!rows.length) {
+  const source = Array.isArray(rows) ? rows : [];
+  const filtered = source.filter(row => state.historyFilter === "all" || String(row.status || "").toLowerCase() === state.historyFilter);
+  if (!source.length) {
     state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Todavía no hay carreras FINALIZADAS o ARCHIVADAS para esta cuenta.</div>`;
     return;
   }
-  const aggregate = rows.reduce((acc,row) => {
+  const aggregate = filtered.reduce((acc,row) => {
     acc.results += Number(row.counts?.total || 0);
     acc.finished += Number(row.counts?.finished || 0);
     acc.incomplete += Number(row.counts?.incomplete || 0);
+    acc.notStarted += Number(row.counts?.notStarted || 0);
     return acc;
-  }, { results:0, finished:0, incomplete:0 });
+  }, { results:0, finished:0, incomplete:0, notStarted:0 });
   state.list.innerHTML = `
+    <div class="m2-r4-history-tools">
+      <label>FILTRAR HISTÓRICO
+        <select id="m2R4HistoryFilter" aria-label="Filtrar histórico">
+          <option value="all"${state.historyFilter === "all" ? " selected" : ""}>TODAS</option>
+          <option value="finished"${state.historyFilter === "finished" ? " selected" : ""}>FINALIZADAS</option>
+          <option value="archived"${state.historyFilter === "archived" ? " selected" : ""}>ARCHIVADAS</option>
+        </select>
+      </label>
+      <span>${filtered.length} carrera${filtered.length === 1 ? "" : "s"} · más recientes primero</span>
+    </div>
     <div class="m2-cloud-history-summary">
-      <div class="m2-cloud-history-stat"><strong>${rows.length}</strong><span>CARRERAS</span></div>
-      <div class="m2-cloud-history-stat"><strong>${aggregate.results}</strong><span>RESULTADOS</span></div>
-      <div class="m2-cloud-history-stat"><strong>${aggregate.finished}</strong><span>FINALIZADOS</span></div>
+      <div class="m2-cloud-history-stat"><strong>${filtered.length}</strong><span>CARRERAS</span></div>
+      <div class="m2-cloud-history-stat"><strong>${aggregate.finished}</strong><span>CLASIFICADOS</span></div>
       <div class="m2-cloud-history-stat"><strong>${aggregate.incomplete}</strong><span>INCOMPLETOS</span></div>
-    </div>` + rows.map(row => {
+      <div class="m2-cloud-history-stat"><strong>${aggregate.notStarted}</strong><span>NO SALIERON</span></div>
+    </div>` + (filtered.length ? filtered.map(row => {
       const counts = row.counts || { total:0, finished:0, incomplete:0, notStarted:0 };
       const date = row.archivedAt || row.finishedAt || row.updatedAt;
-      const best = row.best ? `<div class="m2-cloud-history-best">🥇 Mejor tiempo: <strong>${esc(formatDuration(row.best.durationMs))}</strong> · ${esc(row.best.name)}${row.best.routeId ? ` · ${esc(row.best.routeId)}` : ""}</div>` : `<div class="m2-cloud-history-best">Sin tiempo finalizado disponible.</div>`;
+      const best = row.best ? `<div class="m2-cloud-history-best">MEJOR TIEMPO OFICIAL · <strong>${esc(formatDuration(row.best.durationMs))}</strong> · ${esc(row.best.name)}${row.best.routeId ? ` · ${esc(row.best.routeId)}` : ""}</div>` : `<div class="m2-cloud-history-best">Sin tiempo oficial finalizado disponible.</div>`;
       return `
-        <article class="m2-cloud-event${row.status === "archived" ? " archived" : ""}">
-          <h3>${esc(row.eventName)}</h3>
-          <div class="m2-cloud-event-meta">
-            <span class="m2-cloud-event-status">${esc(statusLabel(row.status))}</span>
-            <span>${esc(row.eventId)}</span>
-            <span>${esc(formatDate(date))}</span>
-          </div>
+        <article class="m2-cloud-event${row.status === "archived" ? " archived" : ""}" data-status="${esc(row.status)}">
+          <div class="m2-cloud-history-card-head"><h3>${esc(row.eventName)}</h3><span class="m2-cloud-event-status">${esc(statusLabel(row.status))}</span></div>
+          <div class="m2-cloud-event-meta"><span>${esc(row.eventId)}</span><span>${esc(formatDate(date))}</span></div>
           <div class="m2-cloud-history-metrics">
             <div class="m2-cloud-history-metric"><strong>${counts.total}</strong><span>RESULTADOS</span></div>
             <div class="m2-cloud-history-metric"><strong>${counts.finished}</strong><span>FINALIZADOS</span></div>
@@ -492,7 +502,8 @@ function renderHistoryList(rows) {
           ${best}
           <button type="button" class="m2-cloud-event-open m2-history-open-results" data-event-id="${esc(row.eventId)}">ABRIR RESULTADOS Y CLASIFICACIÓN</button>
         </article>`;
-    }).join("");
+    }).join("") : `<div class="m2-cloud-recovery-empty">No hay carreras con este estado.</div>`);
+  state.list.querySelector("#m2R4HistoryFilter")?.addEventListener("change", event => { state.historyFilter = event.target.value || "all"; renderHistoryList(); });
   state.list.querySelectorAll(".m2-history-open-results").forEach(button => {
     button.addEventListener("click", () => recoverEvent(button.dataset.eventId, { openResults:true }));
   });
@@ -503,10 +514,11 @@ async function openHistoryPicker() {
   if (state.busy) return;
   ensureOverlay();
   state.overlayMode = "history";
+  state.historyFilter = "all";
   const title = document.getElementById("m2CloudRecoveryTitle");
   const subtitle = document.getElementById("m2CloudRecoverySubtitle");
   if (title) title.textContent = "HISTÓRICO DEL ORGANIZADOR";
-  if (subtitle) subtitle.textContent = "Carreras finalizadas y archivadas · resultados permanentes en Firestore.";
+  if (subtitle) subtitle.textContent = "Carreras finalizadas y archivadas · resultados y clasificación oficial.";
   document.getElementById("m2R3RaceSummary")?.setAttribute("hidden", "");
   document.getElementById("m2R3RaceFilters")?.setAttribute("hidden", "");
   const newRaceButton = document.getElementById("m2R3NewRace"); if (newRaceButton) newRaceButton.hidden = true;
@@ -516,6 +528,7 @@ async function openHistoryPicker() {
   if (launcher) launcher.disabled = true;
   try {
     const rows = await loadHistoryRows();
+    state.historyRows = rows;
     renderHistoryList(rows);
     paintStatus(`📚 Histórico: ${rows.length} carrera${rows.length === 1 ? "" : "s"} finalizada${rows.length === 1 ? "" : "s"}/archivada${rows.length === 1 ? "" : "s"}.`, "ok");
   } catch (error) {
@@ -589,17 +602,12 @@ async function recoverEvent(eventId, options = {}) {
   const row = state.events.find(item => item.eventId === eventId);
   if (!row) return;
   state.openResultsAfterRecover = options?.openResults ? eventId : "";
-  state.manageAfterRecover = options?.openResults ? null : { ...row };
   const ok = confirm(
     `Se va a abrir “${row.eventName}” (${row.eventId}) desde Firestore.\n\n` +
     `MILITOPO guardará primero una copia duradera del evento que tengas abierto en este dispositivo. ` +
     `Después cargará la configuración, balizas y recorridos de la nube.\n\n¿Continuar?`
   );
-  if (!ok) {
-    state.manageAfterRecover = null;
-    state.openResultsAfterRecover = "";
-    return;
-  }
+  if (!ok) return;
 
   state.busy = true;
   state.list?.querySelectorAll("button").forEach(button => { button.disabled = true; });
@@ -616,8 +624,6 @@ async function recoverEvent(eventId, options = {}) {
     paintStatus(`☁️ Aplicando ${eventId} en el organizador…`, "warn");
     closeOverlay();
   } catch (error) {
-    state.manageAfterRecover = null;
-    state.openResultsAfterRecover = "";
     console.error("[MILITOPO C3] recover", error);
     paintStatus(`⚠️ ${error?.message || "No se pudo recuperar el evento."} El evento local sigue intacto.`, "warn");
     state.list?.querySelectorAll("button").forEach(button => { button.disabled = false; });
@@ -639,13 +645,6 @@ function onApplied(event) {
   if (detail.ok) {
     const eventId = cleanString(detail.eventId, 120);
     paintStatus(`✅ Evento recuperado desde Firestore · ${eventId}`, "ok");
-    if (state.manageAfterRecover && state.manageAfterRecover.eventId === eventId && !state.openResultsAfterRecover) {
-      const event = { ...state.manageAfterRecover, eventId };
-      state.manageAfterRecover = null;
-      setTimeout(() => {
-        globalThis.dispatchEvent(new CustomEvent("militopo:r3-race-manager-open", { detail:{ event } }));
-      }, 220);
-    }
     if (state.openResultsAfterRecover && state.openResultsAfterRecover === eventId) {
       state.openResultsAfterRecover = "";
       // H7.1: al abrir una carrera desde el histórico, mostrarla en PASO 1.
