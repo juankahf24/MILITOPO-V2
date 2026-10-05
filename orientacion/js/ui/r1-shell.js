@@ -488,9 +488,10 @@
         <div><strong>${ctx.courseSyncedCount||"—"}</strong><span>RECORRIDOS</span></div>
         <div><strong>${ctx.controlsPerRoute||"—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
       </div>
+      <div class="r3-manager-mode-label">ÁREA DE GESTIÓN</div>
       <div class="r3-manager-tabs" role="tablist" aria-label="Áreas principales de gestión">
-        <button type="button" role="tab" aria-selected="${state.managerTab!=="operation"}" class="${state.managerTab!=="operation"?"is-active":""}" data-r3-manager-tab="design"><span class="r3-manager-tab-index">01</span><strong>DISEÑO Y PREPARACIÓN</strong><small>Preparar carrera</small></button>
-        <button type="button" role="tab" aria-selected="${state.managerTab==="operation"}" class="${state.managerTab==="operation"?"is-active":""}" data-r3-manager-tab="operation"><span class="r3-manager-tab-index">02</span><strong>OPERACIÓN Y POST CARRERA</strong><small>Competición y análisis</small></button>
+        <button type="button" role="tab" aria-selected="${state.managerTab!=="operation"}" class="${state.managerTab!=="operation"?"is-active":""}" data-r3-manager-tab="design"><span class="r3-manager-tab-icon">${icon("route")}</span><strong>DISEÑO Y PREPARACIÓN</strong></button>
+        <button type="button" role="tab" aria-selected="${state.managerTab==="operation"}" class="${state.managerTab==="operation"?"is-active":""}" data-r3-manager-tab="operation"><span class="r3-manager-tab-icon">${icon("live")}</span><strong>OPERACIÓN Y POST CARRERA</strong></button>
       </div>
       <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"":"is-active"}" data-r3-manager-panel="design" role="tabpanel">
         ${readinessHtml()}
@@ -513,7 +514,7 @@
           ${managerCard("analysis","ANÁLISIS","Reproductor y análisis","chart")}
         </div>
       </div>
-      <div class="r3-manager-footer"><button type="button" data-r3-manager-action="races">← CARGAR CARRERA</button><button type="button" class="is-map" data-r3-manager-action="map">VOLVER AL MAPA</button></div>
+      <div class="r3-manager-footer"><button type="button" class="is-map" data-r3-manager-action="map">VOLVER AL MAPA</button></div>
     </section>`;
     body.querySelectorAll("[data-r3-manager-action]").forEach(button=>button.addEventListener("click",()=>runManagerAction(button.dataset.r3ManagerAction)));
     body.querySelectorAll("[data-r3-manager-tab]").forEach(button=>button.addEventListener("click",()=>{
@@ -596,6 +597,7 @@
   
   globalThis.MILITOPO_R3_ORGANIZER_MANAGER=Object.freeze({open:(event)=>openRaceManager(event||{}),close:()=>closeWorkspace(true),mapAndTrace:openMapAndTrace,refreshRoutes:refreshRoutesProfessional});
   globalThis.addEventListener("militopo:r3-new-race",startNewRace);
+  globalThis.addEventListener("militopo:r5-reuse-complete",()=>setTimeout(()=>openStep(1,"CONFIGURACIÓN DE CARRERA"),90));
 function init(){
     document.body.classList.add("r1-shell-active");
     try{setRole(localStorage.getItem("militopo_v2_last_role")||"organizer")}catch(_){}
