@@ -10377,7 +10377,52 @@ async function resetSavedEvent(){
         toastPrefix:"Evento nuevo creado"
     });
 }
+async function reuseCurrentRaceAsNew(){
+    const lock=currentMilitopoCloudDesignLock();
+    const lockStatus=String(lock?.status||"").trim().toLowerCase();
+    if(lockStatus==="live"){
+        toast("No se puede reutilizar una carrera mientras está EN DIRECTO.");
+        return false;
+    }
+    const sourceId=String(state.eventId||"").trim();
+    if(!sourceId)throw new Error("No hay una carrera cargada para reutilizar.");
+    const clone=value=>JSON.parse(JSON.stringify(value??null));
+    const template={
+        eventName:String(state.eventName||"ENTRENAMIENTO ORIENTACIÓN").trim(),
+        planScale:Number(state.planScale)===7500?7500:10000,
+        planEquidistanceM:Math.max(.5,Number(state.planEquidistanceM)||5),
+        selectedMapLayer:String(state.selectedMapLayer||"mapant"),
+        participantCount:Math.max(1,Math.trunc(Number(state.participantCount)||10)),
+        maxUniqueRoutes:Math.max(1,Math.trunc(Number(state.maxUniqueRoutes)||15)),
+        controlCount:Math.max(0,Math.trunc(Number(state.controlCount)||0)),
+        controlsPerRoute:Math.max(0,Math.trunc(Number(state.controlsPerRoute)||0)),
+        maxControlReuse:Math.max(1,Math.trunc(Number(state.maxControlReuse)||6)),
+        points:clone(state.points||{}),routes:clone(state.routes||[]),metrics:clone(state.metrics||[]),
+        elevations:clone(state.elevations||{}),iofDescriptions:clone(state.iofDescriptions||{}),routeWarnings:clone(state.routeWarnings||[])
+    };
+    const created=await prepareFreshOrganizerEvent(sourceId,{reason:"reuse-race",purgeLocalRuntime:false,toastPrefix:"Carrera reutilizada"});
+    if(created!==true)return false;
+    state.eventName=`${template.eventName} · COPIA`;
+    state.planScale=template.planScale;state.planEquidistanceM=template.planEquidistanceM;state.selectedMapLayer=template.selectedMapLayer;
+    state.participantCount=template.participantCount;state.maxUniqueRoutes=template.maxUniqueRoutes;state.controlCount=template.controlCount;
+    state.controlsPerRoute=template.controlsPerRoute;state.maxControlReuse=template.maxControlReuse;
+    state.points=template.points||{};state.routes=template.routes||[];state.metrics=template.metrics||[];state.elevations=template.elevations||{};
+    state.iofDescriptions=template.iofDescriptions||{};state.routeWarnings=template.routeWarnings||[];
+    state.participantLogs={};state.participantNames={};state.importedResults=[];state.startTimes={};state.finishTimes={};state.scanHistory=[];state.classification=[];
+    state.startFlowStatus={};state.liveRunId="";state.liveRunStartedAt="";state.liveRunStatus="";state.raceDataProtection={protected:false,runId:"",startedAt:"",lastDataAt:"",status:""};
+    __militopoCloudHeaderArmed=false;
+    syncConfigToUi();
+    try{syncPlanScaleSettingUi()}catch(_){}
+    renderPointSelectors();renderPointsTable();renderIofDescriptionsEditor();try{validateIofDescriptions()}catch(_){}
+    updateParticipantSelect();updateRouteCountInfo();try{renderRoutes()}catch(_){};try{renderMapMarkers();if(map)fitAllPoints()}catch(_){}
+    try{updateOrganizerParticipantSelects()}catch(_){};try{renderImportedResults()}catch(_){}
+    saveState();goStep(1,{silent:true});publishMilitopoCloudHeader("reuse-race");publishMilitopoCloudStructure("reuse-race");
+    setRestoreStatus(`✅ Carrera reutilizada como BORRADOR nuevo · ${state.eventId} · sin participantes ni resultados`,"ok");
+    toast("Carrera reutilizada como borrador nuevo");
+    return true;
+}
 window.createNewRace=createNewRace;
+window.reuseCurrentRaceAsNew=reuseCurrentRaceAsNew;
 window.resetSavedEvent=resetSavedEvent;let step5ResultQrCameraStream=null;
 let step5ResultQrCameraRunning=false;
 let step5ResultQrDetector=null;
