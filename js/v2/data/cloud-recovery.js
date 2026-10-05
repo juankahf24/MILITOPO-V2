@@ -22,6 +22,7 @@ const state = {
   events: [],
   overlayMode: "events",
   openResultsAfterRecover: "",
+  reuseAfterRecover: "",
   filter: "all",
   historyFilter: "all",
   historyRows: []
@@ -174,6 +175,8 @@ function ensureStyles() {
     .m2-cloud-event-open{min-height:42px;flex:0 0 auto;border-radius:10px;padding:9px 13px;background:#e5ead8;color:#111811}.m2-cloud-event-open:disabled{opacity:.55}
     @media(max-width:760px){.m2-cloud-recovery-overlay{padding:0}.m2-cloud-recovery-panel{width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;padding:14px}.m2-cloud-recovery-head{top:-14px;margin:-14px -14px 12px;padding:calc(14px + env(safe-area-inset-top)) 14px 12px}.m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:1fr}.m2-r3-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r3-head-actions .m2-r3-head-btn:not(.is-new){display:none}}
     @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:auto}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-r3-event-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.m2-r3-event-footer{align-items:flex-end}}
+    .m2-r5-choice{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:4px 0 14px}.m2-r5-choice button{min-height:82px;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:12px;background:#202b21;color:#eef1e6;text-align:left;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:center;cursor:pointer}.m2-r5-choice button.is-active{background:#edf0df;color:#172018;border-color:#edf0df}.m2-r5-choice-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#101711;font-size:1.25rem}.m2-r5-choice button.is-active .m2-r5-choice-icon{background:#2f5b39;color:#fff}.m2-r5-choice strong{display:block;font:950 .77rem/1.05 system-ui}.m2-r5-choice small{display:block;margin-top:4px;font:650 .58rem/1.25 system-ui;opacity:.75}.m2-r5-existing-wrap[hidden]{display:none!important}.m2-r5-filterbar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;align-items:center;margin:8px 0 12px;padding:9px 10px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#171f17}.m2-r5-filterbar label{font:900 .57rem/1 system-ui;letter-spacing:.09em;color:#b6c0b3}.m2-r5-filterbar select{width:100%;min-height:40px;border:1px solid #d8ddc9;border-radius:10px;padding:8px 34px 8px 10px;background:#f8f5e6!important;color:#101810!important;-webkit-text-fill-color:#101810!important;font:900 .70rem/1 system-ui;color-scheme:light}.m2-r5-event-actions{display:flex;gap:7px;align-items:center}.m2-r5-reuse{min-height:38px;border:1px solid rgba(205,171,92,.32);border-radius:10px;padding:8px 10px;background:rgba(205,171,92,.10);color:#f2ddb0;font:900 .58rem/1 system-ui;cursor:pointer}.m2-r5-reuse:disabled{opacity:.42;cursor:not-allowed}.m2-r5-new-note{padding:12px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#141d15;color:#c7d0c4;font:650 .68rem/1.4 system-ui}.m2-r5-new-main{margin-top:10px;width:100%;min-height:48px;border:0;border-radius:13px;background:#edf0df;color:#172018;font:950 .72rem/1 system-ui;cursor:pointer}
+    @media(max-width:600px){.m2-r5-choice{grid-template-columns:1fr}.m2-r5-choice button{min-height:68px}.m2-r5-filterbar{grid-template-columns:1fr}.m2-r5-event-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}}
   `;
   document.head.appendChild(style);
 }
@@ -228,25 +231,44 @@ function ensureOverlay() {
     <section class="m2-cloud-recovery-panel" role="dialog" aria-modal="true" aria-labelledby="m2CloudRecoveryTitle">
       <div class="m2-cloud-recovery-head">
         <div class="m2-r3-head-copy">
-          <h2 id="m2CloudRecoveryTitle" style="margin:0">MIS CARRERAS</h2>
-          <p id="m2CloudRecoverySubtitle">Centro de gestión del organizador · Firestore</p>
+          <h2 id="m2CloudRecoveryTitle" style="margin:0">CARGAR / CREAR CARRERA</h2>
+          <p id="m2CloudRecoverySubtitle">Elige cómo quieres empezar</p>
         </div>
         <div class="m2-r3-head-actions">
-          <button type="button" id="m2R3NewRace" class="m2-r3-head-btn is-new">＋ NUEVA</button>
           <button type="button" id="m2R3Refresh" class="m2-r3-head-btn">↻ ACTUALIZAR</button>
           <button type="button" class="m2-cloud-recovery-close" aria-label="Cerrar">×</button>
         </div>
       </div>
-      <div id="m2R3RaceSummary" class="m2-r3-summary"></div>
-      <div id="m2R3RaceFilters" class="m2-r3-filters"></div>
-      <div id="m2CloudRecoveryList" class="m2-cloud-recovery-list"></div>
+      <div class="m2-r5-choice" role="tablist" aria-label="Opciones de carrera">
+        <button type="button" class="is-active" data-r5-race-choice="existing" role="tab" aria-selected="true"><span class="m2-r5-choice-icon">☁</span><span><strong>CARRERA EXISTENTE</strong><small>Cargar o reutilizar una carrera guardada</small></span></button>
+        <button type="button" data-r5-race-choice="new" role="tab" aria-selected="false"><span class="m2-r5-choice-icon">＋</span><span><strong>NUEVA DESDE CERO</strong><small>Crear un borrador completamente vacío</small></span></button>
+      </div>
+      <div class="m2-r5-existing-wrap" id="m2R5ExistingWrap">
+        <div id="m2R3RaceSummary" class="m2-r3-summary"></div>
+        <div id="m2R3RaceFilters" class="m2-r3-filters"></div>
+        <div id="m2CloudRecoveryList" class="m2-cloud-recovery-list"></div>
+      </div>
+      <div id="m2R5NewWrap" hidden>
+        <div class="m2-r5-new-note"><strong>NUEVA CARRERA DESDE CERO</strong><br>Se creará un BORRADOR nuevo con otro identificador. La carrera que tengas abierta permanecerá guardada.</div>
+        <button type="button" id="m2R5CreateFromZero" class="m2-r5-new-main">CREAR CARRERA NUEVA</button>
+      </div>
     </section>
   `;
-  overlay.querySelector(".m2-cloud-recovery-close")?.addEventListener("click", closeOverlay);
-  overlay.querySelector("#m2R3NewRace")?.addEventListener("click", () => {
-    closeOverlay();
+  const choose = mode => {
+    const existing = mode !== "new";
+    overlay.querySelector("#m2R5ExistingWrap")?.toggleAttribute("hidden", !existing);
+    overlay.querySelector("#m2R5NewWrap")?.toggleAttribute("hidden", existing);
+    overlay.querySelectorAll("[data-r5-race-choice]").forEach(button => {
+      const active = button.dataset.r5RaceChoice === (existing ? "existing" : "new");
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+  };
+  overlay.querySelectorAll("[data-r5-race-choice]").forEach(button => button.addEventListener("click", () => choose(button.dataset.r5RaceChoice)));
+  overlay.querySelector("#m2R5CreateFromZero")?.addEventListener("click", () => {
     globalThis.dispatchEvent(new CustomEvent("militopo:r3-new-race"));
   });
+  overlay.querySelector(".m2-cloud-recovery-close")?.addEventListener("click", closeOverlay);
   overlay.querySelector("#m2R3Refresh")?.addEventListener("click", () => {
     if (state.overlayMode === "history") openHistoryPicker();
     else openCloudPicker(false);
@@ -330,7 +352,7 @@ function normalizeCourse(id, data = {}) {
 }
 
 async function loadEventList() {
-  if (!canManage()) throw new Error("Necesitas una cuenta organizer o super_admin verificada.");
+  if (!canManage()) throw new Error("Necesitas una cuenta de ORGANIZADOR o SÚPER ADMINISTRADOR verificada.");
   if (!navigator.onLine) throw new Error("No hay conexión. El evento local sigue disponible.");
   const { firestore } = await services();
   const eventsRef = collection(firestore, "events");
@@ -373,11 +395,12 @@ function renderEventList(rows) {
   ];
   if (filters) {
     filters.hidden = false;
-    filters.innerHTML = filterDefs.map(([key,label]) => `<button type="button" class="m2-r3-filter${state.filter === key ? " is-active" : ""}" data-r3-filter="${key}">${label}${key === "all" ? ` · ${rows.length}` : ` · ${counts[key] || 0}`}</button>`).join("");
-    filters.querySelectorAll("[data-r3-filter]").forEach(button => button.addEventListener("click", () => {
-      state.filter = button.dataset.r3Filter || "all";
+    const options = filterDefs.map(([key,label]) => `<option value="${key}"${state.filter === key ? " selected" : ""}>${label} · ${key === "all" ? rows.length : (counts[key] || 0)}</option>`).join("");
+    filters.innerHTML = `<div class="m2-r5-filterbar"><label for="m2R5FilterSelect">FILTRAR CARRERAS</label><select id="m2R5FilterSelect" aria-label="Filtrar carreras por estado">${options}</select></div>`;
+    filters.querySelector("#m2R5FilterSelect")?.addEventListener("change", event => {
+      state.filter = event.target.value || "all";
       renderEventList(rows);
-    }));
+    });
   }
   const visible = state.filter === "all" ? rows : rows.filter(row => String(row.status || "draft") === state.filter);
   state.list.classList.add("m2-r3-grid");
@@ -401,16 +424,22 @@ function renderEventList(rows) {
           <div class="m2-r3-event-metric"><strong>${row.participantCount}</strong><span>PARTICIPANTES</span></div>
           <div class="m2-r3-event-metric"><strong>${row.controlCount}</strong><span>BALIZAS</span></div>
           <div class="m2-r3-event-metric"><strong>${routeCount || "—"}</strong><span>RECORRIDOS</span></div>
-          <div class="m2-r3-event-metric"><strong>${pointCount || "—"}</strong><span>PUNTOS</span></div>
+          <div class="m2-r3-event-metric is-route-controls"><strong>${Math.max(0, Number(row.controlsPerRoute || 0)) || "—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
         </div>
         <div class="m2-r3-event-footer">
           <div class="m2-r3-event-updated">Actualizada · ${esc(formatDate(row.updatedAt))}</div>
-          <button type="button" class="m2-cloud-event-open" data-event-id="${esc(row.eventId)}">${archived ? "ABRIR ARCHIVADA" : "GESTIONAR"}</button>
+          <div class="m2-r5-event-actions">
+            <button type="button" class="m2-r5-reuse" data-reuse-event="${esc(row.eventId)}" ${row.status === "live" ? 'disabled title="No se puede reutilizar mientras esté EN DIRECTO"' : ""}>REUTILIZAR</button>
+            <button type="button" class="m2-cloud-event-open" data-event-id="${esc(row.eventId)}">${archived ? "ABRIR" : "CARGAR"}</button>
+          </div>
         </div>
       </article>`;
   }).join("");
   state.list.querySelectorAll(".m2-cloud-event-open").forEach(button => {
     button.addEventListener("click", () => recoverEvent(button.dataset.eventId));
+  });
+  state.list.querySelectorAll("[data-reuse-event]").forEach(button => {
+    button.addEventListener("click", () => recoverEvent(button.dataset.reuseEvent, { reuse:true }));
   });
 }
 async function loadHistorySummary(row) {
@@ -519,6 +548,9 @@ async function openHistoryPicker() {
   const subtitle = document.getElementById("m2CloudRecoverySubtitle");
   if (title) title.textContent = "HISTÓRICO DEL ORGANIZADOR";
   if (subtitle) subtitle.textContent = "Carreras finalizadas y archivadas · resultados y clasificación oficial.";
+  state.overlay?.querySelector(".m2-r5-choice")?.setAttribute("hidden", "");
+  document.getElementById("m2R5ExistingWrap")?.removeAttribute("hidden");
+  document.getElementById("m2R5NewWrap")?.setAttribute("hidden", "");
   document.getElementById("m2R3RaceSummary")?.setAttribute("hidden", "");
   document.getElementById("m2R3RaceFilters")?.setAttribute("hidden", "");
   const newRaceButton = document.getElementById("m2R3NewRace"); if (newRaceButton) newRaceButton.hidden = true;
@@ -548,10 +580,12 @@ async function openCloudPicker(resetFilter = true) {
   state.overlayMode = "events";
   const title = document.getElementById("m2CloudRecoveryTitle");
   const subtitle = document.getElementById("m2CloudRecoverySubtitle");
-  if (title) title.textContent = "MIS CARRERAS";
-  if (subtitle) subtitle.textContent = isSuperAdmin()
-    ? "Centro de gestión · todas las carreras accesibles"
-    : "Centro de gestión del organizador · tus carreras";
+  if (title) title.textContent = "CARGAR / CREAR CARRERA";
+  if (subtitle) subtitle.textContent = "Abre una carrera, reutiliza su diseño o crea una nueva desde cero.";
+  state.overlay?.querySelector(".m2-r5-choice")?.removeAttribute("hidden");
+  document.getElementById("m2R5ExistingWrap")?.removeAttribute("hidden");
+  document.getElementById("m2R5NewWrap")?.setAttribute("hidden", "");
+  state.overlay?.querySelectorAll("[data-r5-race-choice]").forEach(button=>{const active=button.dataset.r5RaceChoice==="existing";button.classList.toggle("is-active",active);button.setAttribute("aria-selected",String(active))});
   const summary = document.getElementById("m2R3RaceSummary"); if (summary) summary.hidden = false;
   const filters = document.getElementById("m2R3RaceFilters"); if (filters) filters.hidden = false;
   const newRaceButton = document.getElementById("m2R3NewRace"); if (newRaceButton) newRaceButton.hidden = false;
@@ -639,13 +673,29 @@ function onAuthReady(event) {
   const historyButton = document.getElementById("m2OrganizerHistoryOpen");
   if (button) button.disabled = !canManage();
   if (historyButton) historyButton.disabled = !canManage();
-  if (!canManage()) paintStatus("🔒 Recuperación nube disponible para organizer/super_admin con correo verificado.", "warn");
+  if (!canManage()) paintStatus("🔒 Recuperación en nube disponible para ORGANIZADOR o SÚPER ADMINISTRADOR con correo verificado.", "warn");
 }
 function onApplied(event) {
   const detail = event?.detail || {};
   if (detail.ok) {
     const eventId = cleanString(detail.eventId, 120);
     paintStatus(`✅ Evento recuperado desde Firestore · ${eventId}`, "ok");
+    if (state.reuseAfterRecover && state.reuseAfterRecover === eventId) {
+      state.reuseAfterRecover = "";
+      setTimeout(async () => {
+        try {
+          const ok = await globalThis.reuseCurrentRaceAsNew?.();
+          if (ok === true) {
+            closeOverlay();
+            paintStatus("✅ Diseño reutilizado en una carrera nueva · BORRADOR", "ok");
+            globalThis.dispatchEvent(new CustomEvent("militopo:r5-reuse-complete"));
+          }
+        } catch (error) {
+          console.error("[MILITOPO reutilizar carrera]", error);
+          paintStatus(`⚠️ ${cleanString(error?.message || "No se pudo reutilizar la carrera.", 300)}`, "warn");
+        }
+      }, 220);
+    }
     if (state.openResultsAfterRecover && state.openResultsAfterRecover === eventId) {
       state.openResultsAfterRecover = "";
       // R4F: después de recuperar desde HISTÓRICO, abrir directamente el
