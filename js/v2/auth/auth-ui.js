@@ -38,9 +38,16 @@ function routeRunnerToParticipant() {
   clearPostLoginSelector();
   try {
     if (/\/orientacion\/participante\//.test(window.location.pathname)) return false;
+    // R5B: navegación interna de Auth. Evita que el beforeunload heredado de
+    // Topografía muestre “¿Quieres salir del sitio web?” al enviar un runner
+    // a su área después del login.
+    window.__MILITOPO_AUTH_NAVIGATING = true;
+    try { sessionStorage.setItem("militopo_v2_allow_navigation_once", "1"); } catch (_) {}
     window.location.replace(RUNNER_HOME_URL);
     return true;
   } catch (_) {
+    window.__MILITOPO_AUTH_NAVIGATING = true;
+    try { sessionStorage.setItem("militopo_v2_allow_navigation_once", "1"); } catch (_) {}
     window.location.href = RUNNER_HOME_URL;
     return true;
   }
