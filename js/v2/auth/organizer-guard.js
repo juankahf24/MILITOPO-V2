@@ -4,6 +4,7 @@ import "../bootstrap.js";
 
 const ALLOWED = new Set(["organizer", "super_admin"]);
 const state = { auth: globalThis.MILITOPO_V2_AUTH || null, overlay: null };
+const RUNNER_HOME_URL = new URL("../../../orientacion/participante/", import.meta.url).href;
 
 function roleOf(auth = state.auth) {
   const role = String(auth?.role || "runner");
@@ -36,8 +37,8 @@ function ensureOverlay() {
   overlay.innerHTML = `
     <section class="m2-organizer-guard-card" role="alertdialog" aria-modal="true" aria-labelledby="m2OrganizerGuardTitle">
       <h2 id="m2OrganizerGuardTitle">Área Organizador restringida</h2>
-      <p>Esta sección requiere una cuenta verificada con rol <strong>organizer</strong> o <strong>super_admin</strong>.</p>
-      <a href="../">VOLVER A MILITOPO</a>
+      <p>Esta sección requiere una cuenta verificada con rol <strong>ORGANIZADOR</strong> o <strong>SÚPER ADMINISTRADOR</strong>.</p>
+      <a href="./participante/">IR A MI ÁREA DE CORREDOR</a>
     </section>`;
   document.body.appendChild(overlay);
   state.overlay = overlay;
@@ -48,6 +49,12 @@ function apply(auth) {
   const overlay = ensureOverlay();
   if (!state.auth?.uid) {
     overlay.hidden = true; // auth-ui se ocupa del usuario no autenticado.
+    return;
+  }
+  if (roleOf(state.auth) === "runner") {
+    // Auth UI resuelve el rol definitivo y redirige al área del corredor.
+    // Mientras tanto no mostramos una falsa pantalla de acceso restringido.
+    overlay.hidden = true;
     return;
   }
   overlay.hidden = allowed(state.auth);

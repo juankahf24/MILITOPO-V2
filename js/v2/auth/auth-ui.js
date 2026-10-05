@@ -33,12 +33,17 @@ const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
 const LAST_ROLE_KEY = "militopo_v2_last_role";
 let enterAppInFlight = null;
 let enterAppInFlightUid = "";
-// F3A: el runner permanece en la shell principal ya autenticada.
-// Evitamos inicializar Firebase una segunda vez en /orientacion/participante/,
-// que era la causa de los fallos de carga ESM en algunos móviles antiguos.
+const RUNNER_HOME_URL = new URL("../../../orientacion/participante/", import.meta.url).href;
 function routeRunnerToParticipant() {
   clearPostLoginSelector();
-  return false;
+  try {
+    if (/\/orientacion\/participante\//.test(window.location.pathname)) return false;
+    window.location.replace(RUNNER_HOME_URL);
+    return true;
+  } catch (_) {
+    window.location.href = RUNNER_HOME_URL;
+    return true;
+  }
 }
 
 
@@ -219,11 +224,11 @@ function authReturnUrl() {
 
 function roleLabel(role) {
   const labels = {
-    runner: "runner",
-    organizer: "organizer",
-    super_admin: "super_admin"
+    runner: "CORREDOR",
+    organizer: "ORGANIZADOR",
+    super_admin: "SÚPER ADMINISTRADOR"
   };
-  return labels[normalizeRole(role)] || "runner";
+  return labels[normalizeRole(role)] || "CORREDOR";
 }
 
 function buildUi() {
@@ -631,18 +636,21 @@ async function enterAppCore(user) {
   const displayName = state.profile?.displayName || cached?.displayName || user.displayName || null;
 
   if (state.role !== "runner") clearRunnerRestoreHint();
+  if (state.role === "runner") {
+    paintAccount(user, displayName);
+    if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
+    if (routeRunnerToParticipant()) return;
+    publishAuthState(user, displayName);
+    try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-runner-dashboard", { detail: globalThis.MILITOPO_V2_AUTH })); } catch (_) {}
+    return;
+  }
   paintAccount(user, displayName);
   if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
   if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
   publishAuthState(user, displayName);
-  if (state.role === "runner") {
-    try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-runner-dashboard", { detail: globalThis.MILITOPO_V2_AUTH })); } catch (_) {}
-  }
 
-  if (state.role !== "runner" && consumePostLoginSelector()) {
+  if (consumePostLoginSelector()) {
     queueMicrotask(requestBranchSelectorAfterLogin);
-  } else if (state.role === "runner") {
-    clearPostLoginSelector();
   }
 }
 

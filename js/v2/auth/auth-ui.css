@@ -13,7 +13,7 @@
 #militopoV2AuthOverlay {
   position: fixed;
   inset: 0;
-  z-index: 100001;
+  z-index: 2147483600;
   display: grid;
   place-items: center;
   padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
@@ -186,7 +186,7 @@
 .m2-account-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100003;
+  z-index: 2147483610;
   display: grid;
   place-items: center;
   padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
@@ -267,3 +267,7 @@
 html.militopo-pwa-launch #militopoV2AccountBadge {
   z-index: 2147483000 !important;
 }
+
+/* R5A.1 · el acceso/cuenta siempre por encima del shell y la brújula. */
+#militopoV2AuthOverlay{z-index:2147483600!important}
+#militopoV2AccountPanel.m2-account-overlay{z-index:2147483610!important}
