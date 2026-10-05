@@ -316,7 +316,7 @@
     let hub=$("#r4AnalysisHub",body);
     if(!hub){
       hub=document.createElement("section");hub.id="r4AnalysisHub";hub.className="r4-analysis-hub";
-      hub.innerHTML=`<div class="r4-analysis-hero"><div><span>ORGANIZACIÓN · POST-CARRERA</span><h2>REPRODUCTOR Y ANÁLISIS</h2><small>${currentEventName()}</small></div><b>MULTICORREDOR</b></div><div class="r4-analysis-metrics"><div><strong>HASTA 5</strong><span>CORREDORES</span></div><div><strong>00:00</strong><span>DESDE EL INICIO</span></div><div><strong>HORA REAL</strong><span>SEGÚN SALIDA</span></div><div><strong>1× · 2× · 4×</strong><span>VELOCIDAD</span></div></div><div class="r4-analysis-jumps"><button type="button" data-r4-analysis-tab="tracks">REPRODUCTOR</button><button type="button" data-r4-analysis-tab="summary">RESUMEN Y ANÁLISIS</button></div>`;
+      hub.innerHTML=`<div class="r4-analysis-hero"><div><span>ORGANIZACIÓN · POST-CARRERA</span><h2>REPRODUCTOR Y ANÁLISIS</h2><small>${currentEventName()}</small></div><b>MULTICORREDOR</b></div><div class="r4-analysis-metrics"><div><strong>HASTA 5</strong><span>CORREDORES</span></div><div><strong>00:00</strong><span>DESDE EL INICIO</span></div><div><strong>HORA REAL</strong><span>SEGÚN SALIDA</span></div><div><strong>1× · 2× · 4× · 10×</strong><span>VELOCIDAD</span></div></div><div class="r4-analysis-jumps"><button type="button" data-r4-analysis-tab="tracks">REPRODUCTOR</button><button type="button" data-r4-analysis-tab="summary">RESUMEN Y ANÁLISIS</button></div>`;
       stack.parentNode.insertBefore(hub,stack);
       hub.addEventListener("click",event=>{const tab=event.target.closest("[data-r4-analysis-tab]")?.dataset.r4AnalysisTab;if(!tab)return;try{window.openRaceAnalysisTab?.(tab)}catch(_){};const target=tab==="tracks"?$("#analysisPanelTracks",step):$("#analysisPanelSummary",step);target?.scrollIntoView?.({behavior:"smooth",block:"start"})});
     }
@@ -489,18 +489,25 @@
         <div><strong>${ctx.controlsPerRoute||"—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
       </div>
       ${readinessHtml()}
-      <div class="r3-manager-section-head"><strong>GESTIONAR</strong><span>Accede a cada área sin navegar por PASOS.</span></div>
-      <div class="r3-manager-grid">
-        ${managerCard((designReadinessSnapshot()?.items.find(i=>i.key==="map")?.ok)?"map":"complete-map","MAPA Y BALIZAS","Diseñar salida, llegada, balizas y trazado","layers","is-primary")}
-        ${managerCard("config","CONFIGURACIÓN","Datos generales y reglas de la carrera","settings")}
-        ${managerCard("routes","RECORRIDOS","Revisar recorridos manuales y asignaciones","route")}
-        ${managerCard("participants","PARTICIPANTES","Invitaciones, censo y asignación de recorrido","users")}
-        ${managerCard("lifecycle","ESTADO Y PUBLICACIÓN","Preparar, publicar, iniciar, finalizar y archivar","flag","is-state")}
-        ${managerCard("live","LIVE","Centro de seguimiento en tiempo real","live","is-live")}
-        ${managerCard("material","MATERIAL QR",materialQrUnlocked()?"Planos, QR y exportaciones":"🔒 Disponible desde PREPARADO","qr",materialQrUnlocked()?"":"is-locked")}
-        ${managerCard("sequence","SECUENCIA","Salidas, llegadas y control de carrera","flag")}
-        ${managerCard("results","RESULTADOS","Resultados y clasificación oficial","chart")}
-        ${managerCard("analysis","ANÁLISIS","Reproductor y análisis post-carrera","chart")}
+      <div class="r3-manager-group">
+        <div class="r3-manager-group-head"><div><strong>DISEÑO Y PREPARACIÓN</strong><small>Configura lo necesario antes de publicar la carrera.</small></div><span>PREPARACIÓN</span></div>
+        <div class="r3-manager-grid">
+          ${managerCard((designReadinessSnapshot()?.items.find(i=>i.key==="map")?.ok)?"map":"complete-map","MAPA Y BALIZAS","Diseñar salida, llegada, balizas y trazado","layers","is-primary")}
+          ${managerCard("config","CONFIGURACIÓN","Datos generales y reglas de la carrera","settings")}
+          ${managerCard("routes","RECORRIDOS","Revisar y completar recorridos manuales","route")}
+          ${managerCard("lifecycle","ESTADO Y PUBLICACIÓN","Preparar, publicar, iniciar, finalizar y archivar","flag","is-state")}
+          ${managerCard("material","MATERIAL QR",materialQrUnlocked()?"Planos, QR y exportaciones":"🔒 Disponible desde PREPARADO","qr",materialQrUnlocked()?"":"is-locked")}
+          ${managerCard("sequence","SECUENCIA","Salidas, llegadas y control de carrera","flag")}
+        </div>
+      </div>
+      <div class="r3-manager-group">
+        <div class="r3-manager-group-head"><div><strong>OPERACIÓN Y POST-CARRERA</strong><small>Participantes, seguimiento, clasificación y análisis.</small></div><span>OPERACIÓN</span></div>
+        <div class="r3-manager-grid">
+          ${managerCard("participants","PARTICIPANTES","Censo, invitaciones y asignación de recorrido","users")}
+          ${managerCard("live","LIVE","Centro de seguimiento en tiempo real","live","is-live")}
+          ${managerCard("results","RESULTADOS","Resultados y clasificación oficial","chart")}
+          ${managerCard("analysis","ANÁLISIS","Reproductor y análisis post-carrera","chart")}
+        </div>
       </div>
       <div class="r3-manager-footer"><button type="button" data-r3-manager-action="races">← CARGAR CARRERA</button><button type="button" class="is-map" data-r3-manager-action="map">VOLVER AL MAPA</button></div>
     </section>`;
