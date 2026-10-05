@@ -14,7 +14,7 @@ import {
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-f3a-runner-home-v4-20260923";
+const VERSION="v2-r5a-runner-tabs-20261005";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 
@@ -81,11 +81,11 @@ async function loadProfile(app,user){
   const displayName=String(data.displayName||user.displayName||user.email||"Corredor").trim();
   const username=String(data.usernameKey||data.username||"").trim().toLowerCase();
   text(els.name,displayName);
-  text(els.meta,`${username?`@${username} · `:""}runner · ${user.email||""}`);
+  text(els.meta,`${username?`@${username} · `:""}CORREDOR · ${user.email||""}`);
   text(els.avatar,initials(displayName));
   if(els.detailsBtn)els.detailsBtn.disabled=false;
   if(els.logoutBtn)els.logoutBtn.disabled=false;
-  if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> runner<br><span class="small">UID: ${esc(user.uid)}</span>`;
+  if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> CORREDOR<br><span class="small">UID: ${esc(user.uid)}</span>`;
 }
 function statusES(s){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();}
 function renderEvents(events){
@@ -113,7 +113,7 @@ function renderEvents(events){
   }));
 }
 async function loadEvents(app){
-  setStatus("Consultando tus carreras Live V2…");
+  setStatus("Consultando tus carreras…");
   if(els.retry)els.retry.style.display="none";
   const functions=getFunctions(app,REGION);
   const call=httpsCallable(functions,"getRunnerLiveEvents");
@@ -156,5 +156,11 @@ els.logoutBtn?.addEventListener("click",async()=>{
   location.replace("../../");
 });
 els.retry?.addEventListener("click",()=>location.reload());
+
+document.querySelectorAll("[data-runner-tab]").forEach(button=>button.addEventListener("click",()=>{
+  const tab=button.dataset.runnerTab||"races";
+  document.querySelectorAll("[data-runner-tab]").forEach(btn=>btn.classList.toggle("is-active",btn===button));
+  document.querySelectorAll("[data-runner-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.runnerPanel===tab));
+}));
 
 boot();
