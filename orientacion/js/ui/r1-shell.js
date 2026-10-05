@@ -42,7 +42,7 @@
     bar.innerHTML=`
       <div class="r1-event"><strong id="r1EventName">${currentEventName()}</strong><span id="r1EventMeta">${currentEventId()||"Sin carrera cargada"}</span></div>
       <nav class="r1-nav" aria-label="Navegación principal MILITOPO">
-        <button class="r1-nav-btn" type="button" data-r1-action="profile">${icon("profile")}<span class="r1-label r1-label-profile"><span>MI</span><span>PERFIL</span></span></button>
+        <button class="r1-nav-btn" type="button" data-r1-action="profile" aria-label="Mi perfil"><span class="r1-profile-online" aria-label="Sesión iniciada"><i></i><em>EN LÍNEA</em></span>${icon("profile")}<span class="r1-label r1-label-profile"><span>MI</span><span>PERFIL</span></span></button>
         <button class="r1-nav-btn is-primary" type="button" data-r1-action="races">${icon("plus")}<span class="r1-label r1-label-load"><span>CARGAR</span><span>CARRERA</span></span></button>
         <button class="r1-nav-btn is-manager" type="button" data-r1-action="manager">${icon("settings")}<span class="r1-label r1-label-manager"><span>GESTIONAR</span><span>CARRERA</span></span></button>
         <button class="r1-nav-btn" type="button" data-r1-action="participants">${icon("users")}<span>PARTICIPANTES</span></button>
@@ -524,9 +524,15 @@
     $$(".r1-nav-btn").forEach(b=>b.classList.remove("is-active"));
     const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name)name.textContent=currentEventName();if(meta)meta.textContent=currentEventId()||"Sin carrera cargada";
   }
+  function setProfileOnline(online=true){
+    const button=$("[data-r1-action='profile']");if(!button)return;
+    const active=Boolean(online);button.classList.toggle("is-session-online",active);
+    const badge=$(".r1-profile-online",button);if(badge)badge.hidden=!active;
+    button.title=active?"Mi perfil · sesión iniciada":"Mi perfil";
+  }
   function setRole(role){state.role=String(role||"organizer");const pill=$("#r1RolePill");if(pill){pill.dataset.role=state.role;$("span",pill).textContent=roleLabel(state.role)}}
   function bindEvents(){
-    window.addEventListener("militopo:v2-auth-ready",e=>setRole(e.detail?.role));
+    window.addEventListener("militopo:v2-auth-ready",e=>{setRole(e.detail?.role);setProfileOnline(Boolean(e.detail?.uid))});
     window.addEventListener("militopo:v2-orientation-header",e=>{const h=e.detail?.header||{};const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name&&h.eventName)name.textContent=h.eventName;if(meta&&h.eventId)meta.textContent=h.eventId});
     window.addEventListener("militopo:v2-cloud-event-applied",()=>setTimeout(refreshContext,100));
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
@@ -557,7 +563,7 @@
 function init(){
     document.body.classList.add("r1-shell-active");
     try{setRole(localStorage.getItem("militopo_v2_last_role")||"organizer")}catch(_){}
-    buildTopbar();buildMapDock();buildMore();buildWorkspace();bindEvents();refreshContext();
+    buildTopbar();buildMapDock();buildMore();buildWorkspace();bindEvents();setProfileOnline(Boolean(window.MILITOPO_V2_AUTH?.uid));refreshContext();
     setTimeout(()=>{safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;state.mapHome=true;window.MILITOPO_R2_MAP_HOME?.activate?.();refreshContext()},260);
     setTimeout(refreshContext,700);setTimeout(refreshContext,1600);
   }
