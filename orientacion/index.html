@@ -43,9 +43,9 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <link rel="stylesheet" href="css/styles.css?v=v2-r4c-live-center-20261004" />
-<link rel="stylesheet" href="css/r1-shell.css?v=r4c-live-center-20261004" />
+<link rel="stylesheet" href="css/r1-shell.css?v=r5a1-auth-confirm-20261005" />
 <link rel="stylesheet" href="css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003" />
-<link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929" />
+<link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-r5a1-auth-layer-20261005" />
 
 
 
@@ -91,19 +91,20 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="../js/v2/firebase-config.js"></script>
 <script type="module" src="../js/v2/bootstrap.js"></script>
 <script type="module" src="../js/v2/ui/connectivity-status.js?v=v2-j1a-connectivity-no-spam-20261001"></script>
-<script type="module" src="../js/v2/auth/auth-ui.js?v=v2-i5-4-pwa-account-hqlogo-20260929"></script>
-<script type="module" src="../js/v2/auth/organizer-guard.js?v=v2-f3b-runtimefix-20260924"></script>
-<script type="module" src="../js/v2/data/invitations.js?v=v2-r4b2-invites-search-name-user-20261004"></script>
-<script type="module" src="../js/v2/data/participants-admin.js?v=v2-r4c-live-center-20261004"></script>
+<script src="../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005"></script>
+<script type="module" src="../js/v2/auth/auth-ui.js?v=v2-r5a1-runner-routing-20261005"></script>
+<script type="module" src="../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005"></script>
+<script type="module" src="../js/v2/data/invitations.js?v=v2-r5a1-confirmaciones-20261005"></script>
+<script type="module" src="../js/v2/data/participants-admin.js?v=v2-r5a1-confirmaciones-20261005"></script>
 <script type="module" src="../js/v2/data/events.js?v=v2-f3b-runtimefix-20260924"></script>
 <script type="module" src="../js/v2/data/orientation-structure.js?v=v2-r2h-live-rules-20261003"></script>
-<script type="module" src="../js/v2/data/cloud-recovery.js?v=v2-r3b1-main-nav-manager-20261004"></script>
-<script type="module" src="../js/v2/data/event-lifecycle.js?v=v2-r3c-lifecycle-panel-20261004"></script>
+<script type="module" src="../js/v2/data/cloud-recovery.js?v=v2-r5a1-reuse-confirm-20261005"></script>
+<script type="module" src="../js/v2/data/event-lifecycle.js?v=v2-r5a1-confirmaciones-20261005"></script>
 <script type="module" src="../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924"></script>
 <script type="module" src="../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924"></script>
-<script type="module" src="../js/v2/live/organizer-monitor.js?v=v2-r4c-live-center-20261004"></script>
-<script type="module" src="../js/v2/live/organizer-live-map.js?v=v2-r4c-live-center-20261004"></script>
-<script type="module" src="../js/v2/data/event-results.js?v=v2-r4c-live-center-20261004"></script>
+<script type="module" src="../js/v2/live/organizer-monitor.js?v=v2-r4d-results-center-20261004"></script>
+<script type="module" src="../js/v2/live/organizer-live-map.js?v=v2-r4d-results-center-20261004"></script>
+<script type="module" src="../js/v2/data/event-results.js?v=v2-r4d-results-center-20261004"></script>
 </head>
 <body class="ori-page-booting" style="background:#0a0e0a;">
 
@@ -495,7 +496,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 </section>
 <section id="step7" class="card">
   <div class="card-header">
-    <h2>📊 ANÁLISIS DE CARRERA</h2>
+    <h2>📊 REPRODUCTOR Y ANÁLISIS</h2>
     <div class="mode-pill">Resumen · tramos · parciales · archivo completo</div>
   </div>
 
@@ -503,12 +504,11 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
     <button class="analysis-tab active" data-analysis-tab="summary" onclick="openRaceAnalysisTab('summary')">RESUMEN</button>
     <button class="analysis-tab" data-analysis-tab="segments" onclick="openRaceAnalysisTab('segments')">TRAMOS</button>
     <button class="analysis-tab" data-analysis-tab="splits" onclick="openRaceAnalysisTab('splits')">PARCIALES</button>
-    <button class="analysis-tab" data-analysis-tab="tracks" onclick="openRaceAnalysisTab('tracks')">TRACKS</button>
+    <button class="analysis-tab" data-analysis-tab="tracks" onclick="openRaceAnalysisTab('tracks')">REPRODUCTOR</button>
     <button class="analysis-tab" data-analysis-tab="archive" onclick="openRaceAnalysisTab('archive')">ARCHIVO</button>
   </div>
 
   <div id="analysisPanelSummary" class="analysis-panel active">
-    <div class="status ok" style="margin-bottom:12px;">La <b>mediana</b> es el tiempo central: la mitad de los participantes queda por debajo y la otra mitad por encima. Es menos sensible que la media a un tiempo excepcionalmente alto.</div>
     <div id="raceAnalysisSummaryCards" class="analysis-metric-grid"></div>
     <div class="block"><label>Clasificación general de análisis</label><div class="help">Ordena por TIEMPO OFICIAL: tiempo real más las penalizaciones consolidadas. Los tracks del reproductor se leen del resultado persistente en Firestore.</div><div id="raceAnalysisRanking" class="table-wrap"></div></div>
   </div>
@@ -523,7 +523,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
   </div>
 
   <div id="analysisPanelTracks" class="analysis-panel">
-    <div class="status ok">🎬 Selecciona hasta cinco participantes y reproduce sus carreras de forma sincronizada. Puedes comparar desde 00:00 o respetar las horas reales de salida.</div>
+    <div class="status ok">Selecciona hasta cinco participantes y compara sus carreras de forma sincronizada.</div>
     <div class="analysis-tracks-layout">
       <aside class="analysis-tracks-sidebar">
         <div class="block analysis-track-controls">
@@ -551,8 +551,8 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
           <div class="analysis-playback-row">
             <label class="analysis-playback-mode">Modo
               <select id="analysisPlaybackMode" onchange="setAnalysisPlaybackMode(this.value)">
-                <option value="relative">Comparación desde 00:00</option>
-                <option value="real">Hora real de carrera</option>
+                <option value="relative">DESDE 00:00</option>
+                <option value="real">HORA REAL</option>
               </select>
             </label>
             <div class="analysis-playback-buttons">
@@ -563,7 +563,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
             </div>
             <label class="analysis-playback-speed">Velocidad
               <select id="analysisPlaybackSpeed" onchange="setAnalysisPlaybackSpeed(this.value)">
-                <option value="0.5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="5">5×</option><option value="10">10×</option>
+                <option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="10">10×</option>
               </select>
             </label>
           </div>
@@ -677,8 +677,8 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
-<script src="js/app.js?v=r2k-compass-direct-img-20261003"></script>
-<script src="js/ui/r1-shell.js?v=r4c-live-center-20261004"></script>
+<script src="js/app.js?v=r5a1-auth-confirm-20261005"></script>
+<script src="js/ui/r1-shell.js?v=r5a1-auth-confirm-20261005"></script>
 <script src="js/ui/r2-map-workspace.js?v=r4c-live-center-20261004"></script>
 
 <script>
