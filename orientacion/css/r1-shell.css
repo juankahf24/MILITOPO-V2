@@ -722,3 +722,39 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
   .r3-manager-tabpanel .r3-readiness{padding:9px}
   .r3-manager-grid.r3-manager-grid-compact{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
 }
+
+
+/* R4G.3 · Gestión compacta: pestañas principales inequívocas y tarjetas secundarias separadas. */
+.r3-manager-mode-label{margin:2px 0 -2px;padding-left:2px;color:#aeb9aa;font:950 .49rem/1 system-ui,-apple-system,sans-serif;letter-spacing:.16em}
+.r3-manager-tabs{
+  position:relative!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;
+  padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;
+}
+.r3-manager-tabs::before{display:none!important}
+.r3-manager-tabs button{
+  min-height:64px!important;padding:9px 9px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:15px!important;
+  background:#202a21!important;color:#e7ece2!important;display:grid!important;grid-template-columns:30px minmax(0,1fr)!important;
+  grid-template-rows:1fr!important;align-items:center!important;justify-items:start!important;gap:8px!important;text-align:left!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03)!important;
+}
+.r3-manager-tabs button .r3-manager-tab-icon{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:#101711;color:#aeb9aa}
+.r3-manager-tabs button .r3-manager-tab-icon svg{width:18px;height:18px}
+.r3-manager-tabs button strong{font:950 .66rem/1.08 system-ui,-apple-system,sans-serif!important;letter-spacing:.02em!important;color:inherit!important}
+.r3-manager-tabs button small,.r3-manager-tabs button .r3-manager-tab-index{display:none!important}
+.r3-manager-tabs button.is-active{
+  background:#edf0df!important;color:#142016!important;border-color:#edf0df!important;box-shadow:0 8px 18px rgba(0,0,0,.18)!important;
+}
+.r3-manager-tabs button.is-active .r3-manager-tab-icon{background:#2f5b39;color:#fff}
+.r3-manager-tabpanel{margin-top:0!important;padding:10px!important;border:1px solid rgba(255,255,255,.09)!important;border-radius:16px!important;background:#111812!important}
+.r3-manager-tabpanel.is-active{display:grid!important;gap:9px!important}
+.r3-manager-option-label{padding:1px 2px 3px!important;border-bottom:1px solid rgba(255,255,255,.06)}
+.r3-manager-option-label span{color:#f0f2e8!important}
+.r3-manager-footer{display:block!important}
+.r3-manager-footer .is-map{width:100%!important}
+@media(max-width:720px){
+  .r3-manager-tabs{position:sticky!important;top:-6px!important;z-index:7!important;padding:5px 0!important;background:#182219!important}
+  .r3-manager-tabs button{min-height:60px!important;padding:7px!important;grid-template-columns:26px minmax(0,1fr)!important;gap:6px!important}
+  .r3-manager-tabs button .r3-manager-tab-icon{width:26px;height:26px;border-radius:8px}
+  .r3-manager-tabs button .r3-manager-tab-icon svg{width:16px;height:16px}
+  .r3-manager-tabs button strong{font-size:.56rem!important}
+}
