@@ -158,7 +158,7 @@ function ensurePanel() {
     <div id="m2F2CRun" class="m2-f2c-run">Sin sesión de seguimiento cargada.</div>
     <div class="m2-f2c-table-wrap">
       <table class="m2-f2c-table">
-        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>PROGRESO</th><th>PUNTOS PENDIENTES</th><th>PUNTOS DESCARTADOS</th><th>TIEMPO AJUSTADO</th><th>PENALIZACIÓN CONTROLES</th><th>TIEMPO REAL</th><th>ÚLTIMA SINCRONIZACIÓN</th><th>HORA SALIDA</th><th>HORA LLEGADA</th></tr></thead>
+        <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>PROGRESO</th><th>PUNTOS PENDIENTES</th><th>PUNTOS DESCARTADOS</th><th>TIEMPO OFICIAL</th><th>PENALIZACIÓN CONTROLES</th><th>TIEMPO REAL</th><th>ÚLTIMA SINCRONIZACIÓN</th><th>HORA SALIDA</th><th>HORA LLEGADA</th></tr></thead>
         <tbody id="m2F2CBody"><tr><td colspan="11">Todavía no hay una sesión de seguimiento activa.</td></tr></tbody>
       </table>
     </div>`;
