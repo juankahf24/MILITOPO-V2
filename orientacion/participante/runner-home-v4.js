@@ -1,4 +1,4 @@
-/* MILITOPO V2 · R5B · Área corredor: carreras activas + histórico. */
+/* MILITOPO V2 · R5B.1 · Cabecera moderna + activas publicadas/live + resultado histórico. */
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,
@@ -12,7 +12,7 @@ import {
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r5b-runner-races-history-20261005";
+const VERSION="v2-r5b1-runner-header-history-20261005";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 
@@ -31,7 +31,8 @@ const els={
   historyEvents:document.getElementById("rhHistoryEvents"),
   activeCount:document.getElementById("rhActiveCount"),
   historyCount:document.getElementById("rhHistoryCount"),
-  retry:document.getElementById("rhRetry")
+  retry:document.getElementById("rhRetry"),
+  headerUser:document.getElementById("rhHeaderUser")
 };
 
 let auth=null;
@@ -73,7 +74,8 @@ async function loadProfile(app,user){
   const displayName=String(data.displayName||user.displayName||user.email||"Corredor").trim();
   const username=String(data.usernameKey||data.username||"").trim().toLowerCase();
   text(els.name,displayName);
-  text(els.meta,`${username?`@${username} · `:""}CORREDOR · ${user.email||""}`);
+  text(els.headerUser,displayName);
+  text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);
   text(els.avatar,initials(displayName));
   if(els.detailsBtn)els.detailsBtn.disabled=false;
   if(els.logoutBtn)els.logoutBtn.disabled=false;
@@ -94,11 +96,11 @@ function setRaceTab(tab){
 function renderActiveEvents(events){
   const list=els.activeEvents;if(!list)return;
   list.innerHTML="";text(els.activeCount,events.length);
-  if(!events.length){list.innerHTML='<div class="empty-card"><strong>Sin carreras activas</strong><span>No tienes carreras preparadas, publicadas o en directo ahora mismo.</span></div>';return;}
+  if(!events.length){list.innerHTML='<div class="empty-card"><strong>Sin carreras activas</strong><span>No tienes carreras publicadas o en directo ahora mismo.</span></div>';return;}
   list.innerHTML=events.map(ev=>{
     const state=String(ev.status||"").toLowerCase();
     const live=state==="live"&&String(ev.liveRunId||"").trim();
-    const waiting=state==="prepared"?"Preparada. Pendiente de publicación.":state==="published"?"Publicada. Esperando el inicio.":"Carrera en directo.";
+    const waiting=state==="published"?"Publicada. Esperando el inicio.":"Carrera en directo. Esperando tu sesión.";
     const action=live?`<button class="btn primary" type="button" data-enter-event="${esc(ev.eventId)}">ENTRAR EN LA CARRERA</button>`:`<div class="waiting">${esc(waiting)}</div>`;
     return `<article class="event"><div class="event-top"><strong>${esc(ev.eventName||"Carrera")}</strong><span class="pill">${esc(statusES(ev.status))}</span></div><div class="event-meta">${esc(ev.participantId||"")}${ev.routeId?` · ${esc(ev.routeId)}`:""}</div>${action}</article>`;
   }).join("");
@@ -115,7 +117,7 @@ function renderHistory(rows){
     const date=formatDate(row.finishedAtMs||row.startedAtMs||row.consolidatedAtMs);
     const official=row.officialDurationMs==null?"—":formatDuration(row.officialDurationMs);
     const distance=Number(row.trackDistanceM||0)>0?`${(Number(row.trackDistanceM)/1000).toFixed(2)} km`:"—";
-    return `<article class="event history-event"><div class="event-top"><strong>${esc(row.eventName||"Carrera")}</strong><span class="pill muted-pill">${esc(resultStatus)}</span></div><div class="history-grid"><div><small>TIEMPO OFICIAL</small><b>${esc(official)}</b></div><div><small>DISTANCIA</small><b>${esc(distance)}</b></div></div><div class="event-meta">${date?esc(date):esc(statusES(row.eventStatus))}</div></article>`;
+    return `<article class="event history-event"><div class="event-top"><strong>${esc(row.eventName||"Carrera")}</strong></div><div class="history-result"><small>RESULTADO</small><strong>${esc(resultStatus)}</strong></div><div class="history-grid"><div><small>TIEMPO OFICIAL</small><b>${esc(official)}</b></div><div><small>DISTANCIA</small><b>${esc(distance)}</b></div></div><div class="event-meta">${date?esc(date):esc(statusES(row.eventStatus))}</div></article>`;
   }).join("");
 }
 async function loadEvents(app){
@@ -128,7 +130,8 @@ async function loadEvents(app){
       activeCall({clientVersion:VERSION}),
       historyCall({clientVersion:VERSION,limit:100})
     ]),18000,"La consulta de tus carreras tardó demasiado.");
-    const active=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
+    const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
+    const active=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase()));
     const history=Array.isArray(historyResult?.data?.results)?historyResult.data.results:[];
     renderActiveEvents(active);renderHistory(history);
     const total=active.length+history.length;
