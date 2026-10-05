@@ -11836,17 +11836,16 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
     const efficiencyRanking=rs.map(r=>({r,data:routeEfficiencyData(r)})).filter(x=>x.data).sort((a,b)=>b.data.percent-a.data.percent);
     const mostEfficient=efficiencyRanking[0]||null;
     const cards=[
-      ['Participantes con resultado',`${rs.length}/${Math.max(rs.length,(state.routes||[]).filter(r=>!r.discarded).length)}`],
-      ['Finalizados OK',completed],
-      ['🏆 Ganador · menor tiempo',winner?`${participantLabel(winner)} · ${formatAnalysisMs(adjustedResultMs(winner))}`:'--'],
-      ['Tiempo medio',rawTimes.length?formatDuration(Math.round(rawTimes.reduce((a,b)=>a+b,0)/rawTimes.length)):'--'],
-      ['Tiempo central (mediana)',rawTimes.length?formatDuration(Math.round(median(rawTimes))):'--'],
-      ['Distancia real media',distances.length?`${(distances.reduce((a,b)=>a+b,0)/distances.length/1000).toFixed(2)} km`:'Sin tracks'],
-      ['🎯 Participante más eficiente',mostEfficient?`${participantLabel(mostEfficient.r)} · ${mostEfficient.data.percent.toFixed(1)} % · ${(mostEfficient.data.ideal/1000).toFixed(2)} / ${(mostEfficient.data.real/1000).toFixed(2)} km`:'Sin tracks'],
-      ['Mayor tiempo',slowest?`${participantLabel(slowest)} · ${formatAnalysisMs(adjustedResultMs(slowest))}`:'--'],
-      ['Tramos configurados',segmentDefinitions().length]
+      {label:'Participantes con resultado',primary:`${rs.length}/${Math.max(rs.length,(state.routes||[]).filter(r=>!r.discarded).length)}`},
+      {label:'Finalizados',primary:String(completed)},
+      {label:'🏆 Ganador',primary:winner?participantLabel(winner):'--',secondary:winner?formatAnalysisMs(adjustedResultMs(winner)):''},
+      {label:'Tiempo medio',primary:rawTimes.length?formatDuration(Math.round(rawTimes.reduce((a,b)=>a+b,0)/rawTimes.length)):'--'},
+      {label:'Distancia real media',primary:distances.length?`${(distances.reduce((a,b)=>a+b,0)/distances.length/1000).toFixed(2)} km`:'Sin tracks'},
+      {label:'🎯 Más eficiente',primary:mostEfficient?participantLabel(mostEfficient.r):'Sin tracks',secondary:mostEfficient?`${mostEfficient.data.percent.toFixed(1)} % de eficiencia`:'',detail:mostEfficient?`${(mostEfficient.data.ideal/1000).toFixed(2)} km ideal / ${(mostEfficient.data.real/1000).toFixed(2)} km real`:''},
+      {label:'Mayor tiempo',primary:slowest?participantLabel(slowest):'--',secondary:slowest?formatAnalysisMs(adjustedResultMs(slowest)):''},
+      {label:'Tramos configurados',primary:String(segmentDefinitions().length)}
     ];
-    const box=document.getElementById('raceAnalysisSummaryCards');if(box)box.innerHTML=cards.map(([a,b])=>`<div class="analysis-metric-card"><small>${escapeHtml(String(a))}</small><strong>${escapeHtml(String(b))}</strong></div>`).join('');
+    const box=document.getElementById('raceAnalysisSummaryCards');if(box)box.innerHTML=cards.map(card=>`<div class="analysis-metric-card"><small>${escapeHtml(String(card.label))}</small><strong>${escapeHtml(String(card.primary))}</strong>${card.secondary?`<span class="analysis-metric-secondary">${escapeHtml(String(card.secondary))}</span>`:''}${card.detail?`<span class="analysis-metric-detail">${escapeHtml(String(card.detail))}</span>`:''}</div>`).join('');
     const table=document.getElementById('raceAnalysisRanking');if(table)table.innerHTML=valid.length?`<table class="results-table"><thead><tr><th>Puesto</th><th>Participante</th><th>Recorrido</th><th>Tiempo oficial</th><th>Penalización</th><th>Tiempo real</th><th>Distancia real</th></tr></thead><tbody>${valid.map((r,i)=>{const pen=penalizedControlsCount(r)*discardPenaltyMs(),dist=trackDistanceM(r);return `<tr><td>${i+1}</td><td>${escapeHtml(participantLabel(r))}</td><td>${escapeHtml(r.routeId||'--')}</td><td><b>${formatAnalysisMs(adjustedResultMs(r))}</b></td><td>${pen?'+'+formatDuration(pen):'—'}</td><td>${formatAnalysisMs(resultMs(r))}</td><td>${Number.isFinite(dist)?(dist/1000).toFixed(2)+' km':'--'}</td></tr>`}).join('')}</tbody></table>`:'<div class="status warn">Todavía no hay resultados para analizar.</div>';
   }
 
