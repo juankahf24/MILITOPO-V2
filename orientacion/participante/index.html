@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#132114">
+  <meta name="theme-color" content="#0b160e">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MILITOPO">
@@ -12,54 +12,146 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/participante-192.png">
   <style>
-    :root{color-scheme:dark;--bg:#09100a;--panel:#162019;--panel2:#202c22;--line:rgba(255,255,255,.10);--cream:#eef0df;--ink:#142016;--text:#f3f2e8;--muted:#9eaa9f;--green:#2f6a3d;--green2:#9ed56f;--danger:#ff9b88}
-    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:linear-gradient(180deg,#0d160f,#080d09 72%);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{padding:max(18px,calc(env(safe-area-inset-top) + 10px)) 10px calc(24px + env(safe-area-inset-bottom))}button{font:inherit}.runner-home{width:min(760px,100%);margin:0 auto;display:grid;gap:10px}
-    .runner-head{display:grid;grid-template-columns:68px minmax(0,1fr) minmax(92px,auto);gap:12px;align-items:center;padding:10px 12px 10px 10px;border:1px solid rgba(224,233,216,.16);border-radius:22px;background:linear-gradient(145deg,#1b2b1d,#111b13 70%);box-shadow:0 16px 40px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.04);overflow:hidden}.runner-logo{width:68px;height:68px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.08),rgba(255,255,255,.01) 72%);box-shadow:0 0 0 1px rgba(238,240,223,.12)}.runner-logo img{width:64px;height:64px;display:block;object-fit:contain;background:transparent}.runner-head h1{margin:0;font-size:1.24rem;line-height:1;letter-spacing:.15em;font-weight:950;color:#f4f2e5}.runner-account{min-width:0;display:grid;justify-items:end;gap:6px}.runner-user{display:block;max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f3f2e8;font-size:.70rem;font-weight:900;letter-spacing:.025em}.online{display:flex;align-items:center;justify-content:center;gap:6px;min-width:92px;padding:6px 9px;border:1px solid rgba(154,236,139,.24);border-radius:999px;background:#245b31;color:#f2ffed;font-size:.54rem;font-weight:950;letter-spacing:.08em;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}.online i{width:8px;height:8px;border-radius:50%;background:#83ed7f;box-shadow:0 0 0 3px rgba(131,237,127,.12)}
-    .runner-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px}.runner-tabs button{min-height:52px;border:1px solid var(--line);border-radius:14px;background:#1a241c;color:#c8d0c7;font-weight:900;font-size:.70rem;letter-spacing:.03em}.runner-tabs button.is-active{background:var(--cream);color:var(--ink);border-color:var(--cream);box-shadow:0 7px 18px rgba(0,0,0,.18)}
-    .runner-panel{display:none;padding:12px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}.runner-panel.is-active{display:block}.section-title{margin:0 0 9px;font-size:.72rem;letter-spacing:.10em;color:#dbe5d8}.identity{display:grid;grid-template-columns:48px minmax(0,1fr);gap:11px;align-items:center}.avatar{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#dce8c8;color:#1b2a14;font-weight:950;font-size:1rem}.identity strong{display:block;font-size:.9rem;overflow-wrap:anywhere}.meta{margin-top:3px;color:var(--muted);font-size:.68rem;line-height:1.35;overflow-wrap:anywhere}.account-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}.btn{min-height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#222e24;color:#f1f4e9;font-weight:900;font-size:.68rem;padding:9px 10px}.btn.primary{background:#315f39;border-color:#315f39}.btn.danger{border-color:rgba(255,155,136,.28);background:rgba(255,155,136,.08);color:#ffd9d1}.btn:disabled{opacity:.45}.status{font-size:.70rem;line-height:1.4;color:var(--muted);padding:8px 9px;border-radius:11px;background:rgba(255,255,255,.035);margin-bottom:9px}.status.ok{color:#dff5d4;border:1px solid rgba(158,213,111,.20)}.status.err{color:#ffd0c8;border:1px solid rgba(255,142,122,.25)}
-    .events{display:grid;gap:8px}.event{padding:11px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:#1d2820}.event strong{display:block;font-size:.86rem}.event-meta{margin-top:3px;color:var(--muted);font-size:.65rem}.pill{display:inline-block;margin-top:7px;padding:4px 8px;border-radius:999px;background:#263d2a;color:#dff5d2;font-size:.60rem;font-weight:900}.waiting{margin-top:8px;padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.035);color:#c9d1c8;font-size:.67rem;line-height:1.35}.event .btn{width:100%;margin-top:8px}.details{display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);font-size:.69rem;line-height:1.5;color:var(--muted)}.details.show{display:block}.small{font-size:.62rem;color:var(--muted)}
-    .runner-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.panel-note{font-size:.52rem;font-weight:900;letter-spacing:.08em;color:#88968b}.race-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0}.race-tabs button{min-height:40px;border:1px solid rgba(255,255,255,.10);border-radius:12px;background:#202b22;color:#b9c3b8;font-weight:950;font-size:.64rem;letter-spacing:.04em}.race-tabs button span{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:5px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.08);font-size:.58rem}.race-tabs button.is-active{background:#e9ecdd;color:#142016;border-color:#e9ecdd}.race-tabs button.is-active span{background:#315f39;color:#efffe9}.race-panel{display:none}.race-panel.is-active{display:block}.event-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.event-top .pill{margin-top:0;flex:0 0 auto}.empty-card{padding:14px;border:1px dashed rgba(255,255,255,.12);border-radius:13px;background:rgba(255,255,255,.025);display:grid;gap:3px}.empty-card strong{font-size:.76rem}.empty-card span{font-size:.64rem;color:var(--muted);line-height:1.35}.history-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.history-grid>div{padding:8px;border-radius:10px;background:rgba(255,255,255,.035)}.history-grid small{display:block;color:#8f9b91;font-size:.50rem;font-weight:900;letter-spacing:.07em}.history-grid b{display:block;margin-top:3px;font-size:.76rem}.muted-pill{background:#2a332c;color:#d7ddd6}.history-result{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;padding:8px 10px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.025)}.history-result small{color:#8f9b91;font-size:.50rem;font-weight:900;letter-spacing:.08em}.history-result strong{font-size:.72rem;color:#f1f3e8;text-align:right}
-    @media(max-width:430px){body{padding-left:8px;padding-right:8px}.runner-head{grid-template-columns:58px minmax(0,1fr) minmax(84px,auto);gap:9px;padding:9px 10px 9px 8px;border-radius:19px}.runner-logo{width:58px;height:58px}.runner-logo img{width:56px;height:56px}.runner-head h1{font-size:1.06rem;letter-spacing:.12em}.runner-user{max-width:104px;font-size:.64rem}.online{min-width:84px;padding:5px 7px;font-size:.49rem}.runner-panel{padding:10px}.account-actions{grid-template-columns:1fr}}
+    :root{
+      color-scheme:dark;
+      --bg:#071009;--surface:#101b13;--surface2:#17241a;--surface3:#203025;
+      --line:rgba(237,244,225,.12);--line-strong:rgba(237,244,225,.22);
+      --cream:#f0f1df;--ink:#112016;--text:#f6f5e9;--muted:#aab5ab;
+      --green:#2f7040;--green-bright:#79dd78;--gold:#d6bb72;--orange:#e29a52;
+      --danger:#f18c78;--shadow:0 20px 52px rgba(0,0,0,.34);
+    }
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#071009;color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{padding:max(16px,calc(env(safe-area-inset-top) + 8px)) 9px calc(22px + env(safe-area-inset-bottom));overflow-x:hidden}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;background:
+      radial-gradient(circle at 12% 6%,rgba(74,132,77,.22),transparent 34%),
+      radial-gradient(circle at 90% 18%,rgba(183,150,78,.08),transparent 28%),
+      repeating-radial-gradient(ellipse at 55% 30%,transparent 0 18px,rgba(255,255,255,.017) 19px 20px,transparent 21px 34px),
+      linear-gradient(180deg,#0b160e 0%,#071009 68%,#050b07 100%);z-index:-1}
+    button{font:inherit}.runner-home{width:min(780px,100%);margin:0 auto;display:grid;gap:9px}
+
+    /* Cabecera */
+    .runner-head{position:relative;display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:92px;padding:9px 12px 9px 9px;border:1px solid rgba(223,235,211,.18);border-radius:24px;background:linear-gradient(135deg,rgba(30,55,35,.97),rgba(13,25,16,.98));box-shadow:var(--shadow);overflow:hidden}
+    .runner-head::after{content:"";position:absolute;inset:auto -70px -95px auto;width:240px;height:190px;border:1px solid rgba(215,229,202,.08);border-radius:50%;box-shadow:0 0 0 18px rgba(215,229,202,.025),0 0 0 38px rgba(215,229,202,.018);pointer-events:none}
+    .runner-logo{position:relative;z-index:1;width:76px;height:76px;display:grid;place-items:center;border-radius:50%;background:rgba(8,16,10,.42);box-shadow:0 0 0 1px rgba(239,241,223,.16),0 12px 25px rgba(0,0,0,.24)}
+    .runner-logo img{width:72px;height:72px;display:block;object-fit:contain;background:transparent}
+    .brand{position:relative;z-index:1;min-width:0}.brand h1{margin:0;font-size:1.36rem;line-height:.95;letter-spacing:.16em;font-weight:950;color:#f7f3e5}.brand small{display:block;margin-top:8px;color:#9fb1a1;font-size:.54rem;font-weight:850;letter-spacing:.15em;text-transform:uppercase}
+    .runner-account{position:relative;z-index:1;min-width:92px;display:grid;justify-items:end;gap:5px}.runner-user{display:block;max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:.72rem;font-weight:950}.runner-handle{display:block;max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9fad9f;font-size:.54rem;font-weight:800}.online{display:flex;align-items:center;justify-content:center;gap:6px;min-width:94px;padding:6px 9px;border:1px solid rgba(130,237,126,.28);border-radius:999px;background:rgba(38,109,52,.86);color:#f3ffef;font-size:.50rem;font-weight:950;letter-spacing:.10em;box-shadow:inset 0 1px 0 rgba(255,255,255,.09)}.online i{width:8px;height:8px;border-radius:50%;background:#83ef7f;box-shadow:0 0 0 4px rgba(131,239,127,.12)}
+
+    /* Navegación principal */
+    .runner-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:5px;border:1px solid var(--line);border-radius:18px;background:rgba(10,18,12,.78);box-shadow:0 10px 26px rgba(0,0,0,.18)}
+    .runner-tabs button{min-width:0;min-height:55px;border:0;border-radius:13px;background:transparent;color:#9eaaa0;font-weight:900;font-size:.61rem;letter-spacing:.035em;display:grid;place-items:center;align-content:center;gap:4px;transition:.16s ease}.runner-tabs button svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.9}.runner-tabs button.is-active{background:var(--cream);color:var(--ink);box-shadow:0 7px 18px rgba(0,0,0,.22)}
+
+    .runner-panel{display:none;min-width:0}.runner-panel.is-active{display:block}.panel-shell{padding:11px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(160deg,rgba(20,34,24,.96),rgba(12,23,15,.98));box-shadow:0 14px 34px rgba(0,0,0,.20)}
+    .runner-panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:9px}.section-title{margin:0;font-size:.72rem;letter-spacing:.11em;color:#e8eee2}.panel-note{font-size:.49rem;font-weight:900;letter-spacing:.09em;color:#7f8d82}
+    .status{font-size:.63rem;line-height:1.35;color:#9eaba0;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.035);margin-bottom:8px;border:1px solid transparent}.status.ok{color:#dff5d6;border-color:rgba(148,219,116,.17);background:rgba(68,120,62,.10)}.status.err{color:#ffd4cb;border-color:rgba(255,142,122,.22)}
+
+    /* Inicio */
+    .dashboard-hero{position:relative;overflow:hidden;padding:15px;border:1px solid rgba(211,227,197,.17);border-radius:19px;background:linear-gradient(135deg,#243b28 0%,#15271a 58%,#101b13 100%);min-height:154px;display:grid;align-content:space-between;gap:14px}.dashboard-hero::after{content:"";position:absolute;width:190px;height:190px;right:-88px;top:-88px;border:1px solid rgba(255,255,255,.08);border-radius:50%;box-shadow:0 0 0 20px rgba(255,255,255,.018),0 0 0 42px rgba(255,255,255,.012)}
+    .hero-kicker{position:relative;z-index:1;font-size:.51rem;letter-spacing:.13em;font-weight:950;color:#a8b8a7}.hero-title{position:relative;z-index:1;margin:5px 0 0;font-size:1.28rem;line-height:1.05;font-weight:950;max-width:82%}.hero-sub{position:relative;z-index:1;margin-top:7px;color:#bdc8bc;font-size:.65rem;line-height:1.35;max-width:86%}.hero-footer{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px}.hero-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:rgba(5,12,7,.40);border:1px solid rgba(255,255,255,.10);font-size:.55rem;font-weight:950}.hero-badge.live{background:#7f3527;border-color:#a85643}.hero-badge.published{background:#345e38}.hero-btn{min-height:38px;border:0;border-radius:11px;padding:8px 12px;background:#edf0dd;color:#132016;font-size:.59rem;font-weight:950;letter-spacing:.02em;white-space:nowrap}
+    .dashboard-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.dash-stat{min-width:0;padding:10px 8px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.035)}.dash-stat small{display:block;color:#7f8f82;font-size:.44rem;font-weight:950;letter-spacing:.09em;white-space:nowrap}.dash-stat strong{display:block;margin-top:5px;font-size:.88rem;line-height:1;color:#f2f2e7;overflow:hidden;text-overflow:ellipsis}.dashboard-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.dashboard-action{min-height:50px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:#1c2a20;color:#edf2e7;text-align:left;padding:9px 11px}.dashboard-action strong{display:block;font-size:.65rem}.dashboard-action span{display:block;margin-top:3px;color:#89978c;font-size:.52rem}
+
+    /* Carreras */
+    .race-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:7px 0 9px}.race-tabs button{min-height:43px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:#1d2a20;color:#aeb9af;font-weight:950;font-size:.61rem;letter-spacing:.04em}.race-tabs button span{display:inline-grid;place-items:center;min-width:21px;height:21px;margin-left:6px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.07);font-size:.55rem}.race-tabs button.is-active{background:#edf0df;color:#132016;border-color:#edf0df}.race-tabs button.is-active span{background:#32643a;color:#f1ffed}.race-panel{display:none}.race-panel.is-active{display:block}.events{display:grid;gap:8px}
+    .event{position:relative;overflow:hidden;padding:12px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:linear-gradient(145deg,#1b2920,#132018)}.event::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#65736a}.event[data-state="live"]::before{background:#e36f51}.event[data-state="published"]::before{background:#71bf70}.event[data-state="finished"]::before{background:#d6bb72}.event[data-state="incomplete"]::before{background:#d88a52}.event[data-state="not_started"]::before{background:#6f7a72}.event-top{display:flex;align-items:flex-start;justify-content:space-between;gap:9px}.event-title-wrap{min-width:0}.event-title{display:block;font-size:.88rem;font-weight:950;line-height:1.08;overflow-wrap:anywhere}.event-date{display:block;margin-top:4px;color:#87958a;font-size:.54rem;font-weight:800}.pill{flex:0 0 auto;display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:#293b2d;color:#e4f4dc;font-size:.52rem;font-weight:950;letter-spacing:.045em}.pill.live{background:#7b3529;color:#fff1eb}.pill.finished{background:#66572f;color:#fff6ce}.pill.incomplete{background:#65432b;color:#ffe5cf}.pill.not_started{background:#303b33;color:#d4dbd5}
+    .assignment{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.assignment span{padding:5px 7px;border-radius:9px;background:rgba(255,255,255,.045);color:#c3cec4;font-size:.55rem;font-weight:900}.event .btn{width:100%;margin-top:9px}
+    .waiting{margin-top:9px;padding:8px 9px;border-radius:11px;background:rgba(255,255,255,.035);color:#aab6ac;font-size:.61rem;line-height:1.35}
+    .history-rank{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:9px 10px;border:1px solid rgba(216,189,112,.14);border-radius:11px;background:rgba(216,189,112,.055)}.history-rank small{color:#aa9d75;font-size:.48rem;font-weight:950;letter-spacing:.10em}.history-rank strong{font-size:.78rem;color:#fff0bd;text-align:right}.history-rank.loading strong{color:#8d978f;font-size:.59rem}
+    .result-hero{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);gap:7px;margin-top:8px}.result-main,.result-side{padding:10px;border-radius:12px;background:rgba(255,255,255,.035)}.result-main small,.result-side small,.metric small{display:block;color:#7f8d82;font-size:.46rem;font-weight:950;letter-spacing:.08em}.result-main strong{display:block;margin-top:4px;font-size:1.02rem;color:#f6f1dd}.result-side strong{display:block;margin-top:4px;font-size:.77rem}.history-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px}.metric{min-width:0;padding:8px;border-radius:11px;background:rgba(255,255,255,.027)}.metric b{display:block;margin-top:3px;font-size:.69rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.history-actions{display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px}
+    .empty-card{padding:15px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;background:rgba(255,255,255,.024);display:grid;gap:4px}.empty-card strong{font-size:.75rem}.empty-card span{font-size:.61rem;color:#93a096;line-height:1.4}.load-more{width:100%;margin-top:9px}
+
+    /* Perfil */
+    .profile-card{display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;align-items:center;padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.028)}.avatar{width:56px;height:56px;border-radius:17px;display:grid;place-items:center;background:linear-gradient(145deg,#dce8c8,#a9c98e);color:#172217;font-weight:950;font-size:1.05rem;box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}.profile-name{font-size:.92rem;font-weight:950}.meta{margin-top:4px;color:#8f9b92;font-size:.61rem;line-height:1.4;overflow-wrap:anywhere}.account-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.btn{min-height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.11);background:#213026;color:#f1f4e9;font-weight:950;font-size:.61rem;padding:9px 10px}.btn.primary{background:#356a3e;border-color:#427a4b}.btn.secondary{background:#1b2820}.btn.danger{border-color:rgba(241,140,120,.26);background:rgba(241,140,120,.07);color:#ffd8d0}.btn:disabled{opacity:.45}.details{display:none;margin-top:9px;padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.025);font-size:.62rem;line-height:1.55;color:#aab5ab}.details.show{display:block}
+
+    /* Modal resultado */
+    .result-modal{position:fixed;inset:0;z-index:300000;display:none;align-items:flex-end;justify-content:center;padding:18px 10px max(10px,env(safe-area-inset-bottom));background:rgba(3,8,5,.74);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}.result-modal.is-open{display:flex}.result-sheet{width:min(650px,100%);max-height:88dvh;overflow:auto;border:1px solid rgba(255,255,255,.16);border-radius:22px;background:linear-gradient(165deg,#19271d,#0e1912);box-shadow:0 30px 80px rgba(0,0,0,.48)}.result-sheet-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 13px;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(20,34,24,.96)}.result-sheet-head small{display:block;color:#859188;font-size:.47rem;font-weight:950;letter-spacing:.10em}.result-sheet-head strong{display:block;margin-top:3px;font-size:.86rem}.modal-close{width:38px;height:38px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:#e8eadb;color:#142017;font-size:1.25rem;line-height:1}.result-sheet-body{padding:12px}.detail-status{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px;border-radius:13px;background:rgba(255,255,255,.035)}.detail-status strong{font-size:.82rem}.detail-rank{color:#f3db94}.detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:8px}.detail-box{padding:10px;border-radius:12px;background:rgba(255,255,255,.035)}.detail-box small{display:block;color:#829087;font-size:.46rem;font-weight:950;letter-spacing:.08em}.detail-box strong{display:block;margin-top:5px;font-size:.78rem}.detail-note{margin-top:8px;padding:9px 10px;border-radius:11px;background:rgba(255,255,255,.025);color:#9eaba1;font-size:.58rem;line-height:1.45}
+
+    @media(max-width:520px){
+      .runner-head{grid-template-columns:64px minmax(0,1fr) auto;gap:9px;min-height:80px;border-radius:20px;padding:8px 9px 8px 8px}.runner-logo{width:64px;height:64px}.runner-logo img{width:61px;height:61px}.brand h1{font-size:1.08rem;letter-spacing:.13em}.brand small{display:none}.runner-account{min-width:82px}.runner-user{max-width:95px;font-size:.62rem}.runner-handle{max-width:95px}.online{min-width:82px;padding:5px 7px;font-size:.45rem}.runner-tabs button{min-height:51px;font-size:.56rem}.panel-shell{padding:9px}.dashboard-stats{grid-template-columns:1fr 1fr}.hero-title{font-size:1.12rem}.history-metrics{grid-template-columns:repeat(3,1fr)}.account-actions{grid-template-columns:1fr}.result-modal{padding-left:6px;padding-right:6px}.result-sheet{border-radius:20px 20px 12px 12px}}
+    @media(max-width:365px){.runner-head{grid-template-columns:58px minmax(0,1fr) 78px}.runner-logo{width:58px;height:58px}.runner-logo img{width:55px;height:55px}.brand h1{font-size:.96rem}.runner-user{max-width:76px}.online{min-width:76px}.history-metrics{grid-template-columns:1fr 1fr}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
   </style>
 </head>
 <body>
   <main class="runner-home">
     <header class="runner-head">
-      <div class="runner-logo"><img src="../assets/r1/militopo-compass-r2k.png?v=r5b1-runner-header-20261005" alt="MILITOPO"></div>
-      <div><h1>MILITOPO</h1></div>
-      <div class="runner-account"><strong class="runner-user" id="rhHeaderUser">Cargando…</strong><span class="online"><i></i>EN LÍNEA</span></div>
+      <div class="runner-logo"><img src="../assets/r1/militopo-compass-r2k.png?v=r5c-runner-dashboard-20261005" alt="MILITOPO"></div>
+      <div class="brand"><h1>MILITOPO</h1><small>Orientación · GPS · Offline</small></div>
+      <div class="runner-account">
+        <strong class="runner-user" id="rhHeaderUser">Cargando…</strong>
+        <span class="runner-handle" id="rhHeaderHandle"></span>
+        <span class="online"><i></i>EN LÍNEA</span>
+      </div>
     </header>
 
-    <nav class="runner-tabs" aria-label="Área del corredor">
-      <button type="button" class="is-active" data-runner-tab="races">MIS CARRERAS</button>
-      <button type="button" data-runner-tab="profile">MI PERFIL</button>
+    <nav class="runner-tabs" aria-label="MILITOPO">
+      <button type="button" class="is-active" data-runner-tab="home" aria-label="Inicio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>INICIO</span>
+      </button>
+      <button type="button" data-runner-tab="races" aria-label="Mis carreras">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 4v16"/><path d="M5 5h11l-2 4 2 4H5"/></svg><span>CARRERAS</span>
+      </button>
+      <button type="button" data-runner-tab="profile" aria-label="Mi perfil">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg><span>PERFIL</span>
+      </button>
     </nav>
 
-    <section class="runner-panel is-active" data-runner-panel="races">
-      <div class="runner-panel-head"><h2 class="section-title">MIS CARRERAS</h2><span class="panel-note">CARRERAS E HISTÓRICO</span></div>
-      <div class="status" id="rhStatus">Preparando tus carreras…</div>
-      <nav class="race-tabs" aria-label="Carreras del corredor">
-        <button type="button" class="is-active" data-race-tab="active">ACTIVAS <span id="rhActiveCount">0</span></button>
-        <button type="button" data-race-tab="history">HISTÓRICO <span id="rhHistoryCount">0</span></button>
-      </nav>
-      <div class="race-panel is-active" data-race-panel="active"><div class="events" id="rhActiveEvents"></div></div>
-      <div class="race-panel" data-race-panel="history"><div class="events" id="rhHistoryEvents"></div></div>
-      <button class="btn primary" id="rhRetry" type="button" style="display:none;margin-top:9px">REINTENTAR</button>
+    <section class="runner-panel is-active" data-runner-panel="home">
+      <div class="panel-shell">
+        <div class="dashboard-hero" id="rhDashboardHero">
+          <div><div class="hero-kicker">MILITOPO</div><h2 class="hero-title">Preparando tu panel…</h2><div class="hero-sub">Cargando tus carreras y resultados.</div></div>
+        </div>
+        <div class="dashboard-stats">
+          <div class="dash-stat"><small>ACTIVAS</small><strong id="rhDashActive">—</strong></div>
+          <div class="dash-stat"><small>FINALIZADAS</small><strong id="rhDashFinished">—</strong></div>
+          <div class="dash-stat"><small>CARRERAS</small><strong id="rhDashTotal">—</strong></div>
+          <div class="dash-stat"><small>KM REGISTRADOS</small><strong id="rhDashKm">—</strong></div>
+        </div>
+        <div class="dashboard-actions">
+          <button class="dashboard-action" type="button" data-go-tab="races"><strong>VER MIS CARRERAS</strong><span>Activas e histórico</span></button>
+          <button class="dashboard-action" type="button" data-go-tab="profile"><strong>MI PERFIL</strong><span>Cuenta y sesión</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="runner-panel" data-runner-panel="races">
+      <div class="panel-shell">
+        <div class="runner-panel-head"><h2 class="section-title">MIS CARRERAS</h2><span class="panel-note">COMPETICIÓN</span></div>
+        <div class="status" id="rhStatus">Preparando tus carreras…</div>
+        <nav class="race-tabs" aria-label="Carreras del corredor">
+          <button type="button" class="is-active" data-race-tab="active">ACTIVAS <span id="rhActiveCount">0</span></button>
+          <button type="button" data-race-tab="history">HISTÓRICO <span id="rhHistoryCount">0</span></button>
+        </nav>
+        <div class="race-panel is-active" data-race-panel="active"><div class="events" id="rhActiveEvents"></div></div>
+        <div class="race-panel" data-race-panel="history">
+          <div class="events" id="rhHistoryEvents"></div>
+          <button class="btn secondary load-more" id="rhHistoryMore" type="button" style="display:none">MOSTRAR MÁS RESULTADOS</button>
+        </div>
+        <button class="btn primary" id="rhRetry" type="button" style="display:none;margin-top:9px">REINTENTAR</button>
+      </div>
     </section>
 
     <section class="runner-panel" data-runner-panel="profile" aria-live="polite">
-      <h2 class="section-title">MI PERFIL</h2>
-      <div class="identity">
-        <div class="avatar" id="rhAvatar">…</div>
-        <div><strong id="rhName">Iniciando tu sesión…</strong><div class="meta" id="rhMeta">Preparando tu cuenta.</div></div>
+      <div class="panel-shell">
+        <div class="runner-panel-head"><h2 class="section-title">MI PERFIL</h2><span class="panel-note">CUENTA MILITOPO</span></div>
+        <div class="profile-card">
+          <div class="avatar" id="rhAvatar">…</div>
+          <div><div class="profile-name" id="rhName">Iniciando tu sesión…</div><div class="meta" id="rhMeta">Preparando tu cuenta.</div></div>
+        </div>
+        <div class="account-actions">
+          <button class="btn secondary" id="rhDetailsBtn" type="button" disabled>VER DATOS DE CUENTA</button>
+          <button class="btn danger" id="rhLogoutBtn" type="button" disabled>CERRAR SESIÓN</button>
+        </div>
+        <div class="details" id="rhDetails"></div>
       </div>
-      <div class="account-actions">
-        <button class="btn" id="rhDetailsBtn" type="button" disabled>VER DATOS</button>
-        <button class="btn danger" id="rhLogoutBtn" type="button" disabled>CERRAR SESIÓN</button>
-      </div>
-      <div class="details" id="rhDetails"></div>
     </section>
   </main>
+
+  <div class="result-modal" id="rhResultModal" aria-hidden="true">
+    <section class="result-sheet" role="dialog" aria-modal="true" aria-labelledby="rhResultTitle">
+      <header class="result-sheet-head"><div><small>RESULTADO DE CARRERA</small><strong id="rhResultTitle">Resultado</strong></div><button class="modal-close" id="rhResultClose" type="button" aria-label="Cerrar">×</button></header>
+      <div class="result-sheet-body" id="rhResultBody"><div class="status">Cargando resultado…</div></div>
+    </section>
+  </div>
 
   <script src="../../js/v2/firebase-config.js"></script>
   <script>
@@ -67,15 +159,13 @@
     window.__MILITOPO_RUNNER_HOME_V4_WATCHDOG=setTimeout(function(){
       if(window.__MILITOPO_RUNNER_HOME_V4_BOOTED)return;
       var name=document.getElementById("rhName"),meta=document.getElementById("rhMeta"),status=document.getElementById("rhStatus"),retry=document.getElementById("rhRetry");
-      if(name)name.textContent="No se pudo iniciar tu área";
+      if(name)name.textContent="No se pudo iniciar tu cuenta";
       if(meta)meta.textContent="El módulo de Firebase no terminó de cargar.";
-      if(status){status.textContent="⚠️ No se pudo cargar Firebase. Comprueba la conexión y pulsa REINTENTAR.";status.className="status err";}
+      if(status){status.textContent="No se pudo cargar Firebase. Comprueba la conexión y pulsa REINTENTAR.";status.className="status err";}
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r5b1-runner-header-history-20261005"></script>
-  <script>
-    if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}
-  </script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r5c-dashboard-profesional-20261005"></script>
+  <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>
