@@ -18,6 +18,7 @@
     .runner-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px}.runner-tabs button{min-height:52px;border:1px solid var(--line);border-radius:14px;background:#1a241c;color:#c8d0c7;font-weight:900;font-size:.70rem;letter-spacing:.03em}.runner-tabs button.is-active{background:var(--cream);color:var(--ink);border-color:var(--cream);box-shadow:0 7px 18px rgba(0,0,0,.18)}
     .runner-panel{display:none;padding:12px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}.runner-panel.is-active{display:block}.section-title{margin:0 0 9px;font-size:.72rem;letter-spacing:.10em;color:#dbe5d8}.identity{display:grid;grid-template-columns:48px minmax(0,1fr);gap:11px;align-items:center}.avatar{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#dce8c8;color:#1b2a14;font-weight:950;font-size:1rem}.identity strong{display:block;font-size:.9rem;overflow-wrap:anywhere}.meta{margin-top:3px;color:var(--muted);font-size:.68rem;line-height:1.35;overflow-wrap:anywhere}.account-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:11px}.btn{min-height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#222e24;color:#f1f4e9;font-weight:900;font-size:.68rem;padding:9px 10px}.btn.primary{background:#315f39;border-color:#315f39}.btn.danger{border-color:rgba(255,155,136,.28);background:rgba(255,155,136,.08);color:#ffd9d1}.btn:disabled{opacity:.45}.status{font-size:.70rem;line-height:1.4;color:var(--muted);padding:8px 9px;border-radius:11px;background:rgba(255,255,255,.035);margin-bottom:9px}.status.ok{color:#dff5d4;border:1px solid rgba(158,213,111,.20)}.status.err{color:#ffd0c8;border:1px solid rgba(255,142,122,.25)}
     .events{display:grid;gap:8px}.event{padding:11px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:#1d2820}.event strong{display:block;font-size:.86rem}.event-meta{margin-top:3px;color:var(--muted);font-size:.65rem}.pill{display:inline-block;margin-top:7px;padding:4px 8px;border-radius:999px;background:#263d2a;color:#dff5d2;font-size:.60rem;font-weight:900}.waiting{margin-top:8px;padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.035);color:#c9d1c8;font-size:.67rem;line-height:1.35}.event .btn{width:100%;margin-top:8px}.details{display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);font-size:.69rem;line-height:1.5;color:var(--muted)}.details.show{display:block}.small{font-size:.62rem;color:var(--muted)}
+    .runner-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.panel-note{font-size:.52rem;font-weight:900;letter-spacing:.08em;color:#88968b}.race-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0}.race-tabs button{min-height:40px;border:1px solid rgba(255,255,255,.10);border-radius:12px;background:#202b22;color:#b9c3b8;font-weight:950;font-size:.64rem;letter-spacing:.04em}.race-tabs button span{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:5px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.08);font-size:.58rem}.race-tabs button.is-active{background:#e9ecdd;color:#142016;border-color:#e9ecdd}.race-tabs button.is-active span{background:#315f39;color:#efffe9}.race-panel{display:none}.race-panel.is-active{display:block}.event-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}.event-top .pill{margin-top:0;flex:0 0 auto}.empty-card{padding:14px;border:1px dashed rgba(255,255,255,.12);border-radius:13px;background:rgba(255,255,255,.025);display:grid;gap:3px}.empty-card strong{font-size:.76rem}.empty-card span{font-size:.64rem;color:var(--muted);line-height:1.35}.history-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.history-grid>div{padding:8px;border-radius:10px;background:rgba(255,255,255,.035)}.history-grid small{display:block;color:#8f9b91;font-size:.50rem;font-weight:900;letter-spacing:.07em}.history-grid b{display:block;margin-top:3px;font-size:.76rem}.muted-pill{background:#2a332c;color:#d7ddd6}
     @media(max-width:430px){body{padding-left:8px;padding-right:8px}.runner-head{grid-template-columns:48px minmax(0,1fr) auto;border-radius:17px}.runner-head img{width:48px;height:48px}.online{padding:6px 7px;font-size:.52rem}.runner-panel{padding:10px}.account-actions{grid-template-columns:1fr}}
   </style>
 </head>
@@ -35,9 +36,14 @@
     </nav>
 
     <section class="runner-panel is-active" data-runner-panel="races">
-      <h2 class="section-title">MIS CARRERAS</h2>
+      <div class="runner-panel-head"><h2 class="section-title">MIS CARRERAS</h2><span class="panel-note">ACTIVIDAD E HISTÓRICO</span></div>
       <div class="status" id="rhStatus">Preparando tus carreras…</div>
-      <div class="events" id="rhEvents"></div>
+      <nav class="race-tabs" aria-label="Carreras del corredor">
+        <button type="button" class="is-active" data-race-tab="active">ACTIVAS <span id="rhActiveCount">0</span></button>
+        <button type="button" data-race-tab="history">HISTÓRICO <span id="rhHistoryCount">0</span></button>
+      </nav>
+      <div class="race-panel is-active" data-race-panel="active"><div class="events" id="rhActiveEvents"></div></div>
+      <div class="race-panel" data-race-panel="history"><div class="events" id="rhHistoryEvents"></div></div>
       <button class="btn primary" id="rhRetry" type="button" style="display:none;margin-top:9px">REINTENTAR</button>
     </section>
 
@@ -67,7 +73,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r5a-runner-tabs-20261005"></script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r5b-runner-races-history-20261005"></script>
   <script>
     if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}
   </script>
