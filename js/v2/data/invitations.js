@@ -461,7 +461,7 @@ async function createTargets(rawTargets, bulkMode, origin = bulkMode ? "bulk" : 
   finally { state.busy = false; paint(state.status.textContent); }
 }
 async function revokeInvitation(id) {
-  if (!id || state.busy) return; if (!confirm("¿Revocar esta invitación? El participante ya no podrá utilizar este enlace.")) return;
+  if (!id || state.busy) return; if (!await globalThis.MILITOPO_CONFIRM("¿Revocar esta invitación? El participante ya no podrá utilizar este enlace.",{title:"REVOCAR INVITACIÓN",confirmText:"REVOCAR",danger:true})) return;
   state.busy = true; paint("Revocando invitación…");
   try { const { firestore } = await services(); await updateDoc(doc(firestore, "invitations", id), { status:"revoked", revokedAt:serverTimestamp(), updatedAt:serverTimestamp() }); await loadInvitations(); paint("✅ Invitación revocada."); }
   catch (error) { console.error("[MILITOPO E2] revoke", error); paint(`No se pudo revocar: ${String(error?.message || error)}`); }

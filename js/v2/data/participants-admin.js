@@ -524,7 +524,7 @@ function inviteById(id) {
 async function applyMemberAction(kind, members) {
   if (!members.length || state.busy || !state.event || !membershipsEditable()) return;
   const label = kind === "remove" ? "quitar" : "restaurar";
-  if (!confirm(`¿${label === "quitar" ? "Quitar" : "Restaurar"} ${members.length === 1 ? "este participante" : `${members.length} participantes`}?`)) return;
+  if (!await globalThis.MILITOPO_CONFIRM(`¿${label === "quitar" ? "Quitar" : "Restaurar"} ${members.length === 1 ? "este participante" : `${members.length} participantes`}?`,{title:label === "quitar" ? "QUITAR PARTICIPANTE" : "RESTAURAR PARTICIPANTE",confirmText:label === "quitar" ? "QUITAR" : "RESTAURAR",danger:label === "quitar"})) return;
   state.busy = true; render();
   setStatus(kind === "remove" ? "Quitando participantes…" : "Restaurando participantes…");
   try {
@@ -558,7 +558,7 @@ async function applyMemberAction(kind, members) {
 }
 async function revokeInvitations(invites) {
   if (!invites.length || state.busy || !state.event || !membershipsEditable()) return;
-  if (!confirm(`¿Revocar ${invites.length === 1 ? "esta invitación" : `${invites.length} invitaciones pendientes`}?`)) return;
+  if (!await globalThis.MILITOPO_CONFIRM(`¿Revocar ${invites.length === 1 ? "esta invitación" : `${invites.length} invitaciones pendientes`}?`,{title:"REVOCAR INVITACIONES",confirmText:"REVOCAR",danger:true})) return;
   state.busy = true; render(); setStatus("Revocando invitaciones…");
   try {
     const { firestore } = await services();

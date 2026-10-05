@@ -635,14 +635,30 @@ async function recoverEvent(eventId, options = {}) {
   if (state.busy) return;
   const row = state.events.find(item => item.eventId === eventId);
   if (!row) return;
-  state.openResultsAfterRecover = options?.openResults ? eventId : "";
   const openResults = options?.openResults === true;
-  const ok = confirm(
-    openResults
-      ? `Se va a abrir “${row.eventName}” y después RESULTADOS Y CLASIFICACIÓN.\n\n¿Continuar?`
-      : `Se va a abrir “${row.eventName}” (${row.eventId}) desde Firestore.\n\nMILITOPO guardará primero una copia duradera del evento que tengas abierto en este dispositivo. Después cargará la configuración, balizas y recorridos de la nube.\n\n¿Continuar?`
-  );
-  if (!ok) return;
+  const reuse = options?.reuse === true;
+  state.openResultsAfterRecover = openResults ? eventId : "";
+  state.reuseAfterRecover = reuse ? eventId : "";
+  const message = reuse
+    ? `Se creará una CARRERA NUEVA usando el diseño de “${row.eventName}”.
+
+Se copiarán configuración, balizas y recorridos. NO se copiarán participantes, invitaciones, tiempos ni resultados. La nueva carrera quedará en BORRADOR.
+
+¿Continuar?`
+    : openResults
+      ? `Se va a abrir “${row.eventName}” y después RESULTADOS Y CLASIFICACIÓN.
+
+¿Continuar?`
+      : `Se va a abrir “${row.eventName}” (${row.eventId}) desde Firestore.
+
+MILITOPO guardará primero una copia duradera del evento que tengas abierto en este dispositivo. Después cargará la configuración, balizas y recorridos de la nube.
+
+¿Continuar?`;
+  const ok = await globalThis.MILITOPO_CONFIRM(message, {
+    title: reuse ? "REUTILIZAR CARRERA" : "ABRIR CARRERA",
+    confirmText: reuse ? "CREAR COPIA" : "CONTINUAR"
+  });
+  if (!ok) { state.openResultsAfterRecover = ""; state.reuseAfterRecover = ""; return; }
 
   state.busy = true;
   state.list?.querySelectorAll("button").forEach(button => { button.disabled = true; });

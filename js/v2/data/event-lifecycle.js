@@ -415,10 +415,10 @@ async function refresh(userRequested = false) {
     return false;
   }
 }
-function confirmTransition(from, to) {
-  if (to === "live") return confirm("Vas a marcar el evento como EN DIRECTO.\n\nHazlo solo cuando la actividad vaya a comenzar. ¿Continuar?");
-  if (to === "finished") return confirm("Vas a FINALIZAR el evento.\n\n¿La actividad ha terminado realmente?");
-  if (to === "archived") return confirm("Vas a ARCHIVAR el evento.\n\nNo se borrará, pero quedará cerrado en el ciclo V2. ¿Continuar?");
+async function confirmTransition(from, to) {
+  if (to === "live") return globalThis.MILITOPO_CONFIRM("Vas a marcar el evento como EN DIRECTO.\n\nHazlo solo cuando la actividad vaya a comenzar. ¿Continuar?",{title:"INICIAR CARRERA",confirmText:"PONER EN DIRECTO"});
+  if (to === "finished") return globalThis.MILITOPO_CONFIRM("Vas a FINALIZAR el evento.\n\n¿La actividad ha terminado realmente?",{title:"FINALIZAR CARRERA",confirmText:"FINALIZAR",danger:true});
+  if (to === "archived") return globalThis.MILITOPO_CONFIRM("Vas a ARCHIVAR el evento.\n\nNo se borrará, pero quedará cerrado en el ciclo V2. ¿Continuar?",{title:"ARCHIVAR CARRERA",confirmText:"ARCHIVAR",danger:true});
   return true;
 }
 async function advance() {
@@ -432,7 +432,7 @@ async function advance() {
     paint(readinessText(state.event, from));
     return;
   }
-  if (!confirmTransition(from, to)) return;
+  if (!await confirmTransition(from, to)) return;
 
   state.busy = true;
   showProcessing(from, to);
