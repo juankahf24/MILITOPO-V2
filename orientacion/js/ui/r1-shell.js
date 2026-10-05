@@ -95,7 +95,7 @@
     closeWorkspace(false);const body=$("#r1WorkspaceBody"),titleEl=$("#r1WorkspaceTitle");if(!body)return;
     state.mapHome=false;document.body.classList.add("r1-workspace-open");
     try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;
-    titleEl.textContent=title;body.innerHTML="";state.hosted=[];body.classList.remove("r3-manager-view","r4-participants-view","r4-live-view");
+    titleEl.textContent=title;body.innerHTML="";state.hosted=[];body.classList.remove("r3-manager-view","r4-participants-view","r4-live-view","r4-analysis-view");
     const managerTitle=state.managerModuleTitle;state.managerModuleTitle=null;
     if(managerTitle){
       const nav=document.createElement("div");nav.className="r3-module-nav";
@@ -112,7 +112,7 @@
   }
   function closeWorkspace(returnToMap=true){
     state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
-    state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view","r4-live-view");if(body)body.innerHTML=""}document.body.style.overflow="";
+    state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view","r4-live-view","r4-analysis-view");if(body)body.innerHTML=""}document.body.style.overflow="";
     document.body.classList.remove("r1-workspace-open");state.mapHome=!!returnToMap;
     if(returnToMap){safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;setTimeout(()=>window.MILITOPO_R2_MAP_HOME?.activate?.(),35)}
     setTimeout(()=>{window.dispatchEvent(new Event("resize"));refreshContext()},60);
@@ -310,6 +310,25 @@
     openInjected(["m2EventHistoricalResults"],"RESULTADOS Y CLASIFICACIÓN",1);
     setTimeout(()=>{try{window.MILITOPO_V2_RESULTS_SET_VIEW?.("results")}catch(_){}},120);
   }
+  function decorateAnalysisModule(){
+    const body=$("#r1WorkspaceBody"),stack=$(".r1-module-stack",body),step=$("#step7",body);if(!body||!stack||!step)return false;
+    body.classList.add("r4-analysis-view");
+    let hub=$("#r4AnalysisHub",body);
+    if(!hub){
+      hub=document.createElement("section");hub.id="r4AnalysisHub";hub.className="r4-analysis-hub";
+      hub.innerHTML=`<div class="r4-analysis-hero"><div><span>ORGANIZACIÓN · POST-CARRERA</span><h2>REPRODUCTOR Y ANÁLISIS</h2><small>${currentEventName()}</small></div><b>MULTICORREDOR</b></div><div class="r4-analysis-metrics"><div><strong>HASTA 5</strong><span>CORREDORES</span></div><div><strong>00:00</strong><span>DESDE EL INICIO</span></div><div><strong>HORA REAL</strong><span>SEGÚN SALIDA</span></div><div><strong>1× · 2× · 4×</strong><span>VELOCIDAD</span></div></div><div class="r4-analysis-jumps"><button type="button" data-r4-analysis-tab="tracks">REPRODUCTOR</button><button type="button" data-r4-analysis-tab="summary">RESUMEN Y ANÁLISIS</button></div>`;
+      stack.parentNode.insertBefore(hub,stack);
+      hub.addEventListener("click",event=>{const tab=event.target.closest("[data-r4-analysis-tab]")?.dataset.r4AnalysisTab;if(!tab)return;try{window.openRaceAnalysisTab?.(tab)}catch(_){};const target=tab==="tracks"?$("#analysisPanelTracks",step):$("#analysisPanelSummary",step);target?.scrollIntoView?.({behavior:"smooth",block:"start"})});
+    }
+    try{window.renderRaceAnalysis?.();window.openRaceAnalysisTab?.("tracks")}catch(_){}
+    setTimeout(()=>{try{window.dispatchEvent(new Event("resize"))}catch(_){}},100);
+    return true;
+  }
+  function openAnalysisModule(fromManager=false){
+    if(fromManager)state.managerModuleTitle="REPRODUCTOR Y ANÁLISIS";
+    const opened=openStep(7,"REPRODUCTOR Y ANÁLISIS");
+    if(opened!==false){setTimeout(decorateAnalysisModule,120);setTimeout(decorateAnalysisModule,320)}
+  }
   function openHistory(){const btn=$("#m2OrganizerHistoryOpen");if(btn){btn.click();return}openInjected(["m2EventHistoricalResults"],"HISTÓRICO Y RESULTADOS",1)}
   function openProfile(){
     closeMore();
@@ -318,7 +337,7 @@
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
   function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openParticipantsModule(false);return}if(a==="live"){openLiveModule(false);return}if(a==="more"){openMore();return}}
-  function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openParticipantsModule(false);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openResultsModule(false);if(a==="analysis")return openStep(7,"ANÁLISIS Y REPRODUCTOR");if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
+  function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openParticipantsModule(false);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openResultsModule(false);if(a==="analysis")return openAnalysisModule(false);if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"};
   const R3_ORDER=["draft","prepared","published","live","finished","archived"];
   function currentLifecycleStatus(){return String(window.MILITOPO_V2_EVENT_STATUS?.status||state.eventStatus?.status||state.managerEvent?.status||"draft")}
@@ -515,7 +534,7 @@
     if(action==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openManagerStep(4,"MATERIAL QR Y EXPORTACIÓN")}
     if(action==="sequence")return openManagerStep(5,"SECUENCIA DE SALIDA Y LLEGADA");
     if(action==="results")return openResultsModule(true);
-    if(action==="analysis")return openManagerStep(7,"ANÁLISIS Y REPRODUCTOR");
+    if(action==="analysis")return openAnalysisModule(true);
   }
   function refreshContext(){
     const active=$$(".card.active")[0];const m=active?.id?.match(/^step(\d+)$/);state.currentStep=m?Number(m[1]):state.currentStep;
@@ -535,6 +554,7 @@
     window.addEventListener("militopo:v2-auth-ready",e=>{setRole(e.detail?.role);setProfileOnline(Boolean(e.detail?.uid))});
     window.addEventListener("militopo:v2-orientation-header",e=>{const h=e.detail?.header||{};const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name&&h.eventName)name.textContent=h.eventName;if(meta&&h.eventId)meta.textContent=h.eventId});
     window.addEventListener("militopo:v2-cloud-event-applied",()=>setTimeout(refreshContext,100));
+    window.addEventListener("militopo:r4-open-results-after-load",()=>setTimeout(()=>openResultsModule(false),120));
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
     window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();refreshLiveHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
     window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();refreshParticipantsHub();refreshLiveHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
