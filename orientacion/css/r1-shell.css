@@ -525,3 +525,61 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
 .r4-analysis-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.r4-analysis-metrics>div{min-width:0;padding:9px 6px;border:1px solid rgba(255,255,255,.08);border-radius:11px;background:rgba(255,255,255,.03);text-align:center}.r4-analysis-metrics strong{display:block;font:950 .78rem/1 system-ui;color:#f5f2e7}.r4-analysis-metrics span{display:block;margin-top:4px;font:850 .45rem/1.05 system-ui;letter-spacing:.05em;color:#9da89d}.r4-analysis-jumps{display:grid;grid-template-columns:1fr 1fr;gap:7px}.r4-analysis-jumps button{min-height:38px;border:1px solid rgba(255,255,255,.10);border-radius:10px;background:#e8ecd9;color:#172018;font:900 .57rem/1 system-ui;cursor:pointer}
 .r4-analysis-view #step7{width:100%!important;max-width:100%!important;min-width:0!important;box-sizing:border-box!important}.r4-analysis-view #step7>.card-header{display:none!important}.r4-analysis-view #step7 .analysis-tabs{margin-top:0!important}.r4-analysis-view #step7 .analysis-track-map-card,.r4-analysis-view #step7 .analysis-tracks-layout,.r4-analysis-view #step7 .analysis-panel{max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
 @media(max-width:720px){.r4-analysis-hub{padding:10px;border-radius:15px}.r4-analysis-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.r4-analysis-jumps{grid-template-columns:1fr 1fr}.r4-analysis-hero{flex-wrap:wrap}}
+
+
+/* R4F.1 · Perfil conectado limpio + resumen de análisis sin separadores visuales. */
+.r1-nav-btn[data-r1-action="profile"].is-session-online{
+  padding:3px 2px 18px!important;
+  grid-template-rows:15px minmax(0,1fr)!important;
+  gap:1px!important;
+}
+.r1-nav-btn[data-r1-action="profile"].is-session-online svg{
+  width:16px!important;height:16px!important;
+}
+.r1-nav-btn[data-r1-action="profile"].is-session-online .r1-label-profile{
+  font-size:clamp(6.8px,1.95vw,8.2px)!important;
+  line-height:.94!important;
+  transform:translateY(-1px);
+}
+.r1-profile-online{
+  left:4px!important;right:4px!important;bottom:3px!important;
+  height:15px!important;padding:0 6px!important;gap:5px!important;
+  border-radius:8px!important;
+  justify-content:center!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 1px 4px rgba(0,0,0,.14)!important;
+}
+.r1-profile-online em{font-size:6px!important;letter-spacing:.065em!important}
+.r1-profile-online i{width:6px!important;height:6px!important}
+@media(max-width:390px){
+  .r1-nav-btn[data-r1-action="profile"].is-session-online{padding-bottom:17px!important}
+  .r1-profile-online{left:3px!important;right:3px!important;height:14px!important}
+  .r1-profile-online em{font-size:5.6px!important}
+}
+/* El resumen prioriza jerarquía: título, dato principal y detalle en líneas separadas. */
+#analysisPanelSummary .analysis-metric-card{
+  display:flex!important;flex-direction:column!important;justify-content:flex-start!important;
+  min-width:0!important;min-height:104px!important;padding:13px 14px!important;
+}
+#analysisPanelSummary .analysis-metric-card small{
+  margin:0 0 8px!important;color:#c7d9aa!important;font-size:.76rem!important;line-height:1.2!important;
+}
+#analysisPanelSummary .analysis-metric-card strong{
+  display:block!important;margin:0!important;color:#fff3d8!important;
+  font-size:clamp(1.12rem,4.4vw,1.42rem)!important;line-height:1.16!important;
+  overflow-wrap:anywhere!important;word-break:normal!important;
+}
+#analysisPanelSummary .analysis-metric-secondary{
+  display:block!important;margin-top:7px!important;color:#f2d98e!important;
+  font-size:.9rem!important;font-weight:900!important;line-height:1.15!important;
+}
+#analysisPanelSummary .analysis-metric-detail{
+  display:block!important;margin-top:5px!important;color:#dbe5cf!important;
+  font-size:.72rem!important;font-weight:700!important;line-height:1.25!important;
+}
+@media(max-width:520px){
+  #analysisPanelSummary .analysis-metric-grid{gap:8px!important}
+  #analysisPanelSummary .analysis-metric-card{min-height:98px!important;padding:12px!important}
+  #analysisPanelSummary .analysis-metric-card strong{font-size:1.08rem!important}
+  #analysisPanelSummary .analysis-metric-secondary{font-size:.82rem!important}
+  #analysisPanelSummary .analysis-metric-detail{font-size:.67rem!important}
+}
