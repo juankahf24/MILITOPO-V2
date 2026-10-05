@@ -5,15 +5,9 @@ import "../bootstrap.js";
 import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-r4d-results-center-20261004";
+const VERSION = "v2-r4c-live-center-20261004";
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const DEFAULT_RACE_PLAN_ID = "el-valle-matizado";
-const EVENT_STATUS_ES = {
-  draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"ARCHIVADO"
-};
-const PARTICIPANT_STATUS_ES = {
-  not_started:"SIN SALIR", ready:"PREPARADO", racing:"EN CARRERA", started:"EN CARRERA", finished:"FINALIZADO", removed:"RETIRADO"
-};
 
 const state = {
   auth: globalThis.MILITOPO_V2_AUTH || null,
@@ -321,10 +315,6 @@ function participantStatus(row = {}) {
   const s = String(row.status || "not_started").toLowerCase();
   return s === "started" ? "racing" : s;
 }
-function participantStatusLabel(row = {}) {
-  const key = participantStatus(row);
-  return PARTICIPANT_STATUS_ES[key] || "SIN SALIR";
-}
 function runnerColor(uid = "") {
   const key=String(uid||"");if(state.runnerColors.has(key))return state.runnerColors.get(key);
   const palette=["#4ea3ff","#ff7a59","#7fd35b","#d46cff","#f2c14e","#2fd0c8","#ff5e9b","#8b9cff","#ff9d3d","#5edb8a","#e66b6b","#4dc7f2"];
@@ -383,7 +373,7 @@ function redrawRunners() {
     const color=runnerColor(uid),name=participantName(row),meta=runnerMeta(row),bearing=runnerBearing(uid,gps,lat,lng);
     const icon=L.divIcon({className:"m2-g5-runner-wrap",html:`<div class="m2-g5-runner ${finished?"finished":stale?"stale":""}" style="--runner-color:${color}"><svg viewBox="0 0 36 36" aria-hidden="true"><g transform="rotate(${bearing.toFixed(1)} 18 18)"><path class="nav-shadow" d="M18 2.5 31 30.5 18 25.5 5 30.5Z" transform="translate(1 1.5)"/><path class="nav-body" d="M18 2.5 31 30.5 18 25.5 5 30.5Z"/><path class="nav-core" d="M18 9.5 23.6 23.5 18 21.4 12.4 23.5Z"/></g></svg><div class="m2-g5-runner-label">${esc(name)}${meta?`<small>${esc(meta)}</small>`:""}</div></div>`,iconSize:[34,34],iconAnchor:[17,17]});
     const marker = L.marker([lat,lng], { icon, keyboard:false,zIndexOffset:1200 });
-    marker.bindPopup(`<strong style="color:${color}">${esc(name)}</strong>${meta?`<br>${esc(meta)}`:""}<br>${esc(participantStatusLabel(row))}<br>GPS ±${Math.round(Number(gps.accuracy || 0))} m · ${esc(fmtAgo(gps.updatedAt))}`);
+    marker.bindPopup(`<strong style="color:${color}">${esc(name)}</strong>${meta?`<br>${esc(meta)}`:""}<br>${esc(participantStatus(row).toUpperCase())}<br>GPS ±${Math.round(Number(gps.accuracy || 0))} m · ${esc(fmtAgo(gps.updatedAt))}`);
     marker.addTo(state.runnerLayer);state.runnerMarkers.set(uid, marker);
   });
 }
@@ -473,11 +463,11 @@ function render() {
   const message = panel.querySelector("#m2G5MapMessage");
   if (!canManage()) {
     chip.textContent = "SIN PERMISOS";
-    message.textContent = "Se necesita una cuenta verificada de ORGANIZADOR o SÚPER ADMINISTRADOR.";
+    message.textContent = "Se necesita rol organizer o super_admin verificado.";
     return;
   }
   const withGps = Object.values(state.participants || {}).filter(row => validCoord(row?.gps?.lat,row?.gps?.lng)).length;
-  chip.textContent = state.runId ? (state.runStatus === "finished" ? "FINALIZADO" : "EN DIRECTO") : (EVENT_STATUS_ES[state.eventStatus] || "ESPERANDO");
+  chip.textContent = state.runId ? (state.runStatus === "finished" ? "FINALIZADO" : "EN DIRECTO") : String(state.eventStatus || "ESPERANDO").toUpperCase();
   if (state.lastError) message.textContent = state.lastError;
   else if (!state.eventId) message.textContent = "Carga una carrera para preparar el mapa de seguimiento.";
   else if (!state.runId) message.textContent = "Mapa preparado. Al iniciar el evento aparecerán aquí las posiciones GPS de los corredores.";
