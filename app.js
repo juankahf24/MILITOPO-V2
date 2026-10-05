@@ -4622,6 +4622,15 @@ function openMapModal() {
     }
 
     window.addEventListener("beforeunload", (e) => {
+        // R5B: las redirecciones internas de autenticación no son una salida real
+        // del trabajo del usuario y nunca deben mostrar el aviso nativo de Safari.
+        if (window.__MILITOPO_AUTH_NAVIGATING) return;
+        try {
+            if (sessionStorage.getItem("militopo_v2_allow_navigation_once") === "1") {
+                sessionStorage.removeItem("militopo_v2_allow_navigation_once");
+                return;
+            }
+        } catch (_) {}
         // El área Runner V2 es una shell sincronizada con backend: no debe heredar
         // el aviso de cambios sin guardar de Topografía al recargar la página.
         if (isRunnerSessionContext()) return;
