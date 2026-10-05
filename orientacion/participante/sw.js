@@ -3,12 +3,12 @@
    mientras siga disponible la exportación ZIP del organizador.
    Importante: no usar skipWaiting automático para no sustituir una versión
    mientras una copia legacy pudiera estar ejecutando una carrera. */
-const CACHE_NAME="militopo-v2-participante-r5a-runner-tabs-20261005";
+const CACHE_NAME="militopo-v2-participante-r5a1-runner-routing-20261005";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./icons/participante-192.png","./icons/participante-512.png","./icons/apple-touch-icon.png",
   "./runner-home-v4.js?v=v2-r5a-runner-tabs-20261005",
-  "../../js/v2/firebase-config.js","../../js/v2/live/runner-session-v2.js"
+  "../../js/v2/firebase-config.js","../../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005","../../js/v2/live/runner-session-v2.js"
 ];
 
 self.addEventListener("install",event=>{
