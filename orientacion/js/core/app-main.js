@@ -3964,7 +3964,7 @@ function updateRouteDiscardUi(){
     if(document.getElementById("finishFlowParticipantPicker"))renderStep5RoutePicker("finish");
 }
 
-function discardCurrentStartRoute(){
+async function discardCurrentStartRoute(){
     const sel=document.getElementById("startFlowParticipantSelect");
     if(!sel||!sel.value)return toast("Selecciona un recorrido");
     const route=getRouteByParticipant(sel.value);
@@ -3980,7 +3980,7 @@ function discardCurrentStartRoute(){
         return;
     }
 
-    if(!confirm(`¿Descartar ${route.participantId} · ${route.routeId}?\n\nNo se entregará a nadie, no contará como pendiente y no entrará en resultados.`))return;
+    if(!await globalThis.MILITOPO_CONFIRM(`¿Descartar ${route.participantId} · ${route.routeId}?\n\nNo se entregará a nadie, no contará como pendiente y no entrará en resultados.`,{title:"DESCARTAR RECORRIDO",confirmText:"DESCARTAR",danger:true}))return;
     const currentIdx=(state.routes||[]).findIndex(r=>r.participantId===route.participantId);
     setRouteSkipped(route.participantId,true);
     toast(`Recorrido descartado: ${route.participantId} · ${route.routeId}`);
@@ -4783,10 +4783,10 @@ function renderImportedResults(){
     }).join("");
 }
 
-function clearImportedResults(){
+async function clearImportedResults(){
     const guard=ensureRaceDataProtection();
     if(guard.protected && typeof window.MILITOPO_LIVE_DELETE_RACE_DATA==="function"){window.MILITOPO_LIVE_DELETE_RACE_DATA();return;}
-    if(!confirm("¿Limpiar todos los resultados importados?")) return;
+    if(!await globalThis.MILITOPO_CONFIRM("¿Limpiar todos los resultados importados?",{title:"LIMPIAR RESULTADOS",confirmText:"LIMPIAR",danger:true})) return;
     state.importedResults=[];
     saveState();
     renderImportedResults();
@@ -6866,7 +6866,7 @@ async function verifyAndGenerateZip(){
         renderExerciseVerifier(verification);
 
         if(!verification.ok){
-            const go=confirm("La verificación tiene pendientes. ¿Quieres generar el ZIP igualmente?");
+            const go=await globalThis.MILITOPO_CONFIRM("La verificación tiene pendientes. ¿Quieres generar el ZIP igualmente?",{title:"GENERAR CON PENDIENTES",confirmText:"GENERAR ZIP"});
             if(!go){
                 setZipStatus("warn","ZIP cancelado. Corrige los pendientes o vuelve a confirmar para generar igualmente.");
                 return;
@@ -8892,9 +8892,9 @@ function validateIofDescriptions(){
     return missing.length===0;
 }
 
-function clearIofDescriptions(){
+async function clearIofDescriptions(){
     if(rejectProtectedRaceMutation("borrar descripciones IOF"))return;
-    if(!confirm("¿Limpiar todas las descripciones IOF?"))return;
+    if(!await globalThis.MILITOPO_CONFIRM("¿Limpiar todas las descripciones IOF?",{title:"LIMPIAR DESCRIPCIONES",confirmText:"LIMPIAR",danger:true}))return;
     state.iofDescriptions={};
     Object.keys(state.points||{}).forEach(id=>{
         const p=state.points[id]||{};
@@ -9571,7 +9571,7 @@ async function applyMilitopoCloudRecoveredEvent(detail){
 
     const previousEventId=String(state.eventId||"");
     if(previousEventId&&previousEventId!==eventId&&typeof currentExerciseHasRaceEvidence==="function"&&currentExerciseHasRaceEvidence()){
-        const allowed=confirm("El evento abierto en este dispositivo contiene datos de carrera o resultados. Se guardará una copia duradera, pero vas a cambiar a otro evento.\n\n¿Quieres continuar?");
+        const allowed=await globalThis.MILITOPO_CONFIRM("El evento abierto en este dispositivo contiene datos de carrera o resultados. Se guardará una copia duradera, pero vas a cambiar a otro evento.\n\n¿Quieres continuar?",{title:"CAMBIAR DE CARRERA",confirmText:"CAMBIAR"});
         if(!allowed){
             window.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-applied",{detail:{ok:false,eventId,error:"Recuperación cancelada: el evento local con datos de carrera no se ha sustituido."}}));
             return false;
@@ -9773,7 +9773,7 @@ async function importReusableExerciseFile(file){
         const routeCount=data.routes.length;
         const pointCount=Object.keys(data.points||{}).length;
         const confirmText=`Se va a restaurar “${data.eventName||data.eventId}” con ${routeCount} recorridos y ${pointCount} puntos.\n\nSe conservará el eventId para reutilizar los QR y planos impresos. Se borrarán únicamente tiempos, escaneos y resultados anteriores.\n\n¿Continuar?`;
-        if(!confirm(confirmText)){
+        if(!await globalThis.MILITOPO_CONFIRM(confirmText,{title:"IMPORTAR EJERCICIO",confirmText:"IMPORTAR"})){
             setReusableExerciseStatus("Importación cancelada. No se ha modificado el ejercicio actual.","warn");
             return;
         }
@@ -10345,7 +10345,7 @@ async function createNewRace(){
         return false;
     }
     const previousEventId=String(state.eventId||"");
-    if(!confirm("¿Crear una carrera nueva?\n\nLa carrera actual permanecerá guardada en Firebase y en su histórico. MILITOPO abrirá ahora un borrador nuevo con otro identificador."))return false;
+    if(!await globalThis.MILITOPO_CONFIRM("¿Crear una carrera nueva?\n\nLa carrera actual permanecerá guardada en Firebase y en su histórico. MILITOPO abrirá ahora un borrador nuevo con otro identificador.",{title:"NUEVA CARRERA",confirmText:"CREAR CARRERA"}))return false;
     return prepareFreshOrganizerEvent(previousEventId,{
         reason:"new-race",
         purgeLocalRuntime:true,
@@ -10370,7 +10370,7 @@ async function resetSavedEvent(){
         }
         return true;
     }
-    if(!window.__militopoDeleteExerciseResetConfirmed&&!confirm("¿Borrar el evento guardado y empezar un evento totalmente nuevo? Se borrarán puntos, recorridos, descripciones IOF, QR, resultados y registros locales/Live de esta carrera. El histórico permanente ya consolidado en Firestore se conserva."))return false;
+    if(!window.__militopoDeleteExerciseResetConfirmed&&!await globalThis.MILITOPO_CONFIRM("¿Borrar el evento guardado y empezar un evento totalmente nuevo? Se borrarán puntos, recorridos, descripciones IOF, QR, resultados y registros locales/Live de esta carrera. El histórico permanente ya consolidado en Firestore se conserva.",{title:"BORRAR EJERCICIO",confirmText:"BORRAR Y EMPEZAR",danger:true}))return false;
     return prepareFreshOrganizerEvent(previousEventId,{
         reason:"fresh-reset",
         purgeLocalRuntime:true,
@@ -11651,7 +11651,7 @@ function bringOrientationLayerToFront(layer){if(!layer)return;try{if(typeof laye
 function hideOrientationGeoTiffOverlay(){if(map&&orientationGeoTiffRuntime.overlay&&map.hasLayer(orientationGeoTiffRuntime.overlay))map.removeLayer(orientationGeoTiffRuntime.overlay)}
 function setOrientationGeoTiffOpacity(value){state.customGeoTiffOpacity=Math.max(0,Math.min(1,Number(value)/100));if(orientationGeoTiffRuntime.overlay)orientationGeoTiffRuntime.overlay.setOpacity(state.customGeoTiffOpacity);const label=document.getElementById("orientationGeoTiffOpacityValue");if(label)label.textContent=Math.round(state.customGeoTiffOpacity*100)+" %";saveState()}
 function fitOrientationGeoTiff(){if(map&&orientationGeoTiffRuntime.bounds){map.fitBounds(orientationGeoTiffRuntime.bounds,{padding:[18,18]});setTimeout(()=>map.invalidateSize(),80)}}
-async function removeOrientationGeoTiff(){if(!orientationGeoTiffRuntime.ready)return;if(!confirm(`¿Eliminar "${orientationGeoTiffRuntime.name}" de la biblioteca local de este dispositivo?`))return;const removedId=orientationGeoTiffRuntime.id;hideOrientationGeoTiffOverlay();await deleteOrientationGeoTiffRecord(removedId);if(orientationGeoTiffRuntime.url)URL.revokeObjectURL(orientationGeoTiffRuntime.url);Object.assign(orientationGeoTiffRuntime,{ready:false,url:null,dataUrl:null,bounds:null,imageWidth:0,imageHeight:0,overlay:null,name:"",epsg:null,id:null,format:null,builtin:false});state.customGeoTiffMeta=null;const records=await listOrientationMapRecords();if(records.length){await saveOrientationGeoTiffRecord(records[0]);applyOrientationGeoTiffRecord(records[0])}else{if(state.selectedMapLayer==="custom")switchLayer("mapant");await refreshOrientationMapLibrary();updateOrientationGeoTiffUi();setOrientationGeoTiffStatus("No hay ningún plano propio cargado.","warn");notifyOrientationCustomMapChanged()}saveState()}
+async function removeOrientationGeoTiff(){if(!orientationGeoTiffRuntime.ready)return;if(!await globalThis.MILITOPO_CONFIRM(`¿Eliminar "${orientationGeoTiffRuntime.name}" de la biblioteca local de este dispositivo?`,{title:"ELIMINAR PLANO",confirmText:"ELIMINAR",danger:true}))return;const removedId=orientationGeoTiffRuntime.id;hideOrientationGeoTiffOverlay();await deleteOrientationGeoTiffRecord(removedId);if(orientationGeoTiffRuntime.url)URL.revokeObjectURL(orientationGeoTiffRuntime.url);Object.assign(orientationGeoTiffRuntime,{ready:false,url:null,dataUrl:null,bounds:null,imageWidth:0,imageHeight:0,overlay:null,name:"",epsg:null,id:null,format:null,builtin:false});state.customGeoTiffMeta=null;const records=await listOrientationMapRecords();if(records.length){await saveOrientationGeoTiffRecord(records[0]);applyOrientationGeoTiffRecord(records[0])}else{if(state.selectedMapLayer==="custom")switchLayer("mapant");await refreshOrientationMapLibrary();updateOrientationGeoTiffUi();setOrientationGeoTiffStatus("No hay ningún plano propio cargado.","warn");notifyOrientationCustomMapChanged()}saveState()}
 async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orientationGeoTiffRuntime.ready)throw new Error("No hay plano propio cargado");let src=orientationGeoTiffRuntime.dataUrl;if(!src){const record=await orientationDbGet(orientationGeoTiffRuntime.id);src=record&&record.dataUrl;if(!src)throw new Error("No se pudo leer la imagen guardada")}const b=orientationGeoTiffRuntime.bounds,sw=b[0],ne=b[1],west=sw[1],south=sw[0],east=ne[1],north=ne[0],inter={west:Math.max(west,bounds.west),east:Math.min(east,bounds.east),south:Math.max(south,bounds.south),north:Math.min(north,bounds.north)};if(inter.west>=inter.east||inter.south>=inter.north)throw new Error("El marco PDF queda fuera del plano importado");const img=await new Promise((resolve,reject)=>{const i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(new Error("No se pudo abrir el plano para el PDF"));i.src=src});const sx=(inter.west-west)/(east-west)*img.naturalWidth,sy=(north-inter.north)/(north-south)*img.naturalHeight,swp=(inter.east-inter.west)/(east-west)*img.naturalWidth,shp=(inter.north-inter.south)/(north-south)*img.naturalHeight,c=document.createElement("canvas");c.width=width;c.height=height;const ctx=c.getContext("2d");ctx.fillStyle="#ffffff";ctx.fillRect(0,0,width,height);const dx=(inter.west-bounds.west)/(bounds.east-bounds.west)*width,dy=(bounds.north-inter.north)/(bounds.north-bounds.south)*height,dw=(inter.east-inter.west)/(bounds.east-bounds.west)*width,dh=(inter.north-inter.south)/(bounds.north-bounds.south)*height;ctx.drawImage(img,sx,sy,swp,shp,dx,dy,dw,dh);return c.toDataURL("image/png")}
 /* ===== FIN BIBLIOTECA DE PLANOS GEOTIFF / KMZ V2 ===== */
 
@@ -12253,7 +12253,7 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
     try{saveState();const payload=archivePayload();const safe=(state.eventName||state.eventId||'carrera').replace(/[^a-z0-9_-]+/gi,'_');if(typeof JSZip!=='undefined'){const zip=new JSZip();zip.file('carrera.json',JSON.stringify(payload));zip.file('LEER_PRIMERO.txt','Archivo completo de carrera MILITOPO. Ábrelo desde PASO 7 > ARCHIVO.');const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`MILITOPO_CARRERA_${safe}.militopo`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}else downloadText(`MILITOPO_CARRERA_${safe}.militopo`,JSON.stringify(payload));const st=document.getElementById('raceArchiveStatus');if(st){st.className='status ok';st.textContent='Carrera completa guardada correctamente.'}toast('Archivo completo de carrera guardado')}catch(e){console.error(e);toast('No se pudo guardar la carrera: '+(e.message||e))}
   };
   window.importMilitopoRaceArchive=async function(file){
-    if(!file)return;const st=document.getElementById('raceArchiveStatus');try{if(st){st.className='status warn';st.textContent='Abriendo archivo de carrera...'}let text='';const buf=await file.arrayBuffer();const bytes=new Uint8Array(buf);if(bytes[0]===0x50&&bytes[1]===0x4b&&typeof JSZip!=='undefined'){const zip=await JSZip.loadAsync(buf);const entry=zip.file('carrera.json')||Object.values(zip.files).find(x=>x.name.endsWith('.json'));if(!entry)throw new Error('El archivo no contiene carrera.json');text=await entry.async('string')}else text=new TextDecoder().decode(bytes);const payload=JSON.parse(text);if(payload.format!=='MILITOPO_RACE_ARCHIVE'||!payload.state)throw new Error('No es un archivo de carrera MILITOPO válido');if(!confirm(`Se reemplazará el ejercicio abierto por "${payload.eventName||payload.eventId||'Carrera guardada'}". ¿Continuar?`))return;Object.keys(state).forEach(k=>delete state[k]);Object.assign(state,payload.state);ensureRaceAnalysisState();syncConfigToUi();rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();renderIofDescriptionsEditor();updateParticipantSelect();updateRouteCountInfo();renderMapMarkers();saveState();buildRaceSegmentsEditor(false);renderResultsControl();renderRaceAnalysis();goStep(7,{silent:true});if(st){st.className='status ok';st.textContent=`Carrera cargada: ${payload.eventName||payload.eventId}`};toast('Carrera completa restaurada')}catch(e){console.error(e);if(st){st.className='status err';st.textContent='No se pudo abrir: '+(e.message||e)}toast('Archivo de carrera no válido')}finally{const input=document.getElementById('militopoRaceArchiveInput');if(input)input.value=''}
+    if(!file)return;const st=document.getElementById('raceArchiveStatus');try{if(st){st.className='status warn';st.textContent='Abriendo archivo de carrera...'}let text='';const buf=await file.arrayBuffer();const bytes=new Uint8Array(buf);if(bytes[0]===0x50&&bytes[1]===0x4b&&typeof JSZip!=='undefined'){const zip=await JSZip.loadAsync(buf);const entry=zip.file('carrera.json')||Object.values(zip.files).find(x=>x.name.endsWith('.json'));if(!entry)throw new Error('El archivo no contiene carrera.json');text=await entry.async('string')}else text=new TextDecoder().decode(bytes);const payload=JSON.parse(text);if(payload.format!=='MILITOPO_RACE_ARCHIVE'||!payload.state)throw new Error('No es un archivo de carrera MILITOPO válido');if(!await globalThis.MILITOPO_CONFIRM(`Se reemplazará el ejercicio abierto por "${payload.eventName||payload.eventId||'Carrera guardada'}". ¿Continuar?`,{title:"ABRIR ARCHIVO DE CARRERA",confirmText:"ABRIR"}))return;Object.keys(state).forEach(k=>delete state[k]);Object.assign(state,payload.state);ensureRaceAnalysisState();syncConfigToUi();rebuildPointsFromConfig(true);renderPointSelectors();renderPointsTable();renderIofDescriptionsEditor();updateParticipantSelect();updateRouteCountInfo();renderMapMarkers();saveState();buildRaceSegmentsEditor(false);renderResultsControl();renderRaceAnalysis();goStep(7,{silent:true});if(st){st.className='status ok';st.textContent=`Carrera cargada: ${payload.eventName||payload.eventId}`};toast('Carrera completa restaurada')}catch(e){console.error(e);if(st){st.className='status err';st.textContent='No se pudo abrir: '+(e.message||e)}toast('Archivo de carrera no válido')}finally{const input=document.getElementById('militopoRaceArchiveInput');if(input)input.value=''}
   };
 
   const oldGoStep=goStep;
