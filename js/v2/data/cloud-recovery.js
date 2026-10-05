@@ -143,7 +143,7 @@ function ensureStyles() {
     .m2-cloud-history-metric strong{display:block;font-size:.91rem}.m2-cloud-history-metric span{display:block;font-size:.53rem;opacity:.66;margin-top:2px}
     .m2-cloud-history-best{font-size:.77rem;line-height:1.4;margin:0 0 10px;color:#e8f6df}
     .m2-r4-history-tools{display:flex;align-items:end;justify-content:space-between;gap:10px;margin:0 0 12px;padding:10px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:rgba(255,255,255,.025)}
-    .m2-r4-history-tools label{display:grid;gap:5px;min-width:min(300px,100%);font-size:.57rem;font-weight:900;letter-spacing:.08em;color:#aeb8aa}.m2-r4-history-tools select{width:100%;min-height:40px;box-sizing:border-box;border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:8px 34px 8px 10px;background:#eef1df;color:#172018;font:900 .68rem/1 system-ui}.m2-r4-history-tools span{font-size:.58rem;color:#99a498;text-align:right}
+    .m2-r4-history-tools label{display:grid;gap:5px;min-width:min(300px,100%);font-size:.57rem;font-weight:900;letter-spacing:.08em;color:#dfe6d9}.m2-r4-history-tools select{width:100%;min-height:42px;box-sizing:border-box;border:1px solid #d7dfc8;border-radius:10px;padding:8px 34px 8px 10px;background:#f7f9ee!important;background-color:#f7f9ee!important;color:#111811!important;-webkit-text-fill-color:#111811!important;opacity:1!important;font:900 .72rem/1 system-ui;appearance:auto;-webkit-appearance:menulist}.m2-r4-history-tools select option{background:#ffffff!important;color:#111811!important;-webkit-text-fill-color:#111811!important}.m2-r4-history-tools span{font-size:.58rem;color:#b4bdb2;text-align:right}
     .m2-cloud-history-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.m2-cloud-history-card-head h3{min-width:0;overflow:hidden;text-overflow:ellipsis}.m2-cloud-history-best strong{color:#f5d48b}
     .m2-cloud-recovery-empty{padding:14px;border:1px dashed rgba(255,255,255,.25);border-radius:10px;opacity:.82}
     @media(max-width:600px){.m2-cloud-history-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-cloud-history-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r4-history-tools{align-items:stretch;flex-direction:column}.m2-r4-history-tools span{text-align:left}}
@@ -602,10 +602,11 @@ async function recoverEvent(eventId, options = {}) {
   const row = state.events.find(item => item.eventId === eventId);
   if (!row) return;
   state.openResultsAfterRecover = options?.openResults ? eventId : "";
+  const openResults = options?.openResults === true;
   const ok = confirm(
-    `Se va a abrir “${row.eventName}” (${row.eventId}) desde Firestore.\n\n` +
-    `MILITOPO guardará primero una copia duradera del evento que tengas abierto en este dispositivo. ` +
-    `Después cargará la configuración, balizas y recorridos de la nube.\n\n¿Continuar?`
+    openResults
+      ? `Se va a abrir “${row.eventName}” y después RESULTADOS Y CLASIFICACIÓN.\n\n¿Continuar?`
+      : `Se va a abrir “${row.eventName}” (${row.eventId}) desde Firestore.\n\nMILITOPO guardará primero una copia duradera del evento que tengas abierto en este dispositivo. Después cargará la configuración, balizas y recorridos de la nube.\n\n¿Continuar?`
   );
   if (!ok) return;
 
@@ -647,21 +648,10 @@ function onApplied(event) {
     paintStatus(`✅ Evento recuperado desde Firestore · ${eventId}`, "ok");
     if (state.openResultsAfterRecover && state.openResultsAfterRecover === eventId) {
       state.openResultsAfterRecover = "";
-      // H7.1: al abrir una carrera desde el histórico, mostrarla en PASO 1.
-      // La recuperación base puede llevar al PASO 3 cuando ya existen recorridos;
-      // para histórico/resultados queremos volver al panel principal del evento.
+      // R4F: después de recuperar desde HISTÓRICO, abrir directamente el
+      // módulo profesional de RESULTADOS Y CLASIFICACIÓN del shell.
       setTimeout(() => {
-        try {
-          if (typeof globalThis.goStep === "function") globalThis.goStep(1);
-          else document.querySelector('.step-tab[data-step="1"]')?.click();
-        } catch (_) {
-          document.querySelector('.step-tab[data-step="1"]')?.click();
-        }
-        setTimeout(() => {
-          const panel = document.getElementById("m2EventHistoricalResults");
-          if (panel) panel.scrollIntoView({ behavior:"smooth", block:"start" });
-          else document.getElementById("step1")?.scrollIntoView({ behavior:"smooth", block:"start" });
-        }, 180);
+        globalThis.dispatchEvent(new CustomEvent("militopo:r4-open-results-after-load", { detail:{ eventId } }));
       }, 180);
     }
   } else {
