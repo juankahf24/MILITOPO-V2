@@ -488,12 +488,13 @@
         <div><strong>${ctx.courseSyncedCount||"—"}</strong><span>RECORRIDOS</span></div>
         <div><strong>${ctx.controlsPerRoute||"—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
       </div>
-      ${readinessHtml()}
-      <div class="r3-manager-tabs" role="tablist" aria-label="Áreas de gestión">
-        <button type="button" role="tab" aria-selected="${state.managerTab!=="operation"}" class="${state.managerTab!=="operation"?"is-active":""}" data-r3-manager-tab="design"><strong>DISEÑO Y PREPARACIÓN</strong><small>Preparar carrera</small></button>
-        <button type="button" role="tab" aria-selected="${state.managerTab==="operation"}" class="${state.managerTab==="operation"?"is-active":""}" data-r3-manager-tab="operation"><strong>OPERACIÓN Y POST CARRERA</strong><small>Competición y análisis</small></button>
+      <div class="r3-manager-tabs" role="tablist" aria-label="Áreas principales de gestión">
+        <button type="button" role="tab" aria-selected="${state.managerTab!=="operation"}" class="${state.managerTab!=="operation"?"is-active":""}" data-r3-manager-tab="design"><span class="r3-manager-tab-index">01</span><strong>DISEÑO Y PREPARACIÓN</strong><small>Preparar carrera</small></button>
+        <button type="button" role="tab" aria-selected="${state.managerTab==="operation"}" class="${state.managerTab==="operation"?"is-active":""}" data-r3-manager-tab="operation"><span class="r3-manager-tab-index">02</span><strong>OPERACIÓN Y POST CARRERA</strong><small>Competición y análisis</small></button>
       </div>
       <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"":"is-active"}" data-r3-manager-panel="design" role="tabpanel">
+        ${readinessHtml()}
+        <div class="r3-manager-option-label"><span>OPCIONES</span><small>Herramientas de diseño y preparación</small></div>
         <div class="r3-manager-grid r3-manager-grid-compact">
           ${managerCard((designReadinessSnapshot()?.items.find(i=>i.key==="map")?.ok)?"map":"complete-map","MAPA Y BALIZAS","Salida, llegada y controles","layers","is-primary")}
           ${managerCard("config","CONFIGURACIÓN","Datos y reglas","settings")}
@@ -504,6 +505,7 @@
         </div>
       </div>
       <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"is-active":""}" data-r3-manager-panel="operation" role="tabpanel">
+        <div class="r3-manager-option-label"><span>OPCIONES</span><small>Herramientas de competición y post-carrera</small></div>
         <div class="r3-manager-grid r3-manager-grid-compact">
           ${managerCard("participants","PARTICIPANTES","Censo e invitaciones","users")}
           ${managerCard("live","LIVE","Seguimiento en tiempo real","live","is-live")}
