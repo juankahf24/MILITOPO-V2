@@ -1304,10 +1304,11 @@ async function stopOrganizerRun() {
   updateOrganizerButtons();
   try{
     if(organizerRunStatus==="active"&&(arrivals>0||deliveries>0)){
-      const accepted=window.confirm(
+      const accepted=await globalThis.MILITOPO_CONFIRM(
         `Han salido ${progress.started.length} participantes.\n\n`+
         `Pendientes de llegada: ${arrivals}.\nPendientes de enviar resultado o track: ${deliveries}.\nSin salida: ${progress.notStarted.length} (no bloquean el cierre).\n\n`+
-        "La carrera pasará a MODO RECEPCIÓN y seguirá aceptando todos los datos. ¿Continuar?"
+        "La carrera pasará a MODO RECEPCIÓN y seguirá aceptando todos los datos. ¿Continuar?",
+        {title:"CERRAR CARRERA",confirmText:"ACTIVAR RECEPCIÓN"}
       );
       if(!accepted)return;
       organizerRunStatus="closing";
@@ -1330,16 +1331,17 @@ async function stopOrganizerRun() {
     }
 
     if(organizerRunStatus==="closing"&&(arrivals>0||deliveries>0)){
-      const forced=window.confirm(
+      const forced=await globalThis.MILITOPO_CONFIRM(
         `Todavía quedan ${arrivals} participantes pendientes de llegada y ${deliveries} entregas pendientes.\n\n`+
-        "¿Archivar de forma forzada? No se borrará la tabla ni los datos, y los móviles podrán seguir sincronizando después."
+        "¿Archivar de forma forzada? No se borrará la tabla ni los datos, y los móviles podrán seguir sincronizando después.",
+        {title:"ARCHIVAR DE FORMA FORZADA",confirmText:"ARCHIVAR",danger:true}
       );
       if(!forced)return;
       await archiveOrganizerRun({forced:true});
       return;
     }
 
-    if(!window.confirm("No quedan participantes en carrera ni entregas de finalizados pendientes. ¿Finalizar y archivar esta carrera?"))return;
+    if(!await globalThis.MILITOPO_CONFIRM("No quedan participantes en carrera ni entregas de finalizados pendientes. ¿Finalizar y archivar esta carrera?",{title:"FINALIZAR CARRERA",confirmText:"FINALIZAR Y ARCHIVAR",danger:true}))return;
     await archiveOrganizerRun({forced:false});
   }catch(error){
     setMessage(`No se pudo cerrar la carrera: ${error.message}`,"error");
@@ -1389,8 +1391,8 @@ async function deleteOrganizerRaceData(options={}){
   const runId=String(organizerRunId||organizerContext()?.liveRunId||"");
   if(!eventKey){setMessage("No hay un ejercicio identificado para borrar.","warn");return false;}
   if(!skipConfirm){
-    if(!window.confirm("Esta acción BORRA los datos recopilados de la carrera actual: estados, resultados, tiempos y tracks. El diseño del ejercicio y los recorridos se conservarán.\n\n¿Continuar?"))return false;
-    if(!window.confirm("Confirmación de seguridad: ¿borrar definitivamente los datos de ESTA CARRERA?"))return false;
+    if(!await globalThis.MILITOPO_CONFIRM("Esta acción BORRA los datos recopilados de la carrera actual: estados, resultados, tiempos y tracks. El diseño del ejercicio y los recorridos se conservarán.\n\n¿Continuar?",{title:"BORRAR DATOS DE CARRERA",confirmText:"CONTINUAR",danger:true}))return false;
+    if(!await globalThis.MILITOPO_CONFIRM("Confirmación de seguridad: ¿borrar definitivamente los datos de ESTA CARRERA?",{title:"CONFIRMACIÓN FINAL",confirmText:"BORRAR DATOS",danger:true}))return false;
   }
   if(runId && (!db||!currentUser||!firebaseConnected)){
     setMessage("Para borrar una carrera que ya se sincronizó debes tener conexión. Así evitamos que una copia de Firebase reaparezca después.","error");
@@ -1422,8 +1424,8 @@ async function deleteOrganizerRaceData(options={}){
   finally{organizerRunActionBusy=false;updateOrganizerButtons()}
 }
 async function deleteOrganizerExerciseCompletely(){
-  if(!window.confirm("BORRAR EJERCICIO COMPLETO eliminará configuración, recorridos y todos los datos de la carrera actual.\n\n¿Quieres continuar?"))return false;
-  if(!window.confirm("CONFIRMACIÓN FINAL\n\nSe eliminará por completo este ejercicio y sus recorridos guardados. ¿Confirmas el borrado definitivo?"))return false;
+  if(!await globalThis.MILITOPO_CONFIRM("BORRAR EJERCICIO COMPLETO eliminará configuración, recorridos y todos los datos de la carrera actual.\n\n¿Quieres continuar?",{title:"BORRAR EJERCICIO COMPLETO",confirmText:"CONTINUAR",danger:true}))return false;
+  if(!await globalThis.MILITOPO_CONFIRM("CONFIRMACIÓN FINAL\n\nSe eliminará por completo este ejercicio y sus recorridos guardados. ¿Confirmas el borrado definitivo?",{title:"CONFIRMACIÓN FINAL",confirmText:"BORRAR DEFINITIVAMENTE",danger:true}))return false;
   const ctx=organizerContext()||{};
   const eventId=String(ctx.eventId||organizerEventKey||"");
   const eventKey=safeFirebaseKey(eventId);
