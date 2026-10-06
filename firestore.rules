@@ -106,9 +106,9 @@ service cloud.firestore {
                          && resource.data.targetEmail == request.auth.token.email;
       let uidMatches = resource.data.keys().hasAny(["targetUid"])
                        && resource.data.targetUid == request.auth.uid;
-      return verified()
+      return signedIn()
              && resource.data.status == "pending"
-             && (emailMatches || uidMatches)
+             && (uidMatches || (verified() && emailMatches))
              && request.resource.data.status == "declined"
              && request.resource.data.declinedBy == request.auth.uid
              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
