@@ -275,7 +275,7 @@
     const total=participantHubNumber("#m2F2CTotal"),pending=participantHubNumber("#m2F2CPending"),racing=participantHubNumber("#m2F2CRacing"),finished=participantHubNumber("#m2F2CFinished");
     const values=[["#r4LiveTotal",total],["#r4LivePending",pending],["#r4LiveRacing",racing],["#r4LiveFinished",finished]];values.forEach(([id,v])=>{const el=$(id,hub);if(el)el.textContent=String(v)});
     const note=$("#r4LiveNotice",hub);if(note){
-      if(status==="live"){note.className="r4-live-notice is-live";note.innerHTML="<strong>EN DIRECTO</strong><span>Posiciones, progreso y tiempos se actualizan automáticamente.</span>"}
+      if(status==="live"){note.className="r4-live-notice is-live";note.innerHTML="<strong>EN DIRECTO</strong><span>Posiciones, progreso y tiempos se actualizan automáticamente.</span><button type=\"button\" class=\"is-danger\" data-r4-live-finish>FINALIZAR CARRERA</button>"}
       else if(status==="finished"||status==="archived"){note.className="r4-live-notice";note.innerHTML=`<strong>${label}</strong><span>Se muestra la última información registrada de la carrera.</span>`}
       else{note.className="r4-live-notice is-warn";note.innerHTML=`<strong>${label}</strong><span>El seguimiento en directo se activa al iniciar la carrera.</span><button type="button" data-r4-live-lifecycle>ESTADO Y PUBLICACIÓN</button>`}
     }
@@ -289,6 +289,7 @@
       stack.parentNode.insertBefore(hub,stack);
       hub.addEventListener("click",event=>{
         if(event.target.closest("[data-r4-live-lifecycle]")){state.managerModuleTitle="ESTADO Y PUBLICACIÓN";openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);return}
+        if(event.target.closest("[data-r4-live-finish]")){const fn=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;if(typeof fn==="function"){Promise.resolve(fn()).then(()=>setTimeout(refreshLiveHub,180)).catch(error=>{try{globalThis.toast?.(`No se pudo finalizar: ${String(error?.message||error)}`)}catch(_){}});}else{state.managerModuleTitle="ESTADO Y PUBLICACIÓN";openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);}return}
         const jump=event.target.closest("[data-r4-live-jump]")?.dataset.r4LiveJump;if(!jump)return;const target=jump==="map"?$("#m2OrganizerLiveMap",body):$("#m2OrganizerLiveMonitor",body);target?.scrollIntoView?.({behavior:"smooth",block:"start"});
       });
     }
