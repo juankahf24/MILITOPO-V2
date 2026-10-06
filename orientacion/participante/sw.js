@@ -1,10 +1,10 @@
-/* MILITOPO Participante · R5E.3 Rechazo + control previo 20261006.
+/* MILITOPO Participante · R5E.4 Rechazo por servidor + control previo 20261006.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r5e3-rechazo-control-previo-20261006";
+const CACHE_NAME="militopo-v2-participante-r5e4-rechazo-servidor-asignadas-20261006";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./icons/participante-192.png","./icons/participante-512.png","./icons/apple-touch-icon.png",
-  "./runner-home-v4.js?v=v2-r5e3-rechazo-control-previo-20261006",
+  "./runner-home-v4.js?v=v2-r5e4-rechazo-servidor-asignadas-20261006",
   "../assets/r1/militopo-compass-r2k.png?v=r5e2-runner-invitaciones-20261006",
   "../../js/v2/firebase-config.js","../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006","../../js/v2/live/runner-session-v2.js"
 ];

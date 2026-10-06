@@ -7,7 +7,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r5e3-rechazo-control-previo-20261006";
+const VERSION="v2-r5e4-rechazo-servidor-asignadas-20261006";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -145,10 +145,13 @@ async function rejectInvitation(invitationId){
   if(!confirmed)return;
   inviteBusy=true;renderInvitations();
   try{
-    const app=findApp();if(!app)throw new Error("Firebase no está disponible.");
-    const db=getFirestore(app);
-    await updateDoc(doc(db,"invitations",invitationId),{status:"declined",declinedAt:serverTimestamp(),declinedBy:String(currentUser.uid),updatedAt:serverTimestamp()});
+    if(!functions)throw new Error("Backend de invitaciones no disponible.");
+    const call=httpsCallable(functions,"declineInvitationV2");
+    await call({invitationId,clientVersion:VERSION});
     setStatus("Invitación rechazada. El organizador ha recibido tu respuesta.","ok");
+    inviteEmailRows.delete(String(invitationId));
+    inviteUidRows.delete(String(invitationId));
+    mergeInvitationRows();
     renderDashboard();
   }catch(error){console.error("[MILITOPO runner reject invitation]",error);setStatus(`No se pudo rechazar la invitación. ${String(error?.message||"")}`,"err");}
   finally{inviteBusy=false;renderInvitations();}
