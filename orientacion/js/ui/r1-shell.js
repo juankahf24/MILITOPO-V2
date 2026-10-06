@@ -476,15 +476,15 @@
     let tone="is-open",title="CONTROL DE PARTICIPANTES",detail="";
     if(!cap){tone="is-warn";detail="Define primero el número de plazas de la carrera."}
     else if(over>0){tone="is-alert";detail=`Hay ${over} invitación${over===1?"":"es"} pendiente${over===1?"":"s"} por encima de las plazas libres.`}
-    else if(data.pending>0){tone="is-warn";detail=`${data.accepted} dentro · ${data.pending} pendiente${data.pending===1?"":"s"} de responder antes del inicio.`}
-    else if(data.accepted>=cap){tone="is-ready";detail="Todas las plazas están ocupadas y no hay respuestas pendientes."}
+    else if(data.pending>0){tone="is-warn";detail=`${data.accepted} asignada${data.accepted===1?"":"s"} · ${data.pending} pendiente${data.pending===1?"":"s"} de responder antes del inicio.`}
+    else if(data.accepted>=cap){tone="is-ready";detail="Todas las plazas están asignadas y no hay respuestas pendientes."}
     else{detail=`${data.free} plaza${data.free===1?"":"s"} libre${data.free===1?"":"s"} y ninguna invitación pendiente.`}
     return `<section class="r5-prestart-participants ${tone}" id="r5PrestartParticipants" aria-label="Control previo de participantes">
       <div class="r5-prestart-head"><div><span>CONTROL PREVIO</span><strong>${title}</strong><small data-r5-participant-detail>${detail}</small></div><b data-r5-participant-occupancy>${cap?`${data.accepted}/${cap}`:"—"}</b></div>
       <div class="r5-prestart-progress" aria-hidden="true"><i data-r5-participant-progress style="width:${occupancy}%"></i></div>
       <div class="r5-prestart-metrics">
         <div><strong data-r5-participant-capacity>${cap||"—"}</strong><span>PLAZAS</span></div>
-        <div><strong data-r5-participant-accepted>${data.accepted}</strong><span>DENTRO</span></div>
+        <div><strong data-r5-participant-accepted>${data.accepted}</strong><span>ASIGNADAS</span></div>
         <div class="${data.pending?"is-pending":""}"><strong data-r5-participant-pending>${data.pending}</strong><span>PENDIENTES</span></div>
         <div><strong data-r5-participant-free>${cap?data.free:"—"}</strong><span>LIBRES</span></div>
       </div>
