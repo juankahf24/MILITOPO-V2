@@ -758,3 +758,15 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
   .r3-manager-tabs button .r3-manager-tab-icon svg{width:16px;height:16px}
   .r3-manager-tabs button strong{font-size:.56rem!important}
 }
+
+
+/* R5E.3 · Control previo de participantes en GESTIÓN DE CARRERA. */
+.r5-prestart-participants{display:grid;gap:9px;margin:10px 0 12px;padding:12px;border:1px solid rgba(255,255,255,.10);border-radius:16px;background:linear-gradient(145deg,rgba(35,52,37,.96),rgba(24,35,26,.98));box-shadow:0 10px 24px rgba(0,0,0,.12)}
+.r5-prestart-participants.is-warn{border-color:rgba(233,177,79,.32);background:linear-gradient(145deg,rgba(70,57,27,.34),rgba(28,37,27,.98))}
+.r5-prestart-participants.is-alert{border-color:rgba(227,88,78,.40);background:linear-gradient(145deg,rgba(93,38,33,.30),rgba(32,34,25,.98))}
+.r5-prestart-participants.is-ready{border-color:rgba(105,194,118,.38);background:linear-gradient(145deg,rgba(35,76,43,.34),rgba(24,36,26,.98))}
+.r5-prestart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}.r5-prestart-head>div{display:grid;gap:3px;min-width:0}.r5-prestart-head span{font:900 .49rem/1 system-ui;letter-spacing:.12em;color:#9dab9c}.r5-prestart-head strong{font:950 .78rem/1.05 system-ui;color:#f5f2e8}.r5-prestart-head small{font:650 .55rem/1.3 system-ui;color:#b8c1b6}.r5-prestart-head>b{flex:0 0 auto;min-width:52px;padding:8px 9px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);text-align:center;font:950 .86rem/1 system-ui;color:#f2e6bd}
+.r5-prestart-progress{height:5px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.07)}.r5-prestart-progress i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#689c63,#9bc76f);transition:width .25s ease}
+.r5-prestart-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.r5-prestart-metrics>div{min-width:0;padding:8px 4px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:rgba(255,255,255,.025);text-align:center}.r5-prestart-metrics>div.is-pending{border-color:rgba(234,178,82,.24);background:rgba(164,112,30,.08)}.r5-prestart-metrics strong{display:block;font:950 1rem/1 system-ui;color:#f5f2e8}.r5-prestart-metrics span{display:block;margin-top:4px;font:850 .45rem/1 system-ui;letter-spacing:.055em;color:#9eaa9d}
+.r5-prestart-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}.r5-prestart-foot>span{min-width:0;font:700 .52rem/1.2 system-ui;color:#9eaa9d}.r5-prestart-foot button{flex:0 0 auto;min-height:34px;padding:7px 10px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:#e8ecd9;color:#172018;font:900 .52rem/1 system-ui;cursor:pointer}
+@media(max-width:720px){.r5-prestart-participants{padding:10px;border-radius:14px}.r5-prestart-metrics{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.r5-prestart-metrics strong{font-size:.9rem}.r5-prestart-metrics span{font-size:.4rem}.r5-prestart-foot{align-items:stretch;flex-direction:column}.r5-prestart-foot button{width:100%}}
