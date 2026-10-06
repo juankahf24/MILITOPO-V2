@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-r5e2-rechazo-invitaciones-20261006";
+const BUILD_ID="v2-r5e4-rechazo-servidor-asignadas-20261006";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -50,7 +50,7 @@ const APP_SHELL=[
   "./js/v2/auth/roles.js",
   "./js/v2/auth/auth-ui.css?v=v2-i5-4-pwa-account-hqlogo-20260929",
   "./js/v2/auth/auth-ui.js?v=v2-i5-4-pwa-account-hqlogo-20260929",
-  "./js/v2/data/invitation-inbox.js?v=v2-r5e2-rechazo-corredor-20261006",
+  "./js/v2/data/invitation-inbox.js?v=v2-r5e4-rechazo-servidor-20261006",
   "./js/v2/maps/race-plan-history.js?v=v2-h4-1-runner-map-parity-20260925",
   "./js/v2/live/runner-dashboard.js?v=v2-i6g-runner-smaller-slow-pulse-20261001",
   "./js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-20260924",
