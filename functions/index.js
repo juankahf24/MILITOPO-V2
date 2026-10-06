@@ -520,6 +520,63 @@ exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request =>
   return { ok: true, eventId, eventName: String(eventData.eventName || "Carrera de orientación").slice(0, 140), ...assignment };
 });
 
+
+exports.declineInvitationV2 = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireAuth(request);
+  const uid = String(identity.uid || "").trim();
+  const invitationId = String(request.data?.invitationId || "").trim();
+  if (!/^[A-Za-z0-9_-]{1,180}$/.test(invitationId)) {
+    throw new HttpsError("invalid-argument", "Invitación no válida.");
+  }
+
+  const inviteRef = db.collection("invitations").doc(invitationId);
+  const result = await db.runTransaction(async tx => {
+    const snap = await tx.get(inviteRef);
+    if (!snap.exists) throw new HttpsError("not-found", "La invitación ya no existe.");
+
+    const invite = snap.data() || {};
+    const status = String(invite.status || "pending").toLowerCase();
+    if (status === "declined") {
+      return {
+        eventId: String(invite.eventId || ""),
+        eventName: String(invite.eventName || "Carrera de orientación").slice(0, 140),
+        alreadyDeclined: true
+      };
+    }
+    if (status !== "pending") {
+      throw new HttpsError("failed-precondition", "Esta invitación ya no está pendiente.");
+    }
+
+    const tokenEmail = String(identity.token.email || "").trim().toLowerCase();
+    const targetUid = String(invite.targetUid || "").trim();
+    const targetEmail = String(invite.targetEmail || "").trim().toLowerCase();
+    const uidMatches = Boolean(targetUid && targetUid === uid);
+    const emailMatches = Boolean(tokenEmail && targetEmail && targetEmail === tokenEmail);
+    if (!uidMatches && !emailMatches) {
+      throw new HttpsError("permission-denied", "La invitación no corresponde a esta cuenta.");
+    }
+
+    tx.set(inviteRef, {
+      status: "declined",
+      declinedAt: FieldValue.serverTimestamp(),
+      declinedBy: uid,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    return {
+      eventId: String(invite.eventId || ""),
+      eventName: String(invite.eventName || "Carrera de orientación").slice(0, 140),
+      alreadyDeclined: false
+    };
+  });
+
+  await appendAudit("INVITATION_DECLINED_BY_RUNNER", uid, uid, {
+    eventId: result.eventId || null,
+    invitationId
+  });
+  return { ok: true, invitationId, ...result };
+});
+
 exports.syncLiveAccess = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
