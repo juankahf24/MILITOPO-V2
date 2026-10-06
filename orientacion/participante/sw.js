@@ -1,11 +1,11 @@
-/* MILITOPO Participante · R5C Dashboard profesional 20261005.
+/* MILITOPO Participante · R5D Perfil y estadísticas profesionales 20261006.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r5c-dashboard-profesional-20261005";
+const CACHE_NAME="militopo-v2-participante-r5d-perfil-estadisticas-20261006";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./icons/participante-192.png","./icons/participante-512.png","./icons/apple-touch-icon.png",
-  "./runner-home-v4.js?v=v2-r5c-dashboard-profesional-20261005",
-  "../assets/r1/militopo-compass-r2k.png?v=r5c-runner-dashboard-20261005",
+  "./runner-home-v4.js?v=v2-r5d-perfil-estadisticas-20261006",
+  "../assets/r1/militopo-compass-r2k.png?v=r5d-runner-profile-20261006",
   "../../js/v2/firebase-config.js","../../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005","../../js/v2/live/runner-session-v2.js"
 ];
 self.addEventListener("install",event=>{event.waitUntil((async()=>{const cache=await caches.open(CACHE_NAME);await Promise.allSettled(APP_SHELL.map(url=>cache.add(new Request(url,{cache:"reload"}))));})());});

@@ -1,4 +1,4 @@
-/* MILITOPO V2 · R5C · Dashboard profesional del corredor + resultados enriquecidos. */
+/* MILITOPO V2 · R5D · Perfil y estadísticas profesionales del corredor. */
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -7,7 +7,7 @@ import {
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r5c-dashboard-profesional-20261005";
+const VERSION="v2-r5d-perfil-estadisticas-20261006";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -22,7 +22,8 @@ const els={
   activeCount:document.getElementById("rhActiveCount"),historyCount:document.getElementById("rhHistoryCount"),retry:document.getElementById("rhRetry"),
   headerUser:document.getElementById("rhHeaderUser"),headerHandle:document.getElementById("rhHeaderHandle"),hero:document.getElementById("rhDashboardHero"),
   dashActive:document.getElementById("rhDashActive"),dashFinished:document.getElementById("rhDashFinished"),dashTotal:document.getElementById("rhDashTotal"),dashKm:document.getElementById("rhDashKm"),
-  historyMore:document.getElementById("rhHistoryMore"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose")
+  historyMore:document.getElementById("rhHistoryMore"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose"),
+  profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank")
 };
 
 let auth=null,currentUser=null,profile=null,currentRaceTab="active",currentMainTab="home";
@@ -124,9 +125,11 @@ async function hydrateVisibleRanks(){
   await Promise.allSettled(nodes.map(async node=>{
     const eventId=String(node.dataset.rankEvent||"");if(!eventId||node.dataset.loaded==="1")return;node.dataset.loaded="1";
     try{const data=await getClassification(eventId),my=data?.my;if(!my){node.classList.remove("loading");node.querySelector("strong").textContent="Sin puesto";return;}
-      const rank=my.generalRank?`${my.generalRank}.º de ${my.generalRankedCount||my.generalCount||"—"}`:"Sin puesto";
-      const route=my.routeId&&my.routeRank?` · ${my.routeId}: ${my.routeRank}.º`:my.routeId?` · ${my.routeId}`:"";
-      node.classList.remove("loading");node.querySelector("strong").textContent=`${rank}${route}`;
+      const generalCount=my.generalRankedCount||my.generalCount||"—";
+      const routeCount=my.routeRankedCount||my.routeCount||"—";
+      const general=my.generalRank?`<span class="rank-line"><em>GENERAL</em><b>${esc(my.generalRank)}º de ${esc(generalCount)}</b></span>`:`<span class="rank-line"><em>GENERAL</em><b>Sin puesto</b></span>`;
+      const route=my.routeId?`<span class="rank-line"><em>${esc(my.routeId)}</em><b>${my.routeRank?`${esc(my.routeRank)}º de ${esc(routeCount)}`:"Sin puesto"}</b></span>`:"";
+      node.classList.remove("loading");node.innerHTML=`<small>CLASIFICACIÓN</small><div class="rank-lines">${general}${route}</div>`;
     }catch(_){node.classList.remove("loading");node.querySelector("strong").textContent="No disponible";}
   }));
 }
@@ -148,8 +151,8 @@ async function openResultDetail(eventId,eventName){
     const detailCall=httpsCallable(functions,"getRunnerResultDetail");
     const [detailRes,classRes]=await Promise.all([detailCall({eventId,clientVersion:VERSION}),getClassification(eventId).catch(()=>null)]);
     const d=detailRes?.data||{},r=d.result||{},my=classRes?.my||null,state=String(r.status||"not_started").toLowerCase();
-    const generalRank=my?.generalRank?`${my.generalRank}.º / ${my.generalRankedCount||my.generalCount||"—"}`:"SIN PUESTO";
-    const routeRank=my?.routeId&&my?.routeRank?`${my.routeId} · ${my.routeRank}.º / ${my.routeRankedCount||my.routeCount||"—"}`:(my?.routeId||r.courseId||"—");
+    const generalRank=my?.generalRank?`${my.generalRank}º de ${my.generalRankedCount||my.generalCount||"—"}`:"SIN PUESTO";
+    const routeRank=my?.routeId&&my?.routeRank?`${my.routeId} ${my.routeRank}º de ${my.routeRankedCount||my.routeCount||"—"}`:(my?.routeId||r.courseId||"—");
     const controls=Number(r.controlExpectedCount||0)>0?`${Math.max(0,Number(r.controlDetectedCount||0))}/${Math.max(0,Number(r.controlExpectedCount||0))}`:"—";
     const boxes=[
       ["TIEMPO OFICIAL",r.officialDurationMs==null?"—":formatDuration(r.officialDurationMs)],
@@ -163,8 +166,31 @@ async function openResultDetail(eventId,eventName){
       ["DESNIVEL +",Number.isFinite(Number(r.coursePositiveM))?`${Math.round(Number(r.coursePositiveM))} m`:"—"],
       ["RITMO",Number.isFinite(Number(r.paceMinKm))?`${Number(r.paceMinKm).toFixed(2)} min/km`:"—"]
     ];
-    if(els.resultBody)els.resultBody.innerHTML=`<div class="detail-status"><div><small>RESULTADO</small><strong>${esc(statusES(state))}</strong></div><strong class="detail-rank">${esc(generalRank)}</strong></div><div class="detail-grid">${boxes.map(([a,b])=>`<div class="detail-box"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join("")}</div><div class="detail-note">El reproductor GPS completo, mapa histórico y estadísticas avanzadas se integran en la siguiente fase de análisis del corredor.</div>`;
+    if(els.resultBody)els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>${esc(statusES(state))}</strong></div><div class="detail-general"><small>GENERAL</small><strong class="detail-rank">${esc(generalRank)}</strong></div></div><div class="detail-grid">${boxes.map(([a,b])=>`<div class="detail-box"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join("")}</div>`;
   }catch(error){console.error("[MILITOPO runner result detail]",error);if(els.resultBody)els.resultBody.innerHTML=`<div class="status err">No se pudo cargar este resultado. ${esc(error?.message||"")}</div>`;}
+}
+
+function setProfileStat(el,value){if(el)el.textContent=String(value??"—");}
+function renderProfileStats(){
+  const participations=historyRows.filter(r=>["finished","incomplete"].includes(String(r.status||"").toLowerCase())).length;
+  const finished=historyRows.filter(r=>String(r.status||"").toLowerCase()==="finished").length;
+  const incomplete=historyRows.filter(r=>String(r.status||"").toLowerCase()==="incomplete").length;
+  const km=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.trackDistanceM||0)),0)/1000;
+  const controls=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.controlDetectedCount||r.completedControlCount||0)),0);
+  const penalty=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.penaltyMs||0)),0);
+  const discarded=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.discardedControlCount||0)),0);
+  const completionBase=finished+incomplete,completion=completionBase?Math.round((finished/completionBase)*100):0;
+  setProfileStat(els.profileParticipations,participations);setProfileStat(els.profileFinished,finished);setProfileStat(els.profileKm,km?km.toFixed(km>=100?0:1):"0");setProfileStat(els.profileControls,controls);setProfileStat(els.profilePenalty,formatPenalty(penalty));setProfileStat(els.profileDiscarded,discarded);setProfileStat(els.profileCompletion,`${completion}%`);
+  hydrateBestRank();
+}
+async function hydrateBestRank(){
+  if(!els.profileBestRank||!functions)return;els.profileBestRank.textContent="Calculando…";
+  const rows=historyRows.filter(r=>["finished","incomplete"].includes(String(r.status||"").toLowerCase())&&r.eventId).slice(0,12);
+  if(!rows.length){els.profileBestRank.textContent="—";return;}
+  let best=null;
+  const settled=await Promise.allSettled(rows.map(r=>getClassification(r.eventId)));
+  for(const item of settled){if(item.status!=="fulfilled")continue;const my=item.value?.my,rank=Number(my?.generalRank);if(Number.isFinite(rank)&&rank>0&&(!best||rank<best.rank))best={rank,count:my.generalRankedCount||my.generalCount||"—"};}
+  els.profileBestRank.textContent=best?`${best.rank}º de ${best.count}`:"Sin puesto";
 }
 
 async function loadEvents(app){
@@ -175,7 +201,7 @@ async function loadEvents(app){
     const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
     activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase()));
     historyRows=Array.isArray(historyResult?.data?.results)?historyResult.data.results:[];
-    renderActiveEvents(activeRows);renderHistory(true);renderDashboard();
+    renderActiveEvents(activeRows);renderHistory(true);renderDashboard();renderProfileStats();
     const total=activeRows.length+historyRows.length;
     if(total)setStatus(`${activeRows.length} activa${activeRows.length===1?"":"s"} · ${historyRows.length} en histórico`,`ok`);else setStatus("No encontramos carreras asociadas a esta cuenta.","ok");
   }catch(error){console.error("[MILITOPO runner events]",error);const code=String(error?.code||""),msg=String(error?.message||"No se pudieron consultar tus carreras.");setStatus(`${msg}${code?` (${code})`:""}`,"err");if(els.retry)els.retry.style.display="block";}
@@ -193,5 +219,6 @@ document.addEventListener("keydown",event=>{if(event.key==="Escape")closeResultM
 document.querySelectorAll("[data-runner-tab]").forEach(button=>button.addEventListener("click",()=>setMainTab(button.dataset.runnerTab||"home")));
 document.querySelectorAll("[data-go-tab]").forEach(button=>button.addEventListener("click",()=>setMainTab(button.dataset.goTab||"home")));
 document.querySelectorAll("[data-race-tab]").forEach(button=>button.addEventListener("click",()=>setRaceTab(button.dataset.raceTab)));
+document.querySelectorAll("[data-profile-tab]").forEach(button=>button.addEventListener("click",()=>{const tab=button.dataset.profileTab||"summary";document.querySelectorAll("[data-profile-tab]").forEach(b=>b.classList.toggle("is-active",b===button));document.querySelectorAll("[data-profile-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.profilePanel===tab));}));
 
 boot();
