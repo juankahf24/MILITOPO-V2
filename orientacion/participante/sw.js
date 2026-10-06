@@ -1,12 +1,12 @@
-/* MILITOPO Participante · R5D Perfil y estadísticas profesionales 20261006.
+/* MILITOPO Participante · R5E.2 Invitaciones aceptar/rechazar 20261006.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r5d-perfil-estadisticas-20261006";
+const CACHE_NAME="militopo-v2-participante-r5e2-invitaciones-aceptar-rechazar-20261006";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./icons/participante-192.png","./icons/participante-512.png","./icons/apple-touch-icon.png",
-  "./runner-home-v4.js?v=v2-r5d-perfil-estadisticas-20261006",
-  "../assets/r1/militopo-compass-r2k.png?v=r5d-runner-profile-20261006",
-  "../../js/v2/firebase-config.js","../../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005","../../js/v2/live/runner-session-v2.js"
+  "./runner-home-v4.js?v=v2-r5e2-invitaciones-aceptar-rechazar-20261006",
+  "../assets/r1/militopo-compass-r2k.png?v=r5e2-runner-invitaciones-20261006",
+  "../../js/v2/firebase-config.js","../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006","../../js/v2/live/runner-session-v2.js"
 ];
 self.addEventListener("install",event=>{event.waitUntil((async()=>{const cache=await caches.open(CACHE_NAME);await Promise.allSettled(APP_SHELL.map(url=>cache.add(new Request(url,{cache:"reload"}))));})());});
 self.addEventListener("activate",event=>{event.waitUntil((async()=>{const names=await caches.keys();await Promise.all(names.filter(name=>name.startsWith("militopo-v2-participante-")&&name!==CACHE_NAME).map(name=>caches.delete(name)));await self.clients.claim();})());});

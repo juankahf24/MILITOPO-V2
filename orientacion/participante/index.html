@@ -51,7 +51,7 @@
     .dashboard-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.dash-stat{min-width:0;padding:10px 8px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.035)}.dash-stat small{display:block;color:#7f8f82;font-size:.44rem;font-weight:950;letter-spacing:.09em;white-space:nowrap}.dash-stat strong{display:block;margin-top:5px;font-size:.88rem;line-height:1;color:#f2f2e7;overflow:hidden;text-overflow:ellipsis}.dashboard-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.dashboard-action{min-height:50px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:#1c2a20;color:#edf2e7;text-align:left;padding:9px 11px}.dashboard-action strong{display:block;font-size:.65rem}.dashboard-action span{display:block;margin-top:3px;color:#89978c;font-size:.52rem}
 
     /* Carreras */
-    .race-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:7px 0 9px}.race-tabs button{min-height:43px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:#1d2a20;color:#aeb9af;font-weight:950;font-size:.61rem;letter-spacing:.04em}.race-tabs button span{display:inline-grid;place-items:center;min-width:21px;height:21px;margin-left:6px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.07);font-size:.55rem}.race-tabs button.is-active{background:#edf0df;color:#132016;border-color:#edf0df}.race-tabs button.is-active span{background:#32643a;color:#f1ffed}.race-panel{display:none}.race-panel.is-active{display:block}.events{display:grid;gap:8px}
+    .race-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:7px 0 9px}.race-tabs button{min-width:0;min-height:43px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:#1d2a20;color:#aeb9af;font-weight:950;font-size:.61rem;letter-spacing:.04em}.race-tabs button span{display:inline-grid;place-items:center;min-width:21px;height:21px;margin-left:6px;padding:0 6px;border-radius:999px;background:rgba(255,255,255,.07);font-size:.55rem}.race-tabs button.is-active{background:#edf0df;color:#132016;border-color:#edf0df}.race-tabs button.is-active span{background:#32643a;color:#f1ffed}.race-panel{display:none}.race-panel.is-active{display:block}.events{display:grid;gap:8px}
     .event{position:relative;overflow:hidden;padding:12px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:linear-gradient(145deg,#1b2920,#132018)}.event::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:#65736a}.event[data-state="live"]::before{background:#e36f51}.event[data-state="published"]::before{background:#71bf70}.event[data-state="finished"]::before{background:#d6bb72}.event[data-state="incomplete"]::before{background:#d88a52}.event[data-state="not_started"]::before{background:#6f7a72}.event-top{display:flex;align-items:flex-start;justify-content:space-between;gap:9px}.event-title-wrap{min-width:0}.event-title{display:block;font-size:.88rem;font-weight:950;line-height:1.08;overflow-wrap:anywhere}.event-date{display:block;margin-top:4px;color:#87958a;font-size:.54rem;font-weight:800}.pill{flex:0 0 auto;display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:#293b2d;color:#e4f4dc;font-size:.52rem;font-weight:950;letter-spacing:.045em}.pill.live{background:#7b3529;color:#fff1eb}.pill.finished{background:#66572f;color:#fff6ce}.pill.incomplete{background:#65432b;color:#ffe5cf}.pill.not_started{background:#303b33;color:#d4dbd5}
     .assignment{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.assignment span{padding:5px 7px;border-radius:9px;background:rgba(255,255,255,.045);color:#c3cec4;font-size:.55rem;font-weight:900}.event .btn{width:100%;margin-top:9px}
     .waiting{margin-top:9px;padding:8px 9px;border-radius:11px;background:rgba(255,255,255,.035);color:#aab6ac;font-size:.61rem;line-height:1.35}
@@ -72,6 +72,12 @@
     .profile-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0}.profile-tabs button{min-height:42px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:#1c2a20;color:#aeb9af;font-size:.58rem;font-weight:950;letter-spacing:.05em}.profile-tabs button.is-active{background:#edf0df;color:#132016;border-color:#edf0df}.profile-panel{display:none}.profile-panel.is-active{display:block}
     .profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.profile-stat{min-width:0;padding:11px;border:1px solid rgba(255,255,255,.07);border-radius:13px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018))}.profile-stat small{display:block;color:#829087;font-size:.45rem;font-weight:950;letter-spacing:.09em}.profile-stat strong{display:block;margin-top:5px;font-size:.88rem;color:#f2f5e9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-stat.highlight{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,rgba(216,189,112,.13),rgba(216,189,112,.05));border-color:rgba(216,189,112,.18)}.profile-stat.highlight strong{margin:0;color:#ffeab0;font-size:1rem}.profile-section-note{margin-top:8px;color:#7f8d82;font-size:.55rem;line-height:1.4}.profile-account-card{padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.025)}
 
+    /* R5E · invitaciones + ficha previa de carrera */
+    .race-tabs button{padding:7px 4px;font-size:clamp(.47rem,2.1vw,.61rem);overflow:hidden;text-overflow:ellipsis}.race-tabs button span{vertical-align:middle}
+    .invite-event{border-color:rgba(214,187,114,.22)!important;background:linear-gradient(145deg,rgba(71,61,31,.34),#142019)!important}.invite-event::before{background:var(--gold)!important}.pill.invite{background:#67572c;color:#fff0b9}.invite-copy{margin-top:9px;padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.035);color:#aebaae;font-size:.57rem;line-height:1.35}.invite-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.invite-actions .btn{margin:0!important;min-height:48px;border-radius:13px;font-size:.62rem;letter-spacing:.055em}.invite-actions .invite-accept{background:linear-gradient(180deg,#52b86a,#2d7e43)!important;color:#f5fff3!important;border-color:rgba(129,244,153,.42)!important;box-shadow:0 8px 20px rgba(29,105,52,.20)}.invite-actions .invite-reject{background:linear-gradient(180deg,#b84f4a,#7d2f2c)!important;color:#fff3f1!important;border-color:rgba(255,141,134,.36)!important;box-shadow:0 8px 20px rgba(105,33,30,.18)}.invite-actions .btn:disabled{filter:saturate(.55);opacity:.55}
+    .race-summary{margin-top:8px;color:#9eaba0;font-size:.56rem;font-weight:800;line-height:1.35}.event-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.event-actions .btn{margin-top:0!important}.event-actions .btn:only-child{grid-column:1/-1}
+    .race-detail-status{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 11px;border:1px solid rgba(255,255,255,.07);border-radius:13px;background:rgba(255,255,255,.025)}.race-detail-status>strong{font-size:.62rem;letter-spacing:.055em;color:#e9efe5;text-align:right}.race-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:9px}.race-mini{min-width:0;padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.03)}.race-mini small{display:block;color:#839087;font-size:.44rem;font-weight:950;letter-spacing:.08em}.race-mini strong{display:block;margin-top:5px;color:#f0f3e9;font-size:.77rem;overflow:hidden;text-overflow:ellipsis}.route-sequence{margin-top:9px;padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:13px;background:#101b13}.route-sequence>small{display:block;color:#87958a;font-size:.45rem;font-weight:950;letter-spacing:.10em;margin-bottom:7px}.route-sequence>div{display:flex;flex-wrap:wrap;gap:5px}.route-sequence span{padding:5px 7px;border-radius:8px;background:#26362a;color:#e8eee4;font-size:.52rem;font-weight:900}.race-detail-action{margin-top:10px}.race-detail-action .btn{width:100%}
+    .runner-nav-badge{display:inline-grid!important;place-items:center;min-width:18px!important;height:18px!important;margin-left:4px!important;padding:0 5px!important;border-radius:999px!important;background:#806a31!important;color:#fff1bd!important;font-size:.48rem!important;font-weight:950!important}
     @media(max-width:520px){
       .runner-head{grid-template-columns:64px minmax(0,1fr) auto;gap:9px;min-height:80px;border-radius:20px;padding:8px 9px 8px 8px}.runner-logo{width:64px;height:64px}.runner-logo img{width:61px;height:61px}.brand h1{font-size:1.08rem;letter-spacing:.13em}.brand small{display:none}.runner-account{min-width:82px}.runner-user{max-width:95px;font-size:.62rem}.runner-handle{max-width:95px}.online{min-width:82px;padding:5px 7px;font-size:.45rem}.runner-tabs button{min-height:51px;font-size:.56rem}.panel-shell{padding:9px}.dashboard-stats{grid-template-columns:1fr 1fr}.hero-title{font-size:1.12rem}.history-metrics{grid-template-columns:repeat(3,1fr)}.account-actions{grid-template-columns:1fr}.result-modal{padding-left:6px;padding-right:6px}.result-sheet{border-radius:20px 20px 12px 12px}}
     @media(max-width:365px){.runner-head{grid-template-columns:58px minmax(0,1fr) 78px}.runner-logo{width:58px;height:58px}.runner-logo img{width:55px;height:55px}.brand h1{font-size:.96rem}.runner-user{max-width:76px}.online{min-width:76px}.history-metrics{grid-template-columns:1fr 1fr}}
@@ -81,7 +87,7 @@
 <body>
   <main class="runner-home">
     <header class="runner-head">
-      <div class="runner-logo"><img src="../assets/r1/militopo-compass-r2k.png?v=r5d-runner-profile-20261006" alt="MILITOPO"></div>
+      <div class="runner-logo"><img src="../assets/r1/militopo-compass-r2k.png?v=r5e2-runner-invitaciones-20261006" alt="MILITOPO"></div>
       <div class="brand"><h1>MILITOPO</h1><small>Orientación · GPS · Offline</small></div>
       <div class="runner-account">
         <strong class="runner-user" id="rhHeaderUser">Cargando…</strong>
@@ -114,7 +120,7 @@
           <div class="dash-stat"><small>KM REGISTRADOS</small><strong id="rhDashKm">—</strong></div>
         </div>
         <div class="dashboard-actions">
-          <button class="dashboard-action" type="button" data-go-tab="races"><strong>VER MIS CARRERAS</strong><span>Activas e histórico</span></button>
+          <button class="dashboard-action" type="button" data-go-tab="races"><strong>VER MIS CARRERAS</strong><span>Activas, invitaciones e histórico</span></button>
           <button class="dashboard-action" type="button" data-go-tab="profile"><strong>MI PERFIL</strong><span>Cuenta y sesión</span></button>
         </div>
       </div>
@@ -126,9 +132,11 @@
         <div class="status" id="rhStatus">Preparando tus carreras…</div>
         <nav class="race-tabs" aria-label="Carreras del corredor">
           <button type="button" class="is-active" data-race-tab="active">ACTIVAS <span id="rhActiveCount">0</span></button>
+          <button type="button" data-race-tab="invites">INVITACIONES <span id="rhInviteCount">0</span></button>
           <button type="button" data-race-tab="history">HISTÓRICO <span id="rhHistoryCount">0</span></button>
         </nav>
         <div class="race-panel is-active" data-race-panel="active"><div class="events" id="rhActiveEvents"></div></div>
+        <div class="race-panel" data-race-panel="invites"><div class="events" id="rhInviteEvents"><div class="empty-card"><strong>Comprobando invitaciones…</strong><span>Sincronizando en tiempo real.</span></div></div></div>
         <div class="race-panel" data-race-panel="history">
           <div class="events" id="rhHistoryEvents"></div>
           <button class="btn secondary load-more" id="rhHistoryMore" type="button" style="display:none">MOSTRAR MÁS RESULTADOS</button>
@@ -181,7 +189,15 @@
     </section>
   </div>
 
+  <div class="result-modal" id="rhRaceModal" aria-hidden="true">
+    <section class="result-sheet" role="dialog" aria-modal="true" aria-labelledby="rhRaceTitle">
+      <header class="result-sheet-head"><div><small>DETALLES DE CARRERA</small><strong id="rhRaceTitle">Carrera</strong></div><button class="modal-close" id="rhRaceClose" type="button" aria-label="Cerrar">×</button></header>
+      <div class="result-sheet-body" id="rhRaceBody"><div class="status">Cargando carrera…</div></div>
+    </section>
+  </div>
+
   <script src="../../js/v2/firebase-config.js"></script>
+  <script src="../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006"></script>
   <script>
     window.__MILITOPO_RUNNER_HOME_V4_BOOTED=false;
     window.__MILITOPO_RUNNER_HOME_V4_WATCHDOG=setTimeout(function(){
@@ -193,7 +209,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r5d-perfil-estadisticas-20261006"></script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r5e2-invitaciones-aceptar-rechazar-20261006"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>

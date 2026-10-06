@@ -1,13 +1,13 @@
-/* MILITOPO V2 · R5D · Perfil y estadísticas profesionales del corredor. */
+/* MILITOPO V2 · R5E · Invitaciones, ficha previa y acceso competitivo del corredor. */
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
   onAuthStateChanged,signOut
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r5d-perfil-estadisticas-20261006";
+const VERSION="v2-r5e2-invitaciones-aceptar-rechazar-20261006";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -23,11 +23,14 @@ const els={
   headerUser:document.getElementById("rhHeaderUser"),headerHandle:document.getElementById("rhHeaderHandle"),hero:document.getElementById("rhDashboardHero"),
   dashActive:document.getElementById("rhDashActive"),dashFinished:document.getElementById("rhDashFinished"),dashTotal:document.getElementById("rhDashTotal"),dashKm:document.getElementById("rhDashKm"),
   historyMore:document.getElementById("rhHistoryMore"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose"),
+  inviteEvents:document.getElementById("rhInviteEvents"),inviteCount:document.getElementById("rhInviteCount"),
+  raceModal:document.getElementById("rhRaceModal"),raceTitle:document.getElementById("rhRaceTitle"),raceBody:document.getElementById("rhRaceBody"),raceClose:document.getElementById("rhRaceClose"),
   profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank")
 };
 
 let auth=null,currentUser=null,profile=null,currentRaceTab="active",currentMainTab="home";
-let functions=null,historyRows=[],activeRows=[],historyVisible=HISTORY_PAGE;
+let functions=null,historyRows=[],activeRows=[],inviteRows=[],historyVisible=HISTORY_PAGE,inviteBusy=false;
+let inviteUnsubs=[],inviteEmailRows=new Map(),inviteUidRows=new Map();
 const classificationCache=new Map();
 
 function text(el,v){if(el)el.textContent=String(v??"");}
@@ -66,7 +69,7 @@ function setMainTab(tab){
   window.scrollTo({top:0,behavior:"auto"});
 }
 function setRaceTab(tab){
-  currentRaceTab=tab==="history"?"history":"active";
+  currentRaceTab=["active","invites","history"].includes(tab)?tab:"active";
   document.querySelectorAll("[data-race-tab]").forEach(btn=>btn.classList.toggle("is-active",btn.dataset.raceTab===currentRaceTab));
   document.querySelectorAll("[data-race-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.racePanel===currentRaceTab));
   if(currentRaceTab==="history")hydrateVisibleRanks();
@@ -74,16 +77,81 @@ function setRaceTab(tab){
 
 function enterRace(eventId){const id=String(eventId||"");if(!id)return;const url=new URL("runner.html",location.href);url.searchParams.set("app","1");url.searchParams.set("event",id);location.href=url.href;}
 
+function routeMetric(ev,label,value){return value?`<div class="race-mini"><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`:"";}
+function activeRaceDetails(ev){
+  const distance=Number(ev.routeDistanceKm),positive=Number(ev.routePositiveM),controls=Math.max(0,Number(ev.routeControlCount||0));
+  return [
+    routeMetric(ev,"PLAZA",ev.participantId||"—"),routeMetric(ev,"RECORRIDO",ev.routeId||"—"),
+    routeMetric(ev,"DISTANCIA",Number.isFinite(distance)&&distance>0?`${distance.toFixed(2)} km`:""),
+    routeMetric(ev,"DESNIVEL +",Number.isFinite(positive)&&positive>=0?`${Math.round(positive)} m`:""),
+    routeMetric(ev,"CONTROLES",controls?String(controls):""),routeMetric(ev,"DIFICULTAD",ev.routeDifficulty||"")
+  ].join("");
+}
+function openRaceDetail(ev){
+  if(!ev||!els.raceModal)return;text(els.raceTitle,ev.eventName||"Carrera");
+  const state=String(ev.status||"").toLowerCase(),live=state==="live"&&String(ev.liveRunId||"").trim();
+  const points=Array.isArray(ev.routePoints)?ev.routePoints.filter(Boolean):[];
+  els.raceBody.innerHTML=`<div class="race-detail-status"><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span><strong>${live?"LISTA PARA COMPETIR":"PLAZA CONFIRMADA"}</strong></div><div class="race-detail-grid">${activeRaceDetails(ev)||'<div class="empty-card"><strong>Asignación confirmada</strong><span>La organización completará los datos del recorrido.</span></div>'}</div>${points.length?`<div class="route-sequence"><small>SECUENCIA DE CONTROLES</small><div>${points.map(p=>`<span>${esc(p)}</span>`).join("")}</div></div>`:""}<div class="race-detail-action">${live?`<button class="btn primary" type="button" data-modal-enter="${esc(ev.eventId)}">ENTRAR EN LA CARRERA</button>`:`<div class="waiting">El acceso a competición se habilitará cuando la organización ponga la carrera EN DIRECTO.</div>`}</div>`;
+  els.raceModal.classList.add("is-open");els.raceModal.setAttribute("aria-hidden","false");
+  els.raceBody.querySelector("[data-modal-enter]")?.addEventListener("click",()=>enterRace(ev.eventId));
+}
+function closeRaceModal(){els.raceModal?.classList.remove("is-open");els.raceModal?.setAttribute("aria-hidden","true");}
+
 function renderActiveEvents(events){
   const list=els.activeEvents;if(!list)return;list.innerHTML="";text(els.activeCount,events.length);
   if(!events.length){list.innerHTML='<div class="empty-card"><strong>Sin carreras activas</strong><span>Cuando una carrera esté PUBLICADA o EN DIRECTO aparecerá aquí.</span></div>';return;}
   list.innerHTML=events.map(ev=>{
     const state=String(ev.status||"").toLowerCase(),live=state==="live"&&String(ev.liveRunId||"").trim();
     const assignment=[ev.participantId,ev.routeId].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("");
-    const action=live?`<button class="btn primary" type="button" data-enter-event="${esc(ev.eventId)}">ENTRAR EN LA CARRERA</button>`:`<div class="waiting">Tu plaza está preparada. El acceso se habilitará cuando la organización inicie la carrera.</div>`;
-    return `<article class="event" data-state="${esc(stateClass(state))}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(ev.eventName||"Carrera")}</strong><span class="event-date">${state==="live"?"Carrera en curso":"Esperando inicio"}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div>${assignment?`<div class="assignment">${assignment}</div>`:""}${action}</article>`;
+    const summary=[Number(ev.routeDistanceKm)>0?`${Number(ev.routeDistanceKm).toFixed(2)} km`:"",Number(ev.routePositiveM)>=0&&ev.routePositiveM!==null?`+${Math.round(Number(ev.routePositiveM))} m`:"",ev.routeControlCount?`${ev.routeControlCount} controles`:""].filter(Boolean).join(" · ");
+    const actions=`<div class="event-actions"><button class="btn secondary" type="button" data-active-detail="${esc(ev.eventId)}">VER DETALLES</button>${live?`<button class="btn primary" type="button" data-enter-event="${esc(ev.eventId)}">ENTRAR</button>`:""}</div>`;
+    return `<article class="event" data-state="${esc(stateClass(state))}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(ev.eventName||"Carrera")}</strong><span class="event-date">${state==="live"?"Carrera en curso":"Esperando inicio"}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div>${assignment?`<div class="assignment">${assignment}</div>`:""}${summary?`<div class="race-summary">${esc(summary)}</div>`:""}${!live?'<div class="waiting">Tu plaza está confirmada. Consulta tu recorrido mientras esperas el inicio.</div>':""}${actions}</article>`;
   }).join("");
   list.querySelectorAll("[data-enter-event]").forEach(btn=>btn.addEventListener("click",()=>enterRace(btn.dataset.enterEvent)));
+  list.querySelectorAll("[data-active-detail]").forEach(btn=>btn.addEventListener("click",()=>{const ev=events.find(row=>String(row.eventId)===String(btn.dataset.activeDetail));if(ev)openRaceDetail(ev);}));
+}
+
+function stopInvitationRealtime(){for(const unsub of inviteUnsubs.splice(0)){try{unsub?.();}catch(_){}}inviteEmailRows.clear();inviteUidRows.clear();}
+function mergeInvitationRows(){
+  const merged=new Map([...inviteEmailRows,...inviteUidRows]);inviteRows=[...merged.values()].filter(row=>String(row.status||"pending").toLowerCase()==="pending");
+  inviteRows.sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));renderInvitations();renderDashboard();
+}
+function invitationMap(snap){const map=new Map();snap.forEach(d=>{const row=d.data()||{};if(String(row.status||"pending").toLowerCase()==="pending")map.set(d.id,{id:d.id,...row});});return map;}
+function renderInvitations(){
+  text(els.inviteCount,inviteRows.length);if(!els.inviteEvents)return;
+  if(!inviteRows.length){els.inviteEvents.innerHTML='<div class="empty-card"><strong>Sin invitaciones pendientes</strong><span>Las nuevas invitaciones aparecerán aquí en tiempo real.</span></div>';return;}
+  els.inviteEvents.innerHTML=inviteRows.map(row=>`<article class="event invite-event"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(row.eventName||"Carrera de orientación")}</strong><span class="event-date">Invitación para ${esc(row.targetUsername?`@${row.targetUsername}`:(row.targetEmail||currentUser?.email||"tu cuenta"))}</span></div><span class="pill invite">INVITACIÓN</span></div><div class="invite-copy">Confirma si quieres participar. Si aceptas, MILITOPO te asignará automáticamente tu plaza y recorrido.</div><div class="invite-actions"><button class="btn invite-accept" type="button" data-accept-invite="${esc(row.id)}" ${inviteBusy?"disabled":""}>ACEPTAR</button><button class="btn invite-reject" type="button" data-reject-invite="${esc(row.id)}" ${inviteBusy?"disabled":""}>RECHAZAR</button></div></article>`).join("");
+  els.inviteEvents.querySelectorAll("[data-accept-invite]").forEach(btn=>btn.addEventListener("click",()=>acceptInvitation(btn.dataset.acceptInvite)));
+  els.inviteEvents.querySelectorAll("[data-reject-invite]").forEach(btn=>btn.addEventListener("click",()=>rejectInvitation(btn.dataset.rejectInvite)));
+}
+function startInvitationRealtime(app){
+  stopInvitationRealtime();if(!currentUser?.uid||!currentUser?.email)return;const db=getFirestore(app),email=String(currentUser.email||"").trim().toLowerCase(),uid=String(currentUser.uid||"");
+  const onError=error=>{console.warn("[MILITOPO runner invitations]",error);};
+  inviteUnsubs.push(onSnapshot(query(collection(db,"invitations"),where("targetEmail","==",email)),snap=>{inviteEmailRows=invitationMap(snap);mergeInvitationRows();},onError));
+  inviteUnsubs.push(onSnapshot(query(collection(db,"invitations"),where("targetUid","==",uid)),snap=>{inviteUidRows=invitationMap(snap);mergeInvitationRows();},onError));
+}
+async function acceptInvitation(invitationId){
+  if(inviteBusy||!invitationId||!functions)return;const row=inviteRows.find(item=>String(item.id)===String(invitationId));
+  const confirmed=globalThis.MILITOPO_CONFIRM?await globalThis.MILITOPO_CONFIRM(`Vas a unirte a ${row?.eventName||"esta carrera"}. MILITOPO te asignará automáticamente una plaza y un recorrido.`,{title:"ACEPTAR INVITACIÓN",confirmText:"UNIRME"}):true;
+  if(!confirmed)return;inviteBusy=true;renderInvitations();
+  try{setStatus("Asignando tu plaza y recorrido…");const call=httpsCallable(functions,"acceptInvitationV2"),response=await call({invitationId,clientVersion:VERSION}),data=response?.data||{};setStatus(`Te has unido correctamente${data.routeId?` · ${data.routeId}`:""}.`,"ok");const app=findApp();if(app)await loadEvents(app);setMainTab("races");setRaceTab("active");}
+  catch(error){console.error("[MILITOPO runner accept invitation]",error);setStatus(`No se pudo aceptar la invitación. ${String(error?.message||"")}`,"err");}
+  finally{inviteBusy=false;renderInvitations();}
+}
+async function rejectInvitation(invitationId){
+  if(inviteBusy||!invitationId||!currentUser?.uid)return;
+  const row=inviteRows.find(item=>String(item.id)===String(invitationId));
+  const confirmed=globalThis.MILITOPO_CONFIRM?await globalThis.MILITOPO_CONFIRM(`Vas a rechazar la invitación a ${row?.eventName||"esta carrera"}. El organizador verá que la has rechazado.`,{title:"RECHAZAR INVITACIÓN",confirmText:"RECHAZAR",danger:true}):true;
+  if(!confirmed)return;
+  inviteBusy=true;renderInvitations();
+  try{
+    const app=findApp();if(!app)throw new Error("Firebase no está disponible.");
+    const db=getFirestore(app);
+    await updateDoc(doc(db,"invitations",invitationId),{status:"declined",declinedAt:serverTimestamp(),declinedBy:String(currentUser.uid),updatedAt:serverTimestamp()});
+    setStatus("Invitación rechazada. El organizador ha recibido tu respuesta.","ok");
+    renderDashboard();
+  }catch(error){console.error("[MILITOPO runner reject invitation]",error);setStatus(`No se pudo rechazar la invitación. ${String(error?.message||"")}`,"err");}
+  finally{inviteBusy=false;renderInvitations();}
 }
 
 function historyCard(row){
@@ -137,9 +205,10 @@ async function hydrateVisibleRanks(){
 function renderDashboard(){
   const total=historyRows.length,finished=historyRows.filter(r=>String(r.status||"").toLowerCase()==="finished").length,totalKm=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.trackDistanceM||0)),0)/1000;
   text(els.dashActive,activeRows.length);text(els.dashFinished,finished);text(els.dashTotal,total);text(els.dashKm,totalKm>0?totalKm.toFixed(totalKm>=100?0:1):"0");
-  const live=activeRows.find(r=>String(r.status||"").toLowerCase()==="live"&&String(r.liveRunId||"").trim()),published=activeRows.find(r=>String(r.status||"").toLowerCase()==="published"),latest=historyRows[0];
+  const live=activeRows.find(r=>String(r.status||"").toLowerCase()==="live"&&String(r.liveRunId||"").trim()),published=activeRows.find(r=>String(r.status||"").toLowerCase()==="published"),invite=inviteRows[0],latest=historyRows[0];
   if(live){els.hero.innerHTML=`<div><div class="hero-kicker">CARRERA EN DIRECTO</div><h2 class="hero-title">${esc(live.eventName||"Carrera")}</h2><div class="hero-sub">${esc([live.participantId,live.routeId].filter(Boolean).join(" · ")||"Tu carrera está lista")}</div></div><div class="hero-footer"><span class="hero-badge live">● EN DIRECTO</span><button class="hero-btn" type="button" data-hero-enter="${esc(live.eventId)}">ENTRAR</button></div>`;els.hero.querySelector("[data-hero-enter]")?.addEventListener("click",()=>enterRace(live.eventId));return;}
   if(published){els.hero.innerHTML=`<div><div class="hero-kicker">PRÓXIMA CARRERA</div><h2 class="hero-title">${esc(published.eventName||"Carrera")}</h2><div class="hero-sub">${esc([published.participantId,published.routeId].filter(Boolean).join(" · ")||"Tu plaza está confirmada")}. Esperando el inicio de la organización.</div></div><div class="hero-footer"><span class="hero-badge published">PUBLICADA</span><button class="hero-btn" type="button" data-hero-races>VER CARRERAS</button></div>`;els.hero.querySelector("[data-hero-races]")?.addEventListener("click",()=>{setMainTab("races");setRaceTab("active");});return;}
+  if(invite){els.hero.innerHTML=`<div><div class="hero-kicker">NUEVA INVITACIÓN</div><h2 class="hero-title">${esc(invite.eventName||"Carrera")}</h2><div class="hero-sub">Tienes una invitación pendiente. Al aceptarla MILITOPO te asignará una plaza y un recorrido.</div></div><div class="hero-footer"><span class="hero-badge published">INVITACIÓN</span><button class="hero-btn" type="button" data-hero-invite>REVISAR</button></div>`;els.hero.querySelector("[data-hero-invite]")?.addEventListener("click",()=>{setMainTab("races");setRaceTab("invites");});return;}
   if(latest){const state=String(latest.status||"").toLowerCase(),official=latest.officialDurationMs==null?"":formatDuration(latest.officialDurationMs);els.hero.innerHTML=`<div><div class="hero-kicker">ÚLTIMO RESULTADO</div><h2 class="hero-title">${esc(latest.eventName||"Carrera")}</h2><div class="hero-sub">${esc(statusES(state))}${official?` · Tiempo oficial ${esc(official)}`:""}${Number(latest.trackDistanceM||0)>0?` · ${esc(formatKm(latest.trackDistanceM))}`:""}</div></div><div class="hero-footer"><span class="hero-badge">${esc(formatDate(latest.finishedAtMs||latest.startedAtMs||latest.consolidatedAtMs)||"HISTÓRICO")}</span><button class="hero-btn" type="button" data-hero-history>VER RESULTADO</button></div>`;els.hero.querySelector("[data-hero-history]")?.addEventListener("click",()=>{setMainTab("races");setRaceTab("history");});return;}
   els.hero.innerHTML='<div><div class="hero-kicker">MILITOPO</div><h2 class="hero-title">Tu próxima carrera aparecerá aquí</h2><div class="hero-sub">Cuando aceptes una invitación publicada, tendrás acceso desde esta pantalla.</div></div><div class="hero-footer"><span class="hero-badge">SIN CARRERAS</span></div>';
 }
@@ -207,15 +276,17 @@ async function loadEvents(app){
   }catch(error){console.error("[MILITOPO runner events]",error);const code=String(error?.code||""),msg=String(error?.message||"No se pudieron consultar tus carreras.");setStatus(`${msg}${code?` (${code})`:""}`,"err");if(els.retry)els.retry.style.display="block";}
 }
 
-async function boot(){try{const app=initFirebase(),user=await waitForUser();if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");currentUser=user;if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");await loadProfile(app,user);await loadEvents(app);}catch(error){console.error("[MILITOPO runner boot]",error);text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}}
+async function boot(){try{const app=initFirebase(),user=await waitForUser();if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");currentUser=user;if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");await loadProfile(app,user);startInvitationRealtime(app);await loadEvents(app);}catch(error){console.error("[MILITOPO runner boot]",error);text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}}
 
 els.detailsBtn?.addEventListener("click",()=>{els.details?.classList.toggle("show");if(els.detailsBtn)els.detailsBtn.textContent=els.details?.classList.contains("show")?"OCULTAR DATOS":"VER DATOS DE CUENTA";});
-els.logoutBtn?.addEventListener("click",async()=>{try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
+els.logoutBtn?.addEventListener("click",async()=>{stopInvitationRealtime();try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
 els.retry?.addEventListener("click",()=>{const app=findApp();if(app)loadEvents(app);});
 els.historyMore?.addEventListener("click",()=>{historyVisible+=HISTORY_PAGE;renderHistory(false);});
 els.resultClose?.addEventListener("click",closeResultModal);
 els.resultModal?.addEventListener("click",event=>{if(event.target===els.resultModal)closeResultModal();});
-document.addEventListener("keydown",event=>{if(event.key==="Escape")closeResultModal();});
+els.raceClose?.addEventListener("click",closeRaceModal);
+els.raceModal?.addEventListener("click",event=>{if(event.target===els.raceModal)closeRaceModal();});
+document.addEventListener("keydown",event=>{if(event.key==="Escape"){closeResultModal();closeRaceModal();}});
 document.querySelectorAll("[data-runner-tab]").forEach(button=>button.addEventListener("click",()=>setMainTab(button.dataset.runnerTab||"home")));
 document.querySelectorAll("[data-go-tab]").forEach(button=>button.addEventListener("click",()=>setMainTab(button.dataset.goTab||"home")));
 document.querySelectorAll("[data-race-tab]").forEach(button=>button.addEventListener("click",()=>setRaceTab(button.dataset.raceTab)));
