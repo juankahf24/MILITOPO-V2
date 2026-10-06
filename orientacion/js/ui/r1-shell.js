@@ -474,7 +474,7 @@
     const cap=data.capacity||0;
     const occupancy=cap?Math.min(100,Math.round((data.accepted/cap)*100)):0;
     const over=Math.max(0,data.projected-cap);
-    let tone="is-open",title="CONTROL DE PARTICIPANTES",detail="";
+    let tone="is-open",title="PARTICIPANTES E INVITACIONES",detail="";
     if(!cap){tone="is-warn";detail="Define primero el número de plazas de la carrera."}
     else if(over>0){tone="is-alert";detail=`Hay ${over} invitación${over===1?"":"es"} pendiente${over===1?"":"s"} por encima de las plazas libres.`}
     else if(data.pending>0){tone="is-warn";detail=`${data.accepted} asignada${data.accepted===1?"":"s"} · ${data.pending} pendiente${data.pending===1?"":"s"} de responder antes del inicio.`}
@@ -489,7 +489,7 @@
         <div class="${data.pending?"is-pending":""}"><strong data-r5-participant-pending>${data.pending}</strong><span>PENDIENTES</span></div>
         <div><strong data-r5-participant-free>${cap?data.free:"—"}</strong><span>LIBRES</span></div>
       </div>
-      <div class="r5-prestart-foot"><span data-r5-participant-declined>${data.declined?`${data.declined} rechazada${data.declined===1?"":"s"} por corredores`:"Sin invitaciones rechazadas"}</span><button type="button" data-r3-manager-action="participants">GESTIONAR PARTICIPANTES</button></div>
+      <div class="r5-prestart-foot"><span data-r5-participant-declined>${data.declined?`${data.declined} rechazada${data.declined===1?"":"s"} por corredores`:"Sin invitaciones rechazadas"}</span><button type="button" data-r3-manager-action="participants">ABRIR PARTICIPANTES E INVITACIONES</button></div>
     </section>`;
   }
   function refreshManagerParticipantControl(){
@@ -542,7 +542,7 @@
       <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"":"is-active"}" data-r3-manager-panel="design" role="tabpanel">
         ${readinessHtml()}
         ${participantControlHtml()}
-        <div class="r3-manager-option-label"><span>OPCIONES</span><small>Herramientas de diseño y preparación</small></div>
+        <div class="r3-manager-option-label"><span>DISEÑO Y PREPARACIÓN</span><small>Configura la carrera antes de pasar a competición</small></div>
         <div class="r3-manager-grid r3-manager-grid-compact">
           ${managerCard((designReadinessSnapshot()?.items.find(i=>i.key==="map")?.ok)?"map":"complete-map","MAPA Y BALIZAS","Salida, llegada y controles","layers","is-primary")}
           ${managerCard("config","CONFIGURACIÓN","Datos y reglas","settings")}
@@ -555,7 +555,6 @@
       <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"is-active":""}" data-r3-manager-panel="operation" role="tabpanel">
         <div class="r3-manager-option-label"><span>OPCIONES</span><small>Herramientas de competición y post-carrera</small></div>
         <div class="r3-manager-grid r3-manager-grid-compact">
-          ${managerCard("participants","PARTICIPANTES","Censo e invitaciones","users")}
           ${managerCard("live","LIVE","Seguimiento en tiempo real","live","is-live")}
           ${managerCard("results","RESULTADOS","Clasificación oficial","chart")}
           ${managerCard("analysis","ANÁLISIS","Reproductor y análisis","chart")}
