@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r5a1-auth-confirm-20261005";
+const BUILD_ID="v2-r5e2-rechazo-invitaciones-20261006";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -37,7 +37,7 @@ const CORE_ASSETS=[
   "../js/v2/auth/auth-ui.css?v=v2-r5a1-auth-layer-20261005",
   "../js/v2/auth/auth-ui.js?v=v2-r5a1-runner-routing-20261005",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
-  "../js/v2/data/invitations.js?v=v2-r5a1-confirmaciones-20261005",
+  "../js/v2/data/invitations.js?v=v2-r5e2-rechazo-corredor-20261006",
   "../js/v2/data/participants-admin.js?v=v2-r5a1-confirmaciones-20261005",
   "../js/v2/data/events.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/orientation-structure.js?v=v2-r2h-live-rules-20261003",
