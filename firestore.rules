@@ -100,6 +100,21 @@ service cloud.firestore {
              ])
              && request.resource.data.status == "revoked";
     }
+    function runnerDeclinesInvitation() {
+      let emailMatches = request.auth.token.email is string
+                         && resource.data.keys().hasAny(["targetEmail"])
+                         && resource.data.targetEmail == request.auth.token.email;
+      let uidMatches = resource.data.keys().hasAny(["targetUid"])
+                       && resource.data.targetUid == request.auth.uid;
+      return verified()
+             && resource.data.status == "pending"
+             && (emailMatches || uidMatches)
+             && request.resource.data.status == "declined"
+             && request.resource.data.declinedBy == request.auth.uid
+             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               "status", "declinedAt", "declinedBy", "updatedAt"
+             ]);
+    }
 
     function managerChangesAcceptedInvitation() {
       return verified()
@@ -280,7 +295,7 @@ service cloud.firestore {
                     && validInvitationTarget(request.resource.data)
                     && managesEvent(request.resource.data.eventId)
                     && eventDoc(request.resource.data.eventId).data.status == "published";
-      allow update: if managerRevokesInvitation() || runnerAcceptsInvitation() || managerChangesAcceptedInvitation();
+      allow update: if managerRevokesInvitation() || runnerAcceptsInvitation() || runnerDeclinesInvitation() || managerChangesAcceptedInvitation();
       allow delete: if false;
     }
 
