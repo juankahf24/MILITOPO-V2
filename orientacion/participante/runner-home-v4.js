@@ -8,7 +8,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r6a1-tiempo-real-carrera-integrada-20261006";
+const VERSION="v2-r6c-preparacion-notificaciones-historico-20261006";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -24,7 +24,8 @@ const els={
   headerUser:document.getElementById("rhHeaderUser"),headerHandle:document.getElementById("rhHeaderHandle"),hero:document.getElementById("rhDashboardHero"),
   dashActive:document.getElementById("rhDashActive"),dashFinished:document.getElementById("rhDashFinished"),dashTotal:document.getElementById("rhDashTotal"),dashKm:document.getElementById("rhDashKm"),
   historyMore:document.getElementById("rhHistoryMore"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose"),
-  inviteEvents:document.getElementById("rhInviteEvents"),inviteCount:document.getElementById("rhInviteCount"),
+  inviteEvents:document.getElementById("rhInviteEvents"),inviteCount:document.getElementById("rhInviteCount"),raceNotice:document.getElementById("rhRaceNotice"),
+  upcomingCard:document.getElementById("rhUpcomingCard"),recentCard:document.getElementById("rhRecentCard"),
   raceModal:document.getElementById("rhRaceModal"),raceTitle:document.getElementById("rhRaceTitle"),raceBody:document.getElementById("rhRaceBody"),raceClose:document.getElementById("rhRaceClose"),
   profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank"),
   network:document.querySelector(".online")
@@ -34,6 +35,8 @@ let auth=null,currentUser=null,profile=null,currentRaceTab="active",currentMainT
 let functions=null,historyRows=[],activeRows=[],inviteRows=[],historyVisible=HISTORY_PAGE,inviteBusy=false;
 let inviteUnsubs=[],inviteEmailRows=new Map(),inviteUidRows=new Map();
 let activeEventUnsubs=new Map(),activeRefreshTimer=0,activeRefreshBusy=false,lastActiveRefreshAt=0,currentApp=null;
+const completedEventIds=new Set();
+let postRaceRefreshTimer=0;
 const classificationCache=new Map();
 
 function text(el,v){if(el)el.textContent=String(v??"");}
@@ -88,6 +91,11 @@ function formatKm(m){const n=Number(m);return Number.isFinite(n)&&n>0?`${(n/1000
 function formatPenalty(ms){const n=Math.max(0,Number(ms||0));return n>0?`+${formatDuration(n)}`:"0:00";}
 function stateClass(s){const v=String(s||"").toLowerCase();return ["live","published","finished","incomplete","not_started"].includes(v)?v:"";}
 function metric(label,value){return `<div class="metric"><small>${esc(label)}</small><b>${esc(value)}</b></div>`;}
+function historyEventIdSet(){return new Set(historyRows.map(row=>String(row?.eventId||"")).filter(Boolean));}
+function inviteSeenStorageKey(){return `militopo_v2_runner_invites_seen_${String(currentUser?.uid||"guest")}`;}
+function readSeenInviteIds(){try{const raw=JSON.parse(localStorage.getItem(inviteSeenStorageKey())||"[]");return new Set(Array.isArray(raw)?raw.map(String):[]);}catch(_){return new Set();}}
+function markInvitesSeen(){if(!currentUser?.uid)return;const seen=readSeenInviteIds();inviteRows.forEach(row=>seen.add(String(row.id)));try{localStorage.setItem(inviteSeenStorageKey(),JSON.stringify([...seen].slice(-120)));}catch(_){}updateInviteNotifications();}
+function updateInviteNotifications(){const seen=readSeenInviteIds(),unseen=inviteRows.filter(row=>!seen.has(String(row.id))).length,inviteTab=document.querySelector('[data-race-tab="invites"]');if(els.raceNotice)els.raceNotice.hidden=unseen===0;inviteTab?.classList.toggle("has-notification",inviteRows.length>0);if(inviteTab)inviteTab.setAttribute("aria-label",inviteRows.length?`Invitaciones, ${inviteRows.length} pendiente${inviteRows.length===1?"":"s"}${unseen?`, ${unseen} nueva${unseen===1?"":"s"}`:""}`:"Invitaciones");}
 
 function setMainTab(tab){
   currentMainTab=["home","races","profile"].includes(tab)?tab:"home";
@@ -100,6 +108,7 @@ function setRaceTab(tab){
   document.querySelectorAll("[data-race-tab]").forEach(btn=>btn.classList.toggle("is-active",btn.dataset.raceTab===currentRaceTab));
   document.querySelectorAll("[data-race-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.racePanel===currentRaceTab));
   if(currentRaceTab==="history")hydrateVisibleRanks();
+  if(currentRaceTab==="invites")markInvitesSeen();
 }
 
 async function enterRace(eventId){
@@ -193,7 +202,8 @@ async function refreshActiveEvents(app,{silent=false}={}){
     functions=functions||getFunctions(app,REGION);const activeCall=httpsCallable(functions,"getRunnerLiveEvents");
     const activeResult=await withTimeout(activeCall({clientVersion:VERSION}),12000,"No se pudieron actualizar las carreras activas.");
     const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
-    activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase()));
+    const historical=historyEventIdSet();
+    activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase())&&!historical.has(String(ev?.eventId||""))&&!completedEventIds.has(String(ev?.eventId||"")));
     lastActiveRefreshAt=Date.now();renderActiveEvents(activeRows);renderDashboard();bindActiveEventRealtime(app);
     if(!silent)setStatus(`${activeRows.length} activa${activeRows.length===1?"":"s"} · actualización en tiempo real`,"ok");
     return activeRows;
@@ -202,11 +212,11 @@ async function refreshActiveEvents(app,{silent=false}={}){
 function stopInvitationRealtime(){for(const unsub of inviteUnsubs.splice(0)){try{unsub?.();}catch(_){}}inviteEmailRows.clear();inviteUidRows.clear();}
 function mergeInvitationRows(){
   const merged=new Map([...inviteEmailRows,...inviteUidRows]);inviteRows=[...merged.values()].filter(row=>String(row.status||"pending").toLowerCase()==="pending");
-  inviteRows.sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));renderInvitations();renderDashboard();
+  inviteRows.sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));renderInvitations();updateInviteNotifications();renderDashboard();
 }
 function invitationMap(snap){const map=new Map();snap.forEach(d=>{const row=d.data()||{};if(String(row.status||"pending").toLowerCase()==="pending")map.set(d.id,{id:d.id,...row});});return map;}
 function renderInvitations(){
-  text(els.inviteCount,inviteRows.length);if(!els.inviteEvents)return;
+  text(els.inviteCount,inviteRows.length);updateInviteNotifications();if(!els.inviteEvents)return;
   if(!inviteRows.length){els.inviteEvents.innerHTML='<div class="empty-card"><strong>Sin invitaciones pendientes</strong><span>Las nuevas invitaciones aparecerán aquí en tiempo real.</span></div>';return;}
   els.inviteEvents.innerHTML=inviteRows.map(row=>`<article class="event invite-event"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(row.eventName||"Carrera de orientación")}</strong><span class="event-date">Invitación para ${esc(row.targetUsername?`@${row.targetUsername}`:(row.targetEmail||currentUser?.email||"tu cuenta"))}</span></div><span class="pill invite">INVITACIÓN</span></div><div class="invite-copy">Confirma si quieres participar. Si aceptas, MILITOPO te asignará automáticamente tu plaza y recorrido.</div><div class="invite-actions"><button class="btn invite-accept" type="button" data-accept-invite="${esc(row.id)}" ${inviteBusy?"disabled":""}>ACEPTAR</button><button class="btn invite-reject" type="button" data-reject-invite="${esc(row.id)}" ${inviteBusy?"disabled":""}>RECHAZAR</button></div></article>`).join("");
   els.inviteEvents.querySelectorAll("[data-accept-invite]").forEach(btn=>btn.addEventListener("click",()=>acceptInvitation(btn.dataset.acceptInvite)));
@@ -293,7 +303,21 @@ async function hydrateVisibleRanks(){
   }));
 }
 
+function renderDashboardHighlights(){
+  const upcoming=activeRows.find(r=>String(r.status||"").toLowerCase()==="live")||activeRows.find(r=>String(r.status||"").toLowerCase()==="published")||null;
+  const latest=historyRows[0]||null;
+  if(els.upcomingCard){
+    if(upcoming){const live=String(upcoming.status||"").toLowerCase()==="live";els.upcomingCard.className=`dashboard-highlight ${live?"is-live":"is-upcoming"}`;els.upcomingCard.innerHTML=`<small>${live?"AHORA":"PRÓXIMA CARRERA"}</small><strong>${esc(upcoming.eventName||"Carrera")}</strong><span>${esc([statusES(upcoming.status),upcoming.participantId,upcoming.routeId].filter(Boolean).join(" · "))}</span>`;els.upcomingCard.onclick=()=>{setMainTab("races");setRaceTab("active");};}
+    else{els.upcomingCard.className="dashboard-highlight";els.upcomingCard.innerHTML='<small>PRÓXIMA CARRERA</small><strong>Sin carrera próxima</strong><span>Las carreras aceptadas y publicadas aparecerán aquí.</span>';els.upcomingCard.onclick=()=>{setMainTab("races");setRaceTab("active");};}
+  }
+  if(els.recentCard){
+    if(latest){const official=latest.officialDurationMs==null?"":formatDuration(latest.officialDurationMs);els.recentCard.className="dashboard-highlight is-recent";els.recentCard.innerHTML=`<small>ÚLTIMA CARRERA</small><strong>${esc(latest.eventName||"Carrera")}</strong><span>${esc(statusES(latest.status))}${official?` · ${esc(official)}`:""}</span>`;els.recentCard.onclick=()=>{setMainTab("races");setRaceTab("history");};}
+    else{els.recentCard.className="dashboard-highlight";els.recentCard.innerHTML='<small>ÚLTIMA CARRERA</small><strong>Sin resultados todavía</strong><span>Al finalizar una carrera aparecerá aquí automáticamente.</span>';els.recentCard.onclick=()=>{setMainTab("races");setRaceTab("history");};}
+  }
+}
+
 function renderDashboard(){
+  renderDashboardHighlights();
   const total=historyRows.length,finished=historyRows.filter(r=>String(r.status||"").toLowerCase()==="finished").length,totalKm=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.trackDistanceM||0)),0)/1000;
   text(els.dashActive,activeRows.length);text(els.dashFinished,finished);text(els.dashTotal,total);text(els.dashKm,totalKm>0?totalKm.toFixed(totalKm>=100?0:1):"0");
   const live=activeRows.find(r=>String(r.status||"").toLowerCase()==="live"&&String(r.liveRunId||"").trim()),published=activeRows.find(r=>String(r.status||"").toLowerCase()==="published"),invite=inviteRows[0],latest=historyRows[0];
@@ -359,12 +383,23 @@ async function loadEvents(app){
   try{
     const [activeResult,historyResult]=await withTimeout(Promise.all([activeCall({clientVersion:VERSION}),historyCall({clientVersion:VERSION,limit:100})]),18000,"La consulta de tus carreras tardó demasiado.");
     const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
-    activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase()));
     historyRows=Array.isArray(historyResult?.data?.results)?historyResult.data.results:[];
+    const historical=historyEventIdSet();
+    for(const eventId of historical)completedEventIds.delete(eventId);
+    activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase())&&!historical.has(String(ev?.eventId||""))&&!completedEventIds.has(String(ev?.eventId||"")));
     renderActiveEvents(activeRows);renderHistory(true);renderDashboard();renderProfileStats();bindActiveEventRealtime(app);
     const total=activeRows.length+historyRows.length;
     if(total)setStatus(`${activeRows.length} activa${activeRows.length===1?"":"s"} · ${historyRows.length} en histórico`,`ok`);else setStatus("No encontramos carreras asociadas a esta cuenta.","ok");
   }catch(error){console.error("[MILITOPO runner events]",error);const code=String(error?.code||""),msg=String(error?.message||"No se pudieron consultar tus carreras.");setStatus(`${msg}${code?` (${code})`:""}`,"err");if(els.retry)els.retry.style.display="block";}
+}
+
+function schedulePostRaceRefresh(eventId){
+  const id=String(eventId||"").trim();if(id)completedEventIds.add(id);
+  if(id){activeRows=activeRows.filter(row=>String(row.eventId||"")!==id);renderActiveEvents(activeRows);renderDashboard();if(currentApp)bindActiveEventRealtime(currentApp);}
+  if(postRaceRefreshTimer)clearTimeout(postRaceRefreshTimer);
+  let attempts=0;
+  const refresh=async()=>{attempts++;if(!currentApp)return;try{await loadEvents(currentApp);}catch(_){}const found=!id||historyRows.some(row=>String(row.eventId||"")===id);if(!found&&attempts<3)postRaceRefreshTimer=setTimeout(refresh,attempts===1?1400:2600);};
+  postRaceRefreshTimer=setTimeout(refresh,550);
 }
 
 async function boot(){try{const app=await initFirebase();currentApp=app;updateConnectivity();const user=await waitForUser();if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");currentUser=user;if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");await loadProfile(app,user);startInvitationRealtime(app);await loadEvents(app);}catch(error){console.error("[MILITOPO runner boot]",error);text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}}
@@ -382,6 +417,8 @@ document.querySelectorAll("[data-runner-tab]").forEach(button=>button.addEventLi
 document.querySelectorAll("[data-go-tab]").forEach(button=>button.addEventListener("click",()=>setMainTab(button.dataset.goTab||"home")));
 document.querySelectorAll("[data-race-tab]").forEach(button=>button.addEventListener("click",()=>setRaceTab(button.dataset.raceTab)));
 document.querySelectorAll("[data-profile-tab]").forEach(button=>button.addEventListener("click",()=>{const tab=button.dataset.profileTab||"summary";document.querySelectorAll("[data-profile-tab]").forEach(b=>b.classList.toggle("is-active",b===button));document.querySelectorAll("[data-profile-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.profilePanel===tab));}));
+window.addEventListener("militopo:v2-race-participant",event=>{const detail=event?.detail||{},status=String(detail.status||detail.participant?.status||"").toLowerCase();if(status!=="finished")return;const eventId=String(detail.event?.eventId||detail.event?.id||"");schedulePostRaceRefresh(eventId);});
+window.addEventListener("militopo:v2-runner-race-closed",event=>{const detail=event?.detail||{},status=String(detail.status||"").toLowerCase();if(status!=="finished")return;const eventId=String(detail.event?.eventId||detail.event?.id||"");schedulePostRaceRefresh(eventId);setMainTab("home");});
 window.addEventListener("online",()=>{updateConnectivity();if(currentApp)scheduleActiveRefresh(currentApp,120);});
 window.addEventListener("offline",updateConnectivity);
 window.addEventListener("focus",()=>{if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});

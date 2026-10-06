@@ -1,10 +1,10 @@
-/* MILITOPO Participante · R6B Carrera activa one-screen + GPS obligatorio + progreso 20261006.
+/* MILITOPO Participante · R6C preparación + notificaciones + histórico inmediato 20261006.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r6b-competicion-one-screen-20261006";
+const CACHE_NAME="militopo-v2-participante-r6c-preparacion-notificaciones-historico-20261006";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
-  "./runner-home-v4.js?v=v2-r6b-competicion-one-screen-20261006","./runner-live-loader.js?v=v2-r6b-competicion-one-screen-20261006",
+  "./runner-home-v4.js?v=v2-r6c-preparacion-notificaciones-historico-20261006","./runner-live-loader.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase-config.js","../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",
