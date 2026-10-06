@@ -2,8 +2,8 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2-r6a1-home-integrada-brand-20261006";
-  const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,liveBound:false,reconnectPromise:null,localArrivalAt:0,autoFinishing:false,summaryOpen:false};
+  const VERSION="v2-r6b-competicion-one-screen-gps-gate-20261006";
+  const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,liveBound:false,reconnectPromise:null,localArrivalAt:0,autoFinishing:false,summaryOpen:false,gpsPrepared:false,preStartFix:null};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
   const fmtClock=ms=>{const sec=Math.max(0,Math.floor(ms/1000)),h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return h?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;};
@@ -33,30 +33,73 @@
     .m2race-summary{position:fixed;inset:0;z-index:100150;display:none;align-items:flex-end;justify-content:center;padding:18px;background:rgba(2,7,4,.78);backdrop-filter:blur(12px)}.m2race-summary.open{display:flex}.m2race-summary-sheet{width:min(560px,100%);max-height:88vh;overflow:auto;border-radius:30px 30px 22px 22px;padding:22px;background:linear-gradient(180deg,#173321,#08160e);border:1px solid rgba(185,225,128,.25);box-shadow:0 30px 90px rgba(0,0,0,.55)}.m2race-summary-check{width:66px;height:66px;margin:0 auto 12px;display:grid;place-items:center;border-radius:22px;background:rgba(133,216,119,.14);border:1px solid rgba(133,216,119,.30);font-size:2rem}.m2race-summary h2{margin:0;text-align:center;font-size:1.45rem}.m2race-summary-sub{margin:7px 0 18px;text-align:center;color:#aab8ae;font-size:.76rem;line-height:1.4}.m2race-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.m2race-summary-stat{padding:12px;border-radius:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}.m2race-summary-stat span{display:block;font-size:.56rem;letter-spacing:.08em;color:#829287;font-weight:800}.m2race-summary-stat strong{display:block;margin-top:5px;font-size:.9rem;color:#f2f5ef}.m2race-summary-ranks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.m2race-summary-rank{padding:13px;border-radius:16px;background:rgba(231,190,91,.08);border:1px solid rgba(231,190,91,.20);text-align:center}.m2race-summary-rank span{display:block;font-size:.56rem;color:#c8b47e;letter-spacing:.08em}.m2race-summary-rank strong{display:block;margin-top:5px;font-size:1.05rem;color:#ffe4a5}.m2race-summary-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:15px}.m2race-summary-actions button{min-height:50px;border-radius:15px;font:inherit;font-weight:900}.m2race-summary-close{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff}.m2race-summary-done{border:0;background:linear-gradient(180deg,#c2e887,#91c15c);color:#10200d}
     @media(max-width:430px){.m2race-card{border-radius:21px;padding:15px}.m2race-top{grid-template-columns:42px 48px minmax(0,1fr) auto;gap:7px;padding:7px}.m2race-back{width:42px;height:42px}.m2race-logo{width:48px;height:48px;border-radius:13px}.m2race-live{padding:7px 8px}.m2race-grid{gap:8px}}
   `;document.head.appendChild(s);}
+  function installR6BStyle(){
+    if(document.getElementById("m2RaceR6BStyle"))return;
+    const st=document.createElement("style");st.id="m2RaceR6BStyle";st.textContent=`
+      #m2RaceV2{overflow:hidden!important;padding:calc(env(safe-area-inset-top,0px) + 7px) 8px calc(env(safe-area-inset-bottom,0px) + 7px)!important;background:radial-gradient(circle at 50% -12%,#183a25 0,#09180f 34%,#050b07 76%)!important}
+      #m2RaceV2 .m2race-shell{height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 14px);max-height:100%;width:min(720px,100%);display:grid!important;grid-template-rows:auto minmax(0,1fr) auto;gap:7px!important;overflow:hidden}
+      #m2RaceV2 .m2race-top{min-height:50px;grid-template-columns:38px 42px minmax(0,1fr) auto!important;gap:7px!important;padding:5px 6px!important;border-radius:15px!important}
+      #m2RaceV2 .m2race-back{width:38px;height:38px;border-radius:11px;font-size:1.08rem}
+      #m2RaceV2 .m2race-logo{width:42px;height:42px;border-radius:11px}
+      #m2RaceV2 .m2race-kicker{font-size:.50rem;letter-spacing:.14em}
+      #m2RaceV2 .m2race-title{font-size:clamp(.9rem,4vw,1.14rem);margin-top:2px}
+      #m2RaceV2 .m2race-live{padding:6px 8px;font-size:.52rem;gap:5px}.m2race-dot{width:6px;height:6px}
+      #m2RaceV2 .m2race-dashboard{min-height:0;border:1px solid rgba(215,231,208,.11);border-radius:20px;padding:10px;background:radial-gradient(circle at 80% 0,rgba(232,191,99,.09),transparent 30%),linear-gradient(180deg,rgba(22,48,30,.98),rgba(8,20,13,.99));box-shadow:0 16px 42px rgba(0,0,0,.25);display:grid;grid-template-rows:auto auto auto minmax(0,1fr);gap:7px;overflow:hidden}
+      #m2RaceV2 .m2race-hero-line{display:flex;align-items:center;justify-content:space-between;gap:8px}.m2race-identity{display:flex;align-items:center;gap:6px;min-width:0}.m2race-identity b{padding:5px 7px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:.56rem;color:#d9e5da;white-space:nowrap}.m2race-identity span{font-size:.56rem;color:#8fa091;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      #m2RaceV2 .m2race-state{padding:5px 8px!important;font-size:.55rem!important;letter-spacing:.06em!important}
+      #m2RaceV2 .m2race-clock-wrap{text-align:center;padding:0 4px}.m2race-time{font-size:clamp(2.75rem,13vw,4.45rem)!important;line-height:.94!important;margin:2px 0 0!important;color:#fff8dd;text-shadow:0 0 26px rgba(235,192,91,.12)}.m2race-time-label{font-size:.58rem!important;color:#e7c877!important;letter-spacing:.16em!important;margin-top:4px}.m2race-clock-sub{display:flex;justify-content:center;gap:18px;margin-top:4px;font-size:.54rem;color:#829287}.m2race-clock-sub b{color:#d7e0d5;font-variant-numeric:tabular-nums}
+      #m2RaceV2 .m2race-progress{padding:0 2px}.m2race-progress-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:5px;font-size:.54rem;font-weight:900;letter-spacing:.08em;color:#aeb9ae}.m2race-progress-head strong{color:#f2e3ae;font-size:.62rem}.m2race-progress-track{height:9px;border-radius:999px;overflow:hidden;background:#122019;border:1px solid rgba(255,255,255,.07);box-shadow:inset 0 1px 3px rgba(0,0,0,.42)}.m2race-progress-fill{height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#75b55d,#b8d978 58%,#e6be62);box-shadow:0 0 14px rgba(166,210,105,.28);transition:width .32s ease}
+      #m2RaceV2 .m2race-control-card{position:relative;min-height:0!important;padding:9px!important;border-radius:17px!important;display:grid!important;grid-template-rows:auto auto auto auto auto;gap:5px;overflow:auto;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015))!important;border-color:rgba(235,192,91,.17)!important;box-shadow:none!important}
+      #m2RaceV2 .m2race-control-head{min-height:19px}.m2race-control-kicker{font-size:.56rem!important;letter-spacing:.10em!important}.m2race-control-progress{display:none!important}
+      #m2RaceV2 .m2race-next{margin:0!important;font-size:clamp(2.05rem,10vw,3.45rem)!important;line-height:.96!important;color:#ffe29a!important}.m2race-next.complete{font-size:clamp(1.35rem,7vw,2rem)!important}
+      #m2RaceV2 .m2race-control-meta{grid-template-columns:1fr 1fr!important;gap:5px!important;margin:0!important}.m2race-control-meta div{padding:6px 8px!important;border-radius:10px!important}.m2race-control-meta span{font-size:.45rem!important}.m2race-control-meta strong{font-size:.66rem!important;margin-top:2px!important}
+      #m2RaceV2 .m2race-control-status{margin:0!important;min-height:28px!important;max-height:42px;overflow:hidden;padding:6px 8px!important;border-radius:10px!important;font-size:.56rem!important;line-height:1.24!important}
+      #m2RaceV2 .m2race-qr-btn{min-height:44px!important;margin:0!important;border-radius:13px!important;background:linear-gradient(180deg,#f0cd75,#d5a747)!important;color:#211704!important;border:0!important;font-size:.68rem!important;box-shadow:0 9px 22px rgba(191,145,48,.18)}
+      #m2RaceV2 .m2race-discard-btn{min-height:34px!important;margin:0!important;border-radius:11px!important;font-size:.57rem!important}.m2race-discard-confirm{position:absolute;left:9px;right:9px;bottom:9px;z-index:6;margin:0!important;box-shadow:0 14px 35px rgba(0,0,0,.45);background:#321711!important}
+      #m2RaceV2 .m2race-penalty-preview{display:none!important}
+      #m2RaceV2 .m2race-bottom{display:grid;gap:6px;min-height:0}
+      #m2RaceV2 .m2race-gpsbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:7px;padding:7px 8px;border:1px solid rgba(102,174,226,.15);border-radius:14px;background:rgba(9,24,16,.96)}.m2race-gps-icon{width:31px!important;height:31px!important;border-radius:10px!important;font-size:.92rem!important}.m2race-gps-title{font-size:.54rem!important}.m2race-gps-text{margin-top:2px!important;font-size:.52rem!important;line-height:1.15!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.m2race-gps-pill{font-size:.49rem!important;padding:5px 7px!important}.m2race-gps-btn{grid-column:1/-1;min-height:36px!important;margin-top:0!important;border-radius:10px!important;font-size:.60rem!important;background:linear-gradient(180deg,#6baddd,#447ca6)!important;color:#fff!important}
+      #m2RaceV2 .m2race-actions-row{display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:6px}.m2race-route-toggle{min-height:44px;border-radius:13px;border:1px solid rgba(255,255,255,.10);background:#17251a;color:#dce6dd;font:inherit;font-size:.60rem;font-weight:900}.m2race-action{min-height:44px!important;border-radius:13px!important;margin:0!important;font-size:.68rem!important}.m2race-action.m2race-start:disabled{background:#263226!important;color:#778378!important;box-shadow:none!important}.m2race-finish{background:linear-gradient(180deg,#e3ad54,#c67d30)!important;color:#241404!important}
+      #m2RaceV2 .m2race-action-note{display:none!important}.m2race-confirm{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:100145;margin:0!important;background:#241d11!important;box-shadow:0 18px 60px rgba(0,0,0,.52)}
+      #m2RaceV2 .m2race-system-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.m2race-system-chip{min-width:0;padding:4px 6px;border-radius:9px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.055);display:flex;align-items:center;justify-content:center;gap:4px;font-size:.45rem;color:#78877c;white-space:nowrap;overflow:hidden}.m2race-system-chip strong{color:#b9c6bc;overflow:hidden;text-overflow:ellipsis}.m2race-track-pill,.m2race-resilience-pill{padding:3px 5px!important;font-size:.43rem!important}.m2race-track-text,.m2race-resilience-text,.m2race-sync>div>br,.m2race-sync>div>span{display:none!important}.m2race-sync{font-size:.45rem!important;gap:4px!important;justify-content:center}.m2race-sync-dot{width:6px!important;height:6px!important}
+      #m2RaceV2 .m2race-route-sheet{position:fixed;z-index:100135;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);max-height:72dvh;overflow:auto;border-radius:22px!important;padding:14px!important;background:linear-gradient(180deg,#1b3120,#09150e)!important;border:1px solid rgba(232,191,99,.24)!important;box-shadow:0 24px 70px rgba(0,0,0,.56)}#m2RaceV2 .m2race-route-sheet[hidden]{display:none!important}.m2race-route-sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}.m2race-route-close{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);color:#fff;font:inherit;font-weight:900}.m2race-route-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.m2race-route-seq{font-size:.62rem!important}.m2race-route-times{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.m2race-route-times>div{padding:8px;border-radius:11px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}.m2race-route-times span{display:block;font-size:.46rem;color:#829087}.m2race-route-times strong{display:block;margin-top:3px;font-size:.72rem}
+      #m2RaceV2 .m2race-qr-panel{position:fixed!important;z-index:100160!important;inset:0!important;margin:0!important;padding:calc(env(safe-area-inset-top,0px) + 14px) 12px calc(env(safe-area-inset-bottom,0px) + 14px)!important;border-radius:0!important;background:rgba(3,9,5,.97)!important;display:grid;grid-template-rows:minmax(0,1fr) auto auto auto;align-items:center}.m2race-qr-panel[hidden]{display:none!important}.m2race-qr-video{width:100%!important;height:100%!important;max-height:none!important;object-fit:cover!important;border-radius:18px!important}.m2race-qr-status{font-size:.68rem!important;text-align:center}.m2race-qr-close{min-height:44px!important}
+      #m2RaceV2 .m2race-result{position:absolute;inset:70px 10px 10px;z-index:8;display:grid;place-content:center;border-radius:20px;background:#0b1c11}.m2race-result[hidden]{display:none!important}
+      #m2RaceV2 .m2race-event{display:none!important}
+      @media(max-height:720px){#m2RaceV2 .m2race-top{min-height:46px}.m2race-logo{width:38px!important;height:38px!important}.m2race-back{width:36px!important;height:36px!important}.m2race-dashboard{padding:8px!important;gap:5px!important}.m2race-time{font-size:2.65rem!important}.m2race-control-card{padding:7px!important;gap:4px!important}.m2race-next{font-size:2rem!important}.m2race-control-status{max-height:34px!important}.m2race-qr-btn{min-height:40px!important}.m2race-gpsbar{padding:5px 7px!important}.m2race-actions-row button{min-height:40px!important}.m2race-system-strip{display:none!important}}
+      @media(max-width:430px){#m2RaceV2{padding-left:6px!important;padding-right:6px!important}.m2race-shell{gap:6px!important}.m2race-top{grid-template-columns:36px 38px minmax(0,1fr) auto!important}.m2race-live span:last-child{font-size:.47rem}.m2race-dashboard{border-radius:17px!important}.m2race-clock-sub{gap:12px}.m2race-control-status{font-size:.53rem!important}.m2race-system-chip{font-size:.42rem!important}}
+    `;document.head.appendChild(st);
+  }
   function ensureRoot(){
-    installStyle();
+    installStyle();installR6BStyle();
     if(state.root?.isConnected)return state.root;
     const root=document.createElement("section");
     root.id="m2RaceV2";root.hidden=true;
     root.innerHTML=`<div class="m2race-shell">
-      <header class="m2race-top"><button id="m2raceBack" class="m2race-back" type="button" aria-label="Volver">←</button><div class="m2race-logo"><img src="${runnerLogoSrc()}" alt="MILITOPO"></div><div class="m2race-brand"><div class="m2race-kicker">MILITOPO</div><h1 id="m2raceTitle" class="m2race-title">Carrera</h1></div><div class="m2race-live"><span class="m2race-dot"></span><span>EN DIRECTO</span></div></header>
-      <section class="m2race-card m2race-hero"><div id="m2raceState" class="m2race-state">PREPARADO</div><div id="m2raceTimer" class="m2race-time">00:00</div><div class="m2race-time-label">TIEMPO REAL</div><div id="m2raceEvent" class="m2race-event">Conectando…</div></section>
-      <section class="m2race-card"><div class="m2race-route-head"><div class="m2race-route-title">🧭 MI RECORRIDO ASIGNADO</div><div id="m2raceRouteId" class="m2race-route-id">—</div></div><div class="m2race-route-grid"><div class="m2race-route-stat"><span>DISTANCIA REDUCIDA</span><strong id="m2raceRouteDistance">—</strong></div><div class="m2race-route-stat"><span>BALIZAS</span><strong id="m2raceRouteControls">—</strong></div><div class="m2race-route-stat"><span>DESNIVEL +</span><strong id="m2raceRouteClimb">—</strong></div><div class="m2race-route-stat"><span>DIFICULTAD</span><strong id="m2raceRouteDifficulty">—</strong></div></div><div id="m2raceRouteSequence" class="m2race-route-seq">Esperando recorrido…</div></section>
-      <section id="m2raceControlCard" class="m2race-card m2race-control-card" hidden><div class="m2race-control-head"><div class="m2race-control-kicker">🎯 SIGUIENTE BALIZA</div><div id="m2raceControlProgress" class="m2race-control-progress">0 / 0</div></div><div id="m2raceNextControl" class="m2race-next">—</div><div class="m2race-control-meta"><div><span>DISTANCIA GPS</span><strong id="m2raceControlDistance">—</strong></div><div><span>VALIDACIÓN</span><strong id="m2raceControlMethod">GPS + QR</strong></div></div><div id="m2raceControlStatus" class="m2race-control-status">GPS: precisión ±10 m o mejor y distancia ≤10 m. El QR puede escanearse en cualquier ubicación como respaldo.</div><div id="m2racePenaltyPreview" class="m2race-penalty-preview"><div><span>DESCARTADAS</span><strong id="m2raceDiscardedControls">0</strong></div><div><span>PENALIZACIÓN ACUMULADA</span><strong id="m2racePenaltyTime">+00:00</strong></div><div><span>TIEMPO + PENALIZACIÓN</span><strong id="m2raceOfficialPreview">00:00</strong></div></div><button id="m2raceQrOpen" class="m2race-qr-btn" type="button">📷 ESCANEAR QR DE LA BALIZA</button><button id="m2raceDiscard" class="m2race-discard-btn" type="button"><span>MANTENER 5s PARA DESCARTAR</span></button><div id="m2raceDiscardConfirm" class="m2race-discard-confirm" hidden><strong id="m2raceDiscardTitle">¿Descartar esta baliza?</strong><br>Esta acción es irreversible. Penalización: <b>+15:00</b> al TIEMPO OFICIAL.<div class="m2race-discard-actions"><button id="m2raceDiscardCancel" class="m2race-discard-cancel" type="button">CANCELAR</button><button id="m2raceDiscardOk" class="m2race-discard-ok" type="button">SÍ · DESCARTAR</button></div></div><div id="m2raceQrPanel" class="m2race-qr-panel" hidden><video id="m2raceQrVideo" class="m2race-qr-video" playsinline muted></video><canvas id="m2raceQrCanvas" hidden></canvas><div id="m2raceQrStatus" class="m2race-qr-status">Preparando cámara…</div><label class="m2race-qr-fallback" for="m2raceQrPhoto">📸 USAR CÁMARA NATIVA DEL MÓVIL<input id="m2raceQrPhoto" type="file" accept="image/*" capture="environment" hidden></label><button id="m2raceQrClose" class="m2race-qr-close" type="button">CERRAR CÁMARA</button></div></section>
-      <section class="m2race-card"><div class="m2race-grid"><div class="m2race-stat"><span>SALIDA</span><strong id="m2raceStartAt">—</strong></div><div class="m2race-stat"><span>LLEGADA</span><strong id="m2raceFinishAt">—</strong></div></div></section>
-      <section class="m2race-card"><div class="m2race-gps"><div class="m2race-gps-icon">◎</div><div><div class="m2race-gps-title">GPS DE CARRERA</div><div id="m2raceGpsText" class="m2race-gps-text">El GPS se activa al iniciar el recorrido.</div></div><span id="m2raceGpsPill" class="m2race-gps-pill">ESPERANDO</span><button id="m2raceGpsActivate" class="m2race-gps-btn" type="button" hidden>ACTIVAR GPS</button></div></section>
-      <section class="m2race-card"><div class="m2race-track"><div class="m2race-track-icon">↝</div><div><div class="m2race-track-title">TRACK DEL RECORRIDO</div><div id="m2raceTrackText" class="m2race-track-text">Preparado para guardar tu recorrido.</div></div><span id="m2raceTrackPill" class="m2race-track-pill">LISTO</span></div></section>
-      <section class="m2race-card"><div class="m2race-resilience"><div class="m2race-resilience-icon">⟳</div><div><div class="m2race-resilience-title">CONTINUIDAD DE CARRERA</div><div id="m2raceResilienceText" class="m2race-resilience-text">MILITOPO puede recuperar esta carrera si recargas la aplicación.</div></div><span id="m2raceResiliencePill" class="m2race-resilience-pill">PROTEGIDO</span></div></section>
-      <section id="m2raceActionCard" class="m2race-card"><button id="m2raceStart" class="m2race-action m2race-start" type="button">INICIAR RECORRIDO</button><button id="m2raceFinish" class="m2race-action m2race-finish" type="button" hidden>TERMINAR CARRERA</button><div id="m2raceConfirm" class="m2race-confirm"><p>¿Quieres terminar la carrera ahora? Si faltan balizas o no has validado LLEGADA, el resultado quedará registrado como INCOMPLETO.</p><div class="m2race-confirm-actions"><button id="m2raceCancelFinish" class="m2race-mini" type="button">SEGUIR CORRIENDO</button><button id="m2raceConfirmFinish" class="m2race-mini primary" type="button">SÍ · TERMINAR</button></div></div><div id="m2raceActionNote" class="m2race-note">La llegada puede finalizar automáticamente por GPS o QR. También puedes terminar manualmente la carrera cuando lo necesites.</div></section>
-      <section class="m2race-card"><div class="m2race-sync"><span class="m2race-sync-dot"></span><div><strong id="m2raceSyncTitle">Sincronización activa</strong><br><span id="m2raceSyncText">Conectado a Realtime Database V2.</span></div></div></section>
-      <section id="m2raceResult" class="m2race-card m2race-result" hidden><div class="m2race-result-icon">✓</div><h2>Recorrido finalizado</h2><p id="m2raceResultText">La llegada ha quedado registrada y sincronizada con el organizador.</p></section>
+      <header class="m2race-top"><button id="m2raceBack" class="m2race-back" type="button" aria-label="Volver">←</button><div class="m2race-logo"><img src="${runnerLogoSrc()}" alt="MILITOPO"></div><div class="m2race-brand"><div class="m2race-kicker">MILITOPO · COMPETICIÓN</div><h1 id="m2raceTitle" class="m2race-title">Carrera</h1></div><div class="m2race-live"><span class="m2race-dot"></span><span>EN DIRECTO</span></div></header>
+      <main class="m2race-dashboard">
+        <div class="m2race-hero-line"><div class="m2race-identity"><b id="m2raceState">PREPARADO</b><b id="m2raceRouteId">—</b><span id="m2raceEvent">Conectando…</span></div></div>
+        <div class="m2race-clock-wrap"><div id="m2raceTimer" class="m2race-time">00:00</div><div class="m2race-time-label">TIEMPO OFICIAL</div><div class="m2race-clock-sub"><span>REAL <b id="m2raceRealMini">00:00</b></span><span>PEN. <b id="m2racePenaltyMini">+00:00</b></span></div></div>
+        <div class="m2race-progress"><div class="m2race-progress-head"><span>PROGRESO DEL RECORRIDO</span><strong id="m2raceProgressLabel">0 DE 0</strong></div><div class="m2race-progress-track"><div id="m2raceProgressFill" class="m2race-progress-fill"></div></div></div>
+        <section id="m2raceControlCard" class="m2race-control-card"><div class="m2race-control-head"><div class="m2race-control-kicker">🏁 PRÓXIMO CONTROL</div><div id="m2raceControlProgress" class="m2race-control-progress">0 / 0</div></div><div id="m2raceNextControl" class="m2race-next">SALIDA</div><div class="m2race-control-meta"><div><span>DISTANCIA GPS</span><strong id="m2raceControlDistance">—</strong></div><div><span>VALIDACIÓN</span><strong id="m2raceControlMethod">GPS + QR</strong></div></div><div id="m2raceControlStatus" class="m2race-control-status">Activa el GPS para habilitar la salida.</div><div id="m2racePenaltyPreview" class="m2race-penalty-preview"><div><span>DESCARTADAS</span><strong id="m2raceDiscardedControls">0</strong></div><div><span>PENALIZACIÓN</span><strong id="m2racePenaltyTime">+00:00</strong></div><div><span>OFICIAL</span><strong id="m2raceOfficialPreview">00:00</strong></div></div><button id="m2raceQrOpen" class="m2race-qr-btn" type="button" hidden>📷 ESCANEAR QR DE LA BALIZA</button><button id="m2raceDiscard" class="m2race-discard-btn" type="button" hidden><span>MANTENER 5s PARA DESCARTAR</span></button><div id="m2raceDiscardConfirm" class="m2race-discard-confirm" hidden><strong id="m2raceDiscardTitle">¿Descartar esta baliza?</strong><br>Es irreversible y añade <b>+15:00</b> al TIEMPO OFICIAL.<div class="m2race-discard-actions"><button id="m2raceDiscardCancel" class="m2race-discard-cancel" type="button">CANCELAR</button><button id="m2raceDiscardOk" class="m2race-discard-ok" type="button">SÍ · DESCARTAR</button></div></div><div id="m2raceQrPanel" class="m2race-qr-panel" hidden><video id="m2raceQrVideo" class="m2race-qr-video" playsinline muted></video><canvas id="m2raceQrCanvas" hidden></canvas><div id="m2raceQrStatus" class="m2race-qr-status">Preparando cámara…</div><label class="m2race-qr-fallback" for="m2raceQrPhoto">📸 USAR CÁMARA NATIVA<input id="m2raceQrPhoto" type="file" accept="image/*" capture="environment" hidden></label><button id="m2raceQrClose" class="m2race-qr-close" type="button">CERRAR CÁMARA</button></div></section>
+      </main>
+      <footer class="m2race-bottom">
+        <section class="m2race-gpsbar"><div class="m2race-gps-icon">◎</div><div><div class="m2race-gps-title">GPS OBLIGATORIO</div><div id="m2raceGpsText" class="m2race-gps-text">Actívalo antes de iniciar el recorrido.</div></div><span id="m2raceGpsPill" class="m2race-gps-pill">SIN ACTIVAR</span><button id="m2raceGpsActivate" class="m2race-gps-btn" type="button">ACTIVAR GPS</button></section>
+        <div class="m2race-actions-row"><button id="m2raceRouteToggle" class="m2race-route-toggle" type="button">VER RECORRIDO</button><section id="m2raceActionCard"><button id="m2raceStart" class="m2race-action m2race-start" type="button" disabled>ACTIVA GPS PARA INICIAR</button><button id="m2raceFinish" class="m2race-action m2race-finish" type="button" hidden>TERMINAR CARRERA</button><div id="m2raceConfirm" class="m2race-confirm"><p>¿Quieres terminar la carrera ahora? Si faltan balizas o LLEGADA, el resultado quedará INCOMPLETO.</p><div class="m2race-confirm-actions"><button id="m2raceCancelFinish" class="m2race-mini" type="button">SEGUIR</button><button id="m2raceConfirmFinish" class="m2race-mini primary" type="button">SÍ · TERMINAR</button></div></div><div id="m2raceActionNote" class="m2race-note m2race-action-note"></div></section></div>
+        <div class="m2race-system-strip"><div class="m2race-system-chip"><span id="m2raceTrackPill" class="m2race-track-pill">LISTO</span><strong>TRACK</strong><span id="m2raceTrackText" class="m2race-track-text">Listo</span></div><div class="m2race-system-chip"><span id="m2raceResiliencePill" class="m2race-resilience-pill">PROTEGIDO</span><strong>OFFLINE</strong><span id="m2raceResilienceText" class="m2race-resilience-text">Protegido</span></div><div class="m2race-system-chip"><div class="m2race-sync"><span class="m2race-sync-dot"></span><div><strong id="m2raceSyncTitle">SINCRONIZANDO</strong><br><span id="m2raceSyncText">Live V2</span></div></div></div></div>
+      </footer>
+      <section id="m2raceRouteCard" class="m2race-route-sheet" hidden><div class="m2race-route-sheet-head"><div class="m2race-route-title">🧭 MI RECORRIDO ASIGNADO</div><button id="m2raceRouteClose" class="m2race-route-close" type="button">×</button></div><div class="m2race-route-grid"><div class="m2race-route-stat"><span>DISTANCIA</span><strong id="m2raceRouteDistance">—</strong></div><div class="m2race-route-stat"><span>BALIZAS</span><strong id="m2raceRouteControls">—</strong></div><div class="m2race-route-stat"><span>DESNIVEL +</span><strong id="m2raceRouteClimb">—</strong></div><div class="m2race-route-stat"><span>DIFICULTAD</span><strong id="m2raceRouteDifficulty">—</strong></div></div><div id="m2raceRouteSequence" class="m2race-route-seq">Esperando recorrido…</div><div class="m2race-route-times"><div><span>SALIDA</span><strong id="m2raceStartAt">—</strong></div><div><span>LLEGADA</span><strong id="m2raceFinishAt">—</strong></div></div></section>
+      <section id="m2raceResult" class="m2race-card m2race-result" hidden><div class="m2race-result-icon">✓</div><h2>Recorrido finalizado</h2><p id="m2raceResultText">Resultado sincronizado con el organizador.</p></section>
     </div>
-    <div id="m2raceStartConfirm" class="m2race-start-confirm" role="dialog" aria-modal="true" aria-labelledby="m2raceStartConfirmTitle"><div class="m2race-start-sheet"><div class="m2race-start-icon">🏁</div><h2 id="m2raceStartConfirmTitle">¿Estás preparado para iniciar?</h2><p>Al confirmar empieza tu tiempo oficial, se activa el GPS de carrera y el organizador recibe tu salida.</p><div class="m2race-start-choice"><button id="m2raceStartNo" class="m2race-start-no" type="button">TODAVÍA NO</button><button id="m2raceStartYes" class="m2race-start-yes" type="button">SÍ · INICIAR AHORA</button></div></div></div>
-    <div id="m2raceSummary" class="m2race-summary" role="dialog" aria-modal="true" aria-labelledby="m2raceSummaryTitle"><div class="m2race-summary-sheet"><div class="m2race-summary-check">✓</div><h2 id="m2raceSummaryTitle">Carrera terminada</h2><p id="m2raceSummarySub" class="m2race-summary-sub">Resultado sincronizado correctamente.</p><div class="m2race-summary-grid"><div class="m2race-summary-stat"><span>TIEMPO OFICIAL</span><strong id="m2sumTime">—</strong></div><div class="m2race-summary-stat"><span>TIEMPO REAL</span><strong id="m2sumRealTime">—</strong></div><div class="m2race-summary-stat"><span>PENALIZACIÓN</span><strong id="m2sumPenalty">—</strong></div><div class="m2race-summary-stat"><span>PENDIENTES</span><strong id="m2sumPending">0</strong></div><div class="m2race-summary-stat"><span>DESCARTADAS</span><strong id="m2sumDiscarded">0</strong></div><div class="m2race-summary-stat"><span>DISTANCIA GPS</span><strong id="m2sumTrack">—</strong></div><div class="m2race-summary-stat"><span>DISTANCIA REDUCIDA</span><strong id="m2sumReduced">—</strong></div><div class="m2race-summary-stat"><span>BALIZAS</span><strong id="m2sumControls">—</strong></div><div class="m2race-summary-stat"><span>VELOCIDAD MEDIA</span><strong id="m2sumSpeed">—</strong></div><div class="m2race-summary-stat"><span>RITMO MEDIO</span><strong id="m2sumPace">—</strong></div><div class="m2race-summary-stat"><span>PUNTOS GPS</span><strong id="m2sumPoints">—</strong></div><div class="m2race-summary-stat"><span>LLEGADA</span><strong id="m2sumArrival">—</strong></div></div><div class="m2race-summary-ranks"><div class="m2race-summary-rank"><span>CLASIFICACIÓN GENERAL</span><strong id="m2sumGeneralRank">—</strong></div><div class="m2race-summary-rank"><span id="m2sumRouteLabel">MI RECORRIDO</span><strong id="m2sumRouteRank">—</strong></div></div><div class="m2race-summary-actions"><button id="m2raceSummaryClose" class="m2race-summary-close" type="button">SEGUIR VIENDO</button><button id="m2raceSummaryDone" class="m2race-summary-done" type="button">VOLVER A MIS CARRERAS</button></div></div></div>
+    <div id="m2raceStartConfirm" class="m2race-start-confirm" role="dialog" aria-modal="true" aria-labelledby="m2raceStartConfirmTitle"><div class="m2race-start-sheet"><div class="m2race-start-icon">🏁</div><h2 id="m2raceStartConfirmTitle">¿Iniciar recorrido?</h2><p>El GPS ya está preparado. Al confirmar comienza el TIEMPO OFICIAL y se registra tu salida.</p><div class="m2race-start-choice"><button id="m2raceStartNo" class="m2race-start-no" type="button">TODAVÍA NO</button><button id="m2raceStartYes" class="m2race-start-yes" type="button">SÍ · INICIAR</button></div></div></div>
+    <div id="m2raceSummary" class="m2race-summary" role="dialog" aria-modal="true" aria-labelledby="m2raceSummaryTitle"><div class="m2race-summary-sheet"><div class="m2race-summary-check">✓</div><h2 id="m2raceSummaryTitle">Carrera terminada</h2><p id="m2raceSummarySub" class="m2race-summary-sub">Resultado sincronizado correctamente.</p><div class="m2race-summary-grid"><div class="m2race-summary-stat"><span>TIEMPO OFICIAL</span><strong id="m2sumTime">—</strong></div><div class="m2race-summary-stat"><span>TIEMPO REAL</span><strong id="m2sumRealTime">—</strong></div><div class="m2race-summary-stat"><span>PENALIZACIÓN</span><strong id="m2sumPenalty">—</strong></div><div class="m2race-summary-stat"><span>PENDIENTES</span><strong id="m2sumPending">0</strong></div><div class="m2race-summary-stat"><span>DESCARTADAS</span><strong id="m2sumDiscarded">0</strong></div><div class="m2race-summary-stat"><span>DISTANCIA GPS</span><strong id="m2sumTrack">—</strong></div><div class="m2race-summary-stat"><span>DISTANCIA REDUCIDA</span><strong id="m2sumReduced">—</strong></div><div class="m2race-summary-stat"><span>BALIZAS</span><strong id="m2sumControls">—</strong></div><div class="m2race-summary-stat"><span>VELOCIDAD MEDIA</span><strong id="m2sumSpeed">—</strong></div><div class="m2race-summary-stat"><span>RITMO MEDIO</span><strong id="m2sumPace">—</strong></div><div class="m2race-summary-stat"><span>PUNTOS GPS</span><strong id="m2sumPoints">—</strong></div><div class="m2race-summary-stat"><span>LLEGADA</span><strong id="m2sumArrival">—</strong></div></div><div class="m2race-summary-ranks"><div class="m2race-summary-rank"><span>CLASIFICACIÓN GENERAL</span><strong id="m2sumGeneralRank">—</strong></div><div class="m2race-summary-rank"><span id="m2sumRouteLabel">MI RECORRIDO</span><strong id="m2sumRouteRank">—</strong></div></div><div class="m2race-summary-actions"><button id="m2raceSummaryClose" class="m2race-summary-close" type="button">SEGUIR VIENDO</button><button id="m2raceSummaryDone" class="m2race-summary-done" type="button">MIS CARRERAS</button></div></div></div>
     <div id="m2raceBusy" class="m2race-busy"><div class="m2race-busy-card"><div class="m2race-spinner"></div><strong id="m2raceBusyTitle">Procesando…</strong><span id="m2raceBusyText">Sincronizando con Live V2.</span></div></div>`;
     document.body.appendChild(root);state.root=root;
     root.querySelector("#m2raceBack").addEventListener("click",close);
-    root.querySelector("#m2raceStart").addEventListener("click",()=>root.querySelector("#m2raceStartConfirm").classList.add("open"));
+    const setRouteOpen=open=>{const card=root.querySelector("#m2raceRouteCard"),btn=root.querySelector("#m2raceRouteToggle");if(!card)return;card.hidden=!open;if(btn)btn.textContent=open?"OCULTAR RECORRIDO":"VER RECORRIDO";};
+    root.querySelector("#m2raceRouteToggle").addEventListener("click",()=>setRouteOpen(root.querySelector("#m2raceRouteCard").hidden));
+    root.querySelector("#m2raceRouteClose").addEventListener("click",()=>setRouteOpen(false));
+    root.querySelector("#m2raceStart").addEventListener("click",()=>{if(root.querySelector("#m2raceStart").disabled)return;root.querySelector("#m2raceStartConfirm").classList.add("open");});
     root.querySelector("#m2raceFinish").addEventListener("click",()=>root.querySelector("#m2raceConfirm").classList.add("open"));
     root.querySelector("#m2raceStartNo").addEventListener("click",()=>root.querySelector("#m2raceStartConfirm").classList.remove("open"));
     root.querySelector("#m2raceStartYes").addEventListener("click",()=>{root.querySelector("#m2raceStartConfirm").classList.remove("open");startRace();});
@@ -70,26 +113,10 @@
     const beginDiscardHold=e=>{if(discardBtn?.hidden||discardBtn?.disabled)return;e.preventDefault();resetDiscardHold();discardHoldStart=performance.now();discardRaf=requestAnimationFrame(animateDiscardHold);discardHoldTimer=setTimeout(()=>{resetDiscardHold();const snap=controlsApi()?.snapshot?.()||{},id=String(snap.nextControl?.checkpointId||"").trim();if(!id||id.toUpperCase()==="FINISH")return;discardConfirm.dataset.checkpointId=id;root.querySelector("#m2raceDiscardTitle").textContent=`¿Descartar ${id}?`;discardConfirm.hidden=false;},5000);};
     discardBtn?.addEventListener("pointerdown",beginDiscardHold);["pointerup","pointercancel","pointerleave"].forEach(ev=>discardBtn?.addEventListener(ev,resetDiscardHold));
     root.querySelector("#m2raceDiscardCancel")?.addEventListener("click",()=>{discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";});
-    root.querySelector("#m2raceDiscardOk")?.addEventListener("click",()=>{
-      const okBtn=root.querySelector("#m2raceDiscardOk");
-      if(okBtn?.disabled)return;
-      const expected=String(discardConfirm.dataset.checkpointId||"").trim();
-      if(okBtn)okBtn.disabled=true;
-      const res=controlsApi()?.discardNextControl?.(expected);
-      discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";
-      if(okBtn)okBtn.disabled=false;
-      if(!res?.ok){const st=root.querySelector("#m2raceControlStatus");if(st){st.className="m2race-control-status warn";st.textContent=res?.message||"No se pudo descartar la baliza.";}}
-    });
+    root.querySelector("#m2raceDiscardOk")?.addEventListener("click",()=>{const okBtn=root.querySelector("#m2raceDiscardOk");if(okBtn?.disabled)return;const expected=String(discardConfirm.dataset.checkpointId||"").trim();if(okBtn)okBtn.disabled=true;const res=controlsApi()?.discardNextControl?.(expected);discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";if(okBtn)okBtn.disabled=false;if(!res?.ok){const st=root.querySelector("#m2raceControlStatus");if(st){st.className="m2race-control-status warn";st.textContent=res?.message||"No se pudo descartar la baliza.";}}});
     root.querySelector("#m2raceSummaryClose").addEventListener("click",()=>{root.querySelector("#m2raceSummary").classList.remove("open");state.summaryOpen=false;});
     root.querySelector("#m2raceSummaryDone").addEventListener("click",()=>{root.querySelector("#m2raceSummary").classList.remove("open");state.summaryOpen=false;close();});
-    root.querySelector("#m2raceQrPhoto").addEventListener("change",async event=>{
-      const file=event.target?.files?.[0]||null,status=root.querySelector("#m2raceQrStatus"),api=controlsApi();
-      if(!file)return;
-      if(status)status.textContent="Leyendo QR desde la cámara del móvil…";
-      try{await api?.scanImageFile?.(file,{canvas:root.querySelector("#m2raceQrCanvas"),statusEl:status});}
-      catch(error){if(status)status.textContent=`No se pudo leer la imagen: ${String(error?.message||error)}`;}
-      finally{try{event.target.value="";}catch(_){}}
-    });
+    root.querySelector("#m2raceQrPhoto").addEventListener("change",async event=>{const file=event.target?.files?.[0]||null,status=root.querySelector("#m2raceQrStatus"),api=controlsApi();if(!file)return;if(status)status.textContent="Leyendo QR desde la cámara del móvil…";try{await api?.scanImageFile?.(file,{canvas:root.querySelector("#m2raceQrCanvas"),statusEl:status});}catch(error){if(status)status.textContent=`No se pudo leer la imagen: ${String(error?.message||error)}`;}finally{try{event.target.value="";}catch(_){}}});
     return root;
   }
   const el=id=>ensureRoot().querySelector("#"+id);
@@ -109,14 +136,13 @@
     return {expected,completed,discarded,pending,penaltyMs,rawMs,officialMs:rawMs+penaltyMs};
   }
   function updatePenaltyPreview(detail={}){
-    const box=el("m2racePenaltyPreview");if(!box)return;
-    const st=String(state.participant?.status||"").toLowerCase(),active=["racing","started"].includes(st);
-    box.hidden=!active;if(!active)return;
-    const v=penaltyPreviewValues(detail);
-    el("m2raceDiscardedControls").textContent=String(v.discarded);
-    el("m2racePenaltyTime").textContent=`+${fmtClock(v.penaltyMs)}`;
-    el("m2raceOfficialPreview").textContent=fmtClock(v.officialMs);
+    const v=penaltyPreviewValues(detail),st=String(state.participant?.status||"").toLowerCase(),active=["racing","started"].includes(st)||st==="finished";
+    const timer=el("m2raceTimer"),realMini=el("m2raceRealMini"),penMini=el("m2racePenaltyMini");
+    if(timer)timer.textContent=fmtClock(v.officialMs);if(realMini)realMini.textContent=fmtClock(v.rawMs);if(penMini)penMini.textContent=`+${fmtClock(v.penaltyMs)}`;
+    const box=el("m2racePenaltyPreview");if(box)box.hidden=!active;
+    const d=el("m2raceDiscardedControls"),p=el("m2racePenaltyTime"),o=el("m2raceOfficialPreview");if(d)d.textContent=String(v.discarded);if(p)p.textContent=`+${fmtClock(v.penaltyMs)}`;if(o)o.textContent=fmtClock(v.officialMs);
   }
+
   async function showFinishSummary({incomplete=false}={}){
     const panel=el("m2raceSummary");if(!panel)return;state.summaryOpen=true;
     el("m2raceSummaryTitle").textContent=incomplete?"Carrera terminada · INCOMPLETA":"Carrera terminada ✓";
@@ -142,28 +168,40 @@
       const svc=await services();
       const [detailRes,classRes]=await Promise.allSettled([svc.callable("getRunnerResultDetail",{eventId:state.event.eventId}),svc.callable("getEventClassification",{eventId:state.event.eventId})]);
       if(detailRes.status==="fulfilled"){const r=detailRes.value?.data?.result||{};const raw=r.durationMs==null?null:Math.max(0,Number(r.durationMs||0)),pen=Math.max(0,Number(r.penaltyMs||0)),official=r.officialDurationMs==null?(raw==null?null:raw+pen):Math.max(0,Number(r.officialDurationMs||0));el("m2sumTime").textContent=official==null?el("m2sumTime").textContent:fmtClock(official);el("m2sumRealTime").textContent=raw==null?el("m2sumRealTime").textContent:fmtClock(raw);el("m2sumPenalty").textContent=pen?`+${fmtClock(pen)}`:"—";el("m2sumPending").textContent=String(Math.max(0,Number(r.pendingControlCount??r.controlMissingCount??0)));el("m2sumDiscarded").textContent=String(Math.max(0,Number(r.discardedControlCount||0)));el("m2sumTrack").textContent=fmtTrackKm(r.trackDistanceM);el("m2sumReduced").textContent=r.reducedDistanceKm==null?el("m2sumReduced").textContent:fmtKm(r.reducedDistanceKm);el("m2sumControls").textContent=`${Math.max(0,Number(r.controlDetectedCount||0))} / ${Math.max(0,Number(r.controlExpectedCount||0))}`;el("m2sumSpeed").textContent=r.avgSpeedKmh==null?"—":`${Number(r.avgSpeedKmh).toFixed(2)} km/h`;el("m2sumPace").textContent=fmtPace(r.paceMinKm);el("m2sumPoints").textContent=String(Math.max(0,Number(r.trackPointCount||0)));el("m2sumArrival").textContent=fmtTime(r.finishedAtMs||basic.finishedAt||state.localArrivalAt);}
-      if(classRes.status==="fulfilled"){const c=classRes.value?.data||{},my=c.my||{};el("m2sumGeneralRank").textContent=my.generalRank?`${my.generalRank}º / ${Math.max(1,Number(my.generalCount||0))}`:"—";el("m2sumRouteLabel").textContent=my.routeId?`${my.routeId} · MI RECORRIDO`:el("m2sumRouteLabel").textContent;el("m2sumRouteRank").textContent=my.routeRank?`${my.routeRank}º / ${Math.max(1,Number(my.routeCount||0))}`:"—";}
+      if(classRes.status==="fulfilled"){const c=classRes.value?.data||{},my=c.my||{};el("m2sumGeneralRank").textContent=my.generalRank?`${my.generalRank}º de ${Math.max(1,Number(my.generalCount||0))}`:"—";el("m2sumRouteLabel").textContent=my.routeId?`${my.routeId} MI RECORRIDO`:el("m2sumRouteLabel").textContent;el("m2sumRouteRank").textContent=my.routeRank?`${my.routeRank}º de ${Math.max(1,Number(my.routeCount||0))}`:"—";}
     }catch(_){}
   }
   function clearListeners(){try{state.unsubParticipant?.();}catch(_){}try{state.unsubActive?.();}catch(_){}state.unsubParticipant=null;state.unsubActive=null;state.liveBound=false;if(state.timer){clearInterval(state.timer);state.timer=null;}}
   function close(){if(state.busy)return;controlsApi()?.closeScanner?.();ensureRoot().hidden=true;document.body.style.overflow="";window.dispatchEvent(new CustomEvent("militopo:v2-runner-race-closed",{detail:{event:state.event?{...state.event}:null,runId:state.runId,status:String(state.participant?.status||"")}}));}
+  function syncStartGate(){
+    const btn=el("m2raceStart"),row=state.participant||{},st=String(row.status||"ready").toLowerCase();if(!btn||!["ready","not_started"].includes(st))return;
+    const routeReady=Boolean(row.routeId&&row.participantId),gpsReady=Boolean(state.gpsPrepared||gpsApi()?.snapshot?.().active);
+    btn.disabled=!routeReady||!gpsReady;
+    btn.textContent=!routeReady?"RECORRIDO NO DISPONIBLE":!gpsReady?"ACTIVA GPS PARA INICIAR":"INICIAR RECORRIDO";
+  }
   function updateGpsUi(status,detail={}){
     const pill=el("m2raceGpsPill"),text=el("m2raceGpsText"),btn=el("m2raceGpsActivate");
+    if(!pill||!text||!btn)return;
     pill.className="m2race-gps-pill";btn.hidden=true;
-    const fix=detail.fix||gpsApi()?.snapshot?.().lastSent||null;
-    if(["active","watching","ready","offline_active"].includes(status)){
-      pill.textContent=status==="offline_active"?"ACTIVO · OFFLINE":"ACTIVO";pill.classList.add(status==="offline_active"?"warn":"ok");
-      text.textContent=status==="offline_active"?(detail.message||"GPS activo sin cobertura. Guardando posición y track localmente."):(fix?`Posición compartida · precisión ±${Math.round(Number(fix.accuracy||0))} m.`:"GPS activo. Esperando una posición precisa…");
+    const raceStatus=String(state.participant?.status||"ready").toLowerCase(),racing=["racing","started"].includes(raceStatus);
+    const fix=detail.fix||state.preStartFix||gpsApi()?.snapshot?.().lastSent||null;
+    if(status==="ready"&&!racing){
+      if(fix){state.gpsPrepared=true;state.preStartFix={...fix};}
+      pill.textContent="GPS LISTO";pill.classList.add("ok");text.textContent=fix?`Preparado · precisión ±${Math.round(Number(fix.accuracy||0))} m. Ya puedes iniciar.`:"GPS preparado. Ya puedes iniciar.";
+    }else if(["active","watching","offline_active"].includes(status)||gpsApi()?.snapshot?.().active){
+      pill.textContent=status==="offline_active"?"GPS · OFFLINE":"GPS ACTIVO";pill.classList.add(status==="offline_active"?"warn":"ok");
+      text.textContent=status==="offline_active"?(detail.message||"Activo sin cobertura · track protegido localmente."):(fix?`Activo · precisión ±${Math.round(Number(fix.accuracy||0))} m.`:"GPS activo · buscando precisión…");
     }else if(status==="requesting"){
       pill.textContent="ACTIVANDO";pill.classList.add("warn");text.textContent="Solicitando permiso y posición GPS…";
     }else if(status==="error"||status==="unsupported"){
-      pill.textContent="SIN GPS";pill.classList.add("warn");text.textContent=detail.message||"No se pudo activar el GPS.";btn.hidden=false;
+      state.gpsPrepared=false;state.preStartFix=null;pill.textContent="SIN GPS";pill.classList.add("warn");text.textContent=detail.message||"No se pudo activar el GPS.";btn.hidden=false;btn.textContent="REINTENTAR GPS";
     }else if(status==="stopped"){
-      pill.textContent="DETENIDO";text.textContent="El GPS de carrera está detenido.";
+      pill.textContent="DETENIDO";text.textContent="GPS detenido.";if(!racing){state.gpsPrepared=false;state.preStartFix=null;btn.hidden=false;}
     }else{
-      pill.textContent="ESPERANDO";text.textContent=detail.message||"El GPS se activa al iniciar el recorrido.";
-      if(["racing","started"].includes(String(state.participant?.status||"").toLowerCase()))btn.hidden=false;
+      pill.textContent=state.gpsPrepared?"GPS LISTO":"SIN ACTIVAR";if(state.gpsPrepared)pill.classList.add("ok");
+      text.textContent=state.gpsPrepared?"GPS preparado. Ya puedes iniciar.":"Actívalo antes de iniciar el recorrido.";btn.hidden=Boolean(state.gpsPrepared||racing);btn.textContent="ACTIVAR GPS";
     }
+    syncStartGate();
   }
 
   function updateTrackUi(status,detail={}){
@@ -184,49 +222,40 @@
   function updateControlUi(status="status",detail={}){
     const api=controlsApi(),snap=api?.snapshot?.()||{},card=el("m2raceControlCard"),nextEl=el("m2raceNextControl"),progressEl=el("m2raceControlProgress"),distanceEl=el("m2raceControlDistance"),statusEl=el("m2raceControlStatus"),qrBtn=el("m2raceQrOpen"),discardBtn=el("m2raceDiscard"),discardConfirm=el("m2raceDiscardConfirm"),kicker=card?.querySelector(".m2race-control-kicker");
     if(!card)return;
-    const raceStatus=String(state.participant?.status||snap.raceStatus||"").toLowerCase(),active=["racing","started"].includes(raceStatus);
-    card.hidden=!active;if(!active)return;
-    const completed=Math.max(0,Number(detail.completedCount??snap.completedCount??0)),expected=Math.max(0,Number(detail.expectedCount??snap.expectedCount??0)),next=detail.nextControl??snap.nextControl??null,finishValidated=Boolean(detail.finishValidated??snap.finishValidated),pending=Math.max(0,Number(detail.pending??snap.pending??0));
-    // K3A · Cierra una confirmación antigua si el objetivo cambió mientras estaba abierta.
-    if(discardConfirm&&!discardConfirm.hidden){const confirmed=String(discardConfirm.dataset.checkpointId||"").trim().toUpperCase(),current=String(next?.checkpointId||"").trim().toUpperCase();if(!confirmed||confirmed!==current){discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";}}
-    const syncError=String(detail.message&&status==="sync_error"?detail.message:(snap.lastSyncError||""));
-    progressEl.textContent=`${completed} / ${expected}`;
+    const raceStatus=String(state.participant?.status||snap.raceStatus||"ready").toLowerCase(),active=["racing","started"].includes(raceStatus),finished=raceStatus==="finished";
+    const expected=Math.max(0,Number(detail.expectedCount??snap.expectedCount??state.participant?.routeControlCount??0));
+    const completed=Math.min(expected,Math.max(0,Number(detail.completedCount??snap.completedCount??0))),next=detail.nextControl??snap.nextControl??null,finishValidated=Boolean(detail.finishValidated??snap.finishValidated),pending=Math.max(0,Number(detail.pending??snap.pending??0));
+    const progressLabel=el("m2raceProgressLabel"),progressFill=el("m2raceProgressFill");
+    const pct=finishValidated||finished?100:(expected?Math.min(100,(completed/expected)*100):0);
+    if(progressEl)progressEl.textContent=`${completed} / ${expected}`;if(progressLabel)progressLabel.textContent=`${completed} DE ${expected}`;if(progressFill)progressFill.style.width=`${pct}%`;
     updatePenaltyPreview({...detail,completedCount:completed,expectedCount:expected});
-    if(!next){
-      nextEl.textContent=finishValidated?"LLEGADA ✓":"LLEGADA";
-      nextEl.classList.add("complete");
-      distanceEl.textContent="—";qrBtn.hidden=true;if(discardBtn)discardBtn.hidden=true;if(discardConfirm)discardConfirm.hidden=true;
-      statusEl.className="m2race-control-status "+(finishValidated?"ok":"warn");
-      statusEl.textContent=finishValidated?"🏁 Llegada registrada. Finalizando y sincronizando automáticamente…":"Esperando validación de llegada.";
-      if(kicker)kicker.textContent="🏁 LLEGADA";
-      return;
+    if(discardConfirm&&!discardConfirm.hidden){const confirmed=String(discardConfirm.dataset.checkpointId||"").trim().toUpperCase(),current=String(next?.checkpointId||"").trim().toUpperCase();if(!confirmed||confirmed!==current){discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";}}
+    if(!active&&!finished){
+      if(kicker)kicker.textContent="🏁 PRÓXIMO CONTROL";nextEl.classList.remove("complete");nextEl.textContent="SALIDA";distanceEl.textContent="—";qrBtn.hidden=true;if(discardBtn)discardBtn.hidden=true;if(discardConfirm)discardConfirm.hidden=true;
+      statusEl.className="m2race-control-status "+(state.gpsPrepared?"ok":"warn");statusEl.textContent=state.gpsPrepared?"GPS preparado · pulsa INICIAR RECORRIDO para registrar la salida.":"GPS obligatorio · actívalo para habilitar INICIAR RECORRIDO.";return;
     }
+    if(finished){if(kicker)kicker.textContent="✓ RECORRIDO";nextEl.textContent="FINALIZADO";nextEl.classList.add("complete");distanceEl.textContent="—";qrBtn.hidden=true;if(discardBtn)discardBtn.hidden=true;statusEl.className="m2race-control-status ok";statusEl.textContent="Resultado registrado y sincronizado.";return;}
+    const syncError=String(detail.message&&status==="sync_error"?detail.message:(snap.lastSyncError||""));
+    if(!next){nextEl.textContent=finishValidated?"LLEGADA ✓":"LLEGADA";nextEl.classList.add("complete");distanceEl.textContent="—";qrBtn.hidden=true;if(discardBtn)discardBtn.hidden=true;if(discardConfirm)discardConfirm.hidden=true;statusEl.className="m2race-control-status "+(finishValidated?"ok":"warn");statusEl.textContent=finishValidated?"🏁 Llegada registrada · cerrando carrera…":"Valida LLEGADA por GPS o QR.";if(kicker)kicker.textContent="🏁 LLEGADA";return;}
     const isFinish=String(next.checkpointId||"").toUpperCase()==="FINISH"||String(next.kind||"")==="finish";
-    if(kicker)kicker.textContent=isFinish?"🏁 LLEGADA":"🎯 SIGUIENTE BALIZA";
-    nextEl.classList.toggle("complete",isFinish);
-    nextEl.textContent=isFinish?"LLEGADA":String(next.checkpointId||"—");
-    qrBtn.hidden=false;if(discardBtn){discardBtn.hidden=isFinish;discardBtn.querySelector("span").textContent=`MANTENER 5s PARA DESCARTAR ${String(next.checkpointId||"")}`;}if(isFinish&&discardConfirm)discardConfirm.hidden=true;qrBtn.textContent=isFinish?"📷 ESCANEAR QR DE LLEGADA":"📷 ESCANEAR QR DE LA BALIZA";
+    if(kicker)kicker.textContent=isFinish?"🏁 LLEGADA":"🎯 CONTROL ACTUAL";nextEl.classList.toggle("complete",isFinish);nextEl.textContent=isFinish?"LLEGADA":String(next.checkpointId||"—");
+    qrBtn.hidden=false;if(discardBtn){discardBtn.hidden=isFinish;discardBtn.querySelector("span").textContent=`MANTENER 5s · DESCARTAR ${String(next.checkpointId||"")}`;}if(isFinish&&discardConfirm)discardConfirm.hidden=true;qrBtn.textContent=isFinish?"📷 ESCANEAR QR DE LLEGADA":`📷 ESCANEAR QR · ${String(next.checkpointId||"BALIZA")}`;
     if(detail.distanceM!=null)distanceEl.textContent=fmtMeters(detail.distanceM);
-    if(status==="discarded"){const pass=detail.pass||{};statusEl.className="m2race-control-status warn";statusEl.textContent=`⏭️ ${pass.checkpointId||"Baliza"} descartada · +15:00 al TIEMPO OFICIAL. Siguiente: ${String(detail.nextAfter?.checkpointId||snap.nextControl?.checkpointId||"FINISH").toUpperCase()==="FINISH"?"LLEGADA":detail.nextAfter?.checkpointId||snap.nextControl?.checkpointId}.`;}
-    else if(status==="passed"||status==="qr_passed"){const pass=detail.pass||{};statusEl.className="m2race-control-status ok";statusEl.textContent=`✅ ${pass.checkpointId||"Baliza"} validada por ${String(pass.source||"").toUpperCase()==="QR"?"QR":"GPS"}. Siguiente: ${String(detail.nextAfter?.checkpointId||snap.nextControl?.checkpointId||"FINISH").toUpperCase()==="FINISH"?"LLEGADA":detail.nextAfter?.checkpointId||snap.nextControl?.checkpointId}.`;}
-    else if(status==="arrival_local"||status==="arrival_qr"){statusEl.className="m2race-control-status ok";statusEl.textContent="🏁 LLEGADA registrada. Parando tiempo y sincronizando automáticamente…";}
-    else if(status==="arrival_synced"){statusEl.className="m2race-control-status ok";statusEl.textContent="🏁 LLEGADA sincronizada. Cerrando carrera con el organizador…";}
-    else if(pending>0&&!(["passed","qr_passed","arrival_local","arrival_qr"].includes(status))){statusEl.className="m2race-control-status warn";statusEl.textContent=syncError?`Sincronización pendiente · ${pending} validación${pending===1?"":"es"}. Reintentando automáticamente…`:`Sincronizando ${pending} validación${pending===1?"":"es"} con el organizador…`;return;}
-    else if(status==="offline"){statusEl.className="m2race-control-status warn";statusEl.textContent=detail.message||"Validación guardada localmente. Se sincronizará al volver la cobertura.";}
-    else if(status==="sync_error"||status==="qr_error"){statusEl.className="m2race-control-status warn";statusEl.textContent=detail.message||"No se pudo sincronizar. El registro local se conserva y se reintentará.";}
-    else if(status==="syncing"){statusEl.className="m2race-control-status";statusEl.textContent=pending?`Sincronizando ${pending} validación${pending===1?"":"es"}…`:isFinish?"Sincronizando llegada…":"Sincronizando paso por baliza…";}
-    else if(status==="gps"){
+    if(status==="discarded"){const pass=detail.pass||{};statusEl.className="m2race-control-status warn";statusEl.textContent=`${pass.checkpointId||"Baliza"} descartada · +15:00 al TIEMPO OFICIAL.`;}
+    else if(status==="passed"||status==="qr_passed"){const pass=detail.pass||{};statusEl.className="m2race-control-status ok";statusEl.textContent=`✓ ${pass.checkpointId||"Baliza"} validada por ${String(pass.source||"").toUpperCase()==="QR"?"QR":"GPS"}.`;
+    }else if(status==="arrival_local"||status==="arrival_qr"||status==="arrival_synced"){statusEl.className="m2race-control-status ok";statusEl.textContent="🏁 LLEGADA registrada · sincronizando resultado…";
+    }else if(pending>0&&!(["passed","qr_passed","arrival_local","arrival_qr"].includes(status))){statusEl.className="m2race-control-status warn";statusEl.textContent=syncError?`Pendiente de sincronizar · ${pending}. ${syncError}`:`Sincronizando ${pending} validación${pending===1?"":"es"}…`;
+    }else if(status==="offline"){statusEl.className="m2race-control-status warn";statusEl.textContent="Sin cobertura · validación protegida en el dispositivo.";
+    }else if(status==="sync_error"||status==="qr_error"){statusEl.className="m2race-control-status warn";statusEl.textContent=detail.message||"Pendiente de sincronizar. El registro local está protegido.";
+    }else if(status==="gps"){
       statusEl.className="m2race-control-status";
-      if(pending>0){statusEl.textContent=`Sincronizando ${pending} validación${pending===1?"":"es"} con el organizador…`;return;}
-      if(detail.distanceM==null){statusEl.textContent=isFinish?"Esperando coordenadas de LLEGADA. Puedes usar su QR desde cualquier ubicación.":"Esperando coordenadas de la siguiente baliza. Puedes usar el QR en cualquier ubicación si necesitas respaldo.";}
-      else if(detail.accuracyOk===false){statusEl.className="m2race-control-status warn";statusEl.textContent=`Precisión GPS insuficiente: ±${Math.round(Number(detail.accuracyM||0))} m. Para validar necesitas ±10 m o mejor y estar a 10 m o menos. El QR sigue disponible.`;}
-      else if(Number(detail.distanceM)>10){statusEl.textContent=`${isFinish?"LLEGADA":"Siguiente "+next.checkpointId} · GPS ±${Math.round(Number(detail.accuracyM||0))} m · estás a ${Math.round(Number(detail.distanceM))} m. Acércate hasta 10 m o menos, o usa el QR.`;}
-      else{statusEl.textContent=`${isFinish?"LLEGADA":"Siguiente "+next.checkpointId} · dentro de 10 m y con precisión válida. Validando por GPS…`;}
-    } else {
-      statusEl.className="m2race-control-status";
-      statusEl.textContent=isFinish?"Todas las balizas están completas. Valida LLEGADA por GPS (≤10 m con precisión ±10 m) o escanea su QR.":"GPS solo valida con precisión ±10 m o mejor y a 10 m o menos. El QR puede usarse en cualquier ubicación.";
-    }
+      if(detail.distanceM==null)statusEl.textContent=isFinish?"Acércate a LLEGADA o usa QR.":"Buscando distancia al control · QR disponible.";
+      else if(detail.accuracyOk===false)statusEl.textContent=`Precisión GPS ±${Math.round(Number(detail.accuracyM||0))} m · necesita ±10 m o mejor.`;
+      else if(Number(detail.distanceM)>10)statusEl.textContent=`GPS ±${Math.round(Number(detail.accuracyM||0))} m · control a ${Math.round(Number(detail.distanceM))} m.`;
+      else{statusEl.className="m2race-control-status ok";statusEl.textContent="Dentro de 10 m · validando por GPS…";}
+    }else{statusEl.className="m2race-control-status";statusEl.textContent=isFinish?"Valida LLEGADA por GPS o QR.":"GPS automático (≤10 m) · QR disponible como respaldo.";}
   }
+
   async function openQrScanner(){
     const api=controlsApi(),panel=el("m2raceQrPanel"),status=el("m2raceQrStatus"),btn=el("m2raceQrOpen");
     if(!panel)return;
@@ -248,25 +277,21 @@
     pill.textContent=label;pill.className="m2race-state"+(st==="racing"||st==="started"?" racing":st==="finished"?" finished":"");
     el("m2raceStartAt").textContent=fmtTime(row.startedAt);el("m2raceFinishAt").textContent=fmtTime(row.finishedAt);
     el("m2raceRouteId").textContent=row.participantId&&row.routeId?`${row.participantId} · ${row.routeId}`:(row.routeId||"—");
-    el("m2raceRouteDistance").textContent=fmtKm(row.routeDistanceKm);
-    el("m2raceRouteControls").textContent=Number.isFinite(Number(row.routeControlCount))?String(Number(row.routeControlCount)):"—";
-    el("m2raceRouteClimb").textContent=row.routePositiveM==null?"—":`${Number(row.routePositiveM)} m`;
-    el("m2raceRouteDifficulty").textContent=String(row.routeDifficulty||"—");
-    el("m2raceRouteSequence").textContent=routeSequence(row.routePoints)||"Recorrido asignado. La secuencia de balizas no está disponible.";
-    el("m2raceStart").disabled=!row.routeId||!row.participantId;
-    el("m2raceStart").hidden=!["ready","not_started"].includes(st);
-    const hasFinishTarget=Boolean(state.controlPlan?.finish);
-    el("m2raceFinish").hidden=!["racing","started"].includes(st);
-    el("m2raceActionNote").textContent=hasFinishTarget?"LLEGADA finaliza automáticamente por GPS/QR. El botón TERMINAR CARRERA permanece disponible como salida manual.":"Puedes terminar manualmente la carrera cuando lo necesites.";
-    const resultText=el("m2raceResultText");if(resultText)resultText.textContent=row.manualFinishIncomplete?"Carrera terminada manualmente. El resultado queda como INCOMPLETO porque faltaban balizas o LLEGADA.":"La llegada/fin de carrera ha quedado registrada y sincronizada con el organizador.";
-    el("m2raceResult").hidden=st!=="finished";el("m2raceActionCard").hidden=st==="finished";if(st==="finished")el("m2raceConfirm").classList.remove("open");updateTimer();
-    controlsApi()?.setRaceStatus?.(st);updateControlUi("status");
-    try{window.dispatchEvent(new CustomEvent("militopo:v2-race-participant",{detail:{event:state.event?{...state.event}:null,auth:state.auth?{...state.auth}:null,runId:state.runId,participant:{...row},controlPlan:state.controlPlan?JSON.parse(JSON.stringify(state.controlPlan)):null,localArrivalAt:Number(state.localArrivalAt||0),status:st}}));}catch(_){}
-    emitLocalSnapshot();
+    el("m2raceRouteDistance").textContent=fmtKm(row.routeDistanceKm);el("m2raceRouteControls").textContent=Number.isFinite(Number(row.routeControlCount))?String(Number(row.routeControlCount)):"—";el("m2raceRouteClimb").textContent=row.routePositiveM==null?"—":`${Number(row.routePositiveM)} m`;el("m2raceRouteDifficulty").textContent=String(row.routeDifficulty||"—");el("m2raceRouteSequence").textContent=routeSequence(row.routePoints)||"Recorrido asignado. Secuencia no disponible.";
+    const start=el("m2raceStart"),finish=el("m2raceFinish");start.hidden=!["ready","not_started"].includes(st);finish.hidden=!["racing","started"].includes(st);syncStartGate();
+    const hasFinishTarget=Boolean(state.controlPlan?.finish);el("m2raceActionNote").textContent=hasFinishTarget?"LLEGADA finaliza automáticamente por GPS/QR.":"Puedes terminar manualmente cuando lo necesites.";
+    const resultText=el("m2raceResultText");if(resultText)resultText.textContent=row.manualFinishIncomplete?"Carrera terminada manualmente como INCOMPLETA.":"Llegada y resultado sincronizados con el organizador.";
+    el("m2raceResult").hidden=st!=="finished";if(st==="finished")el("m2raceConfirm").classList.remove("open");updateTimer();controlsApi()?.setRaceStatus?.(st);updateControlUi("status");
+    try{window.dispatchEvent(new CustomEvent("militopo:v2-race-participant",{detail:{event:state.event?{...state.event}:null,auth:state.auth?{...state.auth}:null,runId:state.runId,participant:{...row},controlPlan:state.controlPlan?JSON.parse(JSON.stringify(state.controlPlan)):null,localArrivalAt:Number(state.localArrivalAt||0),status:st}}));}catch(_){}emitLocalSnapshot();
     if(st==="finished"){gpsApi()?.stop?.("finished").catch?.(()=>{});controlsApi()?.stop?.();}
-    if(["racing","started"].includes(st)&&!gpsApi()?.snapshot?.().active&&!state.gpsTried){state.gpsTried=true;gpsApi()?.resumeIfGranted?.(gpsContext()).catch?.(()=>{});updateGpsUi("idle",{message:"GPS disponible. Pulsa ACTIVAR GPS si no se activa automáticamente."});}
+    if(["racing","started"].includes(st)&&!gpsApi()?.snapshot?.().active&&!state.gpsTried){state.gpsTried=true;gpsApi()?.resumeIfGranted?.(gpsContext()).catch?.(()=>{});updateGpsUi("idle",{message:"GPS disponible. Actívalo si no se recupera automáticamente."});}
   }
-  function updateTimer(){if(state.timer){clearInterval(state.timer);state.timer=null;}const tick=()=>{const row=state.participant||{},start=Number(row.startedAt||0),serverFinish=Number(row.finishedAt||0),finish=serverFinish||Number(state.localArrivalAt||0),st=String(row.status||"").toLowerCase();if(!start){el("m2raceTimer").textContent="00:00";updatePenaltyPreview();return;}el("m2raceTimer").textContent=fmtClock((finish||Date.now())-start);updatePenaltyPreview();if((st==="finished"||finish)&&state.timer){clearInterval(state.timer);state.timer=null;}};tick();if(["racing","started"].includes(String(state.participant?.status||"").toLowerCase())&&!state.localArrivalAt)state.timer=setInterval(tick,1000);}
+  function updateTimer(){
+    if(state.timer){clearInterval(state.timer);state.timer=null;}
+    const tick=()=>{const row=state.participant||{},start=Number(row.startedAt||0),serverFinish=Number(row.finishedAt||0),finish=serverFinish||Number(state.localArrivalAt||0),st=String(row.status||"").toLowerCase();updatePenaltyPreview();if((st==="finished"||finish)&&state.timer){clearInterval(state.timer);state.timer=null;}};
+    tick();if(["racing","started"].includes(String(state.participant?.status||"").toLowerCase())&&!state.localArrivalAt)state.timer=setInterval(tick,1000);
+  }
+
   async function bind(){
     const svc=await services(),api=svc.databaseApi;if(!api)throw new Error("Realtime Database no disponible.");
     try{state.unsubParticipant?.();}catch(_){}try{state.unsubActive?.();}catch(_){}
@@ -328,10 +353,10 @@
   }
 
   async function open(detail){
-    clearListeners();state.event=detail?.event||null;state.auth=detail?.auth||null;state.runId=String(detail?.runId||"");state.recovered=Boolean(detail?.recovered);state.gpsTried=false;state.controlPlan=null;state.participant=null;state.localArrivalAt=0;state.autoFinishing=false;state.summaryOpen=false;state.offlineRecovered=false;state.reconnectPromise=null;
+    clearListeners();state.event=detail?.event||null;state.auth=detail?.auth||null;state.runId=String(detail?.runId||"");state.recovered=Boolean(detail?.recovered);state.gpsTried=false;state.gpsPrepared=false;state.preStartFix=null;state.controlPlan=null;state.participant=null;state.localArrivalAt=0;state.autoFinishing=false;state.summaryOpen=false;state.offlineRecovered=false;state.reconnectPromise=null;
     if(!state.event||!state.auth||!state.runId)return;
     const recovery=detail?.recoverySnapshot||null;
-    const root=ensureRoot();root.hidden=false;document.body.style.overflow="hidden";el("m2raceStartConfirm").classList.remove("open");el("m2raceTitle").textContent=state.event.eventName||"Carrera";el("m2raceEvent").innerHTML=`<strong>${esc(state.auth.displayName||state.auth.username||"Corredor")}</strong> · ${esc(state.event.eventId||"")}`;el("m2raceSyncTitle").textContent=state.recovered?"Recuperando carrera":"Sincronización activa";el("m2raceSyncText").textContent=state.recovered?(navigator.onLine===false?"Restaurando la carrera desde este dispositivo…":"Reconectando con tu sesión Live V2…"):"Conectando a la sesión Live V2…";updateGpsUi("idle");updateTrackUi("ready");
+    const root=ensureRoot();root.hidden=false;document.body.style.overflow="hidden";el("m2raceStartConfirm").classList.remove("open");el("m2raceRouteCard").hidden=true;el("m2raceRouteToggle").textContent="VER RECORRIDO";el("m2raceTitle").textContent=state.event.eventName||"Carrera";el("m2raceEvent").innerHTML=`<strong>${esc(state.auth.displayName||state.auth.username||"Corredor")}</strong> · ${esc(state.event.eventId||"")}`;el("m2raceSyncTitle").textContent=state.recovered?"Recuperando carrera":"Sincronización activa";el("m2raceSyncText").textContent=state.recovered?(navigator.onLine===false?"Restaurando la carrera desde este dispositivo…":"Reconectando con tu sesión Live V2…"):"Conectando a la sesión Live V2…";updateGpsUi("idle");updateTrackUi("ready");
     try{window.dispatchEvent(new CustomEvent("militopo:v2-race-opened",{detail:{event:{...state.event},auth:{...state.auth},runId:state.runId,recovered:state.recovered,recoverySnapshot:recovery}}));}catch(_){}
 
     if(state.recovered&&navigator.onLine===false&&hasUsableRecovery(recovery)){
@@ -352,25 +377,39 @@
     }
   }
 
-  async function activateGps(){const api=gpsApi();if(!api)return updateGpsUi("unsupported",{message:"Módulo GPS no disponible."});updateGpsUi("requesting");const fix=await api.prepare();if(fix){await api.start(gpsContext(),fix);state.gpsTried=true;}else updateGpsUi("error",{message:api.snapshot?.().lastError||"No se pudo activar el GPS."});}
+  async function activateGps(){
+    const api=gpsApi();if(!api)return updateGpsUi("unsupported",{message:"Módulo GPS no disponible."});
+    updateGpsUi("requesting");
+    try{
+      const fix=await api.prepare();
+      if(!fix){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:api.snapshot?.().lastError||"No se pudo obtener una posición GPS."});return false;}
+      state.gpsPrepared=true;state.preStartFix={...fix};state.gpsTried=true;
+      const racing=["racing","started"].includes(String(state.participant?.status||"").toLowerCase());
+      if(racing){const ok=await api.start(gpsContext(),fix);if(!ok){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:"No se pudo mantener activo el GPS de carrera."});return false;}updateGpsUi("active",{fix});}
+      else updateGpsUi("ready",{fix});
+      return true;
+    }catch(error){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:String(error?.message||error)});return false;}
+  }
   async function startRace(){
     if(state.busy)return;
-    state.localArrivalAt=0;state.autoFinishing=false;
-    busy("Preparando salida","Solicitando GPS y validando tu sesión…");
-    let fix=null;
-    try{if(gpsApi()){updateGpsUi("requesting");fix=await gpsApi().prepare();}}
-    catch(_){fix=null;}
+    const api=gpsApi(),snap=api?.snapshot?.()||{};
+    if(!state.gpsPrepared&&!snap.active){
+      el("m2raceStartConfirm").classList.remove("open");
+      const ok=await activateGps();if(!ok){el("m2raceControlStatus").className="m2race-control-status warn";el("m2raceControlStatus").textContent="No se puede iniciar: activa el GPS y permite la ubicación.";return;}
+    }
+    const fix=state.preStartFix||api?.snapshot?.().lastSent||null;
+    if(!fix){el("m2raceControlStatus").className="m2race-control-status warn";el("m2raceControlStatus").textContent="No se puede iniciar sin una posición GPS válida.";syncStartGate();return;}
+    state.localArrivalAt=0;state.autoFinishing=false;busy("Preparando salida","GPS validado · registrando tu salida oficial…");
     try{
-      const svc=await services();
-      el("m2raceBusyText").textContent="Registrando la salida en Live V2…";
-      const startResult=await svc.callable("runnerStartRace",{eventId:state.event.eventId,clientVersion:VERSION});
-      const startData=startResult?.data||{};state.participant={...(state.participant||{}),status:"racing",startedAt:Number(startData.startedAt||state.participant?.startedAt||Date.now())};
-      controlsApi()?.setRaceStatus?.("racing");render();emitLocalSnapshot();updateControlUi("status");
-      if(gpsApi()&&fix)await gpsApi().start(gpsContext(),fix);else if(!fix)updateGpsUi("error",{message:"La carrera ha empezado, pero el GPS no está activo. Puedes activarlo manualmente."});
-      await new Promise(r=>setTimeout(r,650));el("m2raceBusyTitle").textContent="Salida registrada";el("m2raceBusyText").textContent="Ya estás EN CARRERA. El organizador ha recibido el cambio.";await new Promise(r=>setTimeout(r,850));
-    }catch(error){el("m2raceBusyTitle").textContent="No se pudo iniciar";el("m2raceBusyText").textContent=String(error?.message||error);await new Promise(r=>setTimeout(r,1600));}
+      const svc=await services();const startResult=await svc.callable("runnerStartRace",{eventId:state.event.eventId,clientVersion:VERSION});const startData=startResult?.data||{};
+      state.participant={...(state.participant||{}),status:"racing",startedAt:Number(startData.startedAt||state.participant?.startedAt||Date.now())};controlsApi()?.setRaceStatus?.("racing");
+      const gpsStarted=await api.start(gpsContext(),fix);if(!gpsStarted)throw new Error("La salida se registró, pero el GPS no pudo mantenerse activo. Revisa el permiso de ubicación.");
+      updateGpsUi("active",{fix});render();emitLocalSnapshot();updateControlUi("status");
+      el("m2raceBusyTitle").textContent="Salida registrada ✓";el("m2raceBusyText").textContent="TIEMPO OFICIAL en marcha · GPS y track activos.";await new Promise(r=>setTimeout(r,650));
+    }catch(error){el("m2raceBusyTitle").textContent="No se pudo iniciar";el("m2raceBusyText").textContent=String(error?.message||error);await new Promise(r=>setTimeout(r,1400));}
     finally{unbusy();}
   }
+
   async function autoFinishFromArrival(detail={}){
     const st=String(state.participant?.status||"").toLowerCase();
     if(state.autoFinishing||st==="finished"||!["racing","started"].includes(st))return;
