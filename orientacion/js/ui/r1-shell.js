@@ -456,6 +456,51 @@
     },115);
   }
   function openMissingRoutes(){openMapAndTrace()}
+  function managerParticipantSnapshot(){
+    const snap=participantsSnapshot();
+    const capacity=Math.max(0,Number($("#participantCount")?.value)||Number(state.managerEvent?.participantCount)||0);
+    const members=(snap?.members||[]).filter(row=>String(row.status||"active")==="active");
+    const invitations=snap?.invitations||[];
+    const pending=invitations.filter(row=>String(row.status||"pending")==="pending").length;
+    const declined=invitations.filter(row=>String(row.status||"pending")==="declined").length;
+    const accepted=members.length;
+    const free=Math.max(0,capacity-accepted);
+    const projected=accepted+pending;
+    return {capacity,accepted,pending,declined,free,projected};
+  }
+  function participantControlHtml(){
+    const data=managerParticipantSnapshot();
+    const cap=data.capacity||0;
+    const occupancy=cap?Math.min(100,Math.round((data.accepted/cap)*100)):0;
+    const over=Math.max(0,data.projected-cap);
+    let tone="is-open",title="CONTROL DE PARTICIPANTES",detail="";
+    if(!cap){tone="is-warn";detail="Define primero el número de plazas de la carrera."}
+    else if(over>0){tone="is-alert";detail=`Hay ${over} invitación${over===1?"":"es"} pendiente${over===1?"":"s"} por encima de las plazas libres.`}
+    else if(data.pending>0){tone="is-warn";detail=`${data.accepted} dentro · ${data.pending} pendiente${data.pending===1?"":"s"} de responder antes del inicio.`}
+    else if(data.accepted>=cap){tone="is-ready";detail="Todas las plazas están ocupadas y no hay respuestas pendientes."}
+    else{detail=`${data.free} plaza${data.free===1?"":"s"} libre${data.free===1?"":"s"} y ninguna invitación pendiente.`}
+    return `<section class="r5-prestart-participants ${tone}" id="r5PrestartParticipants" aria-label="Control previo de participantes">
+      <div class="r5-prestart-head"><div><span>CONTROL PREVIO</span><strong>${title}</strong><small data-r5-participant-detail>${detail}</small></div><b data-r5-participant-occupancy>${cap?`${data.accepted}/${cap}`:"—"}</b></div>
+      <div class="r5-prestart-progress" aria-hidden="true"><i data-r5-participant-progress style="width:${occupancy}%"></i></div>
+      <div class="r5-prestart-metrics">
+        <div><strong data-r5-participant-capacity>${cap||"—"}</strong><span>PLAZAS</span></div>
+        <div><strong data-r5-participant-accepted>${data.accepted}</strong><span>DENTRO</span></div>
+        <div class="${data.pending?"is-pending":""}"><strong data-r5-participant-pending>${data.pending}</strong><span>PENDIENTES</span></div>
+        <div><strong data-r5-participant-free>${cap?data.free:"—"}</strong><span>LIBRES</span></div>
+      </div>
+      <div class="r5-prestart-foot"><span data-r5-participant-declined>${data.declined?`${data.declined} rechazada${data.declined===1?"":"s"} por corredores`:"Sin invitaciones rechazadas"}</span><button type="button" data-r3-manager-action="participants">GESTIONAR PARTICIPANTES</button></div>
+    </section>`;
+  }
+  function refreshManagerParticipantControl(){
+    const card=$("#r5PrestartParticipants");
+    if(!card)return;
+    const fresh=document.createElement("div");
+    fresh.innerHTML=participantControlHtml();
+    const next=fresh.firstElementChild;
+    if(next)card.replaceWith(next);
+    const replacement=$("#r5PrestartParticipants");
+    replacement?.querySelectorAll("[data-r3-manager-action]").forEach(button=>button.addEventListener("click",()=>runManagerAction(button.dataset.r3ManagerAction)));
+  }
   function readinessHtml(){
     const ready=designReadinessSnapshot();
     if(!ready)return "";
@@ -483,7 +528,7 @@
       </div>
       <div class="r3-manager-track">${managerTrack(ctx.status)}</div>
       <div class="r3-manager-metrics">
-        <div><strong>${ctx.participantCount||"—"}</strong><span>PARTICIPANTES</span></div>
+        <div><strong>${ctx.participantCount||"—"}</strong><span>PLAZAS</span></div>
         <div><strong>${ctx.controlCount||"—"}</strong><span>BALIZAS</span></div>
         <div><strong>${ctx.courseSyncedCount||"—"}</strong><span>RECORRIDOS</span></div>
         <div><strong>${ctx.controlsPerRoute||"—"}</strong><span>BALIZAS POR RECORRIDO</span></div>
@@ -495,6 +540,7 @@
       </div>
       <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"":"is-active"}" data-r3-manager-panel="design" role="tabpanel">
         ${readinessHtml()}
+        ${participantControlHtml()}
         <div class="r3-manager-option-label"><span>OPCIONES</span><small>Herramientas de diseño y preparación</small></div>
         <div class="r3-manager-grid r3-manager-grid-compact">
           ${managerCard((designReadinessSnapshot()?.items.find(i=>i.key==="map")?.ok)?"map":"complete-map","MAPA Y BALIZAS","Salida, llegada y controles","layers","is-primary")}
@@ -533,7 +579,12 @@
     state.mapHome=false;document.body.classList.add("r1-workspace-open");
     state.workspace?.classList.add("is-open");document.body.style.overflow="hidden";
     const body=$("#r1WorkspaceBody");if(body){body.classList.add("r3-manager-view");body.scrollLeft=0;body.scrollTop=0}
-    renderRaceManager();setTimeout(()=>{if(body){body.scrollLeft=0;body.scrollTop=0}window.dispatchEvent(new Event("resize"))},60);
+    renderRaceManager();
+    try{
+      const refresh=window.MILITOPO_V2_PARTICIPANTS_ADMIN?.refresh?.();
+      if(refresh&&typeof refresh.finally==="function")refresh.finally(()=>setTimeout(refreshManagerParticipantControl,40));
+    }catch(_){}
+    setTimeout(()=>{refreshManagerParticipantControl();if(body){body.scrollLeft=0;body.scrollTop=0}window.dispatchEvent(new Event("resize"))},180);
   }
   function openManagerStep(step,title){state.managerModuleTitle=title;return openStep(step,title)}
   function openManagerInjected(ids,title,step=1){state.managerModuleTitle=title;return openInjected(ids,title,step)}
@@ -575,8 +626,8 @@
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
     window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();refreshLiveHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
     window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();refreshParticipantsHub();refreshLiveHub();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
-    window.addEventListener("militopo:v2-roster-changed",()=>setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},60));
-    window.addEventListener("militopo:v2-roster-snapshot",()=>setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub()},60));
+    window.addEventListener("militopo:v2-roster-changed",()=>setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub();refreshManagerParticipantControl()},60));
+    window.addEventListener("militopo:v2-roster-snapshot",()=>setTimeout(()=>{refreshParticipantsHub();refreshAssignmentsHub();refreshManagerParticipantControl()},60));
     window.addEventListener("militopo:r2-route-updated",()=>{if(state.currentStep===3)setTimeout(refreshRoutesProfessional,70);if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,90)});
     window.addEventListener("militopo:r2-config-updated",event=>{
       /* R2H · una sola pulsación en SINCRONIZAR aplica reglas y vuelve al mapa
