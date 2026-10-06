@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>MILITOPO Participante</title><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="MILITOPO Participante"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="192x192" href="icons/participante-192.png"><link rel="icon" type="image/png" sizes="512x512" href="icons/participante-512.png">
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>MILITOPO</title><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="MILITOPO"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png"><link rel="apple-touch-icon" href="icons/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="192x192" href="icons/participante-192.png"><link rel="icon" type="image/png" sizes="512x512" href="icons/participante-512.png">
 <link rel="stylesheet" href="../../js/v2/auth/auth-ui.css?v=v2-f3a-runner-homefix2-20260923">
 <style>
 :root{--p:#344724;--g:#f0c16a;--c:#f5e6c8;--m:#cbb894;--r:#c85e45;--v:#8bb56a}*{box-sizing:border-box}html,body{min-height:100%;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}body{margin:0;background:linear-gradient(180deg,#10190b,#202916,#151b10);color:var(--c);font-family:"Courier New",monospace}.app{max-width:760px;margin:auto;padding:16px 12px 44px}.card{border-radius:28px;margin:0 0 16px;padding:18px;background:radial-gradient(circle at 88% 10%,rgba(240,193,106,.13),transparent 26%),linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.035)),var(--p);border:1px solid rgba(230,188,122,.28);box-shadow:0 18px 44px rgba(0,0,0,.26)}h1,h2{margin:0 0 12px;color:var(--g);letter-spacing:2px}.status{border-radius:18px;padding:12px;margin-top:10px;background:rgba(0,0,0,.16);border:1px solid rgba(230,188,122,.35);font-weight:900;line-height:1.35}.ok{border-color:rgba(139,181,106,.6);background:rgba(139,181,106,.16)}.err{border-color:rgba(200,94,69,.6);background:rgba(200,94,69,.14)}.btn{width:100%;min-height:54px;border:0;border-radius:999px;margin-top:10px;font-family:inherit;font-weight:900;letter-spacing:.8px;background:linear-gradient(180deg,var(--g),#d79735);color:#261708}.green{background:linear-gradient(180deg,#8bb56a,#5f8838);color:#f7ffe9}.red{background:linear-gradient(180deg,#c85e45,#963d2b);color:#fff4e9}.secondary{background:linear-gradient(180deg,#573a22,#332419);color:var(--c)}input,textarea{width:100%;min-height:48px;border-radius:16px;border:1px solid rgba(230,188,122,.45);background:linear-gradient(180deg,#4e3722,#33261b);color:var(--c);font-family:inherit;font-weight:900;padding:12px;margin-top:10px}.route{font-size:1rem;line-height:1.55;font-weight:900}.next{font-size:clamp(1.5rem,8vw,2.6rem);text-align:center;color:var(--g);padding:16px;border-radius:22px;background:rgba(0,0,0,.18);border:1px solid rgba(230,188,122,.35);margin-top:12px}.scan{display:grid;grid-template-columns:82px 1fr auto;gap:8px;border-radius:14px;padding:10px;margin-top:8px;background:rgba(0,0,0,.15);border:1px solid rgba(230,188,122,.2)}.scan.ok{border-color:rgba(139,181,106,.5)}.scan.bad{border-color:rgba(200,94,69,.6)}video{width:100%;max-height:380px;border-radius:18px;background:#111;object-fit:cover;margin-top:10px}.qr img{width:min(92vw,520px);max-width:100%;background:#fff;padding:18px;border-radius:18px;image-rendering:pixelated;border:4px solid #fff;box-shadow:0 12px 30px rgba(0,0,0,.35)}.qr{text-align:center;margin-top:12px}.small{color:var(--m);font-size:.82rem;line-height:1.35}.result-qr-instruction{margin:12px auto 10px;padding:14px 12px;border-radius:18px;background:linear-gradient(180deg,#f0c16a,#d79735);color:#24170a;font-weight:900;text-align:center;line-height:1.35;border:2px solid rgba(255,255,255,.55);box-shadow:0 10px 28px rgba(0,0,0,.35);font-size:1rem;max-width:310px}
@@ -110,6 +110,36 @@ html.gps-locked,html.gps-locked body{overflow:hidden!important;overscroll-behavi
 .gps-choice-overlay.open{display:grid!important}
 .gps-choice-card{position:relative!important;top:0!important;width:min(96vw,540px)!important;max-height:calc(100dvh - max(16px,env(safe-area-inset-top)) - max(16px,env(safe-area-inset-bottom)))!important;overflow:auto!important;margin:0!important;padding:16px 14px!important;border-radius:0 0 26px 26px!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important}
 @media(max-width:520px){.participant-main-hero{padding:20px 12px 18px;border-radius:24px}.participant-main-hero img{width:132px;height:132px;border-radius:29px}.participant-main-hero-text strong{font-size:2.15rem}.participant-main-hero-text span{font-size:1.15rem}.gps-choice-icon{font-size:42px}.gps-choice-title{font-size:1.05rem}.gps-choice-text{font-size:.8rem;margin:7px 0 10px}.gps-choice-actions .btn{min-height:46px;font-size:.76rem}}
+
+/* R6A · CARRERA ACTIVA PROFESIONAL · 06/10/2026 */
+:root{--r6-bg:#07100b;--r6-panel:#112319;--r6-panel2:#172d20;--r6-line:rgba(255,255,255,.10);--r6-text:#f5f7f2;--r6-muted:#9bac9f;--r6-lime:#b7de76;--r6-green:#69d27e;--r6-gold:#e9bd61;--r6-red:#ed7162}
+html,body{background:radial-gradient(circle at 50% -10%,#1b3b27 0,#0b1a10 34%,#050a07 78%)!important;color:var(--r6-text)!important;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important}
+body{min-height:100dvh}
+.simple-participant-app{display:flex;flex-direction:column;max-width:760px!important;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px calc(env(safe-area-inset-bottom,0px) + 36px)!important}
+.r6-appbar{order:0;position:sticky;top:0;z-index:5000;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 -2px 10px;padding:9px 10px;border:1px solid rgba(194,226,141,.18);border-radius:20px;background:rgba(9,23,14,.93);box-shadow:0 12px 34px rgba(0,0,0,.26);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.r6-brand{display:flex;align-items:center;min-width:0;gap:10px}.r6-brand img{width:48px;height:48px;flex:0 0 48px;border-radius:50%;object-fit:cover;border:2px solid rgba(226,235,209,.72);background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.36)}
+.r6-brand-copy{display:grid;min-width:0;gap:2px}.r6-brand-copy strong{font-size:1.15rem;letter-spacing:.15em;line-height:1;color:#fff;font-weight:950}.r6-brand-copy span{max-width:44vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.59rem;letter-spacing:.11em;color:#91a496;font-weight:850}
+.r6-network{display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:7px 9px;border-radius:999px;border:1px solid rgba(103,211,128,.24);background:rgba(103,211,128,.09);font-size:.59rem;letter-spacing:.06em;color:#d8f7df}.r6-network span{width:7px;height:7px;border-radius:50%;background:#69dc84;box-shadow:0 0 0 4px rgba(105,220,132,.10)}.r6-network.is-offline{border-color:rgba(234,188,88,.35);background:rgba(234,188,88,.10);color:#ffe7ae}.r6-network.is-offline span{background:#efbd55;box-shadow:0 0 0 4px rgba(239,189,85,.10)}
+.r6-dashboard{order:1;margin:0 0 10px;padding:16px;border:1px solid rgba(185,225,128,.23);border-radius:26px;background:radial-gradient(circle at 88% 0,rgba(172,218,101,.17),transparent 32%),linear-gradient(155deg,rgba(24,53,34,.98),rgba(8,20,13,.99));box-shadow:0 18px 48px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.04)}
+.r6-dashboard-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.r6-event-copy{min-width:0}.r6-event-copy small{display:block;color:#91a598;font-size:.58rem;font-weight:900;letter-spacing:.18em}.r6-event-copy h1{margin:3px 0 0!important;max-width:56vw;color:#fff!important;font-size:1.02rem!important;letter-spacing:.01em!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r6-state{padding:7px 9px;border-radius:999px;border:1px solid rgba(185,225,128,.26);background:rgba(185,225,128,.09);color:#dff4bf;font-size:.58rem;font-weight:950;letter-spacing:.07em;white-space:nowrap}.r6-state.is-running{border-color:rgba(91,178,245,.34);background:rgba(91,178,245,.11);color:#d8edff}.r6-state.is-finished{border-color:rgba(234,188,88,.34);background:rgba(234,188,88,.10);color:#ffe4a1}
+.r6-clock-wrap{text-align:center;padding:12px 0 8px}.r6-clock{font-size:clamp(3rem,15vw,5.2rem);font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.06em;line-height:1;color:#fff;text-shadow:0 12px 30px rgba(0,0,0,.28)}.r6-clock-label{margin-top:5px;color:#8fa095;font-size:.56rem;font-weight:900;letter-spacing:.16em}
+.r6-assignment{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin:3px 0 12px}.r6-assignment span{padding:6px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.045);color:#dce7df;font-size:.62rem;font-weight:900}.r6-assignment #r6SyncChip{color:#cfeec9;border-color:rgba(108,210,126,.22);background:rgba(108,210,126,.07)}
+.r6-progress-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:3px;color:#93a49a;font-size:.58rem;font-weight:900;letter-spacing:.09em}.r6-progress-head strong{color:#edf4ee;font-size:.68rem;letter-spacing:0}.r6-progress{height:7px;margin:7px 0 12px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.065)}.r6-progress i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#75d882,#c6e77f);box-shadow:0 0 18px rgba(137,215,126,.28);transition:width .35s ease}
+.r6-live-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.r6-live-stat{min-width:0;padding:10px 11px;border-radius:15px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.07)}.r6-live-stat span{display:block;color:#85968b;font-size:.54rem;font-weight:900;letter-spacing:.08em}.r6-live-stat strong{display:block;margin-top:4px;color:#eef5ef;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.r6-live-stat.is-target{border-color:rgba(126,204,245,.16);background:rgba(73,145,189,.07)}.r6-live-stat.is-target strong{color:#d8efff}.r6-live-stat.is-official{border-color:rgba(234,188,88,.18);background:rgba(234,188,88,.06)}.r6-live-stat.is-official strong{color:#ffe1a0}
+.card.simple-card{background:linear-gradient(180deg,rgba(21,43,29,.98),rgba(8,20,13,.99))!important;border:1px solid rgba(255,255,255,.085)!important;border-radius:22px!important;box-shadow:0 14px 38px rgba(0,0,0,.24)!important;padding:14px!important;margin-bottom:10px!important}
+#participantRouteCard{order:2}#race{order:3}#gpsProximity{order:4}#result{order:5}#participantResetCard{order:6}
+.r6-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.r6-section-head small{display:block;color:#87998d;font-size:.55rem;font-weight:900;letter-spacing:.15em}.r6-section-head h2{margin:2px 0 0!important;color:#f3f6f1!important;font-size:.98rem!important;letter-spacing:.04em!important}.r6-section-toggle{min-height:34px;padding:0 11px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:#cdd8d0;font:850 .58rem/1 system-ui;letter-spacing:.05em}.r6-route-content.is-collapsed{display:none}.r6-mini-live,.r6-gps-beacon,.r6-result-ok{padding:6px 8px;border-radius:999px;font-size:.55rem;font-weight:950;letter-spacing:.07em}.r6-mini-live{color:#d8edff;border:1px solid rgba(91,178,245,.27);background:rgba(91,178,245,.09)}.r6-gps-beacon{color:#d7f0d2;border:1px solid rgba(111,210,130,.25);background:rgba(111,210,130,.08)}.r6-result-ok{color:#e9f7d0;border:1px solid rgba(185,225,128,.25);background:rgba(185,225,128,.08)}
+.status{border-radius:14px!important;padding:10px!important;margin-top:7px!important;background:rgba(255,255,255,.035)!important;border:1px solid rgba(255,255,255,.08)!important;color:#dde6df!important;font-size:.76rem;line-height:1.4}.status.ok{border-color:rgba(104,210,125,.22)!important;background:rgba(104,210,125,.07)!important}.status.err{border-color:rgba(237,113,98,.30)!important;background:rgba(237,113,98,.08)!important}.route{font-size:.73rem!important;line-height:1.65!important;color:#cbd7ce!important;word-break:break-word}
+.next{margin:3px 0 9px!important;padding:14px 10px!important;border-radius:18px!important;border:1px solid rgba(109,185,238,.20)!important;background:radial-gradient(circle at 50% 0,rgba(97,176,230,.16),transparent 50%),rgba(29,78,109,.09)!important;color:#e5f4ff!important;font-size:clamp(1.15rem,6vw,1.75rem)!important;font-weight:950!important;letter-spacing:.02em!important}
+.btn{min-height:50px!important;margin-top:8px!important;border-radius:15px!important;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif!important;font-size:.76rem!important;font-weight:950!important;letter-spacing:.04em!important;box-shadow:none!important}.btn.green{background:linear-gradient(180deg,#bce97d,#8bc658)!important;color:#10210d!important}.btn.secondary{background:rgba(255,255,255,.055)!important;color:#e8efe9!important;border:1px solid rgba(255,255,255,.10)!important}.btn.red{background:linear-gradient(180deg,#e98072,#c75549)!important;color:#fff!important}
+.scan{grid-template-columns:62px 1fr 28px!important;gap:7px!important;padding:8px!important;margin-top:6px!important;border-radius:13px!important;background:rgba(255,255,255,.028)!important;border:1px solid rgba(255,255,255,.065)!important;font-size:.68rem!important}.scan.ok{border-color:rgba(104,210,125,.18)!important}.scan.bad{border-color:rgba(237,113,98,.20)!important}.scan b{color:#f0f5f1}.scan span:nth-child(2){color:#9eada2;line-height:1.35}
+.gps-card{border-color:rgba(106,203,126,.18)!important;background:linear-gradient(180deg,rgba(17,48,29,.98),rgba(8,20,13,.99))!important}.gps-metrics{grid-template-columns:1fr 1fr!important;gap:7px!important}.gps-metric{padding:10px!important;border-radius:14px!important;background:rgba(255,255,255,.035)!important;border:1px solid rgba(255,255,255,.07)!important}.gps-metric small{color:#84968a!important;font-size:.56rem!important;letter-spacing:.06em}.gps-metric b{font-size:.88rem!important;color:#eff5f0!important}.live-sync-status{border-radius:12px 12px 7px 7px!important}.live-last-sync{font-size:.58rem!important}
+body.r6-running #participantRouteCard{opacity:.92}body.r6-running #participantRouteCard .r6-route-content{display:none}body.r6-running #participantRouteCard .r6-section-toggle{display:block}body.r6-running #race{box-shadow:0 0 0 1px rgba(100,178,230,.12),0 18px 48px rgba(0,0,0,.30)!important}body.r6-finished .r6-dashboard{border-color:rgba(234,188,88,.25)}
+#result .qr img{max-width:360px!important;width:min(84vw,360px)!important;padding:12px!important;border:4px solid #fff!important;border-radius:18px!important}.result-qr-instruction{max-width:360px!important;border-radius:14px!important;font-size:.73rem!important}.result-code-title{font-size:.68rem!important;border-radius:13px!important}#resultText{font-size:.67rem!important;border:2px solid #d6b368!important;border-radius:13px!important}
+#participantResetCard{background:rgba(94,31,26,.18)!important;border-color:rgba(237,113,98,.16)!important}.participant-reset-card .btn{opacity:.86}
+@media(max-width:420px){.simple-participant-app{padding-left:8px!important;padding-right:8px!important}.r6-dashboard{padding:14px;border-radius:23px}.r6-appbar{border-radius:18px}.r6-brand img{width:44px;height:44px;flex-basis:44px}.r6-brand-copy strong{font-size:1.06rem}.r6-clock{font-size:3.55rem}.r6-live-stat{padding:9px}.card.simple-card{padding:12px!important}.r6-section-head h2{font-size:.9rem!important}}
+
 </style><script>
 /* QR offline embebido para MILITOPO. Basado en QRCode for JavaScript (Kazuhiko Arase, MIT) */
 (function(global){
@@ -1495,9 +1525,28 @@ module.exports = QRCode;
   global.__MILITOPO_QR_READY = true;
 })(window);
 </script></head><body><div class="app simple-participant-app">
-<section class="participant-main-hero" aria-label="MILITOPO Participante">
-  <img src="icons/participante-512.png" alt="Icono MILITOPO Participante">
-  <div class="participant-main-hero-text"><strong>MILITOPO</strong><span>PARTICIPANTE</span></div>
+<header class="r6-appbar" aria-label="MILITOPO">
+  <div class="r6-brand">
+    <img src="../assets/r1/militopo-compass-r2k.png" alt="MILITOPO">
+    <div class="r6-brand-copy"><strong>MILITOPO</strong><span id="r6HeaderEvent">CARRERA</span></div>
+  </div>
+  <div id="r6NetworkPill" class="r6-network is-online"><span></span><b>EN LÍNEA</b></div>
+</header>
+<section id="r6RaceDashboard" class="r6-dashboard" aria-live="polite">
+  <div class="r6-dashboard-head">
+    <div class="r6-event-copy"><small>CARRERA</small><h1 id="r6EventName">Preparando recorrido…</h1></div>
+    <div id="r6RaceState" class="r6-state is-ready">PREPARADO</div>
+  </div>
+  <div class="r6-clock-wrap"><div id="r6Timer" class="r6-clock">00:00</div><div class="r6-clock-label">TIEMPO REAL</div></div>
+  <div class="r6-assignment"><span id="r6ParticipantChip">P—</span><span id="r6RouteChip">R—</span><span id="r6SyncChip">SINCRONIZANDO</span></div>
+  <div class="r6-progress-head"><span>PROGRESO DEL RECORRIDO</span><strong id="r6ProgressText">0 de 0</strong></div>
+  <div class="r6-progress"><i id="r6ProgressFill"></i></div>
+  <div class="r6-live-grid">
+    <div class="r6-live-stat is-target"><span>SIGUIENTE</span><strong id="r6NextControl">SALIDA</strong></div>
+    <div class="r6-live-stat"><span>GPS</span><strong id="r6GpsAccuracy">—</strong></div>
+    <div class="r6-live-stat"><span>DESCARTES</span><strong id="r6Discarded">0</strong></div>
+    <div class="r6-live-stat is-official"><span>TIEMPO OFICIAL</span><strong id="r6OfficialTime">00:00</strong></div>
+  </div>
 </section>
 <div id="gpsFinishNotice" class="gps-finish-notice" role="dialog" aria-labelledby="gpsFinishTitle" aria-live="assertive">
   <div class="gps-finish-card">
@@ -1530,26 +1579,24 @@ module.exports = QRCode;
   </div>
 </div>
 <section id="participantRouteCard" class="card simple-card">
-  <div class="simple-step">1</div>
-  <h2>Su recorrido</h2>
-  <div id="identity" class="status">Escanea tu QR de participante para cargar el recorrido.</div>
+  <div class="r6-section-head"><div><small>ASIGNACIÓN</small><h2>RECORRIDO</h2></div><button id="r6RouteToggle" class="r6-section-toggle" type="button">OCULTAR</button></div>
+  <div id="r6RouteContent" class="r6-route-content"><div id="identity" class="status">Escanea tu QR de participante para cargar el recorrido.</div>
   <div id="route" class="status simple-route-box">Recorrido pendiente de cargar.</div>
   <button id="loadParticipantQrBtn" class="btn green" onclick="startQrCamera()">📷 ESCANEAR QR PARTICIPANTE</button>
   <input id="manualInput" placeholder="Pega aquí el código QR si falla cámara" style="display:none">
-  <button id="manualBtn" class="btn" onclick="loadManual()" style="display:none">CARGAR MANUAL</button>
+  <button id="manualBtn" class="btn" onclick="loadManual()" style="display:none">CARGAR MANUAL</button></div>
 </section>
 
 <section id="race" class="card simple-card" style="display:none">
-  <div class="simple-step">2</div>
-  <h2>Escanear controles</h2>
+  <div class="r6-section-head"><div><small>COMPETICIÓN</small><h2>CONTROL ACTUAL</h2></div><span class="r6-mini-live">EN CARRERA</span></div>
   <div id="next" class="next">--</div>
-  <button class="btn green" onclick="startQrCamera()">📷 ESCANEAR CONTROL</button>
+  <button class="btn green" onclick="startQrCamera()">ESCANEAR QR DEL CONTROL</button>
   <button id="skipControlBtn" class="btn secondary gps-skip-hold" type="button" style="display:none">⏭️ MANTÉN 5 SEGUNDOS PARA DESCARTAR ESTE PUNTO</button>
   <div id="scans" class="simple-scans"></div>
 </section>
 
 <section id="gpsProximity" class="card simple-card gps-card">
-  <div class="gps-title">📍 VALIDACIÓN AUTOMÁTICA POR PROXIMIDAD</div>
+  <div class="r6-section-head"><div><small>SISTEMA DE CARRERA</small><h2>GPS Y SINCRONIZACIÓN</h2></div><span class="r6-gps-beacon">GPS</span></div>
   <div class="gps-metrics">
     <div class="gps-metric"><small>Siguiente punto</small><b id="gpsTarget">—</b></div>
     <div class="gps-metric"><small>Precisión GPS</small><b id="gpsAccuracy">—</b></div>
@@ -1565,8 +1612,7 @@ module.exports = QRCode;
 </section>
 
 <section id="result" class="card simple-card" style="display:none">
-  <div class="simple-step">3</div>
-  <h2>Resultado final</h2>
+  <div class="r6-section-head"><div><small>FINALIZACIÓN</small><h2>RESULTADO</h2></div><span class="r6-result-ok">GUARDADO</span></div>
   <div id="summary" class="status ok"></div>
   <div id="deliveryConfirmations" class="delivery-confirmations" aria-live="polite">
     <div id="resultDeliveryStatus" class="delivery-confirmation wait"><span class="icon">⏳</span><span>Resultado pendiente de confirmación</span></div>
@@ -1608,7 +1654,7 @@ module.exports = QRCode;
 
 <div id="gpsAudioVisualPulse" class="gps-audio-visual-pulse"></div>
 <div id="toast" style="display:none;position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1c2414;color:#f5e6c8;border-radius:999px;padding:12px 16px;font-weight:900"></div>
-<script src="../../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005"></script>
+<script src="../../js/v2/ui/confirm-dialog.js?v=v2-r6a-carrera-activa-20261006"></script>
 <script src="../../js/v2/firebase-config.js?v=v2-f3a-runner-homefix2-20260923"></script>
 <script type="module" src="../../js/v2/auth/auth-ui.js?v=v2-r5a1-runner-routing-20261005"></script>
 <script type="module" src="../../js/v2/data/invitation-inbox.js?v=v2-f3a-runner-homefix2-20260923"></script>
@@ -2457,7 +2503,7 @@ function participantFinishMetrics(){
     return {distanceM:participantTrackDistanceM(),realMs,adjustedMs,skipped,pending};
 }
 function participantDurationText(ms){const sec=Math.max(0,Math.round((Number(ms)||0)/1000)),h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),ss=sec%60;return h?String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'):String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0')}
-function participantFinishMetricsText(){const x=participantFinishMetrics();if(!x)return '';const km=x.distanceM>=1000?(x.distanceM/1000).toFixed(2)+' km':Math.round(x.distanceM)+' m';return '\n\n📏 Distancia recorrida: '+km+'\n⏱️ Tiempo ajustado: '+participantDurationText(x.adjustedMs)}
+function participantFinishMetricsText(){const x=participantFinishMetrics();if(!x)return '';const km=x.distanceM>=1000?(x.distanceM/1000).toFixed(2)+' km':Math.round(x.distanceM)+' m';return '\n\n📏 Distancia recorrida: '+km+'\n⏱️ Tiempo oficial: '+participantDurationText(x.adjustedMs)}
 function showGpsFinishNotice(mode="pending"){
     const box=gpsEl("gpsFinishNotice"),title=gpsEl("gpsFinishTitle"),text=gpsEl("gpsFinishText");
     if(!box||!title||!text)return;
@@ -2726,3 +2772,806 @@ async function gpsBeep(kind="control"){
             played=true;
         }
     }catch(e){}
+    try{
+        const a=ensureParticipantAudioElement();
+        if(a){
+            a.src=makeMilitopoBeepDataUri(kind)||a.src;
+            a.muted=false;a.volume=1.0;a.currentTime=0;
+            await a.play().then(()=>{played=true}).catch(()=>{});
+        }
+    }catch(e){}
+    participantVisualPulse(kind);
+    if(!played&&isIosLike())toast("iPhone bloqueó el sonido. Pulsa ACTIVAR GPS o la pantalla una vez y continúa.");
+}
+function gpsValidated(id){primeParticipantAudio();gpsBeep("control");strongParticipantVibrate("control");toast("Baliza "+id+" validada por proximidad")}
+function gpsArrivalDetected(needsConfirmation=true){primeParticipantAudio();gpsBeep("finish");strongParticipantVibrate("finish");toast(needsConfirmation?"Llegada detectada. Confirma si quieres terminar":"Llegada detectada. Recorrido completo; finalizando e importando resultado")}
+function handleGpsArrivalDetected(){
+    const p=gpsProgressData();
+    if(p.pending>0){
+        gpsArrivalDetected(true);
+        showGpsArrivalConfirm();
+        return;
+    }
+    gpsArrivalDetected(false);
+    gpsFinishConfirmOpen=true;
+    setGpsStatus("Llegada detectada. Recorrido completo. Finalizando e importando resultado...","ok");
+    Promise.resolve(confirmGpsArrivalFinish()).catch(()=>{
+        gpsFinishConfirmOpen=false;
+        setGpsStatus("No se pudo finalizar automáticamente. Escanea LLEGADA como respaldo.","err");
+    });
+}
+let gpsWakeLockRetryTimer=null;
+function participantRaceIsActive(){return !!(log&&log.startTime&&!log.finishTime)}
+function participantShouldKeepScreenAwake(){return participantRaceIsActive()||gpsWatchId!==null||gpsReadPref(GPS_LOCK_PREF_PREFIX)}
+async function requestGpsWakeLock(force=false){
+    clearTimeout(gpsWakeLockRetryTimer);
+    if(!("wakeLock" in navigator)||document.visibilityState!=="visible"||(!force&&!participantShouldKeepScreenAwake()))return false;
+    try{
+        if(gpsWakeLock&&!gpsWakeLock.released)return true;
+        const sentinel=await navigator.wakeLock.request("screen");
+        gpsWakeLock=sentinel;
+        sentinel.addEventListener("release",()=>{
+            if(gpsWakeLock===sentinel)gpsWakeLock=null;
+            if(document.visibilityState==="visible"&&participantShouldKeepScreenAwake()){
+                clearTimeout(gpsWakeLockRetryTimer);
+                gpsWakeLockRetryTimer=setTimeout(()=>requestGpsWakeLock(),300);
+            }
+        },{once:true});
+        return true;
+    }catch(e){
+        gpsWakeLock=null;
+        return false;
+    }
+}
+async function releaseGpsWakeLock(force=false){
+    if(!force&&participantRaceIsActive())return false;
+    clearTimeout(gpsWakeLockRetryTimer);
+    try{if(gpsWakeLock&&!gpsWakeLock.released)await gpsWakeLock.release()}catch(e){}
+    gpsWakeLock=null;
+    return true;
+}
+function gpsCurrentAccuracy(){const acc=Number(gpsLastPosition&&gpsLastPosition.coords&&gpsLastPosition.coords.accuracy);return Number.isFinite(acc)?acc:null}
+function gpsRefreshState(){
+    if(gpsWatchId===null){updateGpsMetrics();return}
+    if(log&&log.finishTime){setGpsStatus("Recorrido finalizado. GPS detenido.","ok");stopProximityGps(false);return}
+    if(!log||!log.startTime){setGpsStatus("GPS activo. Escanea SALIDA para comenzar.","");updateGpsMetrics(null,gpsCurrentAccuracy(),"SALIDA · QR");return}
+    const next=gpsNextControl();
+    if(!next){setGpsStatus("No se encuentran coordenadas válidas para LLEGADA. Escanea su QR.","err");updateGpsMetrics(null,gpsCurrentAccuracy(),"LLEGADA · QR");return}
+    if(gpsLastPosition)processGpsPosition(gpsLastPosition);
+    else{setGpsStatus("Salida registrada. Esperando posición GPS...","");updateGpsMetrics(null,null,next.label||next.id)}
+}
+let militopoTrackLastSavedAt=0;
+let militopoTrackLastPoint=null;
+let militopoTrackLastHeading=null;
+function trackAngleDiff(a,b){if(!Number.isFinite(a)||!Number.isFinite(b))return 0;let d=Math.abs(a-b)%360;return d>180?360-d:d}
+function recordRaceTrackPoint(pos,force=false,eventType="gps"){
+    try{
+        if(!log||!log.startTime||(!force&&log.finishTime)||!pos||!pos.coords)return;
+        const c=pos.coords,acc=Number(c.accuracy)||9999;
+        if(!force&&acc>30)return;
+        const now=Number(pos.timestamp)||Date.now();
+        const lat=Number(c.latitude),lon=Number(c.longitude);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
+        const elapsed=now-militopoTrackLastSavedAt;
+        let moved=999,computedSpeed=null;
+        if(militopoTrackLastPoint){
+            moved=gpsDistanceM(militopoTrackLastPoint.lat,militopoTrackLastPoint.lon,lat,lon);
+            if(elapsed>0)computedSpeed=moved/(elapsed/1000);
+            // Rechaza saltos imposibles del GPS, salvo puntos forzados de evento.
+            if(!force&&((computedSpeed>13&&moved>35)||(moved>120&&elapsed<10000)))return;
+        }
+        const nativeSpeed=Number(c.speed),speed=Number.isFinite(nativeSpeed)&&nativeSpeed>=0?nativeSpeed:computedSpeed;
+        const heading=Number(c.heading);
+        const headingChange=trackAngleDiff(Number.isFinite(heading)?heading:null,militopoTrackLastHeading);
+        // Captura adaptativa: mayor frecuencia con buena precisión, movimiento o giro.
+        let minMs=4000,minMove=5;
+        if(acc<=8){minMs=1400;minMove=1.8}
+        else if(acc<=15){minMs=2200;minMove=2.8}
+        else if(acc<=22){minMs=3200;minMove=4}
+        else {minMs=6500;minMove=7}
+        const significantTurn=headingChange>=18&&moved>=1.5;
+        if(!force&&militopoTrackLastPoint&&elapsed<minMs&&moved<minMove&&!significantTurn)return;
+        // Si está prácticamente quieto, evita el serrucho pero conserva una muestra periódica.
+        if(!force&&militopoTrackLastPoint&&moved<1.2&&elapsed<12000)return;
+        if(!Array.isArray(log.track))log.track=[];
+        const point={timestamp:new Date(now).toISOString(),lat:+lat.toFixed(7),lon:+lon.toFixed(7),accuracy:Math.round(acc*10)/10,altitude:Number.isFinite(Number(c.altitude))?Math.round(Number(c.altitude)*10)/10:null,speed:Number.isFinite(speed)?Math.round(speed*100)/100:null,heading:Number.isFinite(heading)?Math.round(heading):null,event:eventType||"gps"};
+        log.track.push(point);
+        participantTrackJournalAppend(point,log.track.length-1).catch(error=>{
+            participantStorageError=String(error?.message||"No se pudo guardar el punto GPS");
+            notifyMilitopoLive("STORAGE_HEALTH",{storageError:participantStorageError});
+            setParticipantLiveSyncStatus("error","🔴 ERROR AL GUARDAR GPS · MANTÉN LA APP ABIERTA");
+            console.error("No se pudo escribir el punto en el diario GPS",error);
+        });
+        if(log.track.length>18000)log.track.splice(0,log.track.length-18000);
+        militopoTrackLastSavedAt=now;militopoTrackLastPoint={lat,lon};if(Number.isFinite(heading))militopoTrackLastHeading=heading;
+        if(force||log.track.length%4===0)save();
+        const trackCheckpointMs=participantLiveSyncState==="synced"||participantLiveSyncState==="syncing"?20000:120000;
+        if(log.startTime&&log.track.length>=2&&(force||now-lastTrackLiveSyncAt>=trackCheckpointMs)){lastTrackLiveSyncAt=now;notifyMilitopoLive("TRACK")}
+    }catch(e){console.warn('No se pudo guardar punto de track',e)}
+}
+function recordTrackEvent(eventType){try{if(gpsLastPosition)recordRaceTrackPoint(gpsLastPosition,true,eventType)}catch(e){}}
+function processGpsPosition(pos){
+    gpsLastPosition=pos;
+    const acc=Number(pos&&pos.coords&&pos.coords.accuracy)||9999;
+    if(!log||!log.startTime){
+        gpsInsideHits=0;gpsFinishInsideHits=0;
+        setGpsStatus("GPS activo. Escanea SALIDA para comenzar.","");
+        updateGpsMetrics(null,acc,"SALIDA · QR");
+        return;
+    }
+    if(log.finishTime){
+        gpsInsideHits=0;gpsFinishInsideHits=0;
+        setGpsStatus("Recorrido finalizado.","ok");
+        updateGpsMetrics(null,acc,"—");
+        return;
+    }
+    recordRaceTrackPoint(pos);
+
+    const finishTarget=gpsFinishPoint();
+    let finishDist=null;
+    if(finishTarget){
+        finishDist=gpsDistanceM(pos.coords.latitude,pos.coords.longitude,finishTarget.lat,finishTarget.lon);
+        if(finishDist>GPS_RADIUS_M+3){
+            gpsFinishInsideHits=0;
+            gpsFinishDeclinedUntilLeave=false;
+        }else if(acc<=GPS_MAX_ACCURACY_M&&finishDist<=GPS_RADIUS_M&&!gpsFinishDeclinedUntilLeave&&!gpsFinishConfirmOpen){
+            gpsFinishInsideHits++;
+            if(gpsFinishInsideHits>=GPS_REQUIRED_HITS&&Date.now()-gpsLastValidatedAt>GPS_DUPLICATE_COOLDOWN_MS){
+                gpsLastValidatedAt=Date.now();
+                gpsFinishInsideHits=0;
+                handleGpsArrivalDetected();
+            }
+        }else if(finishDist>GPS_RADIUS_M){
+            gpsFinishInsideHits=0;
+        }
+        if(gpsFinishConfirmOpen){
+            updateGpsMetrics(finishDist,acc,"LLEGADA");
+            return;
+        }
+    }
+
+    const target=gpsNextControl();
+    if(!target){
+        gpsInsideHits=0;
+        if(finishTarget){
+            setGpsStatus(acc>GPS_MAX_ACCURACY_M
+                ?"Siguiente LLEGADA · esperando mejor precisión (±"+Math.round(acc)+" m)"
+                :(gpsFinishDeclinedUntilLeave?"LLEGADA detectada · has elegido continuar la carrera.":"Siguiente LLEGADA · precisión ±"+Math.round(acc)+" m"),
+                acc>GPS_MAX_ACCURACY_M?"":"ok");
+            updateGpsMetrics(finishDist,acc,"LLEGADA");
+        }else{
+            setGpsStatus("No se encuentran coordenadas válidas para LLEGADA. Escanea su QR.","err");
+            updateGpsMetrics(null,acc,"LLEGADA · QR");
+        }
+        return;
+    }
+
+    const label=target.label||target.id;
+    const dist=target.isFinish&&finishDist!=null?finishDist:gpsDistanceM(pos.coords.latitude,pos.coords.longitude,target.lat,target.lon);
+    if(target.isFinish){
+        gpsInsideHits=0;
+        setGpsStatus(acc>GPS_MAX_ACCURACY_M
+            ?"Siguiente LLEGADA · esperando mejor precisión (±"+Math.round(acc)+" m)"
+            :(gpsFinishDeclinedUntilLeave?"LLEGADA detectada · has elegido continuar la carrera.":"Siguiente LLEGADA · precisión ±"+Math.round(acc)+" m"),
+            acc>GPS_MAX_ACCURACY_M?"":"ok");
+        updateGpsMetrics(dist,acc,"LLEGADA");
+        return;
+    }
+
+    if(gpsLastTarget!==target.id){gpsInsideHits=0;gpsLastTarget=target.id}
+    if(acc>GPS_MAX_ACCURACY_M){
+        gpsInsideHits=0;
+        setGpsStatus("Siguiente "+label+" · esperando mejor precisión (±"+Math.round(acc)+" m)","");
+    }else if(dist<=GPS_RADIUS_M){
+        gpsInsideHits++;
+        setGpsStatus("Dentro de "+GPS_RADIUS_M+" m de "+label+" · confirmando "+gpsInsideHits+"/"+GPS_REQUIRED_HITS,"ok");
+        if(gpsInsideHits>=GPS_REQUIRED_HITS&&Date.now()-gpsLastValidatedAt>GPS_DUPLICATE_COOLDOWN_MS){
+            gpsLastValidatedAt=Date.now();
+            const before=gpsCorrectCount();
+            scanControl(target.id);
+            if(gpsCorrectCount()>before)gpsValidated(target.id);
+            gpsInsideHits=0;gpsLastTarget="";
+        }
+    }else{
+        gpsInsideHits=0;
+        setGpsStatus("Siguiente "+label+" · precisión ±"+Math.round(acc)+" m","ok");
+    }
+    updateGpsMetrics(dist,acc,label);
+}
+function gpsError(err){const denied=err&&err.code===1,msg=denied?"Permiso de ubicación denegado. Activa ubicación precisa.":err&&err.code===2?"No se puede obtener la ubicación. Revisa el GPS.":"El GPS tarda demasiado. Mantén MILITOPO abierta.";if(denied){if(gpsWatchId!==null){try{navigator.geolocation.clearWatch(gpsWatchId)}catch(e){}gpsWatchId=null}gpsWritePref(GPS_PREF_PREFIX,false);gpsSetButton(false)}setGpsStatus(msg,"err")}
+async function startProximityGps(remember=true){primeParticipantAudio();if(!route)return toast("Carga primero tu recorrido");if(!navigator.geolocation){gpsWritePref(GPS_PREF_PREFIX,false);gpsSetButton(false);setGpsStatus("Este dispositivo no permite geolocalización.","err");return}if(remember)gpsWritePref(GPS_PREF_PREFIX,true);if(gpsWatchId!==null){gpsSetButton(true);gpsRefreshState();return}setGpsStatus("Solicitando permiso de ubicación precisa...","");await requestGpsWakeLock();try{gpsWatchId=navigator.geolocation.watchPosition(processGpsPosition,gpsError,{enableHighAccuracy:true,maximumAge:0,timeout:15000});gpsSetButton(true);updateGpsMetrics();gpsRefreshState()}catch(e){gpsWatchId=null;gpsWritePref(GPS_PREF_PREFIX,false);gpsSetButton(false);setGpsStatus("No se pudo reactivar el GPS. Pulsa ACTIVAR GPS.","err")}}
+function stopProximityGps(show,remember=true){if(gpsWatchId!==null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null}if(remember)gpsWritePref(GPS_PREF_PREFIX,false);gpsInsideHits=0;gpsLastTarget="";releaseGpsWakeLock();gpsSetButton(false);if(show)setGpsStatus("GPS detenido. El escaneo QR sigue disponible.","");updateGpsMetrics()}
+let gpsLockedScrollY=0;
+function ensureGpsLockOverlayAtBody(){const overlay=gpsEl("gpsLockOverlay");if(overlay&&overlay.parentElement!==document.body)document.body.appendChild(overlay);return overlay}
+function lockRaceScreen(remember=true){if(remember)gpsWritePref(GPS_LOCK_PREF_PREFIX,true);requestGpsWakeLock();const overlay=ensureGpsLockOverlayAtBody();gpsLockedScrollY=Math.max(0,window.scrollY||document.documentElement.scrollTop||0);document.documentElement.classList.add("gps-locked");document.body.classList.add("gps-body-locked");document.body.style.top="-"+gpsLockedScrollY+"px";if(overlay){overlay.scrollTop=0;overlay.classList.add("open")}gpsRefreshState()}
+function unlockRaceScreen(remember=true){clearTimeout(gpsUnlockTimer);gpsUnlockTimer=null;if(remember)gpsWritePref(GPS_LOCK_PREF_PREFIX,false);const overlay=ensureGpsLockOverlayAtBody();if(overlay)overlay.classList.remove("open");document.documentElement.classList.remove("gps-locked");document.body.classList.remove("gps-body-locked");document.body.style.top="";window.scrollTo(0,gpsLockedScrollY||0)}
+function bindGpsUnlock(){const b=gpsEl("gpsUnlockBtn");if(!b)return;const start=()=>{clearTimeout(gpsUnlockTimer);b.classList.add("holding");gpsUnlockTimer=setTimeout(()=>{b.classList.remove("holding");unlockRaceScreen()},2200)},cancel=()=>{clearTimeout(gpsUnlockTimer);gpsUnlockTimer=null;b.classList.remove("holding")};["pointerdown","touchstart"].forEach(e=>b.addEventListener(e,start,{passive:true}));["pointerup","pointercancel","pointerleave","touchend","touchcancel"].forEach(e=>b.addEventListener(e,cancel,{passive:true}))}
+function confirmHeldSkipCurrentControl(){
+    if(!route||!log||!log.startTime||log.finishTime)return false;
+    const exp=route.points.filter(x=>x!=="START"&&x!=="FINISH");
+    const expected=exp[routeAdvancedCount()];
+    if(!expected)return false;
+    const first=window.confirm("PRIMERA CONFIRMACIÓN\n\n¿Quieres descartar la baliza "+expected+"?\n\nSe marcará como no completada y avanzarás a la siguiente.");
+    if(!first)return false;
+    const second=window.confirm("SEGUNDA Y ÚLTIMA CONFIRMACIÓN\n\n¿Confirmas definitivamente descartar "+expected+"?\n\nEsta acción no se puede deshacer durante la carrera.");
+    if(!second)return false;
+    skipCurrentControl(true);
+    return true;
+}
+function bindSkipHoldButton(id){const b=gpsEl(id);if(!b||b.dataset.bound==="1")return;b.dataset.bound="1";let timer=null,done=false;const cancel=()=>{clearTimeout(timer);timer=null;if(!done)b.classList.remove("holding")};const start=e=>{if(b.style.display==="none"||b.disabled)return;done=false;clearTimeout(timer);b.classList.add("holding");timer=setTimeout(()=>{done=true;b.classList.remove("holding");confirmHeldSkipCurrentControl();setTimeout(()=>{done=false;gpsRefreshState()},80)},5000)};["pointerdown","touchstart"].forEach(ev=>b.addEventListener(ev,start,{passive:true}));["pointerup","pointercancel","pointerleave","touchend","touchcancel"].forEach(ev=>b.addEventListener(ev,cancel,{passive:true}))}
+function bindSkipHoldButtons(){bindSkipHoldButton("skipControlBtn");bindSkipHoldButton("gpsSkipHoldBtn");bindSkipHoldButton("gpsLockSkipHoldBtn")}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){if(participantShouldKeepScreenAwake())requestGpsWakeLock();if(gpsWatchId===null&&gpsReadPref(GPS_PREF_PREFIX)&&route)setTimeout(()=>startProximityGps(false),80)}});window.addEventListener("pageshow",()=>{if(participantShouldKeepScreenAwake())setTimeout(()=>requestGpsWakeLock(),80)});window.addEventListener("focus",()=>{if(participantShouldKeepScreenAwake())setTimeout(()=>requestGpsWakeLock(),80)});window.addEventListener("pagehide",()=>stopProximityGps(false,false));setTimeout(()=>{ensureGpsLockOverlayAtBody();bindGpsUnlock();bindSkipHoldButtons()},0);
+
+function handleQr(raw){
+    const q=parse(raw);
+    if(!q.ok)return toast("QR no válido");
+    if(q.type==="PARTICIPANT"||q.type==="PART"){
+        if(q.eventData)importParticipantEventData(q.eventData);
+        if(q.eventId&&EVENT_DATA.eventId&&q.eventId!==EVENT_DATA.eventId)return toast("QR de otro evento");
+        return loadParticipant(q);
+    }
+    if(q.eventId!==EVENT_DATA.eventId)return toast("QR de otro evento");
+    if(q.type==="CONTROL")return scanControl(q.id);
+    toast("QR no reconocido")
+}
+function loadParticipant(q){
+    if(q.eventData)importParticipantEventData(q.eventData);
+    if(q.packed)EVENT_DATA.__participantPacked=String(q.packed);
+    route=EVENT_DATA.routes.find(r=>r.participantId===q.id&&(!q.routeId||r.routeId===q.routeId))||EVENT_DATA.routes.find(r=>r.participantId===q.id)||(EVENT_DATA.routes.length===1?EVENT_DATA.routes[0]:null);
+    if(!route)return toast("Participante no encontrado");
+    pid=route.participantId||q.id;
+    const candidates=[PARENT_SAVED_LOG,...allRecoveryKeys(pid).map(readJsonKey)];
+    log=chooseBestLog(candidates);
+    if(!log)log={eventId:EVENT_DATA.eventId,participantId:pid,routeId:route.routeId,startTime:null,finishTime:null,scans:[],completed:false,missingControls:[]};
+    log.eventId=EVENT_DATA.eventId;
+    log.participantId=pid;
+    log.routeId=route.routeId;
+    updateParentUrlState(q.packed||EVENT_DATA.__participantPacked||"");
+    save();
+    renderLoaded();
+    ensureOfflinePageAvailable();
+    try{stopQrCamera()}catch(e){};
+    setTimeout(()=>restoreParticipantScroll("race","smooth"),180);
+    notifyMilitopoLive("READY");
+    if(log.finishTime)scheduleFinishedRecoverySync(500);
+    toast("Recorrido cargado y guardado offline")
+}
+
+function requestParticipantAppReset(){
+    const expected=(route&&route.points||[]).filter(id=>id!=="START"&&id!=="FINISH");
+    const completed=log&&Array.isArray(log.scans)?log.scans.filter(scan=>scan.status==="correct").length:0;
+    const pending=Number(participantPendingSyncCount||0)||Number(participantPendingControlSyncCount||0)||0;
+    const confirmed=!!(log?.deliveryConfirmed?.result&&log?.deliveryConfirmed?.track&&participantResultReceived&&participantTrackReceived);
+    const payload={
+        eventId:String(EVENT_DATA.eventId||""),participantId:String(pid||""),routeId:String(route?.routeId||""),
+        completedControls:completed,totalControls:expected.length,inProgress:!!(log?.startTime&&!log?.finishTime),
+        finishTime:log?.finishTime||null,pendingSync:pending,pendingResultSync:!!participantPendingResultSync,
+        pendingTrackSync:log?.finishTime&&!participantTrackReceived,resultReceived:!!participantResultReceived,
+        trackReceived:!!participantTrackReceived,safeToReset:!log?.startTime||confirmed,
+        resultCode:log?.resultPayload?("ORI|RESULT|"+EVENT_DATA.eventId+"|"+pid+"|"+log.resultPayload):""
+    };
+    if(window.parent&&window.parent!==window){
+        window.parent.postMessage({source:"MILITOPO_PARTICIPANT_APP",action:"RESET_REQUEST",payload},"*");
+        return;
+    }
+    if(!payload.safeToReset){
+        toast(payload.inProgress?"No se puede borrar durante la carrera.":"Espera a que resultado y track aparezcan confirmados.");
+        if(log?.finishTime)scheduleFinishedRecoverySync(0);
+        return;
+    }
+    if(confirm("Resultado y track están confirmados. ¿Borrar este recorrido y preparar una nueva prueba?"))performParticipantAppReset();
+}
+
+async function performParticipantAppReset(){
+    const confirmed=!log?.startTime||!!(log?.deliveryConfirmed?.result&&log?.deliveryConfirmed?.track&&participantResultReceived&&participantTrackReceived);
+    if(!confirmed){
+        toast(log?.startTime&&!log?.finishTime?"No se puede borrar una carrera en curso.":"Borrado bloqueado hasta confirmar resultado y track.");
+        if(log?.finishTime)scheduleFinishedRecoverySync(0);
+        return false;
+    }
+    try{stopProximityGps(true)}catch(e){}
+    try{unlockRaceScreen(true)}catch(e){}
+    try{stopQrCamera()}catch(e){}
+    try{localStorage.setItem(PARTICIPANT_FORCE_BLANK_KEY,String(Date.now()));sessionStorage.setItem(PARTICIPANT_FORCE_BLANK_KEY,String(Date.now()))}catch(e){}
+    try{wipeParticipantLocalRaceData()}catch(e){}
+    try{await participantIdbClearAll()}catch(e){}
+    try{
+        if("caches" in window){
+            const names=await caches.keys();
+            await Promise.all(names.filter(name=>String(name).startsWith("militopo-v2-participante-")).map(name=>caches.delete(name)));
+        }
+    }catch(e){}
+    /* No se borran otras bases MILITOPO: pueden contener colas/track de otros eventos. */
+    try{if("serviceWorker" in navigator){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.filter(r=>String(r.scope||"").includes("/orientacion/participante/")).map(r=>r.unregister().catch(()=>null)));}}catch(e){}
+    try{
+        route=null;pid=null;log=null;
+        gpsPrefsRestoredFor="";gpsLastPosition=null;gpsInsideHits=0;gpsFinishInsideHits=0;gpsFinishConfirmOpen=false;gpsStartReminderOpen=false;
+        Object.keys(EVENT_DATA).forEach(k=>delete EVENT_DATA[k]);
+        Object.assign(EVENT_DATA,emptyParticipantEventData());
+        document.body.classList.remove("route-loaded");
+        const race=document.getElementById("race");if(race)race.style.display="none";
+        const gps=document.getElementById("gpsProximity");if(gps)gps.style.display="none";
+        const result=document.getElementById("result");if(result){result.style.display="none";result.classList.remove("result-open")}
+        const reset=document.getElementById("participantResetCard");if(reset)reset.style.display="none";
+        const loadBtn=document.getElementById("loadParticipantQrBtn");if(loadBtn)loadBtn.style.display="";
+        const identity=document.getElementById("identity");if(identity){identity.className="status warn";identity.textContent="Escanea tu QR de participante para cargar la nueva prueba."}
+        const routeBox=document.getElementById("route");if(routeBox)routeBox.innerHTML="";
+        const next=document.getElementById("next");if(next)next.textContent="TE TOCA: —";
+        const scans=document.getElementById("scans");if(scans)scans.innerHTML="";
+        toast("Recorrido borrado. Escanea el QR de la nueva prueba.");
+    }catch(e){}
+    try{
+        const clean=location.pathname+"?app=1&fresh="+Date.now();
+        history.replaceState({},document.title,clean);
+        setTimeout(()=>{try{location.replace(clean)}catch(e){location.reload()}},350);
+    }catch(e){location.reload()}
+}
+
+function restoreBestSavedRun(silent){
+    const parentSnap=readParentUrlSnapshot();
+    const guesses=[readParentUrlLog(),parentSnap&&parentSnap.log,readWindowNameBackup(),readMemoryBackup()];
+    try{guesses.push(readJsonKey(key()),readJsonKey(key()+"_active"),readJsonKey(key()+"_backup_last"),readJsonKey(key()+"_emergency_last"))}catch(e){}
+    (EVENT_DATA.routes||[]).forEach(r=>allRecoveryKeys(r.participantId).forEach(k=>guesses.push(readJsonKey(k))));
+    const best=chooseBestLog(guesses);
+    if(!best){if(!silent)toast("No hay recorrido guardado en este móvil");return false}
+    pid=best.participantId;
+    route=EVENT_DATA.routes.find(r=>r.participantId===pid&&(!best.routeId||r.routeId===best.routeId))||EVENT_DATA.routes.find(r=>r.participantId===pid);
+    if(!route){if(!silent)toast("No se encuentra el recorrido guardado");return false}
+    log=best;save();renderLoaded();notifyMilitopoLive("READY");
+    restoreTrackJournalIntoLog(true).then(()=>{if(log?.finishTime)scheduleFinishedRecoverySync(0);});
+    if(log.finishTime)scheduleFinishedRecoverySync(700);
+    if(!silent)toast("Recorrido restaurado correctamente");return true;
+}
+
+function renderLoaded(){document.body.classList.add("route-loaded");document.getElementById("race").style.display="block";const gpsCard=document.getElementById("gpsProximity");if(gpsCard)gpsCard.style.display="block";const resetCard=document.getElementById("participantResetCard");if(resetCard)resetCard.style.display="block";document.getElementById("identity").className="status ok";document.getElementById("identity").innerHTML="<b>"+pid+"</b> · "+route.routeId+" cargado";document.getElementById("route").innerHTML="<b>Orden obligatorio</b><br><div class='route'>"+route.points.join(" → ")+"</div>";const loadBtn=document.getElementById("loadParticipantQrBtn");if(loadBtn)loadBtn.style.display="none";renderNext();refreshSkipHoldVisibility();renderScans();renderResult();updateOfflineSafetyPanel("RECORRIDO GUARDADO EN ESTE MÓVIL");gpsRefreshState();restoreGpsPreferences();setTimeout(resizeParticipantFrameFromInside,80)}
+function scanControl(id){if(!route)return toast("Primero QR participante");if(id==="START")return startRace();if(id==="FINISH")return finishRace();if(!log.startTime)return toast("Primero SALIDA");if(log.finishTime)return toast("Ya finalizado");const exp=route.points.filter(x=>x!=="START"&&x!=="FINISH");const done=routeAdvancedCount();const expected=exp[done]||"FINISH";const alreadyCorrect=log.scans.some(s=>s.controlId===id&&s.status==="correct");let status=id===expected?"correct":alreadyCorrect?"duplicate":exp.includes(id)?"out_of_order":"wrong";log.scans.push({controlId:id,timestamp:new Date().toISOString(),expectedControlId:expected,status});if(status==="correct")recordTrackEvent("control:"+id);save();renderNext();refreshSkipHoldVisibility();renderScans();notifyMilitopoLive("CONTROL",{scanStatus:status});gpsRefreshState();toast(scanStatusMessage(status,expected))}
+function scanStatusLabel(status){return {correct:"Correcto",out_of_order:"Fuera de orden",wrong:"Incorrecto",duplicate:"Duplicado",skipped:"Descartado"}[String(status||"")]||"Estado desconocido"}
+function scanStatusMessage(status,expected){return {correct:"Baliza correcta",out_of_order:"Fuera de orden. Tocaba "+expected,wrong:"Baliza incorrecta: no pertenece a tu recorrido",duplicate:"Baliza ya registrada correctamente",skipped:"Punto descartado · +15:00 al TIEMPO OFICIAL. Continúa con la siguiente baliza"}[String(status||"")]||"Baliza registrada"}
+function currentGpsEventLocation(){
+    try{
+        const c=gpsLastPosition&&gpsLastPosition.coords;
+        if(!c)return {};
+        const lat=Number(c.latitude),lon=Number(c.longitude),accuracy=Number(c.accuracy);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon))return {};
+        return {lat:+lat.toFixed(7),lon:+lon.toFixed(7),accuracy:Number.isFinite(accuracy)?Math.round(accuracy*10)/10:null};
+    }catch(e){return {}}
+}
+function skipCurrentControl(skipConfirm=false){
+    if(!route)return toast("Primero carga tu recorrido");
+    if(!log||!log.startTime)return toast("Primero registra la SALIDA");
+    if(log.finishTime)return toast("El recorrido ya está finalizado");
+    const exp=route.points.filter(x=>x!=="START"&&x!=="FINISH");
+    const index=routeAdvancedCount();
+    const expected=exp[index];
+    if(!expected)return toast("No quedan balizas pendientes. Dirígete a LLEGADA");
+    if(!skipConfirm){const ok=window.confirm("¿CONFIRMAR DESCARTE DEL PUNTO?\n\nVas a descartar la baliza "+expected+" y avanzar a la siguiente. Se aplicarán +15:00 al TIEMPO OFICIAL.\n\nEsta acción no se puede deshacer durante la carrera.");if(!ok)return;}
+    log.scans.push({controlId:expected,timestamp:new Date().toISOString(),expectedControlId:expected,status:"skipped",skipped:true,...currentGpsEventLocation()});
+    recordTrackEvent("skipped:"+expected);
+    save();renderNext();refreshSkipHoldVisibility();renderScans();notifyMilitopoLive("CONTROL",{scanStatus:"skipped",controlId:expected});gpsRefreshState();toast("Punto "+expected+" descartado · +15:00 al TIEMPO OFICIAL");
+}
+function startRace(){
+    primeParticipantAudio();
+    if(!route)return toast("Primero QR participante");
+    if(log.startTime)return toast("Salida ya registrada");
+    log.startTime=new Date().toISOString();
+    requestGpsWakeLock();
+    militopoTrackLastSavedAt=0;militopoTrackLastPoint=null;militopoTrackLastHeading=null;recordTrackEvent("start");
+    save();renderNext();refreshSkipHoldVisibility();renderScans();notifyMilitopoLive("START");gpsRefreshState();toast("Salida registrada");
+    if(gpsWatchId===null)setTimeout(showGpsStartReminder,180);
+    else setTimeout(()=>restoreParticipantScroll("gpsProximity","smooth"),220);
+}
+async function finishRace(source="qr"){
+    if(!route)return toast("Primero QR participante");
+    if(!log.startTime)return toast("Primero SALIDA");
+    if(log.finishTime)return toast("Llegada ya registrada");
+    const byGps=source==="gps";
+    if(byGps){closeGpsArrivalConfirm();closeGpsStartReminder();gpsFinishDeclinedUntilLeave=false;gpsFinishInsideHits=0;unlockRaceScreen(true);}
+    const exp=route.points.filter(x=>x!=="START"&&x!=="FINISH");
+    const done=new Set(log.scans.filter(s=>s.status==="correct").map(s=>String(s.controlId)));
+    const discarded=new Set(log.scans.filter(s=>s.status==="skipped").map(s=>String(s.controlId)));
+    log.missingControls=exp.filter(x=>!done.has(String(x))&&!discarded.has(String(x)));
+    recordTrackEvent("finish");
+    try{
+        await participantTrackJournalWrite;
+        await restoreTrackJournalIntoLog(false);
+    }catch(error){
+        participantStorageError=String(error?.message||"No se pudo verificar el track local");
+        notifyMilitopoLive("STORAGE_HEALTH",{storageError:participantStorageError});
+        setParticipantLiveSyncStatus("error","🔴 TRACK LOCAL SIN VERIFICAR · NO CIERRES NI BORRES");
+        toast("No se ha podido verificar el track guardado. Mantén la aplicación abierta e inténtalo de nuevo.");
+        return;
+    }
+    log.finishTime=new Date().toISOString();
+    log.completed=log.missingControls.length===0&&discarded.size===0;
+    log.resultPayload=resultPayload();
+    if(byGps)log.finishSource="gps";
+    save();renderNext();refreshSkipHoldVisibility();renderScans();await renderResult();
+    log.resultPayload=resultPayload();
+    save();
+    notifyMilitopoLive("FINISH",{resultCode:"ORI|RESULT|"+EVENT_DATA.eventId+"|"+pid+"|"+log.resultPayload});
+    setGpsStatus("Recorrido finalizado. GPS detenido.","ok");stopProximityGps(false);releaseGpsWakeLock(true);
+    const resultSec=document.getElementById("result");
+    if(resultSec){resultSec.style.display="block";resultSec.classList.add("result-open");if(!byGps)requestAnimationFrame(()=>setTimeout(()=>{try{resultSec.scrollIntoView({behavior:"smooth",block:"start"})}catch(e){window.scrollTo({top:resultSec.offsetTop,behavior:"smooth"})}},120))}
+    if(participantLiveSyncState==="offline")showGpsFinishNotice("offline");
+    else if(participantLiveSyncState==="inactive")showGpsFinishNotice("inactive");
+    else if(byGps)showGpsFinishNotice("pending");
+    if(byGps){
+        toast("Llegada registrada por GPS. Has terminado la carrera.");
+    }else{
+        toast(log.completed?"Llegada registrada. Enseña el QR final al organizador":"Llegada registrada con avisos. Enseña el QR final al organizador");
+    }
+}
+function save(){
+    if(!log||!pid)return;
+    try{
+        log.eventId=EVENT_DATA.eventId;
+        log.participantId=pid;
+        if(route)log.routeId=route.routeId;
+        if(!Array.isArray(log.scans))log.scans=[];
+        if(!Array.isArray(log.missingControls))log.missingControls=[];
+        if(log.finishTime&&!log.resultPayload&&route)log.resultPayload=resultPayload();
+        log.lastSavedAt=safeNow();
+        log.appVersion=APP_VERSION;
+        // localStorage tiene una cuota pequeña. El track completo vive en
+        // IndexedDB + diario GPS; aquí queda un estado compacto para que nunca
+        // fallen tiempos, balizas o resultado por llenar la cuota del navegador.
+        const raw=JSON.stringify(participantLogForWebStorage(log));
+        writeKeyEverywhere(key()+"_"+pid,raw);
+        writeKeyEverywhere(key(),raw);
+        writeKeyEverywhere(key()+"_active",raw);
+        writeKeyEverywhere(key()+"_backup_"+pid,raw);
+        writeKeyEverywhere(key()+"_backup_last",raw);
+        writeKeyEverywhere(key()+"_emergency_"+pid,raw);
+        writeKeyEverywhere(key()+"_emergency_last",raw);
+        writeKeyEverywhere(key()+"_checkpoint_"+pid,raw);
+        writePermanentParticipantSnapshot(EVENT_DATA,log);
+        updateParentUrlState();
+        try{window.parent.postMessage({source:"MILITOPO_PARTICIPANT_APP",action:"RUN_STATE",payload:{log:participantLogForWebStorage(log),eventData:EVENT_DATA}},"*")}catch(e){}
+    }catch(e){
+        console.warn("No se pudo guardar registro offline",e);
+    }
+    updateOfflineSafetyPanel();
+}
+function refreshSkipHoldVisibility(){const exp=route&&route.points?route.points.filter(x=>x!=="START"&&x!=="FINISH"):[];const can=!!(route&&log&&log.startTime&&!log.finishTime&&exp[routeAdvancedCount()]);["gpsSkipHoldBtn","gpsLockSkipHoldBtn"].forEach(id=>{const b=gpsEl(id);if(b)b.style.display=can?"block":"none"})}
+function renderNext(){const n=document.getElementById("next"),skipBtn=document.getElementById("skipControlBtn");if(!log.startTime){n.textContent="TE TOCA: SALIDA";if(skipBtn)skipBtn.style.display="none";return}const exp=route.points.filter(x=>x!=="START"&&x!=="FINISH");const correct=routeCorrectCount();if(log.finishTime){n.textContent=(log.completed?"FINALIZADO OK":"FINALIZADO CON AVISOS")+" · PROGRESO "+correct+"/"+exp.length;if(skipBtn)skipBtn.style.display="none";return}const advanced=routeAdvancedCount(),next=exp[advanced]||"FINISH";n.textContent="TE TOCA: "+next+" · PROGRESO "+correct+"/"+exp.length;if(skipBtn)skipBtn.style.display=next==="FINISH"?"none":"block"}
+function renderScans(){let h="<div class='scan "+(log.startTime?"ok":"")+"'><b>SALIDA</b><span>"+(log.startTime?tm(log.startTime):"Pendiente")+"</span><span>"+(log.startTime?"✅":"⏳")+"</span></div>";log.scans.forEach(s=>{const cls=s.status==="correct"?"ok":"bad";const icon=s.status==="correct"?"✅":(s.status==="skipped"?"⏭️":"⚠️");h+="<div class='scan "+cls+"'><b>"+s.controlId+"</b><span>"+tm(s.timestamp)+" · tocaba "+s.expectedControlId+" · "+scanStatusLabel(s.status)+"</span><span>"+icon+"</span></div>"});h+="<div class='scan "+(log.finishTime?(log.completed?"ok":"bad"):"")+"'><b>LLEGADA</b><span>"+(log.finishTime?tm(log.finishTime):"Pendiente")+"</span><span>"+(log.finishTime?"🏁":"⏳")+"</span></div>";document.getElementById("scans").innerHTML=h;setTimeout(resizeParticipantFrameFromInside,30)}
+
+function encResultTime(v){const ms=Date.parse(v);return Number.isFinite(ms)?ms.toString(36):(v||null)}
+function encResultStatus(s){return {correct:"c",out_of_order:"o",wrong:"w",duplicate:"d",skipped:"s"}[String(s||"")]||String(s||"")}
+function compactResultObject(partial=false){
+    const metrics=participantFinishMetrics();
+    return {
+        v:4,
+        r:route.routeId,
+        n:String((EVENT_DATA.participantNames&&EVENT_DATA.participantNames[pid])||""),
+        st:encResultTime(log.startTime),
+        ft:encResultTime(log.finishTime),
+        c:!!log.completed,
+        ptl:!!partial,
+        x:(log.scans||[]).map(s=>[s.controlId,encResultTime(s.timestamp),encResultStatus(s.status),Number.isFinite(Number(s.lat))?+Number(s.lat).toFixed(7):null,Number.isFinite(Number(s.lon))?+Number(s.lon).toFixed(7):null,Number.isFinite(Number(s.accuracy))?Math.round(Number(s.accuracy)*10)/10:null]),
+        m:log.missingControls||[],
+        d:metrics?Math.round(metrics.distanceM):null,
+        a:metrics?Math.round(metrics.adjustedMs):null,
+        pr:Number(EVENT_DATA.penaltyPerControlMinutes||EVENT_DATA.analysisPenaltyMinutes||15)||15,
+        tc:Array.isArray(log.track)?log.track.length:0,
+        av:APP_VERSION,
+        ls:encResultTime(log.finishTime||log.lastSavedAt||safeNow())
+    };
+}
+
+function fullTrackTransferObject(){
+    const src=Array.isArray(log&&log.track)?log.track:[];
+    const rows=[];
+    let prevT=0,prevLat=0,prevLon=0;
+    for(const p of src){
+        const lat=Number(p.lat??p.latitude),lon=Number(p.lon??p.lng??p.longitude),t=Date.parse(p.timestamp||p.time||"");
+        if(!Number.isFinite(lat)||!Number.isFinite(lon)||!Number.isFinite(t))continue;
+        const li=Math.round(lat*1e7),lo=Math.round(lon*1e7);
+        rows.push([rows.length?t-prevT:t,rows.length?li-prevLat:li,rows.length?lo-prevLon:lo,Number.isFinite(Number(p.accuracy))?Math.round(Number(p.accuracy)*10):null,Number.isFinite(Number(p.altitude))?Math.round(Number(p.altitude)*10):null,Number.isFinite(Number(p.speed))?Math.round(Number(p.speed)*100):null,Number.isFinite(Number(p.heading))?Math.round(Number(p.heading)):null,p.event&&p.event!=="gps"?String(p.event):null]);
+        prevT=t;prevLat=li;prevLon=lo;
+    }
+    return {v:1,e:String(EVENT_DATA.eventId||""),p:String(pid||""),r:String(route&&route.routeId||""),n:String((EVENT_DATA.participantNames&&EVENT_DATA.participantNames[pid])||""),rows};
+}
+let fullTrackQrParts=[],fullTrackQrIndex=0,fullTrackQrAutoTimer=null;
+function buildFullTrackQrParts(){
+    const encoded=encodeResultObject(fullTrackTransferObject());
+    const transferId=((Date.now().toString(36)+Math.random().toString(36).slice(2,7))).toUpperCase();
+    const chunkSize=650;
+    const chunks=[];
+    for(let i=0;i<encoded.length;i+=chunkSize)chunks.push(encoded.slice(i,i+chunkSize));
+    return chunks.map((chunk,i)=>`ORI|TRACKPART|${EVENT_DATA.eventId}|${pid}|${transferId}|${i+1}|${chunks.length}|${chunk}`);
+}
+async function renderFullTrackQrPart(){
+    if(!fullTrackQrParts.length)return;
+    fullTrackQrIndex=Math.max(0,Math.min(fullTrackQrParts.length-1,fullTrackQrIndex));
+    const value=fullTrackQrParts[fullTrackQrIndex];
+    const img=document.getElementById("fullTrackQrImage"),progress=document.getElementById("fullTrackQrProgress"),title=document.getElementById("fullTrackQrTitle");
+    if(title)title.textContent=`TRACK COMPLETO · PARTE ${fullTrackQrIndex+1}/${fullTrackQrParts.length}`;
+    if(progress)progress.textContent=`Escanea esta parte y después pulsa SIGUIENTE. Puntos GPS guardados: ${(log.track||[]).length}.`;
+    try{const url=await QRCode.toDataURL(value,{margin:5,width:1000,errorCorrectionLevel:"M"});if(img)img.innerHTML=`<img src="${url}" alt="QR track parte ${fullTrackQrIndex+1}">`}catch(e){if(img)img.innerHTML="<div class='status err'>No se pudo generar esta parte del track.</div>"}
+}
+function openFullTrackQrTransfer(){
+    if(!log||!log.finishTime)return toast("Finaliza la carrera primero");
+    fullTrackQrParts=buildFullTrackQrParts();fullTrackQrIndex=0;
+    const panel=document.getElementById("fullTrackQrPanel");if(panel)panel.style.display="block";
+    renderFullTrackQrPart();
+}
+function nextFullTrackQrPart(){if(!fullTrackQrParts.length)return openFullTrackQrTransfer();if(fullTrackQrIndex<fullTrackQrParts.length-1)fullTrackQrIndex++;renderFullTrackQrPart()}
+function prevFullTrackQrPart(){if(!fullTrackQrParts.length)return;if(fullTrackQrIndex>0)fullTrackQrIndex--;renderFullTrackQrPart()}
+function toggleFullTrackQrAuto(){
+    const btn=document.getElementById("fullTrackQrAutoBtn");
+    if(fullTrackQrAutoTimer){clearInterval(fullTrackQrAutoTimer);fullTrackQrAutoTimer=null;if(btn)btn.textContent="▶ AUTO 3 s";return}
+    if(!fullTrackQrParts.length)openFullTrackQrTransfer();
+    fullTrackQrAutoTimer=setInterval(()=>{fullTrackQrIndex=(fullTrackQrIndex+1)%Math.max(1,fullTrackQrParts.length);renderFullTrackQrPart()},3000);
+    if(btn)btn.textContent="⏸ DETENER AUTO";
+}
+
+function encodeResultObject(obj){
+    return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+}
+function partialResultPayload(){
+    if(!log||!pid||!route)return "";
+    return encodeResultObject(compactResultObject(true));
+}
+async function showPartialResultQr(){
+    if(!log||!pid||!route)return toast("Primero carga tu QR de participante");
+    const payload=partialResultPayload();
+    const result="ORI|RESULT|"+EVENT_DATA.eventId+"|"+pid+"|"+payload;
+    document.getElementById("result").style.display="block";
+    document.getElementById("summary").innerHTML="<b>QR DE RESCATE PARCIAL</b><br>"+pid+" · "+route.routeId+"<br>Enseña este QR al organizador si hay problema.";
+    document.getElementById("resultText").value=result;
+    try{const url=await QRCode.toDataURL(result,{margin:8,width:1200,errorCorrectionLevel:"H"});document.getElementById("resultQr").innerHTML="<img src='"+url+"'><div class='result-qr-instruction'>🆘 QR DE RESCATE PARCIAL<br>ENSEÑA ESTE QR AL ORGANIZADOR. SI NO LEE, USA EL CÓDIGO MANUAL.</div>"}catch(e){toast("No se pudo generar QR parcial")}
+    save();
+}
+
+function resultPayload(){return encodeResultObject(compactResultObject(false))}
+async function renderResult(){updateDeliveryConfirmations();const sec=document.getElementById("result");if(!sec)return;if(!log||!log.finishTime){sec.style.display="none";sec.classList.remove("result-open");return}sec.style.display="block";sec.classList.add("result-open");const payload=resultPayload();log.resultPayload=payload;const result="ORI|RESULT|"+EVENT_DATA.eventId+"|"+pid+"|"+payload;const discardedIds=(log.scans||[]).filter(s=>s.status==="skipped").map(s=>String(s.controlId));const pendingIds=log.missingControls||[];const completedCount=(log.scans||[]).filter(s=>s.status==="correct").length;const metrics=participantFinishMetrics(),distanceText=metrics?(metrics.distanceM>=1000?(metrics.distanceM/1000).toFixed(2)+" km":Math.round(metrics.distanceM)+" m"):"--",adjustedText=metrics?participantDurationText(metrics.adjustedMs):"--";document.getElementById("summary").innerHTML="<b>"+pid+"</b> · "+route.routeId+"<br>📏 Distancia recorrida: "+distanceText+"<br>⏱️ Tiempo oficial: "+adjustedText+"<br>✅ Completados: "+completedCount+"<br>⏭️ Descartados: "+(discardedIds.length?discardedIds.join(", "):"Ninguno")+"<br>⏳ Pendientes: "+(pendingIds.length?pendingIds.join(", "):"Ninguno")+"<br><strong>ENSEÑA ESTE CÓDIGO AL ORGANIZADOR</strong>";document.getElementById("resultText").value=result;try{const url=await QRCode.toDataURL(result,{margin:8,width:1200,errorCorrectionLevel:"H"});document.getElementById("resultQr").innerHTML="<img src='"+url+"' alt='QR resultado'><div class='result-qr-instruction'>📲 QR FINAL DE RESULTADO<br>ENSÉÑASELO AL ORGANIZADOR PARA GUARDAR TU RESULTADO.</div>"}catch(e){document.getElementById("resultQr").innerHTML="<div class='status err'>No se pudo generar el QR final. Usa COPIAR CÓDIGO y enséñaselo al organizador.</div>"}save()}
+function copyResult(){const t=document.getElementById("resultText");t.select();document.execCommand("copy");toast("Código de resultado copiado")}function downloadResult(){const b=new Blob([document.getElementById("resultText").value],{type:"text/plain;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="codigo_resultado_"+(pid||"participante")+".txt";a.click();URL.revokeObjectURL(a.href)}function tm(i){return new Date(i).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}
+function bindParticipantAutosave(){
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")save();else if(log?.finishTime)scheduleFinishedRecoverySync(250)});
+    document.addEventListener("freeze",save);
+    document.addEventListener("resume",()=>{save();restoreBestSavedRun(true);if(log?.finishTime)scheduleFinishedRecoverySync(250)});
+    document.addEventListener("input",save,true);
+    document.addEventListener("change",save,true);
+    window.addEventListener("pagehide",save);
+    window.addEventListener("pageshow",()=>{requestPersistentStorage();save();restoreBestSavedRun(true);if(log?.finishTime)scheduleFinishedRecoverySync(250)});
+    window.addEventListener("beforeunload",save);
+    window.addEventListener("offline",()=>{save();updateOfflineSafetyPanel("SIN COBERTURA: EL RECORRIDO SIGUE GUARDADO")});
+    window.addEventListener("online",()=>{
+        save();
+        updateOfflineSafetyPanel("COBERTURA RECUPERADA");
+        precacheQrReader();
+        notifyMilitopoLive("READY");
+        if(log&&log.finishTime)scheduleFinishedRecoverySync(100);
+    });
+    // Los puntos GPS ya se escriben uno a uno en el diario. Este guardado de
+    // estado puede ser más espaciado y evita reescrituras innecesarias en pruebas largas.
+    setInterval(save,5000);
+    setInterval(()=>{if(log?.finishTime&&(!participantResultReceived||!participantTrackReceived))scheduleFinishedRecoverySync(0)},30000);
+}
+
+function loadJsQr(){return new Promise(async(res,rej)=>{
+    if(window.jsQR)return res(true);
+    try{const ok=await precacheQrReader();if(ok)return res(true)}catch(e){}
+    try{
+        if(!navigator.onLine)return rej(new Error("Sin lector QR offline"));
+        const s=document.createElement("script");
+        s.src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
+        s.onload=()=>{try{res(true)}catch(e){res(true)}};
+        s.onerror=()=>rej(new Error("No se pudo cargar jsQR"));
+        document.head.appendChild(s);
+    }catch(e){rej(e)}
+})}
+
+function restoreParticipantScroll(targetId,behavior="smooth"){
+  try{
+    document.body.classList.remove("camera-open");
+    document.documentElement.classList.remove("camera-open");
+    document.documentElement.style.overflowY="auto";
+    document.documentElement.style.touchAction="pan-y";
+    document.body.style.overflowY="auto";
+    document.body.style.touchAction="pan-y";
+    document.body.style.overscrollBehavior="auto";
+    resizeParticipantFrameFromInside();
+    const target=targetId?document.getElementById(targetId):null;
+    if(window.parent&&window.parent!==window){
+      const pdoc=window.parent.document,frame=window.frameElement;
+      pdoc.documentElement.style.overflowY="auto";
+      pdoc.body.style.overflowY="auto";
+      pdoc.body.style.overflowX="hidden";
+      if(frame){frame.style.overflow="hidden";frame.style.touchAction="auto";}
+      if(target&&frame)setTimeout(()=>{const top=(frame.getBoundingClientRect().top+(window.parent.scrollY||pdoc.documentElement.scrollTop||0)+target.offsetTop-8);window.parent.scrollTo({top,behavior})},120);
+    }else if(target)setTimeout(()=>target.scrollIntoView({behavior,block:"start"}),120);
+  }catch(e){}
+}
+function enterCameraFullscreen(){
+  document.body.classList.add("camera-open");
+  document.documentElement.classList.add("camera-open");
+  try{window.parent.postMessage({source:"MILITOPO_PARTICIPANT_APP",action:"CAMERA_OPEN"},"*")}catch(e){}
+  try{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0}catch(e){}
+}
+function exitCameraFullscreen(){
+  document.body.classList.remove("camera-open");
+  document.documentElement.classList.remove("camera-open");
+  try{window.parent.postMessage({source:"MILITOPO_PARTICIPANT_APP",action:"CAMERA_CLOSE"},"*")}catch(e){}
+  restoreParticipantScroll();
+  setTimeout(resizeParticipantFrameFromInside,80);
+}
+
+async function startQrCamera(){primeParticipantAudio();requestGpsWakeLock(true);
+  const overlay=document.getElementById("cameraOverlay");
+  const video=document.getElementById("video");
+  const st=document.getElementById("camStatus");
+  const title=document.getElementById("cameraTitle");
+
+  if(title){
+    if(!route){
+      title.textContent="ESCANEAR QR PARTICIPANTE";
+    }else if(!log||!log.startTime){
+      title.textContent="ESCANEAR SALIDA";
+    }else if(log.finishTime){
+      title.textContent="RECORRIDO FINALIZADO";
+    }else{
+      const controls=route.points.filter(x=>x!=="START"&&x!=="FINISH");
+      const nextControl=controls[routeAdvancedCount()]||"FINISH";
+      title.textContent=nextControl==="FINISH"?"ESCANEAR LLEGADA":"ESCANEAR BALIZA "+nextControl;
+    }
+  }
+  enterCameraFullscreen();
+  if(overlay) overlay.classList.add("active");
+  if(st){st.className="status";st.textContent="Solicitando cámara...";}
+
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    if(st){st.className="status err";st.textContent="Este navegador no permite cámara. Usa MANUAL.";}
+    return;
+  }
+
+  detector=null;useJsQr=false;
+
+  if("BarcodeDetector" in window){
+    try{detector=new BarcodeDetector({formats:["qr_code"]})}catch(e){detector=null}
+  }
+
+  try{
+    if(st)st.textContent="Preparando lector QR compatible...";
+    await loadJsQr();
+    useJsQr=!!window.jsQR;
+  }catch(e){
+    useJsQr=false;
+    if(!detector){
+      if(st){st.className="status err";st.textContent="Sin lector QR disponible offline en este navegador. Usa MANUAL o muestra el QR de rescate parcial.";}
+      return;
+    }
+  }
+
+  try{
+    if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},
+      audio:false
+    });
+
+    video.srcObject=stream;
+    video.setAttribute("playsinline","");
+    video.setAttribute("webkit-playsinline","");
+    video.muted=true;
+    video.autoplay=true;
+
+    await video.play();
+
+    running=true;last="";lastT=0;
+
+    if(st){st.className="status ok";st.textContent="Cámara activa. Apunta al QR.";}
+
+    setTimeout(()=>{try{video.play()}catch(e){}},250);
+    loop();
+  }catch(e){
+    console.warn("Error cámara:",e);
+    if(st){st.className="status err";st.textContent="No se pudo abrir o mostrar la cámara. Revisa permisos o usa MANUAL.";}
+  }
+}
+
+function stopQrCamera(){
+  running=false;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  const video=document.getElementById("video");
+  if(video) video.srcObject=null;
+  const overlay=document.getElementById("cameraOverlay");
+  if(overlay) overlay.classList.remove("active");
+  exitCameraFullscreen();
+  setTimeout(()=>{if(!participantShouldKeepScreenAwake())releaseGpsWakeLock(true)},500);
+}
+
+async function loop(){
+  if(!running)return;
+  const video=document.getElementById("video"),canvas=document.getElementById("canvas"),st=document.getElementById("camStatus");
+  try{
+    let raw="";
+    if(video&&video.readyState>=2){
+      if(detector){
+        try{const c=await detector.detect(video); if(c&&c.length)raw=(c[0].rawValue||"").trim();}catch(e){}
+      }
+      if(!raw&&useJsQr&&window.jsQR&&canvas){
+        const w=video.videoWidth||1280,h=video.videoHeight||720;
+        canvas.width=w;canvas.height=h;
+        const ctx=canvas.getContext("2d",{willReadFrequently:true});
+        ctx.drawImage(video,0,0,w,h);
+        const img=ctx.getImageData(0,0,w,h);
+        const code=window.jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});
+        if(code&&code.data)raw=String(code.data).trim();
+      }
+    }
+
+    if(raw){
+      const now=Date.now();
+      if(raw!==last||now-lastT>2500){
+        last=raw;lastT=now;
+        if(st){st.className="status ok";st.textContent="QR leído";}
+        stopQrCamera();
+        restoreParticipantScroll();
+        handleQr(raw);
+        if(navigator.vibrate)navigator.vibrate(120);
+      }
+    }else if(st){
+      st.className="status";
+      st.textContent=(video&&video.videoWidth)? "Buscando QR..." : "Cámara abierta. Esperando imagen...";
+    }
+  }catch(e){
+    if(st){st.className="status";st.textContent="Buscando QR...";}
+  }
+  if(running)requestAnimationFrame(loop)
+}
+
+window.addEventListener("pageshow",()=>{resizeParticipantFrameFromInside();restoreParticipantScroll()});
+window.addEventListener("focus",()=>{if(!document.getElementById("cameraOverlay")?.classList.contains("active")){resizeParticipantFrameFromInside();restoreParticipantScroll()}});
+init();
+</script>
+<script>
+/* R6A · capa visual de carrera activa. No modifica GPS, controles, runId, cola offline ni sincronización. */
+(()=>{
+  const q=id=>document.getElementById(id);
+  const fmt=ms=>{const sec=Math.max(0,Math.floor(Number(ms||0)/1000)),h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),ss=sec%60;return h?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`;};
+  const safe=fn=>{try{return fn()}catch(_){return null}};
+  function setText(id,value){const el=q(id);if(el)el.textContent=value==null?"—":String(value)}
+  function readState(){
+    const r=safe(()=>route)||null,l=safe(()=>log)||null,p=safe(()=>pid)||null,e=safe(()=>EVENT_DATA)||{};
+    const controls=(r&&Array.isArray(r.points)?r.points:[]).filter(x=>String(x).toUpperCase()!=="START"&&String(x).toUpperCase()!=="FINISH");
+    const scans=l&&Array.isArray(l.scans)?l.scans:[];
+    const correct=scans.filter(x=>x&&x.status==="correct").length;
+    const skipped=scans.filter(x=>x&&x.status==="skipped").length;
+    const advanced=Math.min(controls.length,correct+skipped);
+    const start=l?.startTime?Date.parse(l.startTime):0,finish=l?.finishTime?Date.parse(l.finishTime):0,now=Date.now();
+    const realMs=start?Math.max(0,(finish||now)-start):0;
+    const penaltyMinutes=Number(e?.penaltyPerControlMinutes||e?.analysisPenaltyMinutes||15)||15;
+    const penaltyMs=skipped*penaltyMinutes*60000;
+    const next=!start?"SALIDA":finish?"FINALIZADO":(controls[advanced]||"LLEGADA");
+    return {r,l,p,e,controls,correct,skipped,advanced,start,finish,realMs,penaltyMs,next};
+  }
+  function update(){
+    const s=readState();
+    const online=navigator.onLine!==false;
+    const net=q("r6NetworkPill");if(net){net.classList.toggle("is-offline",!online);net.classList.toggle("is-online",online);const b=net.querySelector("b");if(b)b.textContent=online?"EN LÍNEA":"SIN COBERTURA";}
+    const name=String(s.e?.eventName||"Carrera").trim()||"Carrera";setText("r6EventName",name);setText("r6HeaderEvent",name);
+    setText("r6ParticipantChip",s.p||"P—");setText("r6RouteChip",s.r?.routeId||"R—");
+    const stateEl=q("r6RaceState"),body=document.body;
+    let label="PREPARADO",cls="is-ready";
+    if(s.finish){label="FINALIZADO";cls="is-finished";body.classList.add("r6-finished");body.classList.remove("r6-running");}
+    else if(s.start){label="EN CARRERA";cls="is-running";body.classList.add("r6-running");body.classList.remove("r6-finished");}
+    else{body.classList.remove("r6-running","r6-finished");}
+    if(stateEl){stateEl.className="r6-state "+cls;stateEl.textContent=label;}
+    setText("r6Timer",fmt(s.realMs));setText("r6OfficialTime",fmt(s.realMs+s.penaltyMs));setText("r6NextControl",s.next);
+    setText("r6Discarded",s.skipped);setText("r6ProgressText",`${s.advanced} de ${s.controls.length}`);
+    const fill=q("r6ProgressFill");if(fill)fill.style.width=(s.controls.length?Math.min(100,(s.advanced/s.controls.length)*100):(s.finish?100:0))+"%";
+    const gps=String(q("gpsAccuracy")?.textContent||"—").trim();setText("r6GpsAccuracy",gps||"—");
+    const liveText=String(q("liveSyncStatus")?.textContent||"").toUpperCase();let sync="LISTO";if(!online)sync="OFFLINE PROTEGIDO";else if(/TODO SINCRONIZADO|SINCRONIZADO|AL DÍA/.test(liveText))sync="SINCRONIZADO";else if(/SINCRONIZANDO|PENDIENT/.test(liveText))sync="SINCRONIZANDO";else if(s.start&&!s.finish)sync="EN VIVO";setText("r6SyncChip",sync);
+    const routeContent=q("r6RouteContent"),toggle=q("r6RouteToggle");if(routeContent&&toggle&&s.start&&!routeContent.dataset.userChoice){routeContent.classList.add("is-collapsed");toggle.textContent="VER RECORRIDO";}
+  }
+  function bind(){
+    const toggle=q("r6RouteToggle"),content=q("r6RouteContent");if(toggle&&content&&!toggle.dataset.bound){toggle.dataset.bound="1";toggle.addEventListener("click",()=>{content.dataset.userChoice="1";content.classList.toggle("is-collapsed");toggle.textContent=content.classList.contains("is-collapsed")?"VER RECORRIDO":"OCULTAR";try{resizeParticipantFrameFromInside?.()}catch(_){}});}
+    ["identity","route","next","scans","gpsAccuracy","liveSyncStatus","liveLastSync","summary"].forEach(id=>{const el=q(id);if(el&&!el.dataset.r6Observed){el.dataset.r6Observed="1";new MutationObserver(update).observe(el,{subtree:true,childList:true,characterData:true,attributes:true});}});
+    window.addEventListener("online",update);window.addEventListener("offline",update);update();setInterval(update,500);
+  }
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bind,{once:true});else bind();
+})();
+</script>
+</body></html>

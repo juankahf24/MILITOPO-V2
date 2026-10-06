@@ -1,6 +1,6 @@
-/* MILITOPO Participante · R5E.4 Rechazo por servidor + control previo 20261006.
+/* MILITOPO Participante · R6A Carrera activa profesional + reparación runner 20261006.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r5e4-rechazo-servidor-asignadas-20261006";
+const CACHE_NAME="militopo-v2-participante-r6a-carrera-activa-profesional-20261006";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./icons/participante-192.png","./icons/participante-512.png","./icons/apple-touch-icon.png",
