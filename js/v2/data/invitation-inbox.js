@@ -307,9 +307,13 @@ async function rejectInvitation(id) {
   if (!confirmed) return;
   state.busy = true; render(); setStatus("Rechazando invitación…");
   try {
-    const { firestore } = await services();
-    await updateDoc(doc(firestore, "invitations", id), { status:"declined", declinedAt:serverTimestamp(), declinedBy:String(state.auth.uid), updatedAt:serverTimestamp() });
+    const svc = await services();
+    if (typeof svc.callable !== "function") throw new Error("Backend de invitaciones no disponible.");
+    await svc.callable("declineInvitationV2", { invitationId: id, clientVersion: "v2-r5e4-rechazo-servidor-20261006" });
     setStatus("Invitación rechazada. El organizador ha recibido tu respuesta.");
+    state.realtimeEmailRows.delete(String(id));
+    state.realtimeUidRows.delete(String(id));
+    applyRealtimeRows();
   } catch (error) {
     console.error("[MILITOPO inbox reject]", error);
     setStatus(`No se pudo rechazar la invitación: ${String(error?.message || error)}`);
