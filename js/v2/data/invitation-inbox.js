@@ -9,6 +9,7 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
+  updateDoc,
   where,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -67,7 +68,8 @@ function injectStyle() {
     .m2-inbox-meta{font-size:.76rem;opacity:.7;margin-top:3px;overflow-wrap:anywhere}
     .m2-inbox-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
     .m2-inbox-actions button{min-height:42px;border-radius:10px;border:1px solid rgba(245,204,121,.35);background:rgba(245,204,121,.14);color:inherit;padding:8px 11px;font:inherit;font-weight:900;cursor:pointer}
-    .m2-inbox-actions .m2-inbox-accept{background:linear-gradient(180deg,#f6d285,#d99c38);color:#1b160c}
+    .m2-inbox-actions .m2-inbox-accept{background:linear-gradient(180deg,#52b86a,#2d7e43);color:#f5fff3;border-color:rgba(129,244,153,.42)}
+    .m2-inbox-actions .m2-inbox-reject{background:linear-gradient(180deg,#b84f4a,#7d2f2c);color:#fff3f1;border-color:rgba(255,141,134,.36)}
     .m2-inbox-actions button:disabled{opacity:.5;cursor:not-allowed}
     .m2-inbox-joined{font-size:.78rem;font-weight:900;color:#bfe9c8;margin-top:7px}
   `;
@@ -213,7 +215,7 @@ function render() {
       <div class="m2-inbox-event">${esc(row.eventName || "Carrera de orientación")}</div>
       <div class="m2-inbox-meta">Invitación para ${esc(row.targetUsername ? `@${row.targetUsername}` : (row.targetEmail || emailOf()))}</div>
       ${isPending
-        ? `<div class="m2-inbox-actions"><button class="m2-inbox-accept" type="button" data-accept-invite="${esc(row.id)}" ${state.busy ? "disabled" : ""}>UNIRME A ESTA CARRERA</button></div>`
+        ? `<div class="m2-inbox-actions"><button class="m2-inbox-accept" type="button" data-accept-invite="${esc(row.id)}" ${state.busy ? "disabled" : ""}>ACEPTAR</button><button class="m2-inbox-reject" type="button" data-reject-invite="${esc(row.id)}" ${state.busy ? "disabled" : ""}>RECHAZAR</button></div>`
         : `<div class="m2-inbox-joined">✓ Ya estás unido a esta carrera</div>`}
     </article>`;
   }).join("");
@@ -296,9 +298,28 @@ async function acceptInvitation(id) {
     render();
   }
 }
+async function rejectInvitation(id) {
+  if (state.busy || !id || !state.auth?.uid) return;
+  const row = state.rows.find(item => String(item.id) === String(id));
+  const confirmed = globalThis.MILITOPO_CONFIRM
+    ? await globalThis.MILITOPO_CONFIRM(`Vas a rechazar la invitación a ${row?.eventName || "esta carrera"}. El organizador verá tu respuesta.`, { title:"RECHAZAR INVITACIÓN", confirmText:"RECHAZAR", danger:true })
+    : true;
+  if (!confirmed) return;
+  state.busy = true; render(); setStatus("Rechazando invitación…");
+  try {
+    const { firestore } = await services();
+    await updateDoc(doc(firestore, "invitations", id), { status:"declined", declinedAt:serverTimestamp(), declinedBy:String(state.auth.uid), updatedAt:serverTimestamp() });
+    setStatus("Invitación rechazada. El organizador ha recibido tu respuesta.");
+  } catch (error) {
+    console.error("[MILITOPO inbox reject]", error);
+    setStatus(`No se pudo rechazar la invitación: ${String(error?.message || error)}`);
+  } finally { state.busy = false; render(); }
+}
 function onClick(event) {
-  const button = event.target.closest("[data-accept-invite]");
-  if (button) acceptInvitation(button.dataset.acceptInvite);
+  const accept = event.target.closest("[data-accept-invite]");
+  if (accept) return acceptInvitation(accept.dataset.acceptInvite);
+  const reject = event.target.closest("[data-reject-invite]");
+  if (reject) return rejectInvitation(reject.dataset.rejectInvite);
 }
 function onAuth(detail) {
   state.auth = detail || globalThis.MILITOPO_V2_AUTH || null;

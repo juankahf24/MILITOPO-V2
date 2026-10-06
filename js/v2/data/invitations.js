@@ -103,6 +103,7 @@ function statusLabel(row) {
   const status = String(row.status || "pending");
   if (status === "accepted") return "ACEPTADA";
   if (status === "revoked") return "REVOCADA";
+  if (status === "declined") return "RECHAZADA POR EL CORREDOR";
   return "PENDIENTE";
 }
 function targetLabel(row) {
@@ -129,7 +130,7 @@ function injectStyle() {
     .m2-invites-bulk{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);display:grid;gap:8px}.m2-invites-bulk small{opacity:.68;line-height:1.4}
     .m2-invites-list{display:grid;gap:8px;margin-top:10px;min-height:22px}.m2-invite-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:11px;background:rgba(0,0,0,.12)}
     .m2-invite-email{font-weight:900;overflow-wrap:anywhere}.m2-invite-link{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.73rem;opacity:.76;overflow-wrap:anywhere;margin-top:3px}.m2-invite-meta{font-size:.75rem;opacity:.65;margin-top:3px}
-    .m2-invite-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:360px}.m2-invite-actions button{font-size:.78rem}.m2-invite-revoked{opacity:.55}.m2-invite-accepted{border-color:rgba(126,220,150,.35)}
+    .m2-invite-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:360px}.m2-invite-actions button{font-size:.78rem}.m2-invite-revoked{opacity:.55}.m2-invite-accepted{border-color:rgba(126,220,150,.35)}.m2-invite-declined{border-color:rgba(226,102,94,.48);background:rgba(122,41,37,.16)}.m2-invite-declined .m2-invite-meta{color:#ffb5ae;opacity:1;font-weight:950}
     @media(max-width:680px){.m2-invites-form{grid-template-columns:1fr}.m2-invites-form button,.m2-invites-bulk button,.m2-user-picker>.m2-selected-create{width:100%}.m2-invite-item{grid-template-columns:1fr}.m2-invite-actions{justify-content:stretch;max-width:none}.m2-invite-actions button{flex:1 1 45%}}
   `;
   document.head.appendChild(style);
@@ -247,10 +248,12 @@ async function loadInvitations() {
 function renderList(rows) {
   if (!rows.length) { state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Aún no hay invitaciones para este evento.</div>`; return; }
   state.list.innerHTML = rows.map(row => {
-    const status = String(row.status || "pending"), revoked = status === "revoked", accepted = status === "accepted", url = invitationUrl(row.id);
-    return `<article class="m2-invite-item ${revoked ? "m2-invite-revoked" : ""} ${accepted ? "m2-invite-accepted" : ""}">
-      <div><div class="m2-invite-email">${esc(targetLabel(row))}</div><div class="m2-invite-meta">${esc(statusLabel(row))} · ${esc(formatDate(row.createdAt))}</div><div class="m2-invite-link">${esc(url)}</div></div>
-      <div class="m2-invite-actions"><button type="button" data-whatsapp="${esc(row.id)}">WHATSAPP</button><button type="button" data-share="${esc(row.id)}">COMPARTIR</button><button type="button" data-copy-link="${esc(row.id)}">COPIAR ENLACE</button>${row.targetEmail ? `<button type="button" data-email="${esc(row.id)}">EMAIL</button>` : ""}${status === "pending" ? `<button type="button" data-revoke="${esc(row.id)}">REVOCAR</button>` : ""}</div>
+    const status = String(row.status || "pending"), revoked = status === "revoked", accepted = status === "accepted", declined = status === "declined", url = invitationUrl(row.id);
+    const statusAt = declined ? row.declinedAt : accepted ? row.acceptedAt : revoked ? row.revokedAt : row.createdAt;
+    const pendingActions = status === "pending" ? `<div class="m2-invite-actions"><button type="button" data-whatsapp="${esc(row.id)}">WHATSAPP</button><button type="button" data-share="${esc(row.id)}">COMPARTIR</button><button type="button" data-copy-link="${esc(row.id)}">COPIAR ENLACE</button>${row.targetEmail ? `<button type="button" data-email="${esc(row.id)}">EMAIL</button>` : ""}<button type="button" data-revoke="${esc(row.id)}">REVOCAR</button></div>` : "";
+    return `<article class="m2-invite-item ${revoked ? "m2-invite-revoked" : ""} ${accepted ? "m2-invite-accepted" : ""} ${declined ? "m2-invite-declined" : ""}">
+      <div><div class="m2-invite-email">${esc(targetLabel(row))}</div><div class="m2-invite-meta">${esc(statusLabel(row))} · ${esc(formatDate(statusAt))}</div>${status === "pending" ? `<div class="m2-invite-link">${esc(url)}</div>` : ""}</div>
+      ${pendingActions}
     </article>`;
   }).join("");
 }
