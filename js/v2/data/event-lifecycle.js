@@ -514,6 +514,10 @@ function init() {
   globalThis.addEventListener("online", () => refresh());
   globalThis.addEventListener("offline", () => paint("Sin conexión. El estado del evento se mantiene, pero no se puede avanzar hasta recuperar Internet."));
   if (globalThis.MILITOPO_V2_AUTH) onAuthReady({ detail: globalThis.MILITOPO_V2_AUTH });
+
+/* R6B · Permite al centro LIVE reutilizar exactamente la transición oficial EN DIRECTO → FINALIZADO. */
+globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE = advance;
+globalThis.MILITOPO_V2_EVENT_LIFECYCLE_REFRESH = refresh;
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
