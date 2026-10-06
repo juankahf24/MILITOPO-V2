@@ -1,18 +1,18 @@
-/* MILITOPO Participante · R6A1 Carrera V2 integrada + estado en tiempo real + branding 20261006.
+/* MILITOPO Participante · R6B Carrera activa one-screen + GPS obligatorio + progreso 20261006.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r6a1-tiempo-real-carrera-v2-20261006";
+const CACHE_NAME="militopo-v2-participante-r6b-competicion-one-screen-20261006";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
-  "./runner-home-v4.js?v=v2-r6a1-tiempo-real-carrera-20261006","./runner-live-loader.js?v=v2-r6a1-runner-live-loader-20261006",
-  "../../js/v2/firebase-config.js","../../js/v2/bootstrap.js?v=v2-r6a1-runner-home-race-20261006",
+  "./runner-home-v4.js?v=v2-r6b-competicion-one-screen-20261006","./runner-live-loader.js?v=v2-r6b-competicion-one-screen-20261006",
+  "../../js/v2/firebase-config.js","../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",
   "../../js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-20260924",
   "../../js/v2/live/runner-gps-v2.js?v=v2-k3b-gps-resume-20261001",
   "../../js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
   "../../js/v2/live/runner-controls-v2.js?v=v2-k3a-discard-race-guard-20261001",
-  "../../js/v2/live/runner-race-v2.js?v=v2-r6a1-runner-home-race-20261006"
+  "../../js/v2/live/runner-race-v2.js?v=v2-r6b-competicion-one-screen-20261006"
 ];
 self.addEventListener("install",event=>{event.waitUntil((async()=>{const cache=await caches.open(CACHE_NAME);await Promise.allSettled(APP_SHELL.map(url=>cache.add(new Request(url,{cache:"reload"}))));})());});
 self.addEventListener("activate",event=>{event.waitUntil((async()=>{const names=await caches.keys();await Promise.all(names.filter(name=>name.startsWith("militopo-v2-participante-")&&name!==CACHE_NAME).map(name=>caches.delete(name)));await self.clients.claim();})());});
