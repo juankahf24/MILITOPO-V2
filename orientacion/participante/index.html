@@ -9,8 +9,8 @@
   <meta name="apple-mobile-web-app-title" content="MILITOPO">
   <title>MILITOPO</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/participante-192.png">
+  <link rel="apple-touch-icon" href="../../icons/militopo-192.png?v=r6a1-runner-brand-20261006">
+  <link rel="icon" type="image/png" sizes="192x192" href="../../icons/militopo-192.png?v=r6a1-runner-brand-20261006">
   <style>
     :root{
       color-scheme:dark;
@@ -32,10 +32,11 @@
     /* Cabecera */
     .runner-head{position:relative;display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:92px;padding:9px 12px 9px 9px;border:1px solid rgba(223,235,211,.18);border-radius:24px;background:linear-gradient(135deg,rgba(30,55,35,.97),rgba(13,25,16,.98));box-shadow:var(--shadow);overflow:hidden}
     .runner-head::after{content:"";position:absolute;inset:auto -70px -95px auto;width:240px;height:190px;border:1px solid rgba(215,229,202,.08);border-radius:50%;box-shadow:0 0 0 18px rgba(215,229,202,.025),0 0 0 38px rgba(215,229,202,.018);pointer-events:none}
-    .runner-logo{position:relative;z-index:1;width:76px;height:76px;display:grid;place-items:center;border-radius:50%;background:rgba(8,16,10,.42);box-shadow:0 0 0 1px rgba(239,241,223,.16),0 12px 25px rgba(0,0,0,.24)}
-    .runner-logo img{width:72px;height:72px;display:block;object-fit:contain;background:transparent}
+    .runner-logo{position:relative;z-index:1;width:76px;height:76px;display:grid;place-items:center;border-radius:20px;overflow:hidden;background:#050805;box-shadow:0 0 0 1px rgba(239,241,223,.14),0 12px 25px rgba(0,0,0,.28)}
+    .runner-logo img{width:100%;height:100%;display:block;object-fit:cover;background:#050805}
     .brand{position:relative;z-index:1;min-width:0}.brand h1{margin:0;font-size:1.36rem;line-height:.95;letter-spacing:.16em;font-weight:950;color:#f7f3e5}.brand small{display:block;margin-top:8px;color:#9fb1a1;font-size:.54rem;font-weight:850;letter-spacing:.15em;text-transform:uppercase}
     .runner-account{position:relative;z-index:1;min-width:92px;display:grid;justify-items:end;gap:5px}.runner-user{display:block;max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;font-size:.72rem;font-weight:950}.runner-handle{display:block;max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#9fad9f;font-size:.54rem;font-weight:800}.online{display:flex;align-items:center;justify-content:center;gap:6px;min-width:94px;padding:6px 9px;border:1px solid rgba(130,237,126,.28);border-radius:999px;background:rgba(38,109,52,.86);color:#f3ffef;font-size:.50rem;font-weight:950;letter-spacing:.10em;box-shadow:inset 0 1px 0 rgba(255,255,255,.09)}.online i{width:8px;height:8px;border-radius:50%;background:#83ef7f;box-shadow:0 0 0 4px rgba(131,239,127,.12)}
+    .online.is-offline{background:rgba(116,63,35,.88);border-color:rgba(241,164,94,.30);color:#fff1dd}.online.is-offline i{background:#efa563;box-shadow:0 0 0 4px rgba(239,165,99,.12)}
 
     /* Navegación principal */
     .runner-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:5px;border:1px solid var(--line);border-radius:18px;background:rgba(10,18,12,.78);box-shadow:0 10px 26px rgba(0,0,0,.18)}
@@ -87,8 +88,8 @@
 <body>
   <main class="runner-home">
     <header class="runner-head">
-      <div class="runner-logo"><img src="../assets/r1/militopo-compass-r2k.png?v=r5e2-runner-invitaciones-20261006" alt="MILITOPO"></div>
-      <div class="brand"><h1>MILITOPO</h1><small>Orientación · GPS · Offline</small></div>
+      <div class="runner-logo"><img src="../../icons/militopo-512.png?v=r6a1-runner-brand-20261006" alt="MILITOPO"></div>
+      <div class="brand"><h1>MILITOPO</h1></div>
       <div class="runner-account">
         <strong class="runner-user" id="rhHeaderUser">Cargando…</strong>
         <span class="runner-handle" id="rhHeaderHandle"></span>
@@ -209,7 +210,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r5e4-rechazo-servidor-asignadas-20261006"></script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r6a1-tiempo-real-carrera-20261006"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>

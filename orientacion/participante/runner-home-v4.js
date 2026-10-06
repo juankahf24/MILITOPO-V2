@@ -1,4 +1,5 @@
-/* MILITOPO V2 · R5E · Invitaciones, ficha previa y acceso competitivo del corredor. */
+/* MILITOPO V2 · R6A1 · Estado en tiempo real + carrera activa V2 integrada en la home del corredor. */
+import "./runner-live-loader.js?v=v2-r6a1-runner-live-loader-20261006";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -7,7 +8,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r5e4-rechazo-servidor-asignadas-20261006";
+const VERSION="v2-r6a1-tiempo-real-carrera-integrada-20261006";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -25,12 +26,14 @@ const els={
   historyMore:document.getElementById("rhHistoryMore"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose"),
   inviteEvents:document.getElementById("rhInviteEvents"),inviteCount:document.getElementById("rhInviteCount"),
   raceModal:document.getElementById("rhRaceModal"),raceTitle:document.getElementById("rhRaceTitle"),raceBody:document.getElementById("rhRaceBody"),raceClose:document.getElementById("rhRaceClose"),
-  profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank")
+  profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank"),
+  network:document.querySelector(".online")
 };
 
 let auth=null,currentUser=null,profile=null,currentRaceTab="active",currentMainTab="home";
 let functions=null,historyRows=[],activeRows=[],inviteRows=[],historyVisible=HISTORY_PAGE,inviteBusy=false;
 let inviteUnsubs=[],inviteEmailRows=new Map(),inviteUidRows=new Map();
+let activeEventUnsubs=new Map(),activeRefreshTimer=0,activeRefreshBusy=false,lastActiveRefreshAt=0,currentApp=null;
 const classificationCache=new Map();
 
 function text(el,v){if(el)el.textContent=String(v??"");}
@@ -40,8 +43,31 @@ function initials(name){const p=String(name||"").trim().split(/\s+/).filter(Bool
 function withTimeout(promise,ms,label){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label||"TIMEOUT")),ms))]);}
 function config(){const cfg=globalThis.MILITOPO_V2_CONFIG;if(!cfg?.configured||!cfg.firebase?.apiKey)throw new Error("La configuración Firebase V2 no está disponible.");return cfg.firebase;}
 function findApp(){return getApps().find(a=>a.name===APP_NAME)||null;}
-function initFirebase(){setStatus("Inicializando tu sesión MILITOPO…");const app=findApp()||initializeApp(config(),APP_NAME);try{auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]});}catch(error){if(String(error?.code||"").includes("already-initialized"))auth=getAuth(app);else throw error;}functions=getFunctions(app,REGION);return app;}
+async function initFirebase(){
+  setStatus("Inicializando tu sesión MILITOPO…");
+  if(globalThis.MILITOPO_V2?.firebase){
+    try{const svc=await globalThis.MILITOPO_V2.firebase();auth=svc.auth;functions=svc.functions;return svc.app;}catch(error){console.warn("[MILITOPO runner singleton]",error);}
+  }
+  const app=findApp()||initializeApp(config(),APP_NAME);
+  try{auth=initializeAuth(app,{persistence:[indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence]});}catch(error){if(String(error?.code||"").includes("already-initialized"))auth=getAuth(app);else throw error;}
+  functions=getFunctions(app,REGION);return app;
+}
 async function waitForUser(){setStatus("Recuperando tu sesión MILITOPO…");if(auth.currentUser)return auth.currentUser;return withTimeout(new Promise((resolve,reject)=>{let finished=false;const stop=onAuthStateChanged(auth,user=>{if(finished)return;finished=true;try{stop();}catch(_){}resolve(user);},error=>{if(finished)return;finished=true;try{stop();}catch(_){}reject(error);});}),10000,"No se detectó una sesión activa en este dispositivo.");}
+function runnerAuthContext(){
+  if(!currentUser?.uid)return null;
+  const username=String(profile?.usernameKey||profile?.username||"").replace(/^@/,"").trim().toLowerCase();
+  return {uid:String(currentUser.uid),email:currentUser.email||null,displayName:String(profile?.displayName||currentUser.displayName||currentUser.email||"Corredor"),username:username||null,role:"runner"};
+}
+function publishRunnerAuth(){
+  const ctx=runnerAuthContext();if(!ctx)return;
+  globalThis.MILITOPO_V2_AUTH={...ctx};
+  try{globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-ready",{detail:{...ctx}}));}catch(_){}
+}
+function updateConnectivity(){
+  if(!els.network)return;const online=navigator.onLine!==false;
+  els.network.innerHTML=`<i></i>${online?"EN LÍNEA":"SIN COBERTURA"}`;
+  els.network.classList.toggle("is-offline",!online);
+}
 
 async function loadProfile(app,user){
   const db=getFirestore(app);let data={};
@@ -52,6 +78,7 @@ async function loadProfile(app,user){
   text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);text(els.avatar,initials(displayName));
   if(els.detailsBtn)els.detailsBtn.disabled=false;if(els.logoutBtn)els.logoutBtn.disabled=false;
   if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> CORREDOR`;
+  publishRunnerAuth();
 }
 
 function statusES(s){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"ARCHIVADA",incomplete:"INCOMPLETA",not_started:"NO SALIÓ"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();}
@@ -75,7 +102,26 @@ function setRaceTab(tab){
   if(currentRaceTab==="history")hydrateVisibleRanks();
 }
 
-function enterRace(eventId){const id=String(eventId||"");if(!id)return;const url=new URL("runner.html",location.href);url.searchParams.set("app","1");url.searchParams.set("event",id);location.href=url.href;}
+async function enterRace(eventId){
+  const id=String(eventId||"").trim();if(!id||!currentUser?.uid)return;
+  let ev=activeRows.find(row=>String(row.eventId)===id);
+  if(!ev){setStatus("No se encontró esta carrera en tu sesión.","err");return;}
+  if(String(ev.status||"").toLowerCase()!=="live"){setStatus("La carrera todavía no está EN DIRECTO.","err");return;}
+  try{
+    setStatus(`Conectando con ${ev.eventName||"la carrera"}…`);
+    functions=functions||getFunctions(currentApp||findApp(),REGION);
+    const join=httpsCallable(functions,"runnerJoinLive");
+    const response=await withTimeout(join({eventId:id,clientVersion:VERSION}),12000,"No se pudo abrir la sesión Live V2.");
+    const data=response?.data||{};const runId=String(data.runId||ev.liveRunId||"").trim();
+    if(!runId)throw new Error("La sesión Live todavía no está preparada. Inténtalo de nuevo en unos segundos.");
+    ev={...ev,...data,status:"live",liveRunId:runId};
+    activeRows=activeRows.map(row=>String(row.eventId)===id?ev:row);
+    renderActiveEvents(activeRows);renderDashboard();closeRaceModal();publishRunnerAuth();
+    const authCtx=runnerAuthContext();
+    globalThis.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{event:{...ev},runId,auth:{...authCtx}}}));
+    setStatus(`${ev.eventName||"Carrera"} · conectado a Live V2.`,"ok");
+  }catch(error){console.error("[MILITOPO runner enter race]",error);setStatus(`No se pudo entrar en la carrera. ${String(error?.message||error)}`,"err");}
+}
 
 function routeMetric(ev,label,value){return value?`<div class="race-mini"><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`:"";}
 function activeRaceDetails(ev){
@@ -89,7 +135,7 @@ function activeRaceDetails(ev){
 }
 function openRaceDetail(ev){
   if(!ev||!els.raceModal)return;text(els.raceTitle,ev.eventName||"Carrera");
-  const state=String(ev.status||"").toLowerCase(),live=state==="live"&&String(ev.liveRunId||"").trim();
+  const state=String(ev.status||"").toLowerCase(),live=state==="live";
   const points=Array.isArray(ev.routePoints)?ev.routePoints.filter(Boolean):[];
   els.raceBody.innerHTML=`<div class="race-detail-status"><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span><strong>${live?"LISTA PARA COMPETIR":"PLAZA CONFIRMADA"}</strong></div><div class="race-detail-grid">${activeRaceDetails(ev)||'<div class="empty-card"><strong>Asignación confirmada</strong><span>La organización completará los datos del recorrido.</span></div>'}</div>${points.length?`<div class="route-sequence"><small>SECUENCIA DE CONTROLES</small><div>${points.map(p=>`<span>${esc(p)}</span>`).join("")}</div></div>`:""}<div class="race-detail-action">${live?`<button class="btn primary" type="button" data-modal-enter="${esc(ev.eventId)}">ENTRAR EN LA CARRERA</button>`:`<div class="waiting">El acceso a competición se habilitará cuando la organización ponga la carrera EN DIRECTO.</div>`}</div>`;
   els.raceModal.classList.add("is-open");els.raceModal.setAttribute("aria-hidden","false");
@@ -101,7 +147,7 @@ function renderActiveEvents(events){
   const list=els.activeEvents;if(!list)return;list.innerHTML="";text(els.activeCount,events.length);
   if(!events.length){list.innerHTML='<div class="empty-card"><strong>Sin carreras activas</strong><span>Cuando una carrera esté PUBLICADA o EN DIRECTO aparecerá aquí.</span></div>';return;}
   list.innerHTML=events.map(ev=>{
-    const state=String(ev.status||"").toLowerCase(),live=state==="live"&&String(ev.liveRunId||"").trim();
+    const state=String(ev.status||"").toLowerCase(),live=state==="live";
     const assignment=[ev.participantId,ev.routeId].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("");
     const summary=[Number(ev.routeDistanceKm)>0?`${Number(ev.routeDistanceKm).toFixed(2)} km`:"",Number(ev.routePositiveM)>=0&&ev.routePositiveM!==null?`+${Math.round(Number(ev.routePositiveM))} m`:"",ev.routeControlCount?`${ev.routeControlCount} controles`:""].filter(Boolean).join(" · ");
     const actions=`<div class="event-actions"><button class="btn secondary" type="button" data-active-detail="${esc(ev.eventId)}">VER DETALLES</button>${live?`<button class="btn primary" type="button" data-enter-event="${esc(ev.eventId)}">ENTRAR</button>`:""}</div>`;
@@ -111,6 +157,48 @@ function renderActiveEvents(events){
   list.querySelectorAll("[data-active-detail]").forEach(btn=>btn.addEventListener("click",()=>{const ev=events.find(row=>String(row.eventId)===String(btn.dataset.activeDetail));if(ev)openRaceDetail(ev);}));
 }
 
+function stopActiveEventRealtime(){
+  for(const [,unsub] of activeEventUnsubs){try{unsub?.();}catch(_){}}activeEventUnsubs.clear();
+  if(activeRefreshTimer){clearTimeout(activeRefreshTimer);activeRefreshTimer=0;}
+}
+function scheduleActiveRefresh(app,delay=220){
+  if(activeRefreshTimer)clearTimeout(activeRefreshTimer);
+  activeRefreshTimer=setTimeout(()=>{activeRefreshTimer=0;refreshActiveEvents(app,{silent:true}).catch(()=>{});},Math.max(50,delay));
+}
+function bindActiveEventRealtime(app){
+  const db=getFirestore(app),wanted=new Set(activeRows.map(row=>String(row.eventId||"")).filter(Boolean));
+  for(const [eventId,unsub] of [...activeEventUnsubs.entries()]){if(wanted.has(eventId))continue;try{unsub?.();}catch(_){}activeEventUnsubs.delete(eventId);}
+  for(const ev of activeRows){
+    const eventId=String(ev.eventId||"");if(!eventId||activeEventUnsubs.has(eventId))continue;
+    const unsub=onSnapshot(doc(db,"events",eventId),snap=>{
+      if(!snap.exists())return;const data=snap.data()||{},nextStatus=String(data.status||"").toLowerCase();
+      const idx=activeRows.findIndex(row=>String(row.eventId)===eventId);if(idx<0)return;
+      const prevStatus=String(activeRows[idx].status||"").toLowerCase(),changed=prevStatus!==nextStatus;
+      if(["published","live"].includes(nextStatus)){
+        activeRows[idx]={...activeRows[idx],status:nextStatus,eventName:String(data.eventName||activeRows[idx].eventName||"Carrera")};
+        renderActiveEvents(activeRows);renderDashboard();
+        if(changed){setStatus(nextStatus==="live"?`${activeRows[idx].eventName} está EN DIRECTO.`:`${activeRows[idx].eventName} está PUBLICADA.`,"ok");}
+        if(nextStatus==="live")scheduleActiveRefresh(app,180);
+      }else if(["finished","archived"].includes(nextStatus)){
+        activeRows=activeRows.filter(row=>String(row.eventId)!==eventId);renderActiveEvents(activeRows);renderDashboard();scheduleActiveRefresh(app,250);
+      }
+    },error=>console.warn("[MILITOPO runner event realtime]",eventId,error));
+    activeEventUnsubs.set(eventId,unsub);
+  }
+}
+async function refreshActiveEvents(app,{silent=false}={}){
+  if(activeRefreshBusy||!app||!currentUser?.uid)return activeRows;
+  activeRefreshBusy=true;
+  try{
+    functions=functions||getFunctions(app,REGION);const activeCall=httpsCallable(functions,"getRunnerLiveEvents");
+    const activeResult=await withTimeout(activeCall({clientVersion:VERSION}),12000,"No se pudieron actualizar las carreras activas.");
+    const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
+    activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase()));
+    lastActiveRefreshAt=Date.now();renderActiveEvents(activeRows);renderDashboard();bindActiveEventRealtime(app);
+    if(!silent)setStatus(`${activeRows.length} activa${activeRows.length===1?"":"s"} · actualización en tiempo real`,"ok");
+    return activeRows;
+  }finally{activeRefreshBusy=false;}
+}
 function stopInvitationRealtime(){for(const unsub of inviteUnsubs.splice(0)){try{unsub?.();}catch(_){}}inviteEmailRows.clear();inviteUidRows.clear();}
 function mergeInvitationRows(){
   const merged=new Map([...inviteEmailRows,...inviteUidRows]);inviteRows=[...merged.values()].filter(row=>String(row.status||"pending").toLowerCase()==="pending");
@@ -273,16 +361,16 @@ async function loadEvents(app){
     const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
     activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase()));
     historyRows=Array.isArray(historyResult?.data?.results)?historyResult.data.results:[];
-    renderActiveEvents(activeRows);renderHistory(true);renderDashboard();renderProfileStats();
+    renderActiveEvents(activeRows);renderHistory(true);renderDashboard();renderProfileStats();bindActiveEventRealtime(app);
     const total=activeRows.length+historyRows.length;
     if(total)setStatus(`${activeRows.length} activa${activeRows.length===1?"":"s"} · ${historyRows.length} en histórico`,`ok`);else setStatus("No encontramos carreras asociadas a esta cuenta.","ok");
   }catch(error){console.error("[MILITOPO runner events]",error);const code=String(error?.code||""),msg=String(error?.message||"No se pudieron consultar tus carreras.");setStatus(`${msg}${code?` (${code})`:""}`,"err");if(els.retry)els.retry.style.display="block";}
 }
 
-async function boot(){try{const app=initFirebase(),user=await waitForUser();if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");currentUser=user;if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");await loadProfile(app,user);startInvitationRealtime(app);await loadEvents(app);}catch(error){console.error("[MILITOPO runner boot]",error);text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}}
+async function boot(){try{const app=await initFirebase();currentApp=app;updateConnectivity();const user=await waitForUser();if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");currentUser=user;if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");await loadProfile(app,user);startInvitationRealtime(app);await loadEvents(app);}catch(error){console.error("[MILITOPO runner boot]",error);text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}}
 
 els.detailsBtn?.addEventListener("click",()=>{els.details?.classList.toggle("show");if(els.detailsBtn)els.detailsBtn.textContent=els.details?.classList.contains("show")?"OCULTAR DATOS":"VER DATOS DE CUENTA";});
-els.logoutBtn?.addEventListener("click",async()=>{stopInvitationRealtime();try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
+els.logoutBtn?.addEventListener("click",async()=>{stopInvitationRealtime();stopActiveEventRealtime();try{globalThis.MILITOPO_V2_AUTH=null;}catch(_){}try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
 els.retry?.addEventListener("click",()=>{const app=findApp();if(app)loadEvents(app);});
 els.historyMore?.addEventListener("click",()=>{historyVisible+=HISTORY_PAGE;renderHistory(false);});
 els.resultClose?.addEventListener("click",closeResultModal);
@@ -294,5 +382,9 @@ document.querySelectorAll("[data-runner-tab]").forEach(button=>button.addEventLi
 document.querySelectorAll("[data-go-tab]").forEach(button=>button.addEventListener("click",()=>setMainTab(button.dataset.goTab||"home")));
 document.querySelectorAll("[data-race-tab]").forEach(button=>button.addEventListener("click",()=>setRaceTab(button.dataset.raceTab)));
 document.querySelectorAll("[data-profile-tab]").forEach(button=>button.addEventListener("click",()=>{const tab=button.dataset.profileTab||"summary";document.querySelectorAll("[data-profile-tab]").forEach(b=>b.classList.toggle("is-active",b===button));document.querySelectorAll("[data-profile-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.profilePanel===tab));}));
+window.addEventListener("online",()=>{updateConnectivity();if(currentApp)scheduleActiveRefresh(currentApp,120);});
+window.addEventListener("offline",updateConnectivity);
+window.addEventListener("focus",()=>{if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
 
 boot();

@@ -117,7 +117,7 @@ html,body{background:radial-gradient(circle at 50% -10%,#1b3b27 0,#0b1a10 34%,#0
 body{min-height:100dvh}
 .simple-participant-app{display:flex;flex-direction:column;max-width:760px!important;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px calc(env(safe-area-inset-bottom,0px) + 36px)!important}
 .r6-appbar{order:0;position:sticky;top:0;z-index:5000;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 -2px 10px;padding:9px 10px;border:1px solid rgba(194,226,141,.18);border-radius:20px;background:rgba(9,23,14,.93);box-shadow:0 12px 34px rgba(0,0,0,.26);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
-.r6-brand{display:flex;align-items:center;min-width:0;gap:10px}.r6-brand img{width:48px;height:48px;flex:0 0 48px;border-radius:50%;object-fit:cover;border:2px solid rgba(226,235,209,.72);background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.36)}
+.r6-brand{display:flex;align-items:center;min-width:0;gap:10px}.r6-brand img{width:48px;height:48px;flex:0 0 48px;border-radius:14px;object-fit:cover;border:1px solid rgba(226,235,209,.24);background:#050805;box-shadow:0 6px 18px rgba(0,0,0,.36)}
 .r6-brand-copy{display:grid;min-width:0;gap:2px}.r6-brand-copy strong{font-size:1.15rem;letter-spacing:.15em;line-height:1;color:#fff;font-weight:950}.r6-brand-copy span{max-width:44vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.59rem;letter-spacing:.11em;color:#91a496;font-weight:850}
 .r6-network{display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:7px 9px;border-radius:999px;border:1px solid rgba(103,211,128,.24);background:rgba(103,211,128,.09);font-size:.59rem;letter-spacing:.06em;color:#d8f7df}.r6-network span{width:7px;height:7px;border-radius:50%;background:#69dc84;box-shadow:0 0 0 4px rgba(105,220,132,.10)}.r6-network.is-offline{border-color:rgba(234,188,88,.35);background:rgba(234,188,88,.10);color:#ffe7ae}.r6-network.is-offline span{background:#efbd55;box-shadow:0 0 0 4px rgba(239,189,85,.10)}
 .r6-dashboard{order:1;margin:0 0 10px;padding:16px;border:1px solid rgba(185,225,128,.23);border-radius:26px;background:radial-gradient(circle at 88% 0,rgba(172,218,101,.17),transparent 32%),linear-gradient(155deg,rgba(24,53,34,.98),rgba(8,20,13,.99));box-shadow:0 18px 48px rgba(0,0,0,.32),inset 0 1px rgba(255,255,255,.04)}
@@ -1527,7 +1527,7 @@ module.exports = QRCode;
 </script></head><body><div class="app simple-participant-app">
 <header class="r6-appbar" aria-label="MILITOPO">
   <div class="r6-brand">
-    <img src="../assets/r1/militopo-compass-r2k.png" alt="MILITOPO">
+    <img src="../../icons/militopo-512.png?v=r6a1-runner-brand-20261006" alt="MILITOPO">
     <div class="r6-brand-copy"><strong>MILITOPO</strong><span id="r6HeaderEvent">CARRERA</span></div>
   </div>
   <div id="r6NetworkPill" class="r6-network is-online"><span></span><b>EN LÍNEA</b></div>
