@@ -65,8 +65,8 @@
       </section>
       <div class="r2-route-picker" id="r2RoutePicker" hidden>
         <section class="r2-route-picker-card" role="dialog" aria-modal="true" aria-labelledby="r2RoutePickerTitle">
-          <div class="r2-route-picker-head"><div><small>RECORRIDOS MANUALES</small><strong id="r2RoutePickerTitle">¿QUÉ RECORRIDO QUIERES TRAZAR?</strong></div><button class="r2-route-picker-close" type="button" data-r2-picker-close aria-label="Cerrar">×</button></div>
-          <p class="r2-route-picker-help">Cada recorrido se crea desde cero seleccionando las balizas en el orden deseado. MILITOPO no genera el trazado automáticamente.</p>
+          <div class="r2-route-picker-head"><div><small>RECORRIDOS MANUALES</small><strong id="r2RoutePickerTitle">¿QUÉ RECORRIDO QUIERES CREAR O EDITAR?</strong></div><button class="r2-route-picker-close" type="button" data-r2-picker-close aria-label="Cerrar">×</button></div>
+          <p class="r2-route-picker-help">Los recorridos nuevos empiezan vacíos. Si eliges uno existente, MILITOPO carga su trazado completo para editarlo con DESHACER, LIMPIAR y volver a seleccionar balizas.</p>
           <div class="r2-route-picker-grid" id="r2RoutePickerGrid"></div>
         </section>
       </div>`;
@@ -158,19 +158,22 @@
     const max=Math.max(1,Math.min(Number(snap.participantCount)||1,Number(snap.maxUniqueRoutes)||30));
     const existing=new Set(snap.routeIds||[]);
     const grid=$('#r2RoutePickerGrid');if(!grid)return;
-    grid.innerHTML=Array.from({length:max},(_,i)=>{const rid='R'+String(i+1).padStart(2,'0'),exists=existing.has(rid);return `<button type="button" class="r2-route-choice${exists?' is-existing':''}" data-r2-route-choice="${rid}"><b>${rid}</b><small>${exists?'EXISTE · REHACER':'CREAR DESDE 0'}</small></button>`}).join('');
+    grid.innerHTML=Array.from({length:max},(_,i)=>{const rid='R'+String(i+1).padStart(2,'0'),exists=existing.has(rid);return `<button type="button" class="r2-route-choice${exists?' is-existing':''}" data-r2-route-choice="${rid}"><b>${rid}</b><small>${exists?'EXISTE · EDITAR':'NUEVO · CREAR'}</small></button>`}).join('');
     $('#r2RoutePicker')?.removeAttribute('hidden');setTool('route');
-    instruction('TRAZAR · elige primero qué recorrido quieres crear manualmente.');
+    instruction('TRAZAR · elige un recorrido nuevo para crearlo o uno existente para editar su trazado actual.');
   }
   function closeRoutePicker(){$('#r2RoutePicker')?.setAttribute('hidden','')}
   function beginTrace(routeId){
     const b=bridge(),snap=b?.getSnapshot?.();if(!snap)return;
+    const rid=String(routeId||'R01'),existing=b?.getRouteDetails?.(rid)||null;
     if(state.detailsVisible){$('#r2RouteDetails')?.setAttribute('hidden','');state.detailsVisible=false;bridge()?.clearSavedRoute?.()}
-    state.trace=true;state.traceRouteId=String(routeId||'R01');state.selected=[];window.__MILITOPO_R2_TRACE_MODE__=true;setTool('route');
+    else if(existing)b?.clearSavedRoute?.();
+    state.trace=true;state.traceRouteId=rid;state.selected=Array.isArray(existing?.controls)?existing.controls.map(String):[];window.__MILITOPO_R2_TRACE_MODE__=true;setTool('route');
     state.stage?.classList.add('is-tracing');$('#r2TracePanel')?.removeAttribute('hidden');
-    const label=$('#r2TraceRouteLabel');if(label)label.textContent=`TRAZADO MANUAL · ${state.traceRouteId}`;
-    const confirm=$('#r2TraceConfirm');if(confirm)confirm.textContent=`✓ GUARDAR ${state.traceRouteId}`;
-    instruction(`${state.traceRouteId} · selecciona las balizas del mapa en el orden exacto del recorrido.`);renderTrace();
+    const label=$('#r2TraceRouteLabel');if(label)label.textContent=existing?`EDITANDO RECORRIDO · ${state.traceRouteId}`:`TRAZADO MANUAL · ${state.traceRouteId}`;
+    const confirm=$('#r2TraceConfirm');if(confirm)confirm.textContent=existing?`✓ GUARDAR CAMBIOS ${state.traceRouteId}`:`✓ GUARDAR ${state.traceRouteId}`;
+    instruction(existing?`${state.traceRouteId} cargado completo · usa DESHACER para retroceder desde la última baliza, LIMPIAR para rehacerlo o selecciona nuevas balizas para completar los cambios.`:`${state.traceRouteId} · selecciona las balizas del mapa en el orden exacto del recorrido.`);
+    renderTrace();
   }
   function handleTracePoint(id){
     if(!state.trace)return false;
