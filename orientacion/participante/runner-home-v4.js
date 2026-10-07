@@ -1,5 +1,5 @@
-/* MILITOPO V2 · R6A1 · Estado en tiempo real + carrera activa V2 integrada en la home del corredor. */
-import "./runner-live-loader.js?v=v2-r6b-competicion-one-screen-20261006";
+/* MILITOPO V2 · R6D · Home del corredor + carrera activa compacta y notificaciones. */
+import "./runner-live-loader.js?v=v2-r6d-competicion-clean-20261007";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -8,7 +8,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r6c-preparacion-notificaciones-historico-20261006";
+const VERSION="v2-r6d-competicion-clean-20261007";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
