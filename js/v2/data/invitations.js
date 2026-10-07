@@ -10,6 +10,7 @@ import {
   getDocs,
   limit,
   orderBy,
+  onSnapshot,
   query,
   serverTimestamp,
   setDoc,
@@ -45,7 +46,9 @@ const state = {
   directoryIndexLoadedAt: 0,
   directorySearchTimer: null,
   loadedEventId: "",
-  loading: false
+  loading: false,
+  realtimeUnsub: null,
+  realtimeKey: ""
 };
 
 function roleOf() {
@@ -224,7 +227,7 @@ async function loadEvent({ force = false } = {}) {
   if (!force && state.event?.eventId === eventId && state.loadedEventId === eventId) return true;
   if (state.loading) return false;
   const changedEvent = state.loadedEventId && state.loadedEventId !== eventId; state.loading = true;
-  if (changedEvent) { state.event = null; state.rows = []; state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Cargando invitaciones…</div>`; paint("Cargando el evento seleccionado…"); }
+  if (changedEvent) { stopRealtimeInvitations(); state.event = null; state.rows = []; state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Cargando invitaciones…</div>`; paint("Cargando el evento seleccionado…"); }
   try {
     const { firestore } = await services(); const snap = await getDoc(doc(firestore, "events", eventId));
     if (!snap.exists()) { if (changedEvent) state.list.innerHTML = ""; paint("El evento todavía no existe en Firestore."); return false; }
@@ -234,15 +237,57 @@ async function loadEvent({ force = false } = {}) {
   } catch (error) { console.error("[MILITOPO E2] load event", error); paint("No se pudo leer el evento. La aplicación local sigue intacta."); return false; }
   finally { state.loading = false; }
 }
+function stopRealtimeInvitations() {
+  try { state.realtimeUnsub?.(); } catch (_) {}
+  state.realtimeUnsub = null;
+  state.realtimeKey = "";
+}
+function invitationQuery(firestore) {
+  if (roleOf() === "super_admin") return query(collection(firestore, "invitations"), where("eventId", "==", state.event.eventId));
+  return query(collection(firestore, "invitations"), where("createdBy", "==", state.auth.uid));
+}
+function applyInvitationSnapshot(snap) {
+  if (!state.event) return;
+  const rows = [];
+  snap.forEach(d => {
+    const data = d.data() || {};
+    if (String(data.eventId || "") === String(state.event.eventId || "")) rows.push({ id:d.id, ...data });
+  });
+  rows.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+  state.rows = rows;
+  renderList(rows);
+  try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-invitations-realtime", { detail:{ eventId:state.event.eventId, rows:rows.map(row => ({ id:row.id, status:String(row.status || "pending"), targetUid:String(row.targetUid || ""), targetUsername:String(row.targetUsername || "") })) } })); } catch (_) {}
+}
+async function bindRealtimeInvitations() {
+  if (!state.event || !canManage() || !navigator.onLine) return false;
+  const key = `${roleOf()}:${state.auth?.uid || ""}:${state.event.eventId}`;
+  if (state.realtimeUnsub && state.realtimeKey === key) return true;
+  stopRealtimeInvitations();
+  try {
+    const { firestore } = await services();
+    const q = invitationQuery(firestore);
+    state.realtimeKey = key;
+    state.realtimeUnsub = onSnapshot(q, snap => {
+      applyInvitationSnapshot(snap);
+    }, error => {
+      console.warn("[MILITOPO E2] realtime invitations", error);
+      stopRealtimeInvitations();
+    });
+    return true;
+  } catch (error) {
+    console.warn("[MILITOPO E2] bind realtime invitations", error);
+    stopRealtimeInvitations();
+    return false;
+  }
+}
+
 async function loadInvitations() {
   if (!state.event || !canManage()) return;
   try {
-    const { firestore } = await services(); let snap;
-    if (roleOf() === "super_admin") snap = await getDocs(query(collection(firestore, "invitations"), where("eventId", "==", state.event.eventId)));
-    else snap = await getDocs(query(collection(firestore, "invitations"), where("createdBy", "==", state.auth.uid)));
-    const rows = [];
-    snap.forEach(d => { const data = d.data() || {}; if (String(data.eventId || "") === state.event.eventId) rows.push({ id: d.id, ...data }); });
-    rows.sort((a,b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)); state.rows = rows; renderList(rows);
+    const { firestore } = await services();
+    const snap = await getDocs(invitationQuery(firestore));
+    applyInvitationSnapshot(snap);
+    await bindRealtimeInvitations();
   } catch (error) { console.error("[MILITOPO E2] list", error); state.list.innerHTML = `<div class="status warn">No se pudieron cargar las invitaciones.</div>`; }
 }
 function renderList(rows) {
@@ -494,12 +539,12 @@ function scheduleLoad(delay = 250, force = false) {
 }
 function init() {
   ensurePanel();
-  globalThis.addEventListener("militopo:v2-auth-ready", event => { state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null; state.loadedEventId = ""; state.directoryCache.clear(); state.selectedUsers.clear(); renderSelectedUsers(); scheduleLoad(150, true); });
+  globalThis.addEventListener("militopo:v2-auth-ready", event => { stopRealtimeInvitations(); state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null; state.loadedEventId = ""; state.directoryCache.clear(); state.selectedUsers.clear(); renderSelectedUsers(); scheduleLoad(150, true); });
   globalThis.addEventListener("militopo:v2-orientation-header", () => scheduleLoad(250, false));
   globalThis.addEventListener("militopo:v2-cloud-event-applied", event => { if (event?.detail?.ok) scheduleLoad(180, true); });
   globalThis.addEventListener("militopo:v2-event-status-changed", () => scheduleLoad(180, true));
   globalThis.addEventListener("online", () => scheduleLoad(100, true));
-  globalThis.addEventListener("offline", () => paint("📴 Sin conexión: no se pueden crear invitaciones ahora."));
+  globalThis.addEventListener("offline", () => { stopRealtimeInvitations(); paint("📴 Sin conexión: no se pueden crear invitaciones ahora."); });
   if (globalThis.MILITOPO_V2_AUTH) scheduleLoad(120, true);
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once:true }); else init();
