@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2-r6e-live-routes-progress-20261007";
+  const VERSION="v2-r6f-race-focus-summary-20261007";
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,liveBound:false,reconnectPromise:null,localArrivalAt:0,autoFinishing:false,summaryOpen:false,gpsPrepared:false,preStartFix:null};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
@@ -108,8 +108,87 @@
       @media(prefers-reduced-motion:reduce){.m2race-progress-node.current{animation:none!important}}
     `;document.head.appendChild(st);
   }
+  function installR6FStyle(){
+    if(document.getElementById("m2RaceR6FStyle"))return;
+    const st=document.createElement("style");st.id="m2RaceR6FStyle";st.textContent=`
+      /* R6F · jerarquía de competición: tiempo oficial > progreso > siguiente baliza. */
+      #m2RaceV2.m2race-is-racing .m2race-performance{
+        padding:13px 12px 12px!important;
+        border-radius:20px!important;
+        border-color:rgba(244,206,111,.42)!important;
+        background:radial-gradient(circle at 50% -28%,rgba(246,207,105,.27),transparent 54%),linear-gradient(180deg,rgba(20,37,24,.98),rgba(6,17,10,.98))!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 10px 30px rgba(0,0,0,.20),0 0 0 1px rgba(236,195,94,.06)!important
+      }
+      #m2RaceV2.m2race-is-racing .m2race-time{font-size:clamp(3.85rem,18vw,6rem)!important;line-height:.82!important;font-weight:900!important;letter-spacing:-.065em!important;color:#fff9e9!important;text-shadow:0 5px 24px rgba(238,194,84,.12)}
+      #m2RaceV2.m2race-is-racing .m2race-time-label{margin-top:6px!important;font-size:.72rem!important;letter-spacing:.16em!important;color:#f4d67f!important}
+      #m2RaceV2.m2race-is-racing .m2race-clock-sub{margin-top:8px!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important}
+      #m2RaceV2.m2race-is-racing .m2race-clock-sub span{padding:6px 8px!important;border-radius:11px!important;background:rgba(255,255,255,.045)!important;border:1px solid rgba(255,255,255,.07)!important;font-size:.57rem!important;letter-spacing:.08em!important}
+      #m2RaceV2.m2race-is-racing .m2race-clock-sub b{display:block;margin-top:2px;font-size:.82rem!important;letter-spacing:0!important}
+      #m2RaceV2 .m2race-progress{margin-top:10px!important;padding-top:9px!important}
+      #m2RaceV2 .m2race-progress-head span{font-size:.58rem!important;letter-spacing:.11em!important;color:#d7dfd7!important;font-weight:950!important}
+      #m2RaceV2 .m2race-progress-head strong{font-size:.64rem!important;color:#f4d67f!important}
+      #m2RaceV2 .m2race-progress-track{height:11px!important;border-radius:999px!important}
+      #m2RaceV2 .m2race-progress-node.discarded{
+        background:linear-gradient(180deg,rgba(208,105,54,.26),rgba(139,59,35,.20))!important;
+        border-color:rgba(236,132,79,.52)!important;
+        color:#ffd7c2!important;
+        box-shadow:inset 0 0 0 1px rgba(255,174,126,.04)!important
+      }
+      #m2RaceV2 .m2race-progress-node.discarded::before{content:"!";display:grid;place-items:center;width:13px;height:13px;border-radius:50%;background:#e57e4d;color:#1d0c06;font-size:.48rem;font-weight:1000}
+      #m2RaceV2 .m2race-progress-node.discarded.done::before{content:"!"!important}
+      #m2RaceV2 .m2race-control-card{padding:8px 9px!important;border-radius:16px!important}
+      #m2RaceV2 .m2race-control-head{min-height:23px!important;align-items:center!important}
+      #m2RaceV2 .m2race-control-kicker{
+        display:inline-flex!important;align-items:center!important;min-height:22px!important;padding:3px 8px!important;
+        border-radius:999px!important;background:rgba(238,195,86,.13)!important;border:1px solid rgba(238,195,86,.22)!important;
+        font-size:.67rem!important;letter-spacing:.12em!important;color:#ffe29b!important;font-weight:1000!important
+      }
+      #m2RaceV2 .m2race-control-progress{font-size:.53rem!important}
+      #m2RaceV2 .m2race-next{margin:2px 0 1px!important;font-size:clamp(2.45rem,11.5vw,4rem)!important}
+      #m2RaceV2 .m2race-control-actions{display:grid!important;grid-template-columns:1fr!important;gap:4px!important;margin-top:3px!important}
+      #m2RaceV2 .m2race-control-actions .m2race-qr-btn{min-height:34px!important;height:34px!important;border-radius:10px!important;font-size:.54rem!important}
+      #m2RaceV2 .m2race-control-actions .m2race-discard-btn{min-height:27px!important;height:27px!important;border-radius:9px!important;font-size:.47rem!important;background:rgba(160,65,42,.075)!important}
+      /* Resultado final: una sola pantalla fija, todos los datos visibles. */
+      #m2RaceV2 .m2race-summary{align-items:stretch!important;justify-content:center!important;padding:calc(env(safe-area-inset-top) + 7px) 7px calc(env(safe-area-inset-bottom) + 7px)!important;overflow:hidden!important}
+      #m2RaceV2 .m2race-summary-sheet{
+        position:relative!important;width:min(620px,100%)!important;height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 14px)!important;
+        max-height:none!important;overflow:hidden!important;border-radius:22px!important;padding:9px!important;
+        display:grid!important;grid-template-rows:auto auto auto minmax(0,1fr) auto auto!important;gap:5px!important;
+        align-self:center!important
+      }
+      #m2RaceV2 .m2race-summary-check{width:34px!important;height:34px!important;margin:0 auto!important;border-radius:11px!important;font-size:1rem!important}
+      #m2RaceV2 .m2race-summary h2{font-size:1.02rem!important;line-height:1!important}
+      #m2RaceV2 .m2race-summary-sub{margin:0!important;font-size:.53rem!important;line-height:1.15!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+      #m2RaceV2 .m2race-summary-grid{min-height:0!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(4,minmax(0,1fr))!important;gap:4px!important}
+      #m2RaceV2 .m2race-summary-stat{min-width:0!important;padding:5px 6px!important;border-radius:10px!important;display:flex!important;flex-direction:column!important;justify-content:center!important}
+      #m2RaceV2 .m2race-summary-stat span{font-size:.40rem!important;line-height:1.05!important;letter-spacing:.045em!important;white-space:normal!important}
+      #m2RaceV2 .m2race-summary-stat strong{margin-top:3px!important;font-size:.69rem!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+      #m2RaceV2 .m2race-summary-stat:first-child{background:rgba(231,190,91,.10)!important;border-color:rgba(231,190,91,.23)!important}
+      #m2RaceV2 .m2race-summary-stat:first-child strong{color:#ffe3a0!important;font-size:.80rem!important}
+      #m2RaceV2 .m2race-summary-ranks{margin:0!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:4px!important}
+      #m2RaceV2 .m2race-summary-rank{padding:6px!important;border-radius:10px!important}
+      #m2RaceV2 .m2race-summary-rank span{font-size:.39rem!important;line-height:1!important}
+      #m2RaceV2 .m2race-summary-rank strong{margin-top:3px!important;font-size:.76rem!important}
+      #m2RaceV2 .m2race-summary-actions{margin:0!important;gap:5px!important}
+      #m2RaceV2 .m2race-summary-actions button{min-height:38px!important;border-radius:11px!important;font-size:.60rem!important}
+      @media(max-height:720px){
+        #m2RaceV2.m2race-is-racing .m2race-time{font-size:3.55rem!important}
+        #m2RaceV2.m2race-is-racing .m2race-performance{padding:9px 10px!important}
+        #m2RaceV2 .m2race-summary-check{width:29px!important;height:29px!important;font-size:.84rem!important}
+        #m2RaceV2 .m2race-summary h2{font-size:.90rem!important}
+        #m2RaceV2 .m2race-summary-stat{padding:4px 5px!important}
+        #m2RaceV2 .m2race-summary-actions button{min-height:34px!important}
+      }
+      @media(max-height:640px){
+        #m2RaceV2 .m2race-summary-check{display:none!important}
+        #m2RaceV2 .m2race-summary-sheet{grid-template-rows:auto auto minmax(0,1fr) auto auto!important}
+        #m2RaceV2 .m2race-summary-sub{font-size:.47rem!important}
+      }
+    `;document.head.appendChild(st);
+  }
+
   function ensureRoot(){
-    installStyle();installR6BStyle();installR6DStyle();installR6EStyle();
+    installStyle();installR6BStyle();installR6DStyle();installR6EStyle();installR6FStyle();
     if(state.root?.isConnected)return state.root;
     const root=document.createElement("section");
     root.id="m2RaceV2";root.hidden=true;
@@ -256,15 +335,31 @@
     else{pill.textContent="LISTO";text.textContent="El track se guardará incluso si pierdes cobertura durante la carrera.";}
   }
   function fmtMeters(v){const n=Number(v);return Number.isFinite(n)&&n>=0?`${Math.round(n)} m`:"—";}
-  function renderProgressSequence(completed=0,finished=false,finishValidated=false){
+  function renderProgressSequence(completed=0,finished=false,finishValidated=false,detail={}){
     const host=el("m2raceProgressSequence");if(!host)return;
     const controls=(Array.isArray(state.controlPlan?.controls)?state.controlPlan.controls:[]).map(row=>String(row?.checkpointId||"").trim()).filter(Boolean);
     const active=String(state.participant?.status||"").toLowerCase();
     const started=["racing","started","finished"].includes(active);
-    const nodes=[`<span class="m2race-progress-node start ${started?"done":"current"}" data-progress-node="start">S</span>`];
-    controls.forEach((id,index)=>{const cls=index<completed?"done":(!finished&&index===completed?"current":"");nodes.push(`<span class="m2race-progress-node ${cls}" data-progress-node="${esc(id)}">${esc(id)}</span>`);});
+    const snap=controlsApi()?.snapshot?.()||{};
+    const passes=Array.isArray(detail?.progressPasses)?detail.progressPasses:(Array.isArray(snap.progressPasses)?snap.progressPasses:[]);
+    const passByOrder=new Map();
+    const passById=new Map();
+    for(const row of passes){
+      const order=Math.max(0,Number(row?.order||0));
+      const id=String(row?.checkpointId||"").trim().toUpperCase();
+      if(order)passByOrder.set(order,row);
+      if(id)passById.set(id,row);
+    }
+    const nodes=[`<span class="m2race-progress-node start ${started?"done":"current"}" data-progress-node="start" aria-label="${started?"Salida completada":"Salida pendiente"}">S</span>`];
+    controls.forEach((id,index)=>{
+      const row=passByOrder.get(index+1)||passById.get(String(id).toUpperCase())||null;
+      const discarded=Boolean(row&&(row.discarded||String(row.source||"").toLowerCase()==="discard"));
+      const cls=discarded?"discarded":index<completed?"done":(!finished&&index===completed?"current":"");
+      const label=discarded?`${id} descartada`:cls==="done"?`${id} completada`:cls==="current"?`${id} siguiente`:`${id} pendiente`;
+      nodes.push(`<span class="m2race-progress-node ${cls}" data-progress-node="${esc(id)}" aria-label="${esc(label)}">${esc(id)}</span>`);
+    });
     const finishCurrent=started&&!finished&&completed>=controls.length&&!finishValidated;
-    nodes.push(`<span class="m2race-progress-node finish ${finishValidated||finished?"done":finishCurrent?"current":""}" data-progress-node="finish">L</span>`);
+    nodes.push(`<span class="m2race-progress-node finish ${finishValidated||finished?"done":finishCurrent?"current":""}" data-progress-node="finish" aria-label="${finishValidated||finished?"Llegada completada":finishCurrent?"Llegada siguiente":"Llegada pendiente"}">L</span>`);
     host.innerHTML=nodes.join("");
     const current=host.querySelector(".m2race-progress-node.current");if(current)requestAnimationFrame(()=>{try{current.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})}catch(_){}});
   }
@@ -277,7 +372,7 @@
     const progressLabel=el("m2raceProgressLabel"),progressFill=el("m2raceProgressFill");
     const pct=finishValidated||finished?100:(expected?Math.min(100,(completed/expected)*100):0);
     if(progressEl)progressEl.textContent=`${completed} DE ${expected}`;if(progressLabel)progressLabel.textContent=`${completed} DE ${expected}`;if(progressFill)progressFill.style.width=`${pct}%`;
-    renderProgressSequence(completed,finished,finishValidated);
+    renderProgressSequence(completed,finished,finishValidated,detail);
     updatePenaltyPreview({...detail,completedCount:completed,expectedCount:expected});
     if(discardConfirm&&!discardConfirm.hidden){const confirmed=String(discardConfirm.dataset.checkpointId||"").trim().toUpperCase(),current=String(next?.checkpointId||"").trim().toUpperCase();if(!confirmed||confirmed!==current){discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";}}
     if(!active&&!finished){
