@@ -30,6 +30,7 @@ const state = {
   detail: null,
   action: null,
   refresh: null,
+  liveLink: null,
   overlay: null,
   overlayShownAt: 0
 };
@@ -97,7 +98,7 @@ function injectStyle() {
     .m2-life-check-copy{display:grid;gap:2px;min-width:0}.m2-life-check-copy strong{font:900 10px/1.1 system-ui}.m2-life-check-copy span{font:650 10px/1.22 system-ui;color:#667168}
     .m2-life-detail{font:700 12px/1.45 system-ui,-apple-system,sans-serif;color:#465249;margin:0;padding:12px;border-radius:13px;background:#e8ebe1;border:1px solid rgba(20,31,21,.09)}
     .m2-life-next{display:grid;gap:8px}.m2-life-next small{font:900 9px/1 system-ui;letter-spacing:.11em;color:#727c74}.m2-life-next strong{font:950 15px/1.15 system-ui;color:#202b21}.m2-life-next p{margin:0;font:650 11px/1.4 system-ui;color:#59645c}
-    .m2-life-actions{display:grid;grid-template-columns:auto minmax(180px,1fr);gap:8px;margin-top:12px}
+    .m2-life-actions{display:grid;grid-template-columns:auto minmax(180px,1fr);gap:8px;margin-top:12px}.m2-life-live-link{grid-column:1/-1;background:linear-gradient(180deg,#a94331,#7f2e23)!important;color:#fff5ee!important;border-color:#c95b45!important;box-shadow:0 8px 20px rgba(116,37,25,.20);position:relative}.m2-life-live-link::before{content:"●";margin-right:7px;color:#ffb19e}.m2-life-live-link:not([hidden]){animation:m2LifeLiveLinkPulse 1.6s ease-in-out infinite}@keyframes m2LifeLiveLinkPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
     .m2-life button{min-height:46px;border-radius:13px;border:1px solid rgba(20,31,21,.16);padding:9px 12px;font:900 10px/1.15 system-ui,-apple-system,sans-serif;cursor:pointer;background:#e5e9de;color:#202b21}
     .m2-life button[disabled]{opacity:.46;cursor:not-allowed}.m2-life .m2-life-primary{background:#1f2b20;color:#f7f4e7;border-color:#1f2b20}.m2-life .m2-life-primary[data-next="live"]{background:#8c3d2e;border-color:#8c3d2e}.m2-life .m2-life-primary[data-next="finished"]{background:#495e6c;border-color:#495e6c}
     .m2-life-overlay[hidden]{display:none!important}
@@ -256,6 +257,7 @@ function ensurePanel() {
           <div class="m2-life-actions">
             <button id="m2LifecycleRefresh" type="button">↻ ACTUALIZAR</button>
             <button id="m2LifecycleAction" type="button" class="m2-life-primary" disabled>NO DISPONIBLE</button>
+            <button id="m2LifecycleGoLive" type="button" class="m2-life-live-link" hidden>IR A LIVE · CARRERA EN DIRECTO</button>
           </div>
         </div>
       </div>
@@ -268,8 +270,10 @@ function ensurePanel() {
   state.detail = panel.querySelector("#m2LifecycleDetail");
   state.action = panel.querySelector("#m2LifecycleAction");
   state.refresh = panel.querySelector("#m2LifecycleRefresh");
+  state.liveLink = panel.querySelector("#m2LifecycleGoLive");
   state.refresh.addEventListener("click", () => refresh(true));
   state.action.addEventListener("click", advance);
+  state.liveLink?.addEventListener("click",()=>globalThis.dispatchEvent(new CustomEvent("militopo:r1-open-live")));
   paint();
   return panel;
 }
@@ -337,6 +341,7 @@ function paint(message = "") {
     state.refresh.disabled = state.busy;
     state.action.textContent = "NO DISPONIBLE";
     state.action.dataset.next = "";
+    if (state.liveLink) state.liveLink.hidden = true;
     if (track) track.innerHTML = trackHtml("draft");
     return;
   }
@@ -351,6 +356,7 @@ function paint(message = "") {
     state.refresh.disabled = state.busy;
     state.action.textContent = "NO DISPONIBLE";
     state.action.dataset.next = "";
+    if (state.liveLink) state.liveLink.hidden = true;
     if (track) track.innerHTML = trackHtml("draft");
     return;
   }
@@ -359,6 +365,7 @@ function paint(message = "") {
   state.refresh.disabled = state.busy;
   state.status.textContent = meta.label;
   state.status.dataset.status = status;
+  if (state.liveLink) state.liveLink.hidden = status !== "live";
   if (track) track.innerHTML = trackHtml(status);
   if (checks) checks.innerHTML = checksHtml(state.event, status);
   state.detail.textContent = message || readinessText(state.event, status);
