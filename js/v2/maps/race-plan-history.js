@@ -10,6 +10,8 @@
   const FALLBACK_ID="el-valle-matizado";
   const PROBE_KEY="militopo_v2_orientacion_restore_probe_v2";
   let geotiffPromise=null;
+  const SCRIPT_URL=(document.currentScript&&document.currentScript.src)?document.currentScript.src:location.href;
+  const PROJECT_ROOT=new URL("../../../",SCRIPT_URL);
 
   function validBounds(bounds){
     return Array.isArray(bounds)&&bounds.length===2&&bounds.every(pair=>Array.isArray(pair)&&pair.length===2&&pair.every(v=>Number.isFinite(Number(v))));
@@ -80,10 +82,10 @@
   async function builtinFallback(eventId){
     const cacheId=`builtin:${FALLBACK_ID}`;
     try{const cached=await dbGet(cacheId);if(cached?.pngBlob&&validBounds(cached.bounds))return {id:cacheId,name:cached.name||"Valle matizado",format:cached.format||"geotiff",epsg:cached.epsg||null,bounds:cached.bounds.map(p=>p.map(Number)),blob:cached.pngBlob,builtin:true,fallback:true,eventId:String(eventId||""),source:"builtin"};}catch(_){ }
-    const catalogUrl=new URL("orientacion/maps/index.json",location.href).href;
+    const catalogUrl=new URL("orientacion/maps/index.json",PROJECT_ROOT).href;
     const catalogRes=await fetch(catalogUrl,{cache:"no-store"});if(!catalogRes.ok)throw new Error("No se pudo abrir el catálogo de planos");
     const catalog=await catalogRes.json();const meta=(Array.isArray(catalog?.maps)?catalog.maps:[]).find(x=>String(x?.id||"")===FALLBACK_ID);if(!meta)throw new Error("Valle matizado no está en el catálogo");
-    const base=new URL("orientacion/",location.href),fileUrl=new URL(String(meta.file||"").replace(/^\.\//,""),base).href;
+    const base=new URL("orientacion/",PROJECT_ROOT),fileUrl=new URL(String(meta.file||"").replace(/^\.\//,""),base).href;
     const response=await fetch(fileUrl,{cache:"force-cache"});if(!response.ok)throw new Error(`No se pudo descargar Valle matizado (${response.status})`);
     const GeoTIFF=await ensureGeoTiff(),tiff=await GeoTIFF.fromArrayBuffer(await response.arrayBuffer()),image=await tiff.getImage(),bbox=image.getBoundingBox(),epsg=epsgOf(image);
     if(!bbox||bbox.length!==4||!epsg)throw new Error("Valle matizado no contiene georreferenciación legible");
