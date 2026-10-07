@@ -1,5 +1,6 @@
-/* MILITOPO V2 · R6D · Home del corredor + carrera activa compacta y notificaciones. */
-import "./runner-live-loader.js?v=v2-r6e-live-routes-progress-20261007";
+/* MILITOPO V2 · R7A · Home del corredor + histórico GPS y reproductor. */
+import "./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007";
+import "./runner-history-v2.js?v=v2-r7a-history-replay-20261008";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -8,7 +9,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r6d-competicion-clean-20261007";
+const VERSION="v2-r7a-history-replay-20261008";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -273,7 +274,8 @@ function historyCard(row){
     secondary=`<div class="result-side"><small>REGISTRO</small><strong>SIN SALIDA</strong></div>`;
     metrics=metric("CARRERA",statusES(row.eventStatus)||"FINALIZADA");
   }
-  return `<article class="event history-event" data-state="${esc(stateClass(state))}" data-history-event="${esc(row.eventId)}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(row.eventName||"Carrera")}</strong><span class="event-date">${esc(date||statusES(row.eventStatus))}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div><div class="result-hero">${primary}${secondary}</div>${rank}<div class="history-metrics">${metrics}</div><div class="history-actions"><button class="btn secondary" type="button" data-result-detail="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">VER RESULTADO</button></div></article>`;
+  const hasTrack=Math.max(0,Number(row.trackPointCount||0))>1;
+  return `<article class="event history-event" data-state="${esc(stateClass(state))}" data-history-event="${esc(row.eventId)}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(row.eventName||"Carrera")}</strong><span class="event-date">${esc(date||statusES(row.eventStatus))}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div><div class="result-hero">${primary}${secondary}</div>${rank}<div class="history-metrics">${metrics}</div><div class="history-actions${hasTrack?" has-replay":""}"><button class="btn secondary" type="button" data-result-detail="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">VER RESULTADO</button>${hasTrack?`<button class="btn replay" type="button" data-result-replay="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">▶ REPRODUCIR GPS</button>`:""}</div></article>`;
 }
 
 function renderHistory(reset=false){
@@ -281,6 +283,7 @@ function renderHistory(reset=false){
   const visible=historyRows.slice(0,historyVisible);list.innerHTML=visible.length?visible.map(historyCard).join(""):'<div class="empty-card"><strong>Sin histórico todavía</strong><span>Cuando finalices una carrera, tus resultados aparecerán aquí.</span></div>';
   if(els.historyMore){els.historyMore.style.display=historyVisible<historyRows.length?"block":"none";els.historyMore.textContent=`MOSTRAR MÁS RESULTADOS (${historyRows.length-historyVisible})`;}
   list.querySelectorAll("[data-result-detail]").forEach(btn=>btn.addEventListener("click",()=>openResultDetail(btn.dataset.resultDetail,btn.dataset.resultName)));
+  list.querySelectorAll("[data-result-replay]").forEach(btn=>btn.addEventListener("click",()=>openHistoryAnalysis(btn.dataset.resultReplay,btn.dataset.resultName)));
   hydrateVisibleRanks();
 }
 
@@ -329,6 +332,18 @@ function renderDashboard(){
 }
 
 function closeResultModal(){els.resultModal?.classList.remove("is-open");els.resultModal?.setAttribute("aria-hidden","true");}
+async function openHistoryAnalysis(eventId,eventName){
+  if(!eventId||!functions)return;
+  setStatus("Preparando mapa y reproductor GPS…");
+  try{
+    const detailCall=httpsCallable(functions,"getRunnerResultDetail");
+    const [detailRes,classRes]=await Promise.all([detailCall({eventId,clientVersion:VERSION}),getClassification(eventId).catch(()=>null)]);
+    const detail=detailRes?.data||{};
+    if(!Array.isArray(detail.track)||detail.track.length<2)throw new Error("Este resultado no tiene un track GPS reproducible.");
+    await globalThis.MILITOPO_RUNNER_HISTORY_V2?.open?.({detail,classification:classRes,eventName:eventName||detail.event?.eventName||"Carrera"});
+    setStatus("Track GPS histórico cargado.","ok");
+  }catch(error){console.error("[MILITOPO runner history replay]",error);setStatus(`No se pudo abrir el reproductor. ${String(error?.message||"")}`,"err");}
+}
 async function openResultDetail(eventId,eventName){
   if(!eventId||!functions)return;text(els.resultTitle,eventName||"Resultado");if(els.resultBody)els.resultBody.innerHTML='<div class="status">Cargando resultado oficial…</div>';els.resultModal?.classList.add("is-open");els.resultModal?.setAttribute("aria-hidden","false");
   try{
@@ -350,7 +365,11 @@ async function openResultDetail(eventId,eventName){
       ["DESNIVEL +",Number.isFinite(Number(r.coursePositiveM))?`${Math.round(Number(r.coursePositiveM))} m`:"—"],
       ["RITMO",Number.isFinite(Number(r.paceMinKm))?`${Number(r.paceMinKm).toFixed(2)} min/km`:"—"]
     ];
-    if(els.resultBody)els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>${esc(statusES(state))}</strong></div><div class="detail-general"><small>GENERAL</small><strong class="detail-rank">${esc(generalRank)}</strong></div></div><div class="detail-grid">${boxes.map(([a,b])=>`<div class="detail-box"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join("")}</div>`;
+    const replayReady=Array.isArray(d.track)&&d.track.length>1;
+    if(els.resultBody){
+      els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>${esc(statusES(state))}</strong></div><div class="detail-general"><small>GENERAL</small><strong class="detail-rank">${esc(generalRank)}</strong></div></div><div class="detail-grid">${boxes.map(([a,b])=>`<div class="detail-box"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join("")}</div>${replayReady?`<button class="btn replay result-replay-btn" type="button" data-open-result-replay>▶ MAPA Y REPRODUCTOR GPS</button>`:`<div class="detail-note">Este resultado no contiene un track GPS reproducible.</div>`}`;
+      els.resultBody.querySelector("[data-open-result-replay]")?.addEventListener("click",async()=>{closeResultModal();await globalThis.MILITOPO_RUNNER_HISTORY_V2?.open?.({detail:d,classification:classRes,eventName:eventName||d.event?.eventName||"Carrera"});});
+    }
   }catch(error){console.error("[MILITOPO runner result detail]",error);if(els.resultBody)els.resultBody.innerHTML=`<div class="status err">No se pudo cargar este resultado. ${esc(error?.message||"")}</div>`;}
 }
 
