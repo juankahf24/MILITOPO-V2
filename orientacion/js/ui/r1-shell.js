@@ -3,7 +3,7 @@
   if(window.__MILITOPO_R1_SHELL__) return;
   window.__MILITOPO_R1_SHELL__=true;
 
-  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,participantsTab:"roster",managerTab:"design"};
+  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,participantsTab:"invites",managerTab:"design"};
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const icon=(name)=>{
@@ -211,7 +211,7 @@
   }
   function selectParticipantsTab(tab){
     const hub=$("#r4ParticipantsHub"),roster=$("#m2ParticipantsAdmin"),invites=$("#m2Invitations"),assignments=$("#r4AssignmentsPanel");if(!hub||!roster||!invites||!assignments)return;
-    state.participantsTab=["roster","assignments","invites"].includes(tab)?tab:"roster";
+    state.participantsTab=["invites","roster","assignments"].includes(tab)?tab:"invites";
     hub.querySelectorAll("[data-r4-part-tab]").forEach(b=>b.classList.toggle("is-active",b.dataset.r4PartTab===state.participantsTab));
     roster.classList.toggle("r4-panel-hidden",state.participantsTab!=="roster");
     invites.classList.toggle("r4-panel-hidden",state.participantsTab!=="invites");
@@ -227,7 +227,7 @@
       hub=document.createElement("section");hub.id="r4ParticipantsHub";hub.className="r4-participants-hub";
       hub.innerHTML=`<div class="r4-participants-hero"><div><span>ORGANIZACIÓN · PARTICIPANTES</span><h2>PARTICIPANTES</h2><small>${currentEventName()}</small></div><b id="r4PartState">—</b></div>
         <div class="r4-participants-metrics"><div><strong id="r4PartCapacity">—</strong><span>PLAZAS</span></div><div><strong id="r4PartActive">0</strong><span>UNIDOS</span></div><div><strong id="r4PartPending">0</strong><span>PENDIENTES</span></div><div><strong id="r4PartRemoved">0</strong><span>RETIRADOS</span></div></div>
-        <div class="r4-participants-tabs"><button type="button" data-r4-part-tab="roster"><strong>CENSO</strong><small>LISTA</small></button><button type="button" data-r4-part-tab="assignments"><strong>ASIGNACIONES</strong><small>PLAZAS Y RECORRIDOS</small></button><button type="button" data-r4-part-tab="invites"><strong>INVITACIONES</strong><small>AÑADIR Y COMPARTIR</small></button></div>
+        <div class="r4-participants-tabs"><button type="button" data-r4-part-tab="invites"><strong>INVITACIONES</strong><small>AÑADIR Y COMPARTIR</small></button><button type="button" data-r4-part-tab="roster"><strong>CENSO</strong><small>LISTA</small></button><button type="button" data-r4-part-tab="assignments"><strong>ASIGNACIONES</strong><small>PLAZAS Y RECORRIDOS</small></button></div>
         <div id="r4PartNotice" class="r4-participants-notice"></div>`;
       stack.parentNode.insertBefore(hub,stack);
       hub.addEventListener("click",event=>{const lifecycle=event.target.closest("[data-r4-go-lifecycle]");if(lifecycle){openLifecycleFromParticipants();return}const b=event.target.closest("[data-r4-part-tab]");if(b)selectParticipantsTab(b.dataset.r4PartTab)});
@@ -239,7 +239,7 @@
       stack.parentNode.insertBefore(assignments,stack);
       assignments.addEventListener("click",event=>{if(event.target.closest("[data-r4-refresh-assignments]")){try{window.MILITOPO_V2_PARTICIPANTS_ADMIN?.refresh?.()}catch(_){}setTimeout(refreshAssignmentsHub,180)}});
     }
-    selectParticipantsTab(state.participantsTab||"roster");refreshParticipantsHub();refreshAssignmentsHub();
+    selectParticipantsTab(state.participantsTab||"invites");refreshParticipantsHub();refreshAssignmentsHub();
     try{state.participantsObserver?.disconnect?.()}catch(_){}
     /* R4B.1: observar solo los módulos fuente. Antes se observaba todo el stack,
        incluido el panel ASIGNACIONES que nosotros mismos reescribimos. Cada
@@ -264,7 +264,7 @@
   }
   function openParticipantsModule(fromManager=false){
     if(fromManager)state.managerModuleTitle="PARTICIPANTES";
-    state.participantsTab="roster";
+    state.participantsTab="invites";
     openInjected(["m2Invitations","m2ParticipantsAdmin"],"PARTICIPANTES",1);
     setTimeout(decorateParticipantsModule,150);setTimeout(decorateParticipantsModule,360);
   }
