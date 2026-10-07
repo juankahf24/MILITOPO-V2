@@ -347,6 +347,7 @@
     const button=$("[data-r1-action='live']");
     if(button){button.classList.toggle("is-live-active",active);button.setAttribute("aria-label",active?"LIVE · carrera en directo":"LIVE");button.title=active?"Carrera EN DIRECTO · abrir LIVE":"LIVE";}
     const card=$("[data-r3-manager-action='live']");if(card)card.classList.toggle("is-live-active",active);
+    const operationTab=$("[data-r3-manager-tab='operation']");if(operationTab){operationTab.classList.toggle("is-live-mode",active);operationTab.setAttribute("aria-label",active?"OPERACIÓN Y POST CARRERA · carrera en directo":"OPERACIÓN Y POST CARRERA");}
   }
   function materialQrUnlocked(){return R3_ORDER.indexOf(currentLifecycleStatus())>=R3_ORDER.indexOf("prepared")}
   function showMaterialLockedNotice(){
@@ -543,7 +544,7 @@
       <div class="r3-manager-mode-label">ÁREA DE GESTIÓN</div>
       <div class="r3-manager-tabs" role="tablist" aria-label="Áreas principales de gestión">
         <button type="button" role="tab" aria-selected="${state.managerTab!=="operation"}" class="${state.managerTab!=="operation"?"is-active":""}" data-r3-manager-tab="design"><span class="r3-manager-tab-icon">${icon("route")}</span><strong>DISEÑO Y PREPARACIÓN</strong></button>
-        <button type="button" role="tab" aria-selected="${state.managerTab==="operation"}" class="${state.managerTab==="operation"?"is-active":""}" data-r3-manager-tab="operation"><span class="r3-manager-tab-icon">${icon("live")}</span><strong>OPERACIÓN Y POST CARRERA</strong></button>
+        <button type="button" role="tab" aria-selected="${state.managerTab==="operation"}" class="${state.managerTab==="operation"?"is-active ":""}${ctx.status==="live"?"is-live-mode":""}" data-r3-manager-tab="operation"><span class="r3-manager-tab-icon">${icon("live")}</span><strong>OPERACIÓN Y POST CARRERA</strong><i class="r3-manager-live-dot" aria-hidden="true"></i></button>
       </div>
       <div class="r3-manager-tabpanel ${state.managerTab==="operation"?"":"is-active"}" data-r3-manager-panel="design" role="tabpanel">
         ${readinessHtml()}
