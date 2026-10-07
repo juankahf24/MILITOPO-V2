@@ -1,5 +1,5 @@
 /* MILITOPO V2 · R6D · Home del corredor + carrera activa compacta y notificaciones. */
-import "./runner-live-loader.js?v=v2-r6d-competicion-clean-20261007";
+import "./runner-live-loader.js?v=v2-r6e-live-routes-progress-20261007";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,

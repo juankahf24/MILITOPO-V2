@@ -6,4 +6,4 @@ await import("../../js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-2026
 await import("../../js/v2/live/runner-gps-v2.js?v=v2-k3b-gps-resume-20261001");
 await import("../../js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928");
 await import("../../js/v2/live/runner-controls-v2.js?v=v2-k3a-discard-race-guard-20261001");
-await import("../../js/v2/live/runner-race-v2.js?v=v2-r6d-competicion-clean-no-distance-20261007");
+await import("../../js/v2/live/runner-race-v2.js?v=v2-r6e-live-routes-progress-20261007");
