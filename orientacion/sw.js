@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r6f-operation-live-focus-20261007";
+const BUILD_ID="v2-r7f-nav-arrow-20261008";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -11,7 +11,7 @@ const CORE_ASSETS=[
   "./index.html",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
   "./css/styles.css?v=v2-r4c-live-center-20261004",
-  "./css/r1-shell.css?v=r6f-operation-live-focus-20261007",
+  "./css/r1-shell.css?v=r7f-nav-arrow-20261008",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./js/app.js?v=r5a1-auth-confirm-20261005",
   "./js/ui/r1-shell.js?v=r6f-operation-live-focus-20261007",
