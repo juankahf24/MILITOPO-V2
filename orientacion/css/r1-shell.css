@@ -800,3 +800,114 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
 .r3-manager-tabs [data-r3-manager-tab="operation"].is-live-mode .r3-manager-live-dot{display:block;animation:militopoLivePulse 1.15s ease-out infinite}
 .r3-manager-tabs [data-r3-manager-tab="operation"].is-live-mode.is-active{background:linear-gradient(180deg,#4a2a21,#331d18)!important}
 @media(prefers-reduced-motion:reduce){.r3-manager-tabs [data-r3-manager-tab="operation"].is-live-mode .r3-manager-live-dot{animation:none!important}}
+
+
+/* R7F · Indicador visual único de navegación/despliegue.
+   Flecha naranja = este control abre, cambia o profundiza en otra vista.
+   Las acciones que ejecutan cambios directos se mantienen sin flecha. */
+:root{--r7f-nav-arrow:#e29a52}
+
+/* Controles de navegación principal y pestañas. */
+.r1-nav-btn[data-r1-action],
+.r1-more-action:not(.is-locked),
+.r3-manager-tabs button,
+.r4-participants-tabs button,
+.r4-live-jumps button,
+.r4-analysis-jumps button,
+.r3-readiness-main,
+.r3-manager-footer .is-map,
+.r3-routes-map-btn,
+.r3-routes-completion button,
+.r5-prestart-foot>button,
+[data-r4-go-lifecycle],
+[data-r3-complete-routes],
+[data-r2-route-choice],
+[data-r5-race-choice],
+#m2CloudRecoveryOpen,
+#m2OrganizerHistoryOpen,
+.m2-cloud-event-open,
+.m2-history-open-results,
+.m2-r4-tab,
+.m2-h5-tab,
+.m2-roster-tab,
+.m2-life-live-link,
+.m2-g5-layer-btn{
+  position:relative!important;
+}
+
+/* Flecha a la derecha, siempre naranja incluso sobre pestaña activa clara/oscura. */
+.r1-nav-btn[data-r1-action]::after,
+.r1-more-action:not(.is-locked)::after,
+.r3-manager-tabs button::after,
+.r4-participants-tabs button::after,
+.r4-live-jumps button::after,
+.r4-analysis-jumps button::after,
+.r3-readiness-main::after,
+.r3-manager-footer .is-map::after,
+.r3-routes-map-btn::after,
+.r3-routes-completion button::after,
+.r5-prestart-foot>button::after,
+[data-r4-go-lifecycle]::after,
+[data-r3-complete-routes]::after,
+[data-r2-route-choice]::after,
+[data-r5-race-choice]::after,
+#m2CloudRecoveryOpen::after,
+#m2OrganizerHistoryOpen::after,
+.m2-cloud-event-open::after,
+.m2-history-open-results::after,
+.m2-r4-tab::after,
+.m2-h5-tab::after,
+.m2-roster-tab::after,
+.m2-life-live-link::after,
+.m2-g5-layer-btn::after{
+  content:"›";position:absolute;right:8px;top:50%;transform:translateY(-52%);
+  color:var(--r7f-nav-arrow)!important;font:1000 1.12rem/1 system-ui,-apple-system,sans-serif!important;
+  pointer-events:none;text-shadow:0 0 9px rgba(226,154,82,.16);
+}
+
+/* Reservar espacio para que la flecha no invada texto/contadores. */
+.r1-more-action:not(.is-locked),
+.r4-live-jumps button,
+.r4-analysis-jumps button,
+.r3-readiness-main,
+.r3-manager-footer .is-map,
+.r3-routes-map-btn,
+.r3-routes-completion button,
+.r5-prestart-foot>button,
+[data-r4-go-lifecycle],
+[data-r3-complete-routes],
+#m2CloudRecoveryOpen,
+#m2OrganizerHistoryOpen,
+.m2-cloud-event-open,
+.m2-history-open-results,
+.m2-life-live-link{padding-right:29px!important}
+
+.r3-manager-tabs button,
+.r4-participants-tabs button,
+[data-r5-race-choice],
+.m2-r4-tab,
+.m2-h5-tab,
+.m2-roster-tab,
+.m2-g5-layer-btn{padding-right:21px!important}
+
+[data-r2-route-choice]{padding-right:23px!important}
+
+/* Tarjetas de gestión y control de preparación ya tenían chevron: unificamos a naranja. */
+.r3-manager-card:not(.is-locked) .r3-manager-arrow,
+.r3-readiness-item em{color:var(--r7f-nav-arrow)!important;font-weight:1000!important}
+
+/* Capas del dock: es un botón iconográfico que despliega opciones. */
+.r1-map-btn[data-map-action="layers"]{position:relative!important}
+.r1-map-btn[data-map-action="layers"]::after{
+  content:"›";position:absolute;right:1px;bottom:1px;color:var(--r7f-nav-arrow)!important;
+  font:1000 .78rem/1 system-ui!important;pointer-events:none
+}
+
+/* Botones bloqueados conservan el candado, nunca una flecha de acceso. */
+.r1-more-action.is-locked::after{content:"🔒"!important;color:inherit!important}
+.r3-manager-card.is-locked .r3-manager-arrow{color:inherit!important}
+
+@media(max-width:720px){
+  .r1-nav-btn[data-r1-action]::after{right:3px;font-size:.88rem!important}
+  .r3-manager-tabs button::after,.r4-participants-tabs button::after{right:5px;font-size:.95rem!important}
+}
