@@ -73,6 +73,11 @@
     .profile-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0}.profile-tabs button{min-height:42px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:#1c2a20;color:#aeb9af;font-size:.58rem;font-weight:950;letter-spacing:.05em}.profile-tabs button.is-active{background:#edf0df;color:#132016;border-color:#edf0df}.profile-panel{display:none}.profile-panel.is-active{display:block}
     .profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.profile-stat{min-width:0;padding:11px;border:1px solid rgba(255,255,255,.07);border-radius:13px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018))}.profile-stat small{display:block;color:#829087;font-size:.45rem;font-weight:950;letter-spacing:.09em}.profile-stat strong{display:block;margin-top:5px;font-size:.88rem;color:#f2f5e9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-stat.highlight{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,rgba(216,189,112,.13),rgba(216,189,112,.05));border-color:rgba(216,189,112,.18)}.profile-stat.highlight strong{margin:0;color:#ffeab0;font-size:1rem}.profile-section-note{margin-top:8px;color:#7f8d82;font-size:.55rem;line-height:1.4}.profile-account-card{padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.025)}
 
+    /* R7B · Perfil de rendimiento avanzado */
+    .profile-tabs-3{grid-template-columns:repeat(3,minmax(0,1fr))}.profile-tabs-3 button{padding:7px 4px;font-size:clamp(.46rem,2vw,.58rem)}
+    .performance-hero{display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:10px;align-items:center;padding:13px;border:1px solid rgba(216,189,112,.17);border-radius:16px;background:linear-gradient(135deg,rgba(216,189,112,.11),rgba(39,68,43,.14));overflow:hidden}.performance-hero>div:first-child{min-width:0}.performance-hero small{display:block;color:#91a093;font-size:.44rem;font-weight:950;letter-spacing:.09em}.performance-hero strong{display:block;margin-top:5px;font-size:.88rem;line-height:1.08;color:#f5f3e7}.performance-hero span{display:block;margin-top:5px;color:#9da99f;font-size:.55rem;line-height:1.35}.performance-ring{width:82px;height:82px;border-radius:50%;display:grid;place-items:center;align-content:center;text-align:center;border:6px solid rgba(121,221,120,.16);outline:1px solid rgba(121,221,120,.18);background:rgba(7,16,9,.45);box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}.performance-ring b{font-size:1.08rem;color:#dff5d9;line-height:1}.performance-ring small{margin-top:4px;font-size:.34rem;letter-spacing:.06em;color:#8faa91}.performance-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:7px}.performance-kpi{min-width:0;padding:9px 7px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.027)}.performance-kpi small{display:block;color:#819087;font-size:.39rem;font-weight:950;letter-spacing:.07em;white-space:nowrap}.performance-kpi strong{display:block;margin-top:4px;color:#f1f4e9;font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.performance-section{margin-top:8px;padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.022)}.performance-title{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-bottom:8px}.performance-title small{display:block;color:#819087;font-size:.4rem;font-weight:950;letter-spacing:.09em}.performance-title strong{display:block;margin-top:3px;font-size:.7rem}.performance-title>span{font-size:.46rem;color:#8d9b90;font-weight:900}.recent-form{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px}.recent-form::-webkit-scrollbar{display:none}.form-chip{flex:0 0 auto;min-width:54px;padding:7px 6px;border-radius:11px;border:1px solid rgba(255,255,255,.08);background:#1a2820;text-align:center}.form-chip b{display:block;font-size:.62rem}.form-chip small{display:block;margin-top:3px;font-size:.36rem;color:#91a094;white-space:nowrap}.form-chip.finished{border-color:rgba(121,221,120,.20);background:rgba(59,117,64,.14);color:#dff5d9}.form-chip.incomplete{border-color:rgba(226,154,82,.25);background:rgba(139,88,39,.14);color:#ffddb9}.form-chip.not_started{color:#9ea9a0}.performance-list{display:grid;gap:6px}.performance-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px;border:1px solid rgba(255,255,255,.06);border-radius:11px;background:rgba(255,255,255,.022)}.performance-row-main{min-width:0}.performance-row-main strong{display:block;font-size:.66rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.performance-row-main span{display:block;margin-top:4px;color:#89968c;font-size:.48rem}.performance-row-side{text-align:right}.performance-row-side b{display:block;color:#f2e1a8;font-size:.62rem;white-space:nowrap}.performance-row-side small{display:block;margin-top:3px;color:#8f9b91;font-size:.43rem;white-space:nowrap}.performance-row .perf-state{display:inline-flex;margin-top:5px;padding:3px 6px;border-radius:999px;background:#26352a;color:#cdd7cd;font-size:.4rem;font-weight:950}.performance-row .perf-state.finished{background:rgba(57,113,63,.30);color:#dcf2d9}.performance-row .perf-state.incomplete{background:rgba(142,88,43,.28);color:#ffddb8}.performance-row .perf-state.not_started{background:#2a342d;color:#b1bbb2}.performance-history-btn{width:100%;margin-top:8px}.perf-rank.loading{opacity:.65}
+    @media(max-width:520px){.performance-kpis{grid-template-columns:1fr 1fr}.performance-hero{grid-template-columns:minmax(0,1fr) 76px}.performance-ring{width:72px;height:72px;border-width:5px}.performance-ring b{font-size:.96rem}}
+
     /* R5E · invitaciones + ficha previa de carrera */
     .race-tabs button{padding:7px 4px;font-size:clamp(.47rem,2.1vw,.61rem);overflow:hidden;text-overflow:ellipsis}.race-tabs button span{vertical-align:middle}
     .invite-event{border-color:rgba(214,187,114,.22)!important;background:linear-gradient(145deg,rgba(71,61,31,.34),#142019)!important}.invite-event::before{background:var(--gold)!important}.pill.invite{background:#67572c;color:#fff0b9}.invite-copy{margin-top:9px;padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.035);color:#aebaae;font-size:.57rem;line-height:1.35}.invite-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.invite-actions .btn{margin:0!important;min-height:48px;border-radius:13px;font-size:.62rem;letter-spacing:.055em}.invite-actions .invite-accept{background:linear-gradient(180deg,#52b86a,#2d7e43)!important;color:#f5fff3!important;border-color:rgba(129,244,153,.42)!important;box-shadow:0 8px 20px rgba(29,105,52,.20)}.invite-actions .invite-reject{background:linear-gradient(180deg,#b84f4a,#7d2f2c)!important;color:#fff3f1!important;border-color:rgba(255,141,134,.36)!important;box-shadow:0 8px 20px rgba(105,33,30,.18)}.invite-actions .btn:disabled{filter:saturate(.55);opacity:.55}
@@ -163,22 +168,46 @@
           <div class="avatar" id="rhAvatar">…</div>
           <div><div class="profile-name" id="rhName">Iniciando tu sesión…</div><div class="meta" id="rhMeta">Preparando tu cuenta.</div></div>
         </div>
-        <nav class="profile-tabs" aria-label="Perfil del corredor">
+        <nav class="profile-tabs profile-tabs-3" aria-label="Perfil del corredor">
           <button type="button" class="is-active" data-profile-tab="summary">RESUMEN</button>
+          <button type="button" data-profile-tab="performance">RENDIMIENTO</button>
           <button type="button" data-profile-tab="account">CUENTA</button>
         </nav>
         <div class="profile-panel is-active" data-profile-panel="summary">
           <div class="profile-stats">
             <div class="profile-stat"><small>PARTICIPACIONES</small><strong id="rhProfileParticipations">—</strong></div>
             <div class="profile-stat"><small>FINALIZADAS</small><strong id="rhProfileFinished">—</strong></div>
+            <div class="profile-stat"><small>INCOMPLETAS</small><strong id="rhProfileIncomplete">—</strong></div>
             <div class="profile-stat"><small>KM GPS</small><strong id="rhProfileKm">—</strong></div>
             <div class="profile-stat"><small>CONTROLES</small><strong id="rhProfileControls">—</strong></div>
+            <div class="profile-stat"><small>DESNIVEL +</small><strong id="rhProfileElevation">—</strong></div>
             <div class="profile-stat"><small>PENALIZACIÓN TOTAL</small><strong id="rhProfilePenalty">—</strong></div>
             <div class="profile-stat"><small>DESCARTES</small><strong id="rhProfileDiscarded">—</strong></div>
             <div class="profile-stat"><small>TASA FINALIZACIÓN</small><strong id="rhProfileCompletion">—</strong></div>
-            <div class="profile-stat"><small>MEJOR PUESTO</small><strong id="rhProfileBestRank">—</strong></div>
+            <div class="profile-stat"><small>MEJOR PUESTO RECIENTE</small><strong id="rhProfileBestRank">—</strong></div>
           </div>
-          <div class="profile-section-note">Estadísticas calculadas con tus resultados registrados en MILITOPO.</div>
+          <div class="profile-section-note">Resumen calculado con tus resultados registrados en MILITOPO.</div>
+        </div>
+        <div class="profile-panel" data-profile-panel="performance">
+          <div class="performance-hero">
+            <div><small>RENDIMIENTO PERSONAL</small><strong id="rhPerformanceHeadline">Analizando tus carreras…</strong><span id="rhPerformanceSub">Tus métricas recientes aparecerán aquí.</span></div>
+            <div class="performance-ring" id="rhPerformanceRing"><b>—</b><small>FINALIZADAS</small></div>
+          </div>
+          <div class="performance-kpis">
+            <div class="performance-kpi"><small>KM / SALIDA</small><strong id="rhPerfKmAvg">—</strong></div>
+            <div class="performance-kpi"><small>PEN. MEDIA</small><strong id="rhPerfPenaltyAvg">—</strong></div>
+            <div class="performance-kpi"><small>RACHA</small><strong id="rhPerfStreak">—</strong></div>
+            <div class="performance-kpi"><small>DESCARTES / SALIDA</small><strong id="rhPerfDiscardAvg">—</strong></div>
+          </div>
+          <section class="performance-section">
+            <div class="performance-title"><div><small>FORMA RECIENTE</small><strong>Últimas participaciones</strong></div><span id="rhRecentFormCount">—</span></div>
+            <div class="recent-form" id="rhRecentForm"></div>
+          </section>
+          <section class="performance-section">
+            <div class="performance-title"><div><small>ÚLTIMAS ACTUACIONES</small><strong>Resultado y clasificación</strong></div></div>
+            <div class="performance-list" id="rhPerformanceList"><div class="empty-card"><strong>Preparando rendimiento…</strong><span>Consultando tus resultados recientes.</span></div></div>
+          </section>
+          <button class="btn secondary performance-history-btn" type="button" id="rhProfileHistoryBtn">VER HISTÓRICO COMPLETO</button>
         </div>
         <div class="profile-panel" data-profile-panel="account">
           <div class="profile-account-card">
@@ -220,7 +249,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r7a1-replay-layers-heading-20261008"></script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r7b-performance-profile-20261008"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>

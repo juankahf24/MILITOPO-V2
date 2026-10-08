@@ -1,6 +1,6 @@
-/* MILITOPO V2 · R7A1 · Home del corredor + reproductor GPS refinado. */
+/* MILITOPO V2 · R7B · Perfil de rendimiento avanzado + reproductor refinado. */
 import "./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007";
-import "./runner-history-v2.js?v=v2-r7a1-replay-layers-heading-20261008";
+import "./runner-history-v2.js?v=v2-r7b-performance-profile-20261008";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -9,7 +9,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r7a1-replay-layers-heading-20261008";
+const VERSION="v2-r7b-performance-profile-20261008";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -28,7 +28,8 @@ const els={
   inviteEvents:document.getElementById("rhInviteEvents"),inviteCount:document.getElementById("rhInviteCount"),raceNotice:document.getElementById("rhRaceNotice"),
   upcomingCard:document.getElementById("rhUpcomingCard"),recentCard:document.getElementById("rhRecentCard"),
   raceModal:document.getElementById("rhRaceModal"),raceTitle:document.getElementById("rhRaceTitle"),raceBody:document.getElementById("rhRaceBody"),raceClose:document.getElementById("rhRaceClose"),
-  profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank"),
+  profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileIncomplete:document.getElementById("rhProfileIncomplete"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profileElevation:document.getElementById("rhProfileElevation"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank"),
+  performanceHeadline:document.getElementById("rhPerformanceHeadline"),performanceSub:document.getElementById("rhPerformanceSub"),performanceRing:document.getElementById("rhPerformanceRing"),perfKmAvg:document.getElementById("rhPerfKmAvg"),perfPenaltyAvg:document.getElementById("rhPerfPenaltyAvg"),perfStreak:document.getElementById("rhPerfStreak"),perfDiscardAvg:document.getElementById("rhPerfDiscardAvg"),recentForm:document.getElementById("rhRecentForm"),recentFormCount:document.getElementById("rhRecentFormCount"),performanceList:document.getElementById("rhPerformanceList"),profileHistoryBtn:document.getElementById("rhProfileHistoryBtn"),
   network:document.querySelector(".online")
 };
 
@@ -374,21 +375,48 @@ async function openResultDetail(eventId,eventName){
 }
 
 function setProfileStat(el,value){if(el)el.textContent=String(value??"—");}
+function startedRows(){return historyRows.filter(r=>["finished","incomplete"].includes(String(r.status||"").toLowerCase()));}
+function recentStreak(){let count=0;for(const row of historyRows){const state=String(row.status||"").toLowerCase();if(state==="finished")count++;else break;}return count;}
+function renderPerformance(){
+  const started=startedRows(),finished=started.filter(r=>String(r.status||"").toLowerCase()==="finished").length;
+  const kmTotal=started.reduce((sum,r)=>sum+Math.max(0,Number(r.trackDistanceM||0)),0)/1000;
+  const penaltyTotal=started.reduce((sum,r)=>sum+Math.max(0,Number(r.penaltyMs||0)),0);
+  const discardedTotal=started.reduce((sum,r)=>sum+Math.max(0,Number(r.discardedControlCount||0)),0);
+  const completion=started.length?Math.round((finished/started.length)*100):0,streak=recentStreak();
+  setProfileStat(els.perfKmAvg,started.length?`${(kmTotal/started.length).toFixed(1)} km`:"—");
+  setProfileStat(els.perfPenaltyAvg,started.length?formatPenalty(Math.round(penaltyTotal/started.length)):"—");
+  setProfileStat(els.perfStreak,streak?`${streak} seguida${streak===1?"":"s"}`:"0");
+  setProfileStat(els.perfDiscardAvg,started.length?(discardedTotal/started.length).toFixed(discardedTotal/started.length<10?1:0):"—");
+  if(els.performanceRing)els.performanceRing.innerHTML=`<b>${completion}%</b><small>FINALIZADAS</small>`;
+  if(els.performanceHeadline)els.performanceHeadline.textContent=started.length?`${finished} de ${started.length} salidas finalizadas`:"Todavía sin participaciones";
+  if(els.performanceSub)els.performanceSub.textContent=started.length?`${kmTotal.toFixed(kmTotal>=100?0:1)} km GPS registrados · ${discardedTotal} descarte${discardedTotal===1?"":"s"}`:"Cuando tomes una salida, MILITOPO empezará a construir tu rendimiento.";
+  const recent=historyRows.slice(0,8);
+  if(els.recentFormCount)els.recentFormCount.textContent=recent.length?`${recent.length} recientes`:"Sin datos";
+  if(els.recentForm)els.recentForm.innerHTML=recent.length?recent.map(row=>{const state=String(row.status||"not_started").toLowerCase(),label=state==="finished"?"FIN":state==="incomplete"?"INC":"NS",date=formatDate(row.finishedAtMs||row.startedAtMs||row.consolidatedAtMs).replace(/\s+de\s+/g," ").slice(0,9);return `<div class="form-chip ${esc(state)}" title="${esc(row.eventName||"Carrera")}"><b>${label}</b><small>${esc(date||"—")}</small></div>`;}).join(""):'<div class="empty-card"><strong>Sin actividad reciente</strong><span>Tus últimas carreras aparecerán aquí.</span></div>';
+  renderRecentPerformances();
+}
+async function renderRecentPerformances(){
+  if(!els.performanceList)return;const rows=historyRows.slice(0,5);
+  if(!rows.length){els.performanceList.innerHTML='<div class="empty-card"><strong>Sin actuaciones todavía</strong><span>Finaliza una carrera para empezar tu análisis.</span></div>';return;}
+  els.performanceList.innerHTML=rows.map(row=>{const state=String(row.status||"not_started").toLowerCase(),official=row.officialDurationMs==null?"—":formatDuration(row.officialDurationMs),distance=Number(row.trackDistanceM||0)>0?formatKm(row.trackDistanceM):"—",penalty=formatPenalty(row.penaltyMs),date=formatDate(row.finishedAtMs||row.startedAtMs||row.consolidatedAtMs)||"—";return `<div class="performance-row" data-perf-event="${esc(row.eventId||"")}"><div class="performance-row-main"><strong>${esc(row.eventName||"Carrera")}</strong><span>${esc(date)} · ${esc(distance)} · PEN. ${esc(penalty)}</span><i class="perf-state ${esc(state)}">${esc(statusES(state))}</i></div><div class="performance-row-side"><b>${esc(official)}</b><small class="perf-rank loading">CLASIFICACIÓN…</small></div></div>`;}).join("");
+  await Promise.allSettled(rows.map(async row=>{const card=[...(els.performanceList?.querySelectorAll("[data-perf-event]")||[])].find(el=>String(el.dataset.perfEvent||"")===String(row.eventId||"")),node=card?.querySelector(".perf-rank");if(!node||!row.eventId)return;try{const data=await getClassification(row.eventId),my=data?.my;if(my?.generalRank)node.textContent=`GENERAL ${my.generalRank}º de ${my.generalRankedCount||my.generalCount||"—"}`;else node.textContent="SIN PUESTO";}catch(_){node.textContent="CLASIFICACIÓN NO DISP.";}node.classList.remove("loading");}));
+}
 function renderProfileStats(){
-  const participations=historyRows.filter(r=>["finished","incomplete"].includes(String(r.status||"").toLowerCase())).length;
+  const participations=startedRows().length;
   const finished=historyRows.filter(r=>String(r.status||"").toLowerCase()==="finished").length;
   const incomplete=historyRows.filter(r=>String(r.status||"").toLowerCase()==="incomplete").length;
   const km=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.trackDistanceM||0)),0)/1000;
   const controls=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.controlDetectedCount||r.completedControlCount||0)),0);
+  const elevation=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.coursePositiveM||0)),0);
   const penalty=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.penaltyMs||0)),0);
   const discarded=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.discardedControlCount||0)),0);
   const completionBase=finished+incomplete,completion=completionBase?Math.round((finished/completionBase)*100):0;
-  setProfileStat(els.profileParticipations,participations);setProfileStat(els.profileFinished,finished);setProfileStat(els.profileKm,km?km.toFixed(km>=100?0:1):"0");setProfileStat(els.profileControls,controls);setProfileStat(els.profilePenalty,formatPenalty(penalty));setProfileStat(els.profileDiscarded,discarded);setProfileStat(els.profileCompletion,`${completion}%`);
-  hydrateBestRank();
+  setProfileStat(els.profileParticipations,participations);setProfileStat(els.profileFinished,finished);setProfileStat(els.profileIncomplete,incomplete);setProfileStat(els.profileKm,km?km.toFixed(km>=100?0:1):"0");setProfileStat(els.profileControls,controls);setProfileStat(els.profileElevation,elevation?`${Math.round(elevation)} m`:"0 m");setProfileStat(els.profilePenalty,formatPenalty(penalty));setProfileStat(els.profileDiscarded,discarded);setProfileStat(els.profileCompletion,`${completion}%`);
+  renderPerformance();hydrateBestRank();
 }
 async function hydrateBestRank(){
   if(!els.profileBestRank||!functions)return;els.profileBestRank.textContent="Calculando…";
-  const rows=historyRows.filter(r=>["finished","incomplete"].includes(String(r.status||"").toLowerCase())&&r.eventId).slice(0,12);
+  const rows=startedRows().filter(r=>r.eventId).slice(0,12);
   if(!rows.length){els.profileBestRank.textContent="—";return;}
   let best=null;
   const settled=await Promise.allSettled(rows.map(r=>getClassification(r.eventId)));
@@ -435,7 +463,8 @@ document.addEventListener("keydown",event=>{if(event.key==="Escape"){closeResult
 document.querySelectorAll("[data-runner-tab]").forEach(button=>button.addEventListener("click",()=>setMainTab(button.dataset.runnerTab||"home")));
 document.querySelectorAll("[data-go-tab]").forEach(button=>button.addEventListener("click",()=>setMainTab(button.dataset.goTab||"home")));
 document.querySelectorAll("[data-race-tab]").forEach(button=>button.addEventListener("click",()=>setRaceTab(button.dataset.raceTab)));
-document.querySelectorAll("[data-profile-tab]").forEach(button=>button.addEventListener("click",()=>{const tab=button.dataset.profileTab||"summary";document.querySelectorAll("[data-profile-tab]").forEach(b=>b.classList.toggle("is-active",b===button));document.querySelectorAll("[data-profile-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.profilePanel===tab));}));
+els.profileHistoryBtn?.addEventListener("click",()=>{setMainTab("races");setRaceTab("history");});
+document.querySelectorAll("[data-profile-tab]").forEach(button=>button.addEventListener("click",()=>{const tab=button.dataset.profileTab||"summary";document.querySelectorAll("[data-profile-tab]").forEach(b=>b.classList.toggle("is-active",b===button));document.querySelectorAll("[data-profile-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.profilePanel===tab));if(tab==="performance")renderPerformance();}));
 window.addEventListener("militopo:v2-race-participant",event=>{const detail=event?.detail||{},status=String(detail.status||detail.participant?.status||"").toLowerCase();if(status!=="finished")return;const eventId=String(detail.event?.eventId||detail.event?.id||"");schedulePostRaceRefresh(eventId);});
 window.addEventListener("militopo:v2-runner-race-closed",event=>{const detail=event?.detail||{},status=String(detail.status||"").toLowerCase();if(status!=="finished")return;const eventId=String(detail.event?.eventId||detail.event?.id||"");schedulePostRaceRefresh(eventId);setMainTab("home");});
 window.addEventListener("online",()=>{updateConnectivity();if(currentApp)scheduleActiveRefresh(currentApp,120);});
