@@ -1,10 +1,10 @@
-/* MILITOPO Participante · R7B rendimiento del corredor + reproductor refinado 20261008.
+/* MILITOPO Participante · R7C métricas claras + récords personales 20261008.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r7b-performance-profile-20261008";
+const CACHE_NAME="militopo-v2-participante-r7c-records-metrics-20261008";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
-  "./runner-home-v4.js?v=v2-r7b-performance-profile-20261008","./runner-history-v2.js?v=v2-r7b-performance-profile-20261008","./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007",
+  "./runner-home-v4.js?v=v2-r7c-records-metrics-20261008","./runner-history-v2.js?v=v2-r7b-performance-profile-20261008","./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007",
   "../../js/v2/firebase-config.js","../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",

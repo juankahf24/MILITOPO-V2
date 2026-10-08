@@ -1,4 +1,4 @@
-/* MILITOPO V2 · R7B · Perfil de rendimiento avanzado + reproductor refinado. */
+/* MILITOPO V2 · R7C · Perfil, métricas claras y récords personales. */
 import "./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007";
 import "./runner-history-v2.js?v=v2-r7b-performance-profile-20261008";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -9,7 +9,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r7b-performance-profile-20261008";
+const VERSION="v2-r7c-records-metrics-20261008";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -30,6 +30,7 @@ const els={
   raceModal:document.getElementById("rhRaceModal"),raceTitle:document.getElementById("rhRaceTitle"),raceBody:document.getElementById("rhRaceBody"),raceClose:document.getElementById("rhRaceClose"),
   profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileIncomplete:document.getElementById("rhProfileIncomplete"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profileElevation:document.getElementById("rhProfileElevation"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank"),
   performanceHeadline:document.getElementById("rhPerformanceHeadline"),performanceSub:document.getElementById("rhPerformanceSub"),performanceRing:document.getElementById("rhPerformanceRing"),perfKmAvg:document.getElementById("rhPerfKmAvg"),perfPenaltyAvg:document.getElementById("rhPerfPenaltyAvg"),perfStreak:document.getElementById("rhPerfStreak"),perfDiscardAvg:document.getElementById("rhPerfDiscardAvg"),recentForm:document.getElementById("rhRecentForm"),recentFormCount:document.getElementById("rhRecentFormCount"),performanceList:document.getElementById("rhPerformanceList"),profileHistoryBtn:document.getElementById("rhProfileHistoryBtn"),
+  recordDistance:document.getElementById("rhRecordDistance"),recordDistanceEvent:document.getElementById("rhRecordDistanceEvent"),recordElevation:document.getElementById("rhRecordElevation"),recordElevationEvent:document.getElementById("rhRecordElevationEvent"),recordControls:document.getElementById("rhRecordControls"),recordControlsEvent:document.getElementById("rhRecordControlsEvent"),recordBestRank:document.getElementById("rhRecordBestRank"),recordBestRankEvent:document.getElementById("rhRecordBestRankEvent"),
   network:document.querySelector(".online")
 };
 
@@ -90,6 +91,7 @@ function statusES(s){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"P
 function formatDuration(ms){const n=Number(ms);if(!Number.isFinite(n)||n<0)return "—";const total=Math.round(n/1000),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60;return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;}
 function formatDate(ms){const n=Number(ms);if(!Number.isFinite(n)||n<=0)return "";try{return new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(n));}catch(_){return "";}}
 function formatKm(m){const n=Number(m);return Number.isFinite(n)&&n>0?`${(n/1000).toFixed(2)} km`:"0.00 km";}
+function formatKmCompact(km){const n=Number(km);if(!Number.isFinite(n)||n<=0)return "0 km";const digits=n>=100?0:1;return `${n.toFixed(digits).replace(".",",")} km`;}
 function formatPenalty(ms){const n=Math.max(0,Number(ms||0));return n>0?`+${formatDuration(n)}`:"0:00";}
 function stateClass(s){const v=String(s||"").toLowerCase();return ["live","published","finished","incomplete","not_started"].includes(v)?v:"";}
 function metric(label,value){return `<div class="metric"><small>${esc(label)}</small><b>${esc(value)}</b></div>`;}
@@ -377,19 +379,29 @@ async function openResultDetail(eventId,eventName){
 function setProfileStat(el,value){if(el)el.textContent=String(value??"—");}
 function startedRows(){return historyRows.filter(r=>["finished","incomplete"].includes(String(r.status||"").toLowerCase()));}
 function recentStreak(){let count=0;for(const row of historyRows){const state=String(row.status||"").toLowerCase();if(state==="finished")count++;else break;}return count;}
+function maxRecord(rows,getValue){let best=null,bestValue=-Infinity;for(const row of rows){const value=Number(getValue(row));if(Number.isFinite(value)&&value>bestValue){best=row;bestValue=value;}}return bestValue>0?{row:best,value:bestValue}:null;}
+function renderPerformanceRecords(){
+  const rows=startedRows();
+  const distance=maxRecord(rows,r=>r.trackDistanceM||0),elevation=maxRecord(rows,r=>r.coursePositiveM||0),controls=maxRecord(rows,r=>r.controlDetectedCount||r.completedControlCount||0);
+  setProfileStat(els.recordDistance,distance?formatKmCompact(distance.value/1000):"—");text(els.recordDistanceEvent,distance?.row?.eventName||"Sin datos");
+  setProfileStat(els.recordElevation,elevation?`${Math.round(elevation.value)} m`:"—");text(els.recordElevationEvent,elevation?.row?.eventName||"Sin datos");
+  setProfileStat(els.recordControls,controls?`${Math.round(controls.value)}`:"—");text(els.recordControlsEvent,controls?.row?.eventName||"Sin datos");
+  if(els.recordBestRank&&!rows.length)els.recordBestRank.textContent="—";if(els.recordBestRankEvent&&!rows.length)els.recordBestRankEvent.textContent="Sin datos";
+}
 function renderPerformance(){
   const started=startedRows(),finished=started.filter(r=>String(r.status||"").toLowerCase()==="finished").length;
   const kmTotal=started.reduce((sum,r)=>sum+Math.max(0,Number(r.trackDistanceM||0)),0)/1000;
   const penaltyTotal=started.reduce((sum,r)=>sum+Math.max(0,Number(r.penaltyMs||0)),0);
   const discardedTotal=started.reduce((sum,r)=>sum+Math.max(0,Number(r.discardedControlCount||0)),0);
   const completion=started.length?Math.round((finished/started.length)*100):0,streak=recentStreak();
-  setProfileStat(els.perfKmAvg,started.length?`${(kmTotal/started.length).toFixed(1)} km`:"—");
+  setProfileStat(els.perfKmAvg,started.length?formatKmCompact(kmTotal/started.length):"—");
   setProfileStat(els.perfPenaltyAvg,started.length?formatPenalty(Math.round(penaltyTotal/started.length)):"—");
   setProfileStat(els.perfStreak,streak?`${streak} seguida${streak===1?"":"s"}`:"0");
   setProfileStat(els.perfDiscardAvg,started.length?(discardedTotal/started.length).toFixed(discardedTotal/started.length<10?1:0):"—");
   if(els.performanceRing)els.performanceRing.innerHTML=`<b>${completion}%</b><small>FINALIZADAS</small>`;
-  if(els.performanceHeadline)els.performanceHeadline.textContent=started.length?`${finished} de ${started.length} salidas finalizadas`:"Todavía sin participaciones";
-  if(els.performanceSub)els.performanceSub.textContent=started.length?`${kmTotal.toFixed(kmTotal>=100?0:1)} km GPS registrados · ${discardedTotal} descarte${discardedTotal===1?"":"s"}`:"Cuando tomes una salida, MILITOPO empezará a construir tu rendimiento.";
+  if(els.performanceHeadline)els.performanceHeadline.textContent=started.length?`${finished} de ${started.length} carreras finalizadas`:"Todavía sin participaciones";
+  if(els.performanceSub)els.performanceSub.textContent=started.length?`${formatKmCompact(kmTotal)} registrados en MILITOPO · ${discardedTotal} descarte${discardedTotal===1?"":"s"}`:"Cuando completes tu primera carrera, MILITOPO empezará a construir tu rendimiento.";
+  renderPerformanceRecords();
   const recent=historyRows.slice(0,8);
   if(els.recentFormCount)els.recentFormCount.textContent=recent.length?`${recent.length} recientes`:"Sin datos";
   if(els.recentForm)els.recentForm.innerHTML=recent.length?recent.map(row=>{const state=String(row.status||"not_started").toLowerCase(),label=state==="finished"?"FIN":state==="incomplete"?"INC":"NS",date=formatDate(row.finishedAtMs||row.startedAtMs||row.consolidatedAtMs).replace(/\s+de\s+/g," ").slice(0,9);return `<div class="form-chip ${esc(state)}" title="${esc(row.eventName||"Carrera")}"><b>${label}</b><small>${esc(date||"—")}</small></div>`;}).join(""):'<div class="empty-card"><strong>Sin actividad reciente</strong><span>Tus últimas carreras aparecerán aquí.</span></div>';
@@ -411,17 +423,23 @@ function renderProfileStats(){
   const penalty=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.penaltyMs||0)),0);
   const discarded=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.discardedControlCount||0)),0);
   const completionBase=finished+incomplete,completion=completionBase?Math.round((finished/completionBase)*100):0;
-  setProfileStat(els.profileParticipations,participations);setProfileStat(els.profileFinished,finished);setProfileStat(els.profileIncomplete,incomplete);setProfileStat(els.profileKm,km?km.toFixed(km>=100?0:1):"0");setProfileStat(els.profileControls,controls);setProfileStat(els.profileElevation,elevation?`${Math.round(elevation)} m`:"0 m");setProfileStat(els.profilePenalty,formatPenalty(penalty));setProfileStat(els.profileDiscarded,discarded);setProfileStat(els.profileCompletion,`${completion}%`);
+  setProfileStat(els.profileParticipations,participations);setProfileStat(els.profileFinished,finished);setProfileStat(els.profileIncomplete,incomplete);setProfileStat(els.profileKm,formatKmCompact(km));setProfileStat(els.profileControls,controls);setProfileStat(els.profileElevation,elevation?`${Math.round(elevation)} m`:"0 m");setProfileStat(els.profilePenalty,formatPenalty(penalty));setProfileStat(els.profileDiscarded,discarded);setProfileStat(els.profileCompletion,`${completion}%`);
   renderPerformance();hydrateBestRank();
 }
 async function hydrateBestRank(){
-  if(!els.profileBestRank||!functions)return;els.profileBestRank.textContent="Calculando…";
+  if(!functions)return;
+  if(els.profileBestRank)els.profileBestRank.textContent="Calculando…";
+  if(els.recordBestRank)els.recordBestRank.textContent="…";
+  if(els.recordBestRankEvent)els.recordBestRankEvent.textContent="Consultando clasificaciones…";
   const rows=startedRows().filter(r=>r.eventId).slice(0,12);
-  if(!rows.length){els.profileBestRank.textContent="—";return;}
+  if(!rows.length){if(els.profileBestRank)els.profileBestRank.textContent="—";if(els.recordBestRank)els.recordBestRank.textContent="—";if(els.recordBestRankEvent)els.recordBestRankEvent.textContent="Sin datos";return;}
   let best=null;
-  const settled=await Promise.allSettled(rows.map(r=>getClassification(r.eventId)));
-  for(const item of settled){if(item.status!=="fulfilled")continue;const my=item.value?.my,rank=Number(my?.generalRank);if(Number.isFinite(rank)&&rank>0&&(!best||rank<best.rank))best={rank,count:my.generalRankedCount||my.generalCount||"—"};}
-  els.profileBestRank.textContent=best?`${best.rank}º de ${best.count}`:"Sin puesto";
+  const settled=await Promise.allSettled(rows.map(async row=>({row,data:await getClassification(row.eventId)})));
+  for(const item of settled){if(item.status!=="fulfilled")continue;const {row,data}=item.value||{},my=data?.my,rank=Number(my?.generalRank);if(Number.isFinite(rank)&&rank>0&&(!best||rank<best.rank))best={rank,count:my.generalRankedCount||my.generalCount||"—",eventName:row?.eventName||"Carrera"};}
+  const label=best?`${best.rank}º de ${best.count}`:"Sin puesto";
+  if(els.profileBestRank)els.profileBestRank.textContent=label;
+  if(els.recordBestRank)els.recordBestRank.textContent=label;
+  if(els.recordBestRankEvent)els.recordBestRankEvent.textContent=best?.eventName||"Sin clasificación";
 }
 
 async function loadEvents(app){
