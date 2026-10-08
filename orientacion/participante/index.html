@@ -68,7 +68,7 @@
 
 
     /* R5D · Clasificación limpia, perfil y estadísticas */
-    .history-rank{align-items:flex-start}.history-rank .rank-lines{display:grid;gap:4px;min-width:0;text-align:right}.rank-line{display:flex;align-items:center;justify-content:flex-end;gap:7px}.rank-line em{font-style:normal;color:#8f9a91;font-size:.46rem;font-weight:950;letter-spacing:.08em}.rank-line b{color:#fff0bd;font-size:.72rem;white-space:nowrap}.history-rank.loading strong{display:block}
+    .history-rank{align-items:flex-start}.history-rank .rank-lines{display:grid;gap:4px;min-width:0;text-align:right}.rank-line{display:flex;align-items:center;justify-content:flex-end;gap:7px}.rank-line em{font-style:normal;color:#8f9a91;font-size:.46rem;font-weight:950;letter-spacing:.08em}.rank-line b{color:#fff0bd;font-size:.72rem;white-space:nowrap}.history-rank.loading strong{display:block}.history-filters{display:flex;gap:6px;margin:8px 0 9px;overflow-x:auto;scrollbar-width:none;padding:1px}.history-filters::-webkit-scrollbar{display:none}.history-filters button{flex:0 0 auto;min-height:34px;padding:0 10px;border:1px solid rgba(255,255,255,.08);border-radius:999px;background:#1b2920;color:#9eaaa0;font-size:.46rem;font-weight:950;letter-spacing:.055em;white-space:nowrap}.history-filters button.is-active{background:#eef0e4;color:#1a241c;border-color:#eef0e4;box-shadow:0 6px 14px rgba(0,0,0,.18)}.history-filters button span{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:4px;padding:0 5px;border-radius:999px;background:rgba(255,255,255,.08);font-size:.42rem}.history-filters button.is-active span{background:rgba(26,36,28,.12)}
     .detail-status{align-items:stretch}.detail-state,.detail-general{display:grid;align-content:center;gap:4px}.detail-state small,.detail-general small{display:block;color:#829087;font-size:.46rem;font-weight:950;letter-spacing:.09em}.detail-state strong{font-size:.86rem;line-height:1.12}.detail-general{text-align:right}.detail-general .detail-rank{font-size:.82rem;color:#f3db94;white-space:nowrap}
     .profile-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:9px 0}.profile-tabs button{min-height:42px;border:1px solid rgba(255,255,255,.10);border-radius:13px;background:#1c2a20;color:#aeb9af;font-size:.58rem;font-weight:950;letter-spacing:.05em}.profile-tabs button.is-active{background:#edf0df;color:#132016;border-color:#edf0df}.profile-panel{display:none}.profile-panel.is-active{display:block}
     .profile-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.profile-stat{min-width:0;padding:11px;border:1px solid rgba(255,255,255,.07);border-radius:13px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018))}.profile-stat small{display:block;color:#829087;font-size:.45rem;font-weight:950;letter-spacing:.09em}.profile-stat strong{display:block;margin-top:5px;font-size:.88rem;color:#f2f5e9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-stat.highlight{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,rgba(216,189,112,.13),rgba(216,189,112,.05));border-color:rgba(216,189,112,.18)}.profile-stat.highlight strong{margin:0;color:#ffeab0;font-size:1rem}.profile-section-note{margin-top:8px;color:#7f8d82;font-size:.55rem;line-height:1.4}.profile-account-card{padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:14px;background:rgba(255,255,255,.025)}
@@ -155,6 +155,12 @@
         <div class="race-panel is-active" data-race-panel="active"><div class="events" id="rhActiveEvents"></div></div>
         <div class="race-panel" data-race-panel="invites"><div class="events" id="rhInviteEvents"><div class="empty-card"><strong>Comprobando invitaciones…</strong><span>Sincronizando en tiempo real.</span></div></div></div>
         <div class="race-panel" data-race-panel="history">
+          <nav class="history-filters" aria-label="Filtrar histórico">
+            <button type="button" class="is-active" data-history-filter="all">TODAS <span id="rhHistAll">0</span></button>
+            <button type="button" data-history-filter="finished">FINALIZADAS <span id="rhHistFinished">0</span></button>
+            <button type="button" data-history-filter="incomplete">INCOMPLETAS <span id="rhHistIncomplete">0</span></button>
+            <button type="button" data-history-filter="not_started">NO SALIÓ <span id="rhHistNotStarted">0</span></button>
+          </nav>
           <div class="events" id="rhHistoryEvents"></div>
           <button class="btn secondary load-more" id="rhHistoryMore" type="button" style="display:none">MOSTRAR MÁS RESULTADOS</button>
         </div>
@@ -210,11 +216,7 @@
             </div>
           </section>
           <section class="performance-section">
-            <div class="performance-title"><div><small>FORMA RECIENTE</small><strong>Últimas participaciones</strong></div><span id="rhRecentFormCount">—</span></div>
-            <div class="recent-form" id="rhRecentForm"></div>
-          </section>
-          <section class="performance-section">
-            <div class="performance-title"><div><small>ÚLTIMAS ACTUACIONES</small><strong>Resultado y clasificación</strong></div></div>
+            <div class="performance-title"><div><small>FORMA RECIENTE</small><strong>ÚLTIMAS ACTUACIONES</strong></div><span id="rhPerformanceCount">5 RECIENTES</span></div>
             <div class="performance-list" id="rhPerformanceList"><div class="empty-card"><strong>Preparando rendimiento…</strong><span>Consultando tus resultados recientes.</span></div></div>
           </section>
           <button class="btn secondary performance-history-btn" type="button" id="rhProfileHistoryBtn">VER HISTÓRICO COMPLETO</button>
@@ -259,7 +261,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r7c-records-metrics-20261008"></script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r7d-history-filters-20261008"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>

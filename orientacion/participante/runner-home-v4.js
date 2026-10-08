@@ -1,4 +1,4 @@
-/* MILITOPO V2 · R7C · Perfil, métricas claras y récords personales. */
+/* MILITOPO V2 · R7D · Forma reciente unificada + histórico avanzado. */
 import "./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007";
 import "./runner-history-v2.js?v=v2-r7b-performance-profile-20261008";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -9,7 +9,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r7c-records-metrics-20261008";
+const VERSION="v2-r7d-history-filters-20261008";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -24,18 +24,18 @@ const els={
   activeCount:document.getElementById("rhActiveCount"),historyCount:document.getElementById("rhHistoryCount"),retry:document.getElementById("rhRetry"),
   headerUser:document.getElementById("rhHeaderUser"),headerHandle:document.getElementById("rhHeaderHandle"),hero:document.getElementById("rhDashboardHero"),
   dashActive:document.getElementById("rhDashActive"),dashFinished:document.getElementById("rhDashFinished"),dashTotal:document.getElementById("rhDashTotal"),dashKm:document.getElementById("rhDashKm"),
-  historyMore:document.getElementById("rhHistoryMore"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose"),
+  historyMore:document.getElementById("rhHistoryMore"),histAll:document.getElementById("rhHistAll"),histFinished:document.getElementById("rhHistFinished"),histIncomplete:document.getElementById("rhHistIncomplete"),histNotStarted:document.getElementById("rhHistNotStarted"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose"),
   inviteEvents:document.getElementById("rhInviteEvents"),inviteCount:document.getElementById("rhInviteCount"),raceNotice:document.getElementById("rhRaceNotice"),
   upcomingCard:document.getElementById("rhUpcomingCard"),recentCard:document.getElementById("rhRecentCard"),
   raceModal:document.getElementById("rhRaceModal"),raceTitle:document.getElementById("rhRaceTitle"),raceBody:document.getElementById("rhRaceBody"),raceClose:document.getElementById("rhRaceClose"),
   profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileIncomplete:document.getElementById("rhProfileIncomplete"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profileElevation:document.getElementById("rhProfileElevation"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank"),
-  performanceHeadline:document.getElementById("rhPerformanceHeadline"),performanceSub:document.getElementById("rhPerformanceSub"),performanceRing:document.getElementById("rhPerformanceRing"),perfKmAvg:document.getElementById("rhPerfKmAvg"),perfPenaltyAvg:document.getElementById("rhPerfPenaltyAvg"),perfStreak:document.getElementById("rhPerfStreak"),perfDiscardAvg:document.getElementById("rhPerfDiscardAvg"),recentForm:document.getElementById("rhRecentForm"),recentFormCount:document.getElementById("rhRecentFormCount"),performanceList:document.getElementById("rhPerformanceList"),profileHistoryBtn:document.getElementById("rhProfileHistoryBtn"),
+  performanceHeadline:document.getElementById("rhPerformanceHeadline"),performanceSub:document.getElementById("rhPerformanceSub"),performanceRing:document.getElementById("rhPerformanceRing"),perfKmAvg:document.getElementById("rhPerfKmAvg"),perfPenaltyAvg:document.getElementById("rhPerfPenaltyAvg"),perfStreak:document.getElementById("rhPerfStreak"),perfDiscardAvg:document.getElementById("rhPerfDiscardAvg"),performanceList:document.getElementById("rhPerformanceList"),performanceCount:document.getElementById("rhPerformanceCount"),profileHistoryBtn:document.getElementById("rhProfileHistoryBtn"),
   recordDistance:document.getElementById("rhRecordDistance"),recordDistanceEvent:document.getElementById("rhRecordDistanceEvent"),recordElevation:document.getElementById("rhRecordElevation"),recordElevationEvent:document.getElementById("rhRecordElevationEvent"),recordControls:document.getElementById("rhRecordControls"),recordControlsEvent:document.getElementById("rhRecordControlsEvent"),recordBestRank:document.getElementById("rhRecordBestRank"),recordBestRankEvent:document.getElementById("rhRecordBestRankEvent"),
   network:document.querySelector(".online")
 };
 
 let auth=null,currentUser=null,profile=null,currentRaceTab="active",currentMainTab="home";
-let functions=null,historyRows=[],activeRows=[],inviteRows=[],historyVisible=HISTORY_PAGE,inviteBusy=false;
+let functions=null,historyRows=[],activeRows=[],inviteRows=[],historyVisible=HISTORY_PAGE,historyFilter="all",inviteBusy=false;
 let inviteUnsubs=[],inviteEmailRows=new Map(),inviteUidRows=new Map();
 let activeEventUnsubs=new Map(),activeRefreshTimer=0,activeRefreshBusy=false,lastActiveRefreshAt=0,currentApp=null;
 const completedEventIds=new Set();
@@ -281,10 +281,21 @@ function historyCard(row){
   return `<article class="event history-event" data-state="${esc(stateClass(state))}" data-history-event="${esc(row.eventId)}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(row.eventName||"Carrera")}</strong><span class="event-date">${esc(date||statusES(row.eventStatus))}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div><div class="result-hero">${primary}${secondary}</div>${rank}<div class="history-metrics">${metrics}</div><div class="history-actions${hasTrack?" has-replay":""}"><button class="btn secondary" type="button" data-result-detail="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">VER RESULTADO</button>${hasTrack?`<button class="btn replay" type="button" data-result-replay="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">▶ REPRODUCIR GPS</button>`:""}</div></article>`;
 }
 
+function filteredHistoryRows(){
+  if(historyFilter==="all")return historyRows;
+  return historyRows.filter(row=>String(row?.status||"").toLowerCase()===historyFilter);
+}
+function updateHistoryFilterCounts(){
+  text(els.histAll,historyRows.length);
+  text(els.histFinished,historyRows.filter(r=>String(r.status||"").toLowerCase()==="finished").length);
+  text(els.histIncomplete,historyRows.filter(r=>String(r.status||"").toLowerCase()==="incomplete").length);
+  text(els.histNotStarted,historyRows.filter(r=>String(r.status||"").toLowerCase()==="not_started").length);
+}
 function renderHistory(reset=false){
-  const list=els.historyEvents;if(!list)return;if(reset)historyVisible=HISTORY_PAGE;text(els.historyCount,historyRows.length);
-  const visible=historyRows.slice(0,historyVisible);list.innerHTML=visible.length?visible.map(historyCard).join(""):'<div class="empty-card"><strong>Sin histórico todavía</strong><span>Cuando finalices una carrera, tus resultados aparecerán aquí.</span></div>';
-  if(els.historyMore){els.historyMore.style.display=historyVisible<historyRows.length?"block":"none";els.historyMore.textContent=`MOSTRAR MÁS RESULTADOS (${historyRows.length-historyVisible})`;}
+  const list=els.historyEvents;if(!list)return;if(reset)historyVisible=HISTORY_PAGE;text(els.historyCount,historyRows.length);updateHistoryFilterCounts();
+  const rows=filteredHistoryRows(),visible=rows.slice(0,historyVisible);
+  list.innerHTML=visible.length?visible.map(historyCard).join(""):'<div class="empty-card"><strong>Sin resultados en este filtro</strong><span>Prueba otra categoría del histórico.</span></div>';
+  if(els.historyMore){els.historyMore.style.display=historyVisible<rows.length?"block":"none";els.historyMore.textContent=`MOSTRAR MÁS RESULTADOS (${rows.length-historyVisible})`;}
   list.querySelectorAll("[data-result-detail]").forEach(btn=>btn.addEventListener("click",()=>openResultDetail(btn.dataset.resultDetail,btn.dataset.resultName)));
   list.querySelectorAll("[data-result-replay]").forEach(btn=>btn.addEventListener("click",()=>openHistoryAnalysis(btn.dataset.resultReplay,btn.dataset.resultName)));
   hydrateVisibleRanks();
@@ -402,13 +413,10 @@ function renderPerformance(){
   if(els.performanceHeadline)els.performanceHeadline.textContent=started.length?`${finished} de ${started.length} carreras finalizadas`:"Todavía sin participaciones";
   if(els.performanceSub)els.performanceSub.textContent=started.length?`${formatKmCompact(kmTotal)} registrados en MILITOPO · ${discardedTotal} descarte${discardedTotal===1?"":"s"}`:"Cuando completes tu primera carrera, MILITOPO empezará a construir tu rendimiento.";
   renderPerformanceRecords();
-  const recent=historyRows.slice(0,8);
-  if(els.recentFormCount)els.recentFormCount.textContent=recent.length?`${recent.length} recientes`:"Sin datos";
-  if(els.recentForm)els.recentForm.innerHTML=recent.length?recent.map(row=>{const state=String(row.status||"not_started").toLowerCase(),label=state==="finished"?"FIN":state==="incomplete"?"INC":"NS",date=formatDate(row.finishedAtMs||row.startedAtMs||row.consolidatedAtMs).replace(/\s+de\s+/g," ").slice(0,9);return `<div class="form-chip ${esc(state)}" title="${esc(row.eventName||"Carrera")}"><b>${label}</b><small>${esc(date||"—")}</small></div>`;}).join(""):'<div class="empty-card"><strong>Sin actividad reciente</strong><span>Tus últimas carreras aparecerán aquí.</span></div>';
   renderRecentPerformances();
 }
 async function renderRecentPerformances(){
-  if(!els.performanceList)return;const rows=historyRows.slice(0,5);
+  if(!els.performanceList)return;const rows=historyRows.slice(0,5);if(els.performanceCount)els.performanceCount.textContent=rows.length?`${rows.length} RECIENTES`:"SIN DATOS";
   if(!rows.length){els.performanceList.innerHTML='<div class="empty-card"><strong>Sin actuaciones todavía</strong><span>Finaliza una carrera para empezar tu análisis.</span></div>';return;}
   els.performanceList.innerHTML=rows.map(row=>{const state=String(row.status||"not_started").toLowerCase(),official=row.officialDurationMs==null?"—":formatDuration(row.officialDurationMs),distance=Number(row.trackDistanceM||0)>0?formatKm(row.trackDistanceM):"—",penalty=formatPenalty(row.penaltyMs),date=formatDate(row.finishedAtMs||row.startedAtMs||row.consolidatedAtMs)||"—";return `<div class="performance-row" data-perf-event="${esc(row.eventId||"")}"><div class="performance-row-main"><strong>${esc(row.eventName||"Carrera")}</strong><span>${esc(date)} · ${esc(distance)} · PEN. ${esc(penalty)}</span><i class="perf-state ${esc(state)}">${esc(statusES(state))}</i></div><div class="performance-row-side"><b>${esc(official)}</b><small class="perf-rank loading">CLASIFICACIÓN…</small></div></div>`;}).join("");
   await Promise.allSettled(rows.map(async row=>{const card=[...(els.performanceList?.querySelectorAll("[data-perf-event]")||[])].find(el=>String(el.dataset.perfEvent||"")===String(row.eventId||"")),node=card?.querySelector(".perf-rank");if(!node||!row.eventId)return;try{const data=await getClassification(row.eventId),my=data?.my;if(my?.generalRank)node.textContent=`GENERAL ${my.generalRank}º de ${my.generalRankedCount||my.generalCount||"—"}`;else node.textContent="SIN PUESTO";}catch(_){node.textContent="CLASIFICACIÓN NO DISP.";}node.classList.remove("loading");}));
@@ -473,6 +481,7 @@ els.detailsBtn?.addEventListener("click",()=>{els.details?.classList.toggle("sho
 els.logoutBtn?.addEventListener("click",async()=>{stopInvitationRealtime();stopActiveEventRealtime();try{globalThis.MILITOPO_V2_AUTH=null;}catch(_){}try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
 els.retry?.addEventListener("click",()=>{const app=findApp();if(app)loadEvents(app);});
 els.historyMore?.addEventListener("click",()=>{historyVisible+=HISTORY_PAGE;renderHistory(false);});
+document.querySelectorAll("[data-history-filter]").forEach(btn=>btn.addEventListener("click",()=>{historyFilter=String(btn.dataset.historyFilter||"all");historyVisible=HISTORY_PAGE;document.querySelectorAll("[data-history-filter]").forEach(node=>node.classList.toggle("is-active",node===btn));renderHistory(false);}));
 els.resultClose?.addEventListener("click",closeResultModal);
 els.resultModal?.addEventListener("click",event=>{if(event.target===els.resultModal)closeResultModal();});
 els.raceClose?.addEventListener("click",closeRaceModal);
