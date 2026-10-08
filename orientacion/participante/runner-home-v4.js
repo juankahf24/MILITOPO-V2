@@ -1,6 +1,6 @@
-/* MILITOPO V2 · R7A · Home del corredor + histórico GPS y reproductor. */
+/* MILITOPO V2 · R7A1 · Home del corredor + reproductor GPS refinado. */
 import "./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007";
-import "./runner-history-v2.js?v=v2-r7a-history-replay-20261008";
+import "./runner-history-v2.js?v=v2-r7a1-replay-layers-heading-20261008";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -9,7 +9,7 @@ import {
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r7a-history-replay-20261008";
+const VERSION="v2-r7a1-replay-layers-heading-20261008";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
