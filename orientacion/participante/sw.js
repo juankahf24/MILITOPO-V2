@@ -1,6 +1,6 @@
-/* MILITOPO Participante · R7E cierre Runner: resultados, navegación y reproductor 20261008.
+/* MILITOPO Participante · R7F señal visual de navegación 20261008.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r7e-runner-coherence-20261008";
+const CACHE_NAME="militopo-v2-participante-r7f-nav-arrow-20261008";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",

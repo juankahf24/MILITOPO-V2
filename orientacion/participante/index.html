@@ -97,6 +97,97 @@
       .runner-head{grid-template-columns:64px minmax(0,1fr) auto;gap:9px;min-height:80px;border-radius:20px;padding:8px 9px 8px 8px}.runner-logo{width:64px;height:64px}.runner-logo img{width:61px;height:61px}.brand h1{font-size:1.08rem;letter-spacing:.13em}.brand small{display:none}.runner-account{min-width:82px}.runner-user{max-width:95px;font-size:.62rem}.runner-handle{max-width:95px}.online{min-width:82px;padding:5px 7px;font-size:.45rem}.runner-tabs button{min-height:51px;font-size:.56rem}.runner-tab-notice{right:9px;top:7px}.panel-shell{padding:9px}.dashboard-highlights{grid-template-columns:1fr}.dashboard-stats{grid-template-columns:1fr 1fr}.hero-title{font-size:1.12rem}.history-metrics{grid-template-columns:repeat(3,1fr)}.account-actions{grid-template-columns:1fr}.result-modal{padding-left:6px;padding-right:6px}.result-sheet{border-radius:20px 20px 12px 12px}}
     @media(max-width:365px){.runner-head{grid-template-columns:58px minmax(0,1fr) 78px}.runner-logo{width:58px;height:58px}.runner-logo img{width:55px;height:55px}.brand h1{font-size:.96rem}.runner-user{max-width:76px}.online{min-width:76px}.history-metrics{grid-template-columns:1fr 1fr}}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+    /* R7F · Señal de navegación: flecha naranja solo en controles que abren/cambian vista.
+       Las acciones directas (aceptar, rechazar, cerrar sesión, guardar, GPS, etc.) quedan sin flecha. */
+    :is(
+      .runner-tabs button,
+      .race-tabs button,
+      .profile-tabs button,
+      .history-filters button,
+      .dashboard-action,
+      .hero-btn,
+      #rhHistoryMore,
+      #rhProfileHistoryBtn,
+      #rhDetailsBtn,
+      [data-active-detail],
+      [data-result-detail],
+      [data-result-replay],
+      [data-modal-enter],
+      [data-enter-event],
+      [data-hero-enter],
+      [data-hero-races],
+      [data-hero-invite],
+      [data-hero-result],
+      [data-open-result-replay],
+      #m2raceRouteToggle,
+      #m2raceSummaryClose,
+      #m2raceSummaryDone
+    ){position:relative}
+
+    :is(
+      .runner-tabs button,
+      .race-tabs button,
+      .profile-tabs button,
+      .history-filters button,
+      .dashboard-action,
+      .hero-btn,
+      #rhHistoryMore,
+      #rhProfileHistoryBtn,
+      #rhDetailsBtn,
+      [data-active-detail],
+      [data-result-detail],
+      [data-result-replay],
+      [data-modal-enter],
+      [data-enter-event],
+      [data-hero-enter],
+      [data-hero-races],
+      [data-hero-invite],
+      [data-hero-result],
+      [data-open-result-replay],
+      #m2raceRouteToggle,
+      #m2raceSummaryClose,
+      #m2raceSummaryDone
+    )::after{
+      content:"›";position:absolute;right:9px;top:50%;transform:translateY(-52%);
+      color:var(--orange);font-size:1.18rem;font-weight:1000;line-height:1;
+      pointer-events:none;text-shadow:0 0 10px rgba(226,154,82,.18);
+    }
+
+    .runner-tabs button{padding-right:18px}
+    .race-tabs button,.profile-tabs button{padding-left:6px;padding-right:18px}
+    .history-filters button{padding-right:24px}
+    .dashboard-action{padding-right:31px}
+    .hero-btn{padding-right:29px}
+    #rhHistoryMore,#rhProfileHistoryBtn,#rhDetailsBtn,
+    [data-active-detail],[data-result-detail],[data-result-replay],
+    [data-modal-enter],[data-enter-event],[data-open-result-replay],
+    #m2raceRouteToggle,#m2raceSummaryClose,#m2raceSummaryDone{padding-right:30px!important}
+
+    /* Las tarjetas de Inicio también son accesos, aunque visualmente no sean botones. */
+    #rhUpcomingCard,#rhRecentCard{position:relative;padding-right:34px}
+    #rhUpcomingCard::after,#rhRecentCard::after{
+      content:"›";position:absolute;right:12px;top:50%;transform:translateY(-52%);
+      color:var(--orange);font-size:1.55rem;font-weight:1000;line-height:1;pointer-events:none
+    }
+
+    /* Mantener el mismo lenguaje en FORMA RECIENTE. */
+    .performance-row.is-action::after{color:var(--orange)}
+
+    /* El botón de capas sí despliega más opciones: indicador compacto sin tapar el icono. */
+    #r7hLayerToggle{position:relative}
+    #r7hLayerToggle::after{
+      content:"›";position:absolute;right:3px;bottom:2px;color:var(--orange);
+      font-size:.82rem;font-weight:1000;line-height:1;pointer-events:none
+    }
+
+    @media(max-width:390px){
+      .runner-tabs button{padding-right:15px}
+      .runner-tabs button::after{right:5px;font-size:.98rem}
+      .race-tabs button,.profile-tabs button{padding-right:15px}
+      .race-tabs button::after,.profile-tabs button::after{right:5px;font-size:.98rem}
+    }
+
   </style>
 </head>
 <body>
