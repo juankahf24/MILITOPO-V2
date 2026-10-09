@@ -45,7 +45,7 @@
     '#m2CloudRecoveryOpen','#m2OrganizerHistoryOpen','.m2-cloud-event-open','.m2-history-open-results',
     '.m2-life-live-link','.m2-r5-reuse','.m2-r5-new-main','.analysis-tab',
     '.r1-layer-pop [data-layer]','.layer-btn[data-layer]','.r3-routes-layers button','#toggleFinishOrganizedBtn',
-    '[data-r2-tools-toggle]','[data-r2-details="prev"]','[data-r2-details="next"]',
+    '[data-r2-details="prev"]','[data-r2-details="next"]',
     '.nav-row button','.iof-nav-buttons button','.militopo-platform-choice','.militopo-platform-back'
   ].join(',');
   function decorateNavigationTargets(root=document){
@@ -59,7 +59,8 @@
   }
   function startNavigationDecorator(){
     decorateNavigationTargets(document);
-    const observer=new MutationObserver(records=>{records.forEach(record=>record.addedNodes.forEach(node=>{if(node?.nodeType===1)decorateNavigationTargets(node)}))});
+    document.querySelectorAll('.r1-map-btn[data-map-action="layers"],[data-r2-tools-toggle]').forEach(el=>el.classList.remove('militopo-nav-target'));
+    const observer=new MutationObserver(records=>{records.forEach(record=>record.addedNodes.forEach(node=>{if(node?.nodeType===1){decorateNavigationTargets(node);try{if(node.matches?.('.r1-map-btn[data-map-action="layers"],[data-r2-tools-toggle]'))node.classList.remove('militopo-nav-target');node.querySelectorAll?.('.r1-map-btn[data-map-action="layers"],[data-r2-tools-toggle]').forEach(el=>el.classList.remove('militopo-nav-target'))}catch(_){}}}))});
     observer.observe(document.body,{childList:true,subtree:true});
     state.navDecoratorObserver=observer;
   }

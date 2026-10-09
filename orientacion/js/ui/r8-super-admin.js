@@ -1,12 +1,16 @@
-/* MILITOPO · R8B · SÚPER ADMINISTRADOR
+/* MILITOPO · R8C · SÚPER ADMINISTRADOR
    Administración global: usuarios/roles y supervisión avanzada de carreras.
+   R8C añade gestión progresiva de usuarios y retorno contextual desde CARGAR CARRERA.
    Frontend seguro: reutiliza setUserRole y CARGAR CARRERA; no altera Functions. */
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const EVENT_PAGE_SIZE=5;
+const USER_PAGE_SIZE=10;
 const state={
   auth:null,overlay:null,users:[],events:[],tab:"summary",services:null,loading:false,
-  userQuery:"",roleFilter:"all",eventQuery:"",eventStatusFilter:"all",eventsVisible:EVENT_PAGE_SIZE
+  userQuery:"",roleFilter:"all",usersVisible:USER_PAGE_SIZE,
+  eventQuery:"",eventStatusFilter:"all",eventsVisible:EVENT_PAGE_SIZE,
+  returnButton:null,wrappedOrganizerCenter:null
 };
 const $=(s,r=document)=>r.querySelector(s);
 const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -41,6 +45,7 @@ function ensureUi(){
 function setStatus(message,error=false){const el=$("#r8AdminStatus",ensureUi());if(!el)return;el.textContent=String(message||"");el.classList.toggle("is-error",Boolean(error))}
 function setTab(tab){
   state.tab=["summary","users","events"].includes(tab)?tab:"summary";
+  if(state.tab==="users")state.usersVisible=USER_PAGE_SIZE;
   if(state.tab==="events")state.eventsVisible=EVENT_PAGE_SIZE;
   const overlay=ensureUi();
   overlay.querySelectorAll("[data-r8-tab]").forEach(btn=>{const active=btn.dataset.r8Tab===state.tab;btn.classList.toggle("is-active",active);btn.setAttribute("aria-selected",String(active))});
@@ -58,13 +63,20 @@ function renderSummary(){
   </div><section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>ACTIVIDAD DE CARRERAS</strong><small>Vista global de los eventos más recientes</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-events>VER TODAS</button></div><div class="r8-event-list">${recent.length?recent.map(eventRowHtml).join(""):'<div class="r8-admin-empty">Todavía no hay carreras.</div>'}</div></section>`;
 }
 function filteredUsers(){const q=state.userQuery.trim().toLowerCase();return state.users.filter(row=>{if(state.roleFilter!=="all"&&userRole(row)!==state.roleFilter)return false;if(!q)return true;return [row.displayName,row.username,row.usernameKey,row.email,row.uid].some(value=>String(value||"").toLowerCase().includes(q))})}
+function userRoleCounts(){const counts={runner:0,organizer:0,super_admin:0};state.users.forEach(row=>counts[userRole(row)]++);return counts}
+function renderUserSummary(){
+  const counts=userRoleCounts();
+  const chips=[["all","TOTAL",state.users.length],["runner","CORREDORES",counts.runner],["organizer","ORGANIZADORES",counts.organizer],["super_admin","SÚPER ADMIN",counts.super_admin]];
+  return `<div class="r8-user-summary">${chips.map(([key,label,count])=>`<button type="button" data-r8-user-chip="${key}" class="${state.roleFilter===key?"is-active":""}"><strong>${count}</strong><span>${label}</span></button>`).join("")}</div>`;
+}
 function userRowHtml(row){
   const role=userRole(row),self=row.uid===state.auth?.uid,verified=row.emailVerified===true;const username=String(row.usernameKey||row.username||"").replace(/^@/,"");
   return `<div class="r8-user-row" data-r8-user-row="${esc(row.uid)}"><div class="r8-user-id"><strong>${esc(row.displayName||row.email||"Usuario")}${self?' <span class="r8-self">· TÚ</span>':""}</strong>${username?`<span>@${esc(username)}</span>`:""}<small>${esc(row.email||row.uid)}</small><b class="${verified?"":"is-unverified"}">${verified?"CORREO VERIFICADO":"CORREO NO VERIFICADO"}</b></div><div class="r8-user-actions"><select class="r8-user-role" data-r8-role ${self?'disabled title="Tu propio rol no se cambia desde este panel"':""}><option value="runner" ${role==="runner"?"selected":""}>CORREDOR</option><option value="organizer" ${role==="organizer"?"selected":""}>ORGANIZADOR</option><option value="super_admin" ${role==="super_admin"?"selected":""}>SÚPER ADMIN</option></select><button type="button" class="r8-user-apply" data-r8-apply-role ${self?"disabled":""}>APLICAR</button></div><span class="r8-event-status">${roleLabel(role)}</span></div>`;
 }
 function renderUsers(){
-  const view=$("[data-r8-view='users']",ensureUi());if(!view)return;const rows=filteredUsers();
-  view.innerHTML=`<div class="r8-admin-toolbar r8-user-toolbar"><input type="search" value="${esc(state.userQuery)}" data-r8-user-search placeholder="Buscar nombre, @usuario, correo o UID" aria-label="Buscar usuarios"><select data-r8-role-filter aria-label="Filtrar usuarios por rol"><option value="all" ${state.roleFilter==="all"?"selected":""}>TODOS LOS ROLES</option><option value="runner" ${state.roleFilter==="runner"?"selected":""}>CORREDORES</option><option value="organizer" ${state.roleFilter==="organizer"?"selected":""}>ORGANIZADORES</option><option value="super_admin" ${state.roleFilter==="super_admin"?"selected":""}>SÚPER ADMIN</option></select><button type="button" class="r8-admin-refresh" data-r8-refresh>ACTUALIZAR</button></div><div class="r8-user-list">${rows.length?rows.map(userRowHtml).join(""):'<div class="r8-admin-empty">No hay usuarios que coincidan con el filtro.</div>'}</div>`;
+  const view=$("[data-r8-view='users']",ensureUi());if(!view)return;
+  const rows=filteredUsers(),visible=rows.slice(0,state.usersVisible),remaining=Math.max(0,rows.length-visible.length);
+  view.innerHTML=`${renderUserSummary()}<div class="r8-admin-toolbar r8-user-toolbar"><input type="search" value="${esc(state.userQuery)}" data-r8-user-search placeholder="Buscar nombre, @usuario, correo o UID" aria-label="Buscar usuarios"><select data-r8-role-filter aria-label="Filtrar usuarios por rol"><option value="all" ${state.roleFilter==="all"?"selected":""}>TODOS LOS ROLES</option><option value="runner" ${state.roleFilter==="runner"?"selected":""}>CORREDORES</option><option value="organizer" ${state.roleFilter==="organizer"?"selected":""}>ORGANIZADORES</option><option value="super_admin" ${state.roleFilter==="super_admin"?"selected":""}>SÚPER ADMIN</option></select></div><div class="r8-user-list">${visible.length?visible.map(userRowHtml).join(""):'<div class="r8-admin-empty">No hay usuarios que coincidan con el filtro.</div>'}</div>${remaining?`<div class="r8-load-more-wrap"><button type="button" class="r8-load-more" data-r8-user-load-more><span>CARGAR MÁS USUARIOS</span><small>${Math.min(USER_PAGE_SIZE,remaining)} de ${remaining} restantes</small></button></div>`:""}`;
 }
 function eventRowHtml(row){
   const participantCount=Math.max(0,Math.trunc(Number(row.participantCount)||0));
@@ -122,11 +134,40 @@ async function applyRole(button){
   button.disabled=true;setStatus(`Aplicando rol ${roleLabel(role)}…`);
   try{const svc=await services();await svc.callable("setUserRole",{uid,role});user.roleMirror=role;setStatus(`Rol actualizado: ${name} · ${roleLabel(role)}`);render()}catch(error){console.error("[MILITOPO R8 role]",error);setStatus(`No se pudo cambiar el rol: ${String(error?.message||error)}`,true);button.disabled=false}
 }
-function openOrganizerCenter(){close();setTimeout(()=>{if(globalThis.MILITOPO_V2_ORGANIZER_CENTER?.open)globalThis.MILITOPO_V2_ORGANIZER_CENTER.open();else toast("CARGAR CARRERA todavía se está iniciando.")},60)}
+function removeReturnButton(){try{state.returnButton?.remove?.()}catch(_){}state.returnButton=null}
+function wrapOrganizerCenterClose(center){
+  if(!center||state.wrappedOrganizerCenter===center)return;
+  try{
+    const original=center.close;
+    if(typeof original!=="function")return;
+    center.close=function(...args){const result=original.apply(center,args);removeReturnButton();return result};
+    state.wrappedOrganizerCenter=center;
+  }catch(_){}
+}
+function showReturnToAdmin(center){
+  removeReturnButton();
+  const button=document.createElement("button");
+  button.type="button";button.className="r8-return-admin";button.innerHTML="<span>‹</span><b>VOLVER A ADMINISTRACIÓN</b><small>SUPERVISIÓN GLOBAL</small>";
+  button.addEventListener("click",()=>{
+    try{center?.close?.()}catch(_){}
+    removeReturnButton();
+    state.tab="events";
+    setTimeout(()=>open(),50);
+  });
+  document.body.appendChild(button);state.returnButton=button;
+}
+function openOrganizerCenter(){
+  const center=globalThis.MILITOPO_V2_ORGANIZER_CENTER;
+  if(!center?.open){toast("CARGAR CARRERA todavía se está iniciando.");return}
+  state.tab="events";close();wrapOrganizerCenterClose(center);
+  setTimeout(()=>{try{center.open();showReturnToAdmin(center)}catch(error){console.error("[MILITOPO R8 center]",error);toast("No se pudo abrir CARGAR CARRERA.");open()}},60);
+}
 function onClick(event){
   if(event.target===state.overlay||event.target.closest("[data-r8-close]")){close();return}
   const tab=event.target.closest("[data-r8-tab]");if(tab){setTab(tab.dataset.r8Tab);return}
   if(event.target.closest("[data-r8-refresh]")){refresh();return}
+  const userChip=event.target.closest("[data-r8-user-chip]");if(userChip){state.roleFilter=userChip.dataset.r8UserChip||"all";state.usersVisible=USER_PAGE_SIZE;renderUsers();return}
+  if(event.target.closest("[data-r8-user-load-more]")){state.usersVisible+=USER_PAGE_SIZE;renderUsers();return}
   const apply=event.target.closest("[data-r8-apply-role]");if(apply){applyRole(apply);return}
   if(event.target.closest("[data-r8-open-events]")){setTab("events");return}
   if(event.target.closest("[data-r8-open-organizer-center]")){openOrganizerCenter();return}
@@ -134,18 +175,19 @@ function onClick(event){
   if(event.target.closest("[data-r8-load-more]")){state.eventsVisible+=EVENT_PAGE_SIZE;renderEvents();return}
 }
 function onInput(event){
-  if(event.target.matches("[data-r8-user-search]")){state.userQuery=event.target.value;renderUsers();const next=$("[data-r8-user-search]",state.overlay);if(next){next.focus();try{next.setSelectionRange(state.userQuery.length,state.userQuery.length)}catch(_){}}return}
+  if(event.target.matches("[data-r8-user-search]")){state.userQuery=event.target.value;state.usersVisible=USER_PAGE_SIZE;renderUsers();const next=$("[data-r8-user-search]",state.overlay);if(next){next.focus({preventScroll:true});try{next.setSelectionRange(state.userQuery.length,state.userQuery.length)}catch(_){}}return}
   if(event.target.matches("[data-r8-event-search]")){state.eventQuery=event.target.value;state.eventsVisible=EVENT_PAGE_SIZE;renderEvents();const next=$("[data-r8-event-search]",state.overlay);if(next){next.focus();try{next.setSelectionRange(state.eventQuery.length,state.eventQuery.length)}catch(_){}}}
 }
 function onChange(event){
-  if(event.target.matches("[data-r8-role-filter]")){state.roleFilter=event.target.value;renderUsers();return}
+  if(event.target.matches("[data-r8-role-filter]")){state.roleFilter=event.target.value;state.usersVisible=USER_PAGE_SIZE;renderUsers();return}
   if(event.target.matches("[data-r8-event-status]")){state.eventStatusFilter=event.target.value||"all";state.eventsVisible=EVENT_PAGE_SIZE;renderEvents()}
 }
-function open(){state.auth=globalThis.MILITOPO_V2_AUTH||state.auth;if(!isSuperAdmin()){toast("Esta zona requiere SÚPER ADMINISTRADOR.");return false}const overlay=ensureUi();overlay.classList.add("is-open");document.body.style.overflow="hidden";setTab(state.tab||"summary");refresh();return true}
+function open(){state.auth=globalThis.MILITOPO_V2_AUTH||state.auth;if(!isSuperAdmin()){toast("Esta zona requiere SÚPER ADMINISTRADOR.");return false}removeReturnButton();const overlay=ensureUi();overlay.classList.add("is-open");document.body.style.overflow="hidden";setTab(state.tab||"summary");refresh();return true}
 function close(){if(!state.overlay)return;state.overlay.classList.remove("is-open");document.body.style.overflow=""}
 function onAuth(detail){state.auth=detail||null;if(!isSuperAdmin())close()}
 
 globalThis.MILITOPO_R8_SUPER_ADMIN=Object.freeze({open,close,refresh});
 globalThis.addEventListener("militopo:r8-open-admin",open);
 globalThis.addEventListener("militopo:v2-auth-ready",event=>onAuth(event.detail));
+globalThis.addEventListener("militopo:v2-cloud-event-applied",()=>removeReturnButton());
 if(globalThis.MILITOPO_V2_AUTH)onAuth(globalThis.MILITOPO_V2_AUTH);
