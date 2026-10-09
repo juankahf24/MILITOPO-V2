@@ -224,6 +224,20 @@
     /* R9A · Responsive histórico/resultados: el scroll horizontal queda contenido dentro de la tabla. */
     .history-classification,.history-class-table-scroll{box-sizing:border-box}
     .history-class-table-scroll{contain:inline-size;touch-action:pan-x pan-y}
+
+    /* R9B · Perfil responsive: avatar protagonista, identidad más clara y rol visual. */
+    .profile-card-r9b{grid-template-columns:82px minmax(0,1fr)!important;gap:18px!important;align-items:center!important;padding:15px 16px!important;overflow:hidden}
+    .profile-card-r9b .profile-avatar-stack{width:82px;min-width:82px}
+    .profile-card-r9b .profile-avatar-trigger{width:78px!important;height:78px!important;padding:0!important;border-radius:17px!important;border:3px solid #d89b38!important;background:rgba(216,155,56,.08)!important;box-shadow:0 0 0 4px rgba(216,155,56,.09)!important;overflow:hidden!important;box-sizing:border-box!important}
+    .profile-card-r9b .profile-avatar-trigger .avatar{width:100%!important;height:100%!important;border-radius:13px!important;overflow:hidden!important;display:grid!important;place-items:center!important}
+    .profile-card-r9b .profile-avatar-trigger .avatar img{width:100%!important;height:100%!important;display:block!important;object-fit:cover!important;object-position:center!important;border-radius:12px!important}
+    .profile-identity-r9b{min-width:0;padding-left:2px;display:grid;align-content:center;justify-items:start}
+    .profile-identity-r9b .profile-name{font-size:1.02rem;line-height:1.05;letter-spacing:-.01em}
+    .profile-identity-r9b .meta{margin-top:6px;font-size:.60rem;line-height:1.45;color:#98a49b;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+    .profile-role-badge{display:inline-flex;align-items:center;gap:6px;margin-top:9px;min-height:28px;padding:0 11px;border-radius:999px;border:1px solid rgba(237,157,49,.78);background:linear-gradient(135deg,#e59a2f,#bd6e20);color:#18150f;font-size:.48rem;font-weight:1000;letter-spacing:.075em;box-shadow:0 5px 14px rgba(155,86,20,.22),inset 0 1px 0 rgba(255,255,255,.30)}
+    .profile-role-badge::before{content:"✦";font-size:.56rem;line-height:1}
+    @media(max-width:520px){.profile-card-r9b{grid-template-columns:78px minmax(0,1fr)!important;gap:16px!important;padding:14px!important}.profile-card-r9b .profile-avatar-stack{width:78px;min-width:78px}.profile-card-r9b .profile-avatar-trigger{width:74px!important;height:74px!important}.profile-identity-r9b .profile-name{font-size:.98rem}.profile-identity-r9b .meta{font-size:.58rem}.profile-role-badge{min-height:27px;padding:0 10px;font-size:.46rem}}
+    @media(max-width:370px){.profile-card-r9b{grid-template-columns:70px minmax(0,1fr)!important;gap:13px!important;padding:12px!important}.profile-card-r9b .profile-avatar-stack{width:70px;min-width:70px}.profile-card-r9b .profile-avatar-trigger{width:68px!important;height:68px!important}.profile-identity-r9b .profile-name{font-size:.92rem}.profile-identity-r9b .meta{font-size:.54rem}.profile-role-badge{margin-top:7px;min-height:25px}}
 </style>
 </head>
 <body>
@@ -301,11 +315,15 @@
     <section class="runner-panel" data-runner-panel="profile" aria-live="polite">
       <div class="panel-shell">
         <div class="runner-panel-head"><h2 class="section-title">MI PERFIL</h2><span class="panel-note">RENDIMIENTO Y CUENTA</span></div>
-        <div class="profile-card">
+        <div class="profile-card profile-card-r9b">
           <div class="profile-avatar-stack">
             <button class="profile-avatar-trigger" id="rhPhotoBtn" type="button" aria-label="Ver opciones de foto de perfil"><span class="avatar" id="rhAvatar">…</span></button>
           </div>
-          <div><div class="profile-name" id="rhName">Iniciando tu sesión…</div><div class="meta" id="rhMeta">Preparando tu cuenta.</div></div>
+          <div class="profile-identity-r9b">
+            <div class="profile-name" id="rhName">Iniciando tu sesión…</div>
+            <div class="meta" id="rhMeta">Preparando tu cuenta.</div>
+            <span class="profile-role-badge" id="rhRoleBadge" aria-label="Rol de usuario">CORREDOR</span>
+          </div>
         </div>
         <nav class="profile-tabs profile-tabs-3" aria-label="Perfil del corredor">
           <button type="button" class="is-active" data-profile-tab="summary">RESUMEN</button>
@@ -395,7 +413,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r9a-history-responsive-photo-fill-20261010"></script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r9b-profile-responsive-role-20261010"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>

@@ -10,7 +10,7 @@ import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, update
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { openProfilePhotoMenu, openProfilePhotoViewer } from "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
-const VERSION="v2-r9a-history-responsive-photo-fill-20261010";
+const VERSION="v2-r9b-profile-responsive-role-20261010";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -19,7 +19,7 @@ window.__MILITOPO_RUNNER_HOME_V4_BOOTED=true;
 try{clearTimeout(window.__MILITOPO_RUNNER_HOME_V4_WATCHDOG);}catch(_){ }
 
 const els={
-  name:document.getElementById("rhName"),meta:document.getElementById("rhMeta"),avatar:document.getElementById("rhAvatar"),
+  name:document.getElementById("rhName"),meta:document.getElementById("rhMeta"),avatar:document.getElementById("rhAvatar"),roleBadge:document.getElementById("rhRoleBadge"),
   detailsBtn:document.getElementById("rhDetailsBtn"),logoutBtn:document.getElementById("rhLogoutBtn"),details:document.getElementById("rhDetails"),photoBtn:document.getElementById("rhPhotoBtn"),photoStatus:document.getElementById("rhPhotoStatus"),
   status:document.getElementById("rhStatus"),activeEvents:document.getElementById("rhActiveEvents"),historyEvents:document.getElementById("rhHistoryEvents"),
   activeCount:document.getElementById("rhActiveCount"),historyCount:document.getElementById("rhHistoryCount"),retry:document.getElementById("rhRetry"),
@@ -103,7 +103,9 @@ async function loadProfile(app,user){
   profile=data;
   const displayName=String(data.displayName||user.displayName||user.email||"Usuario").trim();
   const username=String(data.usernameKey||data.username||"").trim().toLowerCase().replace(/^@/,"");
-  text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);paintRunnerAvatar(displayName,data.photoURL||user.photoURL||"");
+  text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);
+  const roleKey=String(data.role||"runner").toLowerCase();const roleLabel=roleKey==="super_admin"?"SÚPER ADMIN":roleKey==="organizer"?"ORGANIZADOR":"CORREDOR";text(els.roleBadge,roleLabel);
+  paintRunnerAvatar(displayName,data.photoURL||user.photoURL||"");
   if(els.detailsBtn)els.detailsBtn.disabled=false;if(els.logoutBtn)els.logoutBtn.disabled=false;
   if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> CORREDOR`;
   publishRunnerAuth();
