@@ -23,6 +23,7 @@
       flag:'<path d="M5 21V4"/><path d="M5 5h11l-2 4 2 4H5"/>',
       chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
       qr:'<rect x="3" y="3" width="6" height="6"/><rect x="15" y="3" width="6" height="6"/><rect x="3" y="15" width="6" height="6"/><path d="M15 15h2v2h-2zM19 15h2v6h-2M15 19h2v2h-2"/>',
+      admin:'<path d="M12 3 20 6v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6z"/><path d="M9 12h6M12 9v6"/>',
       close:'<path d="m6 6 12 12M18 6 6 18"/>'
     };
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]||paths.more}</svg>`;
@@ -31,6 +32,38 @@
   function roleLabel(role){return role==="super_admin"?"SÚPER ADMIN":role==="organizer"?"ORGANIZADOR":"CORREDOR"}
   function currentEventName(){return String($("#eventName")?.value||"MILITOPO ORIENTACIÓN").trim()||"MILITOPO ORIENTACIÓN"}
   function currentEventId(){return String($("#eventId")?.value||"").trim()}
+
+  /* R7F.1 · Señal de navegación robusta para Organizer.
+     Se marca por semántica/atributos y también sobre módulos creados dinámicamente.
+     Así una pestaña o control que ABRE/CAMBIA VISTA siempre recibe el chevron naranja,
+     mientras guardar, borrar, aceptar, rechazar, actualizar, GPS, etc. siguen sin él. */
+  const NAV_TARGET_SELECTOR=[
+    '[data-r1-action]','[data-more-action]','[role="tab"]','button[aria-expanded]',
+    '[data-r3-manager-action]','[data-r3-manager-tab]','[data-r3-back-manager]',
+    '[data-r4-part-tab]','[data-r4-live-jump]','[data-r4-analysis-tab]','[data-r4-go-lifecycle]',
+    '[data-r3-complete-routes]','[data-r2-route-choice]','[data-r5-race-choice]',
+    '[data-r4-results-view]','[data-h5-view]','[data-roster-filter]','[data-live-layer]','[data-track-layer]',
+    '#m2CloudRecoveryOpen','#m2OrganizerHistoryOpen','.m2-cloud-event-open','.m2-history-open-results',
+    '.m2-life-live-link','.m2-r5-reuse','.m2-r5-new-main','.analysis-tab',
+    '.r1-layer-pop [data-layer]','.layer-btn[data-layer]','.r3-routes-layers button','#toggleFinishOrganizedBtn',
+    '[data-r2-tools-toggle]','[data-r2-details="prev"]','[data-r2-details="next"]',
+    '.nav-row button','.iof-nav-buttons button','.militopo-platform-choice','.militopo-platform-back'
+  ].join(',');
+  function decorateNavigationTargets(root=document){
+    const items=[];
+    try{if(root?.matches?.(NAV_TARGET_SELECTOR))items.push(root)}catch(_){}
+    try{items.push(...root.querySelectorAll?.(NAV_TARGET_SELECTOR)||[])}catch(_){}
+    items.forEach(el=>{
+      const locked=el.matches?.('.is-locked,[disabled],[aria-disabled="true"]');
+      el.classList.toggle('militopo-nav-target',!locked);
+    });
+  }
+  function startNavigationDecorator(){
+    decorateNavigationTargets(document);
+    const observer=new MutationObserver(records=>{records.forEach(record=>record.addedNodes.forEach(node=>{if(node?.nodeType===1)decorateNavigationTargets(node)}))});
+    observer.observe(document.body,{childList:true,subtree:true});
+    state.navDecoratorObserver=observer;
+  }
 
   function buildTopbar(){
     const compass=document.createElement("img");
@@ -73,6 +106,7 @@
     const wrap=document.createElement("div");wrap.className="r1-more-backdrop";wrap.id="r1More";wrap.innerHTML=`<section class="r1-more-panel" role="dialog" aria-modal="true" aria-label="Más herramientas">
       <div class="r1-more-head"><strong>MÁS HERRAMIENTAS</strong><button class="r1-close" type="button" data-more-close aria-label="Cerrar">×</button></div>
       <div class="r1-more-grid">
+        <button class="r1-more-action r8-admin-launch" type="button" data-more-action="admin" hidden><strong>ADMINISTRACIÓN</strong><small>Usuarios, roles y supervisión global</small></button>
         ${moreAction("CONFIGURACIÓN","Datos y reglas de la carrera","config")}
         ${moreAction("PARTICIPANTES","Invitaciones, censo y asignaciones","participants")}
         ${moreAction("RECORRIDOS","Crear y revisar recorridos manuales","routes")}
@@ -338,7 +372,14 @@
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
   function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openParticipantsModule(false);return}if(a==="live"){openLiveModule(false);return}if(a==="more"){openMore();return}}
-  function runMoreAction(a){if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openParticipantsModule(false);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openResultsModule(false);if(a==="analysis")return openAnalysisModule(false);if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
+  function openSuperAdmin(){
+    closeMore();
+    if(state.role!=="super_admin"){safeCall("toast","Esta zona requiere SÚPER ADMINISTRADOR.");return false}
+    if(window.MILITOPO_R8_SUPER_ADMIN?.open){window.MILITOPO_R8_SUPER_ADMIN.open();return true}
+    globalThis.dispatchEvent(new CustomEvent("militopo:r8-open-admin"));
+    return true;
+  }
+  function runMoreAction(a){if(a==="admin")return openSuperAdmin();if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openParticipantsModule(false);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openResultsModule(false);if(a==="analysis")return openAnalysisModule(false);if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
   const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"};
   const R3_ORDER=["draft","prepared","published","live","finished","archived"];
   function currentLifecycleStatus(){return String(window.MILITOPO_V2_EVENT_STATUS?.status||state.eventStatus?.status||state.managerEvent?.status||"draft")}
@@ -626,7 +667,13 @@
     const badge=$(".r1-profile-online",button);if(badge)badge.hidden=!active;
     button.title=active?"Mi perfil · sesión iniciada":"Mi perfil";
   }
-  function setRole(role){state.role=String(role||"organizer");const pill=$("#r1RolePill");if(pill){pill.dataset.role=state.role;$("span",pill).textContent=roleLabel(state.role)}}
+  function setRole(role){
+    state.role=String(role||"organizer");
+    const pill=$("#r1RolePill");if(pill){pill.dataset.role=state.role;$("span",pill).textContent=roleLabel(state.role)}
+    const adminAction=$("[data-more-action='admin']");if(adminAction)adminAction.hidden=state.role!=="super_admin";
+    if(state.role!=="super_admin")window.MILITOPO_R8_SUPER_ADMIN?.close?.();
+    decorateNavigationTargets(document);
+  }
   function bindEvents(){
     window.addEventListener("militopo:v2-auth-ready",e=>{setRole(e.detail?.role);setProfileOnline(Boolean(e.detail?.uid))});
     window.addEventListener("militopo:v2-orientation-header",e=>{const h=e.detail?.header||{};const name=$("#r1EventName"),meta=$("#r1EventMeta");if(name&&h.eventName)name.textContent=h.eventName;if(meta&&h.eventId)meta.textContent=h.eventId});
@@ -662,7 +709,7 @@
 function init(){
     document.body.classList.add("r1-shell-active");
     try{setRole(localStorage.getItem("militopo_v2_last_role")||"organizer")}catch(_){}
-    buildTopbar();buildMapDock();buildMore();buildWorkspace();bindEvents();setProfileOnline(Boolean(window.MILITOPO_V2_AUTH?.uid));refreshContext();
+    buildTopbar();buildMapDock();buildMore();buildWorkspace();bindEvents();startNavigationDecorator();setProfileOnline(Boolean(window.MILITOPO_V2_AUTH?.uid));refreshContext();
     setTimeout(()=>{safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;state.mapHome=true;window.MILITOPO_R2_MAP_HOME?.activate?.();refreshContext()},260);
     setTimeout(refreshContext,700);setTimeout(refreshContext,1600);
   }
