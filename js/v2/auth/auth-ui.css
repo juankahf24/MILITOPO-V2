@@ -283,3 +283,10 @@ html.militopo-pwa-launch #militopoV2AccountBadge {
 .m2-account-photo-tap{color:#c9b374;font:900 .45rem/1 system-ui;letter-spacing:.08em}
 .m2-account-photo-help{display:block;margin-top:3px;color:#7f8d82;font-size:.64rem;line-height:1.25}
 @media(max-width:480px){.m2-account-identity{align-items:flex-start}.m2-account-photo-trigger{width:54px;height:54px}.m2-account-photo-trigger .m2-account-avatar{width:44px;height:44px;flex-basis:44px}.m2-account-photo-tap{font-size:.41rem}}
+
+
+/* R8L · Foto de perfil cuadrada y sin texto redundante. */
+.m2-auth-avatar,.m2-account-avatar{border-radius:10px!important}
+.m2-account-photo-trigger{border-radius:14px!important}
+.m2-account-photo-trigger .m2-account-avatar{border-radius:10px!important}
+.m2-account-photo-tap{display:none!important}

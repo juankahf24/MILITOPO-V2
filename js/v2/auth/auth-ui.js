@@ -24,7 +24,7 @@ import {
   setDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { normalizeRole } from "./roles.js";
-import { openProfilePhotoMenu } from "../profile/profile-photo-ui.js?v=v2-r8j-profile-photo-20261009";
+import { openProfilePhotoMenu } from "../profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
 const ROOT_ICON_URL = new URL("../../../icons/militopo-512.png", import.meta.url).href;
 const TRUSTED_DEVICE_KEY = "militopo_v2_trusted_device";
@@ -330,7 +330,6 @@ function buildUi() {
             <button id="m2AccountPhotoBtn" class="m2-account-photo-trigger" type="button" aria-label="Ver opciones de foto de perfil">
               <span class="m2-account-avatar" id="m2AccountAvatar">M</span>
             </button>
-            <small class="m2-account-photo-tap">TOCA LA FOTO</small>
           </div>
           <div>
             <strong id="m2AccountIdentityName">Usuario</strong>
