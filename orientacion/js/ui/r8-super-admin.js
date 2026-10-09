@@ -1,6 +1,6 @@
-/* MILITOPO · R8D · SÚPER ADMINISTRADOR
+/* MILITOPO · R8E · SÚPER ADMINISTRADOR
    Administración global: usuarios/roles y supervisión avanzada de carreras.
-   R8D integra retorno limpio desde CARGAR CARRERA y ficha rápida de supervisión.
+   R8E consolida navegación, orden de pestañas y resumen operativo accionable.
    Frontend seguro: reutiliza setUserRole y CARGAR CARRERA; no altera Functions. */
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -28,7 +28,7 @@ function ensureUi(){
   const overlay=document.createElement("div");overlay.id="r8AdminOverlay";overlay.className="r8-admin-overlay";overlay.innerHTML=`
     <section class="r8-admin-shell" role="dialog" aria-modal="true" aria-labelledby="r8AdminTitle">
       <header class="r8-admin-head"><div class="r8-admin-head-copy"><span>MILITOPO · CONTROL GLOBAL</span><h2 id="r8AdminTitle">SÚPER ADMINISTRADOR</h2><small>Usuarios, roles y supervisión general de carreras</small></div><button class="r8-admin-close" type="button" data-r8-close aria-label="Cerrar">✕</button></header>
-      <nav class="r8-admin-tabs" role="tablist" aria-label="Administración"><button class="is-active" type="button" role="tab" data-r8-tab="summary">RESUMEN</button><button type="button" role="tab" data-r8-tab="users">USUARIOS Y ROLES</button><button type="button" role="tab" data-r8-tab="events">CARRERAS</button></nav>
+      <nav class="r8-admin-tabs" role="tablist" aria-label="Administración"><button class="is-active" type="button" role="tab" data-r8-tab="summary">RESUMEN</button><button type="button" role="tab" data-r8-tab="events">CARRERAS</button><button type="button" role="tab" data-r8-tab="users">USUARIOS Y ROLES</button></nav>
       <main class="r8-admin-body">
         <div id="r8AdminStatus" class="r8-admin-status">Preparado.</div>
         <section class="r8-admin-view" data-r8-view="summary"></section>
@@ -57,10 +57,19 @@ function ownerLabel(uid){const user=state.users.find(row=>row.uid===uid);return 
 function metrics(){const roles={runner:0,organizer:0,super_admin:0};state.users.forEach(row=>roles[userRole(row)]++);const live=state.events.filter(row=>String(row.status)==="live").length;return {users:state.users.length,...roles,events:state.events.length,live}}
 function renderSummary(){
   const view=$("[data-r8-view='summary']",ensureUi());if(!view)return;const m=metrics();
-  const recent=state.events.slice().sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt)).slice(0,6);
+  const counts=eventCounts();const closed=(counts.finished||0)+(counts.archived||0);
+  const recent=state.events.slice().sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt)).slice(0,5);
   view.innerHTML=`<div class="r8-admin-metrics">
     <div class="r8-admin-metric"><strong>${m.users}</strong><span>USUARIOS</span></div><div class="r8-admin-metric"><strong>${m.runner}</strong><span>CORREDORES</span></div><div class="r8-admin-metric"><strong>${m.organizer}</strong><span>ORGANIZADORES</span></div><div class="r8-admin-metric"><strong>${m.super_admin}</strong><span>SÚPER ADMIN</span></div><div class="r8-admin-metric"><strong>${m.events}</strong><span>CARRERAS</span></div><div class="r8-admin-metric"><strong>${m.live}</strong><span>EN DIRECTO</span></div>
-  </div><section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>ACTIVIDAD DE CARRERAS</strong><small>Vista global de los eventos más recientes</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-events>VER TODAS</button></div><div class="r8-event-list">${recent.length?recent.map(eventRowHtml).join(""):'<div class="r8-admin-empty">Todavía no hay carreras.</div>'}</div></section>`;
+  </div>
+  <section class="r8-admin-section r8-ops-section"><div class="r8-admin-section-head"><div><strong>ESTADO OPERATIVO</strong><small>Pulsa un estado para ir directamente a las carreras correspondientes</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-users>GESTIONAR USUARIOS</button></div><div class="r8-ops-grid">
+    <button type="button" data-r8-summary-filter="live"><strong>${counts.live||0}</strong><span>EN DIRECTO</span><small>Seguimiento activo</small></button>
+    <button type="button" data-r8-summary-filter="published"><strong>${counts.published||0}</strong><span>PUBLICADAS</span><small>Listas para competir</small></button>
+    <button type="button" data-r8-summary-filter="prepared"><strong>${counts.prepared||0}</strong><span>PREPARADAS</span><small>Pendientes de publicar</small></button>
+    <button type="button" data-r8-summary-filter="draft"><strong>${counts.draft||0}</strong><span>BORRADORES</span><small>En preparación</small></button>
+    <button type="button" data-r8-summary-filter="closed"><strong>${closed}</strong><span>CERRADAS</span><small>Finalizadas / archivadas</small></button>
+  </div></section>
+  <section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>ACTIVIDAD DE CARRERAS</strong><small>Las 5 carreras actualizadas más recientemente</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-events>VER TODAS</button></div><div class="r8-event-list">${recent.length?recent.map(eventRowHtml).join(""):'<div class="r8-admin-empty">Todavía no hay carreras.</div>'}</div></section>`;
 }
 function filteredUsers(){const q=searchKey(state.userQuery.trim());return state.users.filter(row=>{if(state.roleFilter!=="all"&&userRole(row)!==state.roleFilter)return false;if(!q)return true;return [row.displayName,row.username,row.usernameKey,row.email,row.uid].some(value=>searchKey(value).includes(q))})}
 function userRoleCounts(){const counts={runner:0,organizer:0,super_admin:0};state.users.forEach(row=>counts[userRole(row)]++);return counts}
@@ -156,7 +165,9 @@ function onClick(event){
   const userChip=event.target.closest("[data-r8-user-chip]");if(userChip){state.roleFilter=userChip.dataset.r8UserChip||"all";state.usersVisible=USER_PAGE_SIZE;renderUsers();return}
   if(event.target.closest("[data-r8-user-load-more]")){state.usersVisible+=USER_PAGE_SIZE;renderUsers();return}
   const apply=event.target.closest("[data-r8-apply-role]");if(apply){applyRole(apply);return}
-  if(event.target.closest("[data-r8-open-events]")){setTab("events");return}
+  if(event.target.closest("[data-r8-open-events]")){state.eventStatusFilter="all";setTab("events");return}
+  if(event.target.closest("[data-r8-open-users]")){setTab("users");return}
+  const summaryFilter=event.target.closest("[data-r8-summary-filter]");if(summaryFilter){state.eventStatusFilter=summaryFilter.dataset.r8SummaryFilter||"all";state.eventQuery="";setTab("events");return}
   const openCenter=event.target.closest("[data-r8-open-organizer-center]");if(openCenter){openOrganizerCenter(openCenter.dataset.r8OpenOrganizerCenter||"");return}
   const detail=event.target.closest("[data-r8-event-detail]");if(detail){state.selectedEventId=detail.dataset.r8EventDetail||"";if(state.tab!=="events")setTab("events");else renderEvents();setTimeout(()=>$("[data-r8-event-detail-card]",state.overlay)?.scrollIntoView?.({block:"nearest",behavior:"smooth"}),20);return}
   if(event.target.closest("[data-r8-close-event-detail]")){state.selectedEventId="";renderEvents();return}

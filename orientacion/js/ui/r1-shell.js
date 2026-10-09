@@ -116,7 +116,7 @@
         ${moreAction("RESULTADOS","Resultados y clasificación","results")}
         ${moreAction("ANÁLISIS","Reproductor y análisis post-carrera","analysis")}
         ${moreAction("HISTÓRICO","Carreras finalizadas y archivadas","history")}
-        ${moreAction("AYUDA","Guía actual de Orientación","help")}
+        ${moreAction("AYUDA Y GUÍA","Centro visual de ayuda y flujo de trabajo","help")}
       </div></section>`;
     document.body.appendChild(wrap);wrap.addEventListener("click",event=>{if(event.target===wrap||event.target.closest("[data-more-close]")){closeMore();return}const a=event.target.closest("[data-more-action]")?.dataset.moreAction;if(a)runMoreAction(a)});
   }
