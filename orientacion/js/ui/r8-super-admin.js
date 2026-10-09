@@ -1,7 +1,6 @@
-/* MILITOPO · R8E · SÚPER ADMINISTRADOR
-   Administración global: usuarios/roles y supervisión avanzada de carreras.
-   R8E consolida navegación, orden de pestañas y resumen operativo accionable.
-   Frontend seguro: reutiliza setUserRole y CARGAR CARRERA; no altera Functions. */
+/* MILITOPO · R8F · SÚPER ADMINISTRADOR
+   Administración global: usuarios/roles, fichas profesionales y supervisión de carreras.
+   R8F añade ficha segura de usuario (Auth + actividad MILITOPO) mediante Function exclusiva de súper admin. */
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const EVENT_PAGE_SIZE=5;
@@ -9,7 +8,8 @@ const USER_PAGE_SIZE=10;
 const state={
   auth:null,overlay:null,users:[],events:[],tab:"summary",services:null,loading:false,
   userQuery:"",roleFilter:"all",usersVisible:USER_PAGE_SIZE,
-  eventQuery:"",eventStatusFilter:"all",eventsVisible:EVENT_PAGE_SIZE,selectedEventId:""
+  eventQuery:"",eventStatusFilter:"all",eventsVisible:EVENT_PAGE_SIZE,selectedEventId:"",
+  selectedUserId:"",userDetail:null,userDetailLoading:false,userDetailError:""
 };
 const $=(s,r=document)=>r.querySelector(s);
 const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
@@ -17,12 +17,16 @@ const searchKey=value=>String(value??"").toLocaleLowerCase("es").normalize("NFD"
 const cleanRole=value=>["runner","organizer","super_admin"].includes(String(value||""))?String(value):"runner";
 const roleLabel=value=>({runner:"CORREDOR",organizer:"ORGANIZADOR",super_admin:"SÚPER ADMIN"}[cleanRole(value)]||"CORREDOR");
 const statusLabel=value=>({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"}[String(value||"draft").toLowerCase()]||String(value||"BORRADOR").toUpperCase());
+const resultStatusLabel=value=>({finished:"FINALIZADA",incomplete:"INCOMPLETA",not_started:"NO SALIÓ"}[String(value||"not_started").toLowerCase()]||String(value||"—").toUpperCase());
 const tsMs=value=>{try{if(typeof value?.toMillis==="function")return value.toMillis();if(value?.seconds)return Number(value.seconds)*1000;const n=Date.parse(value);return Number.isFinite(n)?n:0}catch(_){return 0}};
 const statusKeys=["draft","prepared","published","live","finished","archived"];
 
 function toast(message){try{if(typeof globalThis.toast==="function")globalThis.toast(message);else console.info("[MILITOPO R8]",message)}catch(_){}}
 function isSuperAdmin(){return cleanRole(state.auth?.role||globalThis.MILITOPO_V2_AUTH?.role)==="super_admin"}
 function formatDate(value){const ms=tsMs(value);if(!ms)return "Sin fecha";try{return new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}).format(ms)}catch(_){return new Date(ms).toLocaleString("es-ES")}}
+function formatDateOnly(value){const ms=tsMs(value);if(!ms)return "—";try{return new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"2-digit",year:"numeric"}).format(ms)}catch(_){return new Date(ms).toLocaleDateString("es-ES")}}
+function formatKm(meters){const km=Math.max(0,Number(meters||0))/1000;return `${km.toLocaleString("es-ES",{minimumFractionDigits:km>=100?0:1,maximumFractionDigits:1})} km`}
+function formatPenalty(ms){const total=Math.max(0,Math.round(Number(ms||0)/60000));const h=Math.floor(total/60),m=total%60;return h?`+${h} h ${String(m).padStart(2,"0")} min`:`+${m} min`}
 function ensureUi(){
   if(state.overlay?.isConnected)return state.overlay;
   const overlay=document.createElement("div");overlay.id="r8AdminOverlay";overlay.className="r8-admin-overlay";overlay.innerHTML=`
@@ -62,12 +66,12 @@ function renderSummary(){
   view.innerHTML=`<div class="r8-admin-metrics">
     <div class="r8-admin-metric"><strong>${m.users}</strong><span>USUARIOS</span></div><div class="r8-admin-metric"><strong>${m.runner}</strong><span>CORREDORES</span></div><div class="r8-admin-metric"><strong>${m.organizer}</strong><span>ORGANIZADORES</span></div><div class="r8-admin-metric"><strong>${m.super_admin}</strong><span>SÚPER ADMIN</span></div><div class="r8-admin-metric"><strong>${m.events}</strong><span>CARRERAS</span></div><div class="r8-admin-metric"><strong>${m.live}</strong><span>EN DIRECTO</span></div>
   </div>
-  <section class="r8-admin-section r8-ops-section"><div class="r8-admin-section-head"><div><strong>ESTADO OPERATIVO</strong><small>Pulsa un estado para ir directamente a las carreras correspondientes</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-users>GESTIONAR USUARIOS</button></div><div class="r8-ops-grid">
-    <button type="button" data-r8-summary-filter="live"><strong>${counts.live||0}</strong><span>EN DIRECTO</span><small>Seguimiento activo</small></button>
-    <button type="button" data-r8-summary-filter="published"><strong>${counts.published||0}</strong><span>PUBLICADAS</span><small>Listas para competir</small></button>
-    <button type="button" data-r8-summary-filter="prepared"><strong>${counts.prepared||0}</strong><span>PREPARADAS</span><small>Pendientes de publicar</small></button>
-    <button type="button" data-r8-summary-filter="draft"><strong>${counts.draft||0}</strong><span>BORRADORES</span><small>En preparación</small></button>
-    <button type="button" data-r8-summary-filter="closed"><strong>${closed}</strong><span>CERRADAS</span><small>Finalizadas / archivadas</small></button>
+  <section class="r8-admin-section r8-ops-section"><div class="r8-admin-section-head"><div><strong>ESTADO OPERATIVO</strong><small>Pulsa un estado para ir directamente a las carreras correspondientes</small></div></div><div class="r8-ops-grid">
+    <button type="button" class="militopo-nav-target" data-r8-summary-filter="live"><strong>${counts.live||0}</strong><span>EN DIRECTO</span><small>Seguimiento activo</small></button>
+    <button type="button" class="militopo-nav-target" data-r8-summary-filter="published"><strong>${counts.published||0}</strong><span>PUBLICADAS</span><small>Listas para competir</small></button>
+    <button type="button" class="militopo-nav-target" data-r8-summary-filter="prepared"><strong>${counts.prepared||0}</strong><span>PREPARADAS</span><small>Pendientes de publicar</small></button>
+    <button type="button" class="militopo-nav-target" data-r8-summary-filter="draft"><strong>${counts.draft||0}</strong><span>BORRADORES</span><small>En preparación</small></button>
+    <button type="button" class="militopo-nav-target" data-r8-summary-filter="closed"><strong>${closed}</strong><span>CERRADAS</span><small>Finalizadas / archivadas</small></button>
   </div></section>
   <section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>ACTIVIDAD DE CARRERAS</strong><small>Las 5 carreras actualizadas más recientemente</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-events>VER TODAS</button></div><div class="r8-event-list">${recent.length?recent.map(eventRowHtml).join(""):'<div class="r8-admin-empty">Todavía no hay carreras.</div>'}</div></section>`;
 }
@@ -80,12 +84,30 @@ function renderUserSummary(){
 }
 function userRowHtml(row){
   const role=userRole(row),self=row.uid===state.auth?.uid,verified=row.emailVerified===true;const username=String(row.usernameKey||row.username||"").replace(/^@/,"");
-  return `<div class="r8-user-row" data-r8-user-row="${esc(row.uid)}"><div class="r8-user-id"><strong>${esc(row.displayName||row.email||"Usuario")}${self?' <span class="r8-self">· TÚ</span>':""}</strong>${username?`<span>@${esc(username)}</span>`:""}<small>${esc(row.email||row.uid)}</small><b class="${verified?"":"is-unverified"}">${verified?"CORREO VERIFICADO":"CORREO NO VERIFICADO"}</b></div><div class="r8-user-actions"><select class="r8-user-role" data-r8-role ${self?'disabled title="Tu propio rol no se cambia desde este panel"':""}><option value="runner" ${role==="runner"?"selected":""}>CORREDOR</option><option value="organizer" ${role==="organizer"?"selected":""}>ORGANIZADOR</option><option value="super_admin" ${role==="super_admin"?"selected":""}>SÚPER ADMIN</option></select><button type="button" class="r8-user-apply" data-r8-apply-role ${self?"disabled":""}>APLICAR</button></div><span class="r8-event-status">${roleLabel(role)}</span></div>`;
+  return `<div class="r8-user-row" data-r8-user-row="${esc(row.uid)}"><div class="r8-user-id"><div class="r8-user-name-line"><strong>${esc(row.displayName||row.email||"Usuario")}${self?' <span class="r8-self">· TÚ</span>':""}</strong><button type="button" class="r8-user-view" data-r8-user-view="${esc(row.uid)}">VER</button></div>${username?`<span>@${esc(username)}</span>`:""}<small>${esc(row.email||row.uid)}</small><b class="${verified?"":"is-unverified"}">${verified?"CORREO VERIFICADO":"CORREO NO VERIFICADO"}</b></div><div class="r8-user-actions"><select class="r8-user-role" data-r8-role ${self?'disabled title="Tu propio rol no se cambia desde este panel"':""}><option value="runner" ${role==="runner"?"selected":""}>CORREDOR</option><option value="organizer" ${role==="organizer"?"selected":""}>ORGANIZADOR</option><option value="super_admin" ${role==="super_admin"?"selected":""}>SÚPER ADMIN</option></select><button type="button" class="r8-user-apply" data-r8-apply-role ${self?"disabled":""}>APLICAR</button></div><span class="r8-event-status">${roleLabel(role)}</span></div>`;
+}
+function renderUserDetail(){
+  if(!state.selectedUserId)return "";
+  const row=state.users.find(item=>item.uid===state.selectedUserId);if(!row)return "";
+  const username=String(row.usernameKey||row.username||"").replace(/^@/,"");
+  const head=`<div class="r8-user-detail-head"><div><span>FICHA DE USUARIO</span><strong>${esc(row.displayName||row.email||"Usuario")}</strong><small>${username?`@${esc(username)} · `:""}${esc(roleLabel(userRole(row)))}</small></div><button type="button" data-r8-close-user-detail aria-label="Cerrar ficha">✕</button></div>`;
+  if(state.userDetailLoading)return `<section class="r8-user-detail" data-r8-user-detail-card>${head}<div class="r8-user-detail-loading">Cargando datos de cuenta y actividad MILITOPO…</div></section>`;
+  if(state.userDetailError)return `<section class="r8-user-detail" data-r8-user-detail-card>${head}<div class="r8-user-detail-error">${esc(state.userDetailError)}</div></section>`;
+  const d=state.userDetail;if(!d)return "";
+  const account=d.account||{},profile=d.profile||{},runner=d.runner||{},organizer=d.organizer||{};
+  const completion=runner.started?`${Math.round((Number(runner.finished||0)/Math.max(1,Number(runner.started||0)))*100)}%`:"—";
+  const organizerVisible=Number(organizer.total||0)>0||["organizer","super_admin"].includes(userRole(row));
+  return `<section class="r8-user-detail" data-r8-user-detail-card>${head}
+    <div class="r8-user-detail-identity"><div><b>CORREO</b><span>${esc(account.email||row.email||"—")}</span></div><div><b>UID</b><span>${esc(account.uid||row.uid||"—")}</span></div></div>
+    <div class="r8-user-detail-grid"><div><strong>${esc(roleLabel(account.role||userRole(row)))}</strong><span>ROL</span></div><div><strong>${account.emailVerified?"SÍ":"NO"}</strong><span>CORREO VERIFICADO</span></div><div><strong>${account.disabled?"BLOQUEADA":"ACTIVA"}</strong><span>CUENTA</span></div><div><strong>${esc(formatDateOnly(account.creationTimeMs||profile.createdAtMs))}</strong><span>REGISTRO</span></div><div><strong>${esc(formatDate(account.lastSignInTimeMs))}</strong><span>ÚLTIMO INICIO</span></div><div><strong>${esc(formatDate(profile.updatedAtMs))}</strong><span>PERFIL ACTUALIZADO</span></div></div>
+    <div class="r8-user-detail-section"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO CORREDOR</strong><small>Datos oficiales consolidados de MILITOPO</small></div><div class="r8-user-detail-grid r8-user-detail-grid-runner"><div><strong>${Number(runner.participations||0)}</strong><span>PARTICIPACIONES</span></div><div><strong>${Number(runner.started||0)}</strong><span>INICIADAS</span></div><div><strong>${Number(runner.finished||0)}</strong><span>FINALIZADAS</span></div><div><strong>${Number(runner.incomplete||0)}</strong><span>INCOMPLETAS</span></div><div><strong>${Number(runner.notStarted||0)}</strong><span>NO SALIÓ</span></div><div><strong>${completion}</strong><span>TASA FINALIZACIÓN</span></div><div><strong>${esc(formatKm(runner.trackDistanceM))}</strong><span>KM TOTALES</span></div><div><strong>${Math.round(Number(runner.positiveM||0)).toLocaleString("es-ES")} m</strong><span>DESNIVEL +</span></div><div><strong>${Number(runner.controlDetectedCount||0)}</strong><span>CONTROLES</span></div><div><strong>${Number(runner.discardedControlCount||0)}</strong><span>DESCARTES</span></div><div><strong>${esc(formatPenalty(runner.penaltyMs))}</strong><span>PENALIZACIÓN</span></div><div><strong>${esc(formatDate(runner.lastRace?.atMs))}</strong><span>ÚLTIMA CARRERA</span></div></div>${runner.lastRace?.eventName?`<div class="r8-user-last-race"><b>ÚLTIMA PARTICIPACIÓN</b><span>${esc(runner.lastRace.eventName)}</span><small>${esc(resultStatusLabel(runner.lastRace.status))}</small></div>`:""}</div>
+    ${organizerVisible?`<div class="r8-user-detail-section"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO ORGANIZADOR</strong><small>Carreras creadas por esta cuenta</small></div><div class="r8-user-detail-grid"><div><strong>${Number(organizer.total||0)}</strong><span>CARRERAS CREADAS</span></div><div><strong>${Number(organizer.live||0)}</strong><span>EN DIRECTO</span></div><div><strong>${Number(organizer.published||0)}</strong><span>PUBLICADAS</span></div><div><strong>${Number(organizer.prepared||0)}</strong><span>PREPARADAS</span></div><div><strong>${Number(organizer.draft||0)}</strong><span>BORRADORES</span></div><div><strong>${Number(organizer.finished||0)+Number(organizer.archived||0)}</strong><span>CERRADAS</span></div></div></div>`:""}
+  </section>`;
 }
 function renderUsers(){
   const view=$("[data-r8-view='users']",ensureUi());if(!view)return;
   const rows=filteredUsers(),visible=rows.slice(0,state.usersVisible),remaining=Math.max(0,rows.length-visible.length);
-  view.innerHTML=`${renderUserSummary()}<div class="r8-admin-toolbar r8-user-toolbar"><input type="search" value="${esc(state.userQuery)}" data-r8-user-search placeholder="Buscar nombre, @usuario, correo o UID" aria-label="Buscar usuarios"><select data-r8-role-filter aria-label="Filtrar usuarios por rol"><option value="all" ${state.roleFilter==="all"?"selected":""}>TODOS LOS ROLES</option><option value="runner" ${state.roleFilter==="runner"?"selected":""}>CORREDORES</option><option value="organizer" ${state.roleFilter==="organizer"?"selected":""}>ORGANIZADORES</option><option value="super_admin" ${state.roleFilter==="super_admin"?"selected":""}>SÚPER ADMIN</option></select></div><div class="r8-user-list">${visible.length?visible.map(userRowHtml).join(""):'<div class="r8-admin-empty">No hay usuarios que coincidan con el filtro.</div>'}</div>${remaining?`<div class="r8-load-more-wrap"><button type="button" class="r8-load-more" data-r8-user-load-more><span>CARGAR MÁS USUARIOS</span><small>${Math.min(USER_PAGE_SIZE,remaining)} de ${remaining} restantes</small></button></div>`:""}`;
+  view.innerHTML=`${renderUserSummary()}<div class="r8-admin-toolbar r8-user-toolbar"><input type="search" value="${esc(state.userQuery)}" data-r8-user-search placeholder="Buscar nombre, @usuario, correo o UID" aria-label="Buscar usuarios"><select data-r8-role-filter aria-label="Filtrar usuarios por rol"><option value="all" ${state.roleFilter==="all"?"selected":""}>TODOS LOS ROLES</option><option value="runner" ${state.roleFilter==="runner"?"selected":""}>CORREDORES</option><option value="organizer" ${state.roleFilter==="organizer"?"selected":""}>ORGANIZADORES</option><option value="super_admin" ${state.roleFilter==="super_admin"?"selected":""}>SÚPER ADMIN</option></select></div>${renderUserDetail()}<div class="r8-user-list">${visible.length?visible.map(userRowHtml).join(""):'<div class="r8-admin-empty">No hay usuarios que coincidan con el filtro.</div>'}</div>${remaining?`<div class="r8-load-more-wrap"><button type="button" class="r8-load-more" data-r8-user-load-more><span>CARGAR MÁS USUARIOS</span><small>${Math.min(USER_PAGE_SIZE,remaining)} de ${remaining} restantes</small></button></div>`:""}`;
 }
 function eventRowHtml(row){
   const participantCount=Math.max(0,Math.trunc(Number(row.participantCount)||0));
@@ -130,7 +152,7 @@ function renderEvents(){
   if(state.eventStatusFilter==="closed")rows=state.events.slice().filter(row=>["finished","archived"].includes(String(row.status||""))).filter(row=>{const q=searchKey(state.eventQuery.trim());if(!q)return true;return [row.eventName,row.name,row.eventId,ownerLabel(String(row.ownerUid||"")),row.ownerUid].some(value=>searchKey(value).includes(q))}).sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt));
   const visible=rows.slice(0,state.eventsVisible);const remaining=Math.max(0,rows.length-visible.length);
   const statusOptions=[["all","TODOS LOS ESTADOS"],["draft","BORRADOR"],["prepared","PREPARADO"],["published","PUBLICADO"],["live","EN DIRECTO"],["closed","CERRADAS"],["finished","FINALIZADO"],["archived","ARCHIVADO"]];
-  view.innerHTML=`${renderEventSummary()}<div class="r8-admin-toolbar r8-events-toolbar"><input type="search" value="${esc(state.eventQuery)}" data-r8-event-search placeholder="Buscar carrera, ID u organizador" aria-label="Buscar carreras"><select data-r8-event-status aria-label="Filtrar carreras por estado">${statusOptions.map(([key,label])=>`<option value="${key}" ${state.eventStatusFilter===key?"selected":""}>${label}</option>`).join("")}</select><button type="button" class="r8-admin-refresh" data-r8-refresh>ACTUALIZAR</button></div>${renderEventDetail()}<section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>SUPERVISIÓN GLOBAL</strong><small>${rows.length===state.events.length?`${rows.length} carreras accesibles como súper administrador`:`${rows.length} de ${state.events.length} carreras coinciden con el filtro`}</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-organizer-center>ABRIR CARGAR CARRERA</button></div><div class="r8-event-list">${visible.length?visible.map(eventRowHtml).join(""):'<div class="r8-admin-empty">No hay carreras que coincidan con la búsqueda o el filtro.</div>'}</div>${remaining?`<div class="r8-load-more-wrap"><button type="button" class="r8-load-more" data-r8-load-more><span>CARGAR MÁS</span><small>${Math.min(EVENT_PAGE_SIZE,remaining)} de ${remaining} restantes</small></button></div>`:""}</section>`;
+  view.innerHTML=`${renderEventSummary()}<div class="r8-admin-toolbar r8-events-toolbar"><input type="search" value="${esc(state.eventQuery)}" data-r8-event-search placeholder="Buscar carrera, ID u organizador" aria-label="Buscar carreras"><select data-r8-event-status aria-label="Filtrar carreras por estado">${statusOptions.map(([key,label])=>`<option value="${key}" ${state.eventStatusFilter===key?"selected":""}>${label}</option>`).join("")}</select></div>${renderEventDetail()}<section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>SUPERVISIÓN GLOBAL</strong><small>${rows.length===state.events.length?`${rows.length} carreras accesibles como súper administrador`:`${rows.length} de ${state.events.length} carreras coinciden con el filtro`}</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-organizer-center>ABRIR CARGAR CARRERA</button></div><div class="r8-event-list">${visible.length?visible.map(eventRowHtml).join(""):'<div class="r8-admin-empty">No hay carreras que coincidan con la búsqueda o el filtro.</div>'}</div>${remaining?`<div class="r8-load-more-wrap"><button type="button" class="r8-load-more" data-r8-load-more><span>CARGAR MÁS</span><small>${Math.min(EVENT_PAGE_SIZE,remaining)} de ${remaining} restantes</small></button></div>`:""}</section>`;
 }
 function render(){if(!state.overlay)return;if(state.tab==="summary")renderSummary();else if(state.tab==="users")renderUsers();else renderEvents()}
 async function services(){if(state.services)return state.services;if(!globalThis.MILITOPO_V2?.firebase)throw new Error("Backend de MILITOPO no disponible.");state.services=await globalThis.MILITOPO_V2.firebase();return state.services}
@@ -150,7 +172,15 @@ async function applyRole(button){
   const name=user.displayName||user.email||uid;const question=`Cambiar el rol de ${name} a ${roleLabel(role)}.\n\nEste cambio modifica sus permisos de MILITOPO.`;let accepted=true;
   if(typeof globalThis.MILITOPO_CONFIRM==="function")accepted=await globalThis.MILITOPO_CONFIRM(question,{title:"CAMBIAR ROL",confirmText:"APLICAR ROL"});else accepted=window.confirm(question);if(!accepted)return;
   button.disabled=true;setStatus(`Aplicando rol ${roleLabel(role)}…`);
-  try{const svc=await services();await svc.callable("setUserRole",{uid,role});user.roleMirror=role;setStatus(`Rol actualizado: ${name} · ${roleLabel(role)}`);render()}catch(error){console.error("[MILITOPO R8 role]",error);setStatus(`No se pudo cambiar el rol: ${String(error?.message||error)}`,true);button.disabled=false}
+  try{const svc=await services();await svc.callable("setUserRole",{uid,role});user.roleMirror=role;if(state.selectedUserId===uid&&state.userDetail?.account)state.userDetail.account.role=role;setStatus(`Rol actualizado: ${name} · ${roleLabel(role)}`);render()}catch(error){console.error("[MILITOPO R8 role]",error);setStatus(`No se pudo cambiar el rol: ${String(error?.message||error)}`,true);button.disabled=false}
+}
+async function openUserDetail(uid){
+  uid=String(uid||"").trim();if(!uid)return;
+  state.selectedUserId=uid;state.userDetail=null;state.userDetailError="";state.userDetailLoading=true;renderUsers();
+  setTimeout(()=>$('[data-r8-user-detail-card]',state.overlay)?.scrollIntoView?.({block:"nearest",behavior:"smooth"}),20);
+  try{const svc=await services();const result=await svc.callable("getAdminUserOverview",{uid});state.userDetail=result?.data||null;if(!state.userDetail)throw new Error("La ficha no devolvió datos.");}
+  catch(error){console.error("[MILITOPO R8 user detail]",error);const message=String(error?.message||error||"");state.userDetailError=message.includes("not-found")?"No se encontró esta cuenta.":message.includes("permission")?"No tienes permiso para consultar esta ficha.":"No se pudo cargar la ficha completa. Comprueba que la Function getAdminUserOverview está desplegada.";}
+  finally{state.userDetailLoading=false;renderUsers();setTimeout(()=>$('[data-r8-user-detail-card]',state.overlay)?.scrollIntoView?.({block:"nearest",behavior:"smooth"}),20)}
 }
 function openOrganizerCenter(query=""){
   const center=globalThis.MILITOPO_V2_ORGANIZER_CENTER;
@@ -164,6 +194,8 @@ function onClick(event){
   if(event.target.closest("[data-r8-refresh]")){refresh();return}
   const userChip=event.target.closest("[data-r8-user-chip]");if(userChip){state.roleFilter=userChip.dataset.r8UserChip||"all";state.usersVisible=USER_PAGE_SIZE;renderUsers();return}
   if(event.target.closest("[data-r8-user-load-more]")){state.usersVisible+=USER_PAGE_SIZE;renderUsers();return}
+  const userView=event.target.closest("[data-r8-user-view]");if(userView){openUserDetail(userView.dataset.r8UserView);return}
+  if(event.target.closest("[data-r8-close-user-detail]")){state.selectedUserId="";state.userDetail=null;state.userDetailError="";state.userDetailLoading=false;renderUsers();return}
   const apply=event.target.closest("[data-r8-apply-role]");if(apply){applyRole(apply);return}
   if(event.target.closest("[data-r8-open-events]")){state.eventStatusFilter="all";setTab("events");return}
   if(event.target.closest("[data-r8-open-users]")){setTab("users");return}
