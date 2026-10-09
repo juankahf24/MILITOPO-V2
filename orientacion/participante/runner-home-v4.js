@@ -1,4 +1,4 @@
-/* MILITOPO V2 · R8I · Runner: navegación, resultados, perfil y foto de usuario. */
+/* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
 import "./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007";
 import "./runner-history-v2.js?v=v2-r7e-runner-coherence-20261008";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
@@ -8,8 +8,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+import { openProfilePhotoMenu, openProfilePhotoViewer } from "../../js/v2/profile/profile-photo-ui.js?v=v2-r8j-profile-photo-20261009";
 
-const VERSION="v2-r8i-profile-photo-20261009";
+const VERSION="v2-r8jk-profile-classification-photo-20261009";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -19,7 +20,7 @@ try{clearTimeout(window.__MILITOPO_RUNNER_HOME_V4_WATCHDOG);}catch(_){ }
 
 const els={
   name:document.getElementById("rhName"),meta:document.getElementById("rhMeta"),avatar:document.getElementById("rhAvatar"),
-  detailsBtn:document.getElementById("rhDetailsBtn"),logoutBtn:document.getElementById("rhLogoutBtn"),details:document.getElementById("rhDetails"),photoBtn:document.getElementById("rhPhotoBtn"),photoInput:document.getElementById("rhPhotoInput"),photoStatus:document.getElementById("rhPhotoStatus"),
+  detailsBtn:document.getElementById("rhDetailsBtn"),logoutBtn:document.getElementById("rhLogoutBtn"),details:document.getElementById("rhDetails"),photoBtn:document.getElementById("rhPhotoBtn"),photoStatus:document.getElementById("rhPhotoStatus"),
   status:document.getElementById("rhStatus"),activeEvents:document.getElementById("rhActiveEvents"),historyEvents:document.getElementById("rhHistoryEvents"),
   activeCount:document.getElementById("rhActiveCount"),historyCount:document.getElementById("rhHistoryCount"),retry:document.getElementById("rhRetry"),
   headerUser:document.getElementById("rhHeaderUser"),headerHandle:document.getElementById("rhHeaderHandle"),hero:document.getElementById("rhDashboardHero"),
@@ -84,15 +85,16 @@ function paintRunnerAvatar(name,photoURL=""){
 function runnerPhotoMessage(message,type=""){
   if(!els.photoStatus)return;els.photoStatus.textContent=String(message||"");els.photoStatus.className=`profile-photo-status${type?` ${type}`:""}`;
 }
-function imageToSquareJpeg(file,size=512,quality=.86){
-  return new Promise((resolve,reject)=>{if(!file||!String(file.type||"").startsWith("image/"))return reject(new Error("Selecciona una imagen válida."));if(Number(file.size||0)>12*1024*1024)return reject(new Error("La imagen original no puede superar 12 MB."));const reader=new FileReader();reader.onerror=()=>reject(new Error("No se pudo leer la imagen."));reader.onload=()=>{const img=new Image();img.onerror=()=>reject(new Error("El formato de imagen no es compatible."));img.onload=()=>{try{const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,side=Math.min(w,h);if(!side)throw new Error("La imagen está vacía.");const canvas=document.createElement("canvas");canvas.width=size;canvas.height=size;const ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#17231a";ctx.fillRect(0,0,size,size);ctx.drawImage(img,Math.max(0,(w-side)/2),Math.max(0,(h-side)/2),side,side,0,0,size,size);canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("No se pudo preparar la foto.")),"image/jpeg",quality);}catch(error){reject(error)}};img.src=String(reader.result||"")};reader.readAsDataURL(file);});
+async function saveRunnerPhotoBlob(blob){
+  if(!currentUser||!currentApp||!blob)return;if(navigator.onLine===false){runnerPhotoMessage("Necesitas conexión para cambiar la foto.","err");return;}
+  if(els.photoBtn)els.photoBtn.disabled=true;runnerPhotoMessage("Subiendo foto…");
+  try{const sdk=await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js");const storage=sdk.getStorage(currentApp),target=sdk.ref(storage,`avatars/${currentUser.uid}/profile.jpg`);await sdk.uploadBytes(target,blob,{contentType:"image/jpeg",cacheControl:"public,max-age=3600"});const basePhotoURL=await sdk.getDownloadURL(target);const photoURL=`${basePhotoURL}${basePhotoURL.includes("?")?"&":"?"}v=${Date.now()}`;await updateProfile(currentUser,{photoURL});const db=getFirestore(currentApp);await setDoc(doc(db,"users",currentUser.uid),{photoURL,updatedAt:serverTimestamp()},{merge:true});profile={...(profile||{}),photoURL};paintRunnerAvatar(String(profile?.displayName||currentUser.displayName||currentUser.email||"Usuario"),photoURL);publishRunnerAuth();runnerPhotoMessage("Foto actualizada.","ok");}
+  catch(error){console.error("[MILITOPO runner photo]",error);const code=String(error?.code||"");runnerPhotoMessage(code.includes("storage/unauthorized")?"Falta desplegar las reglas de Storage de este bloque.":String(error?.message||"No se pudo actualizar la foto."),"err");throw error}
+  finally{if(els.photoBtn)els.photoBtn.disabled=false;}
 }
-async function uploadRunnerPhoto(file){
-  if(!currentUser||!currentApp)return;if(navigator.onLine===false){runnerPhotoMessage("Necesitas conexión para cambiar la foto.","err");return;}
-  if(els.photoBtn)els.photoBtn.disabled=true;runnerPhotoMessage("Preparando foto…");
-  try{const blob=await imageToSquareJpeg(file);const sdk=await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js");const storage=sdk.getStorage(currentApp),target=sdk.ref(storage,`avatars/${currentUser.uid}/profile.jpg`);runnerPhotoMessage("Subiendo foto…");await sdk.uploadBytes(target,blob,{contentType:"image/jpeg",cacheControl:"public,max-age=3600"});const basePhotoURL=await sdk.getDownloadURL(target);const photoURL=`${basePhotoURL}${basePhotoURL.includes("?")?"&":"?"}v=${Date.now()}`;await updateProfile(currentUser,{photoURL});const db=getFirestore(currentApp);await setDoc(doc(db,"users",currentUser.uid),{photoURL,updatedAt:serverTimestamp()},{merge:true});profile={...(profile||{}),photoURL};paintRunnerAvatar(String(profile?.displayName||currentUser.displayName||currentUser.email||"Usuario"),photoURL);publishRunnerAuth();runnerPhotoMessage("Foto actualizada.","ok");}
-  catch(error){console.error("[MILITOPO runner photo]",error);const code=String(error?.code||"");runnerPhotoMessage(code.includes("storage/unauthorized")?"Falta desplegar las reglas de Storage de este bloque.":String(error?.message||"No se pudo actualizar la foto."),"err");}
-  finally{if(els.photoBtn)els.photoBtn.disabled=false;if(els.photoInput)els.photoInput.value="";}
+function openRunnerPhotoMenu(){
+  if(!currentUser)return;const name=String(profile?.displayName||currentUser.displayName||currentUser.email||"Usuario"),photoURL=String(profile?.photoURL||currentUser.photoURL||"");
+  openProfilePhotoMenu({photoURL,name,canChange:true,onSave:saveRunnerPhotoBlob});
 }
 
 async function loadProfile(app,user){
@@ -326,6 +328,15 @@ async function getClassification(eventId){
   const promise=(async()=>{const call=httpsCallable(functions,"getEventClassification");const result=await call({eventId,clientVersion:VERSION});return result?.data||{};})();
   classificationCache.set(eventId,promise);try{return await promise;}catch(error){classificationCache.delete(eventId);throw error;}
 }
+
+function classificationName(row={}){const d=String(row.displayName||'').trim(),u=String(row.username||'').replace(/^@/,'').trim();return d||u&&`@${u}`||String(row.participantId||'Corredor')}
+function classificationInitials(row={}){const p=classificationName(row).replace(/^@/,'').trim().split(/\s+/).filter(Boolean);return ((p[0]?.[0]||'')+(p[1]?.[0]||'')).toUpperCase()||'M'}
+function classificationStatus(row={}){return ({finished:'FINALIZÓ',incomplete:'INCOMPLETA',not_started:'NO SALIÓ'})[String(row.status||'').toLowerCase()]||statusES(row.status)}
+function classificationRouteInfo(data,routeId){if(!routeId)return '';const route=(data?.routes||[]).find(item=>String(item.routeId||'')===String(routeId))||{};return `<div class="history-class-route-info"><div><small>RECORRIDO</small><strong>${esc(routeId)}</strong></div><div><small>PARTICIPANTES</small><strong>${esc(route.participantCount??(data?.byRoute?.[routeId]?.length||0))}</strong></div><div><small>DISTANCIA</small><strong>${Number.isFinite(Number(route.routeDistanceKm))?`${Number(route.routeDistanceKm).toFixed(2)} km`:'—'}</strong></div><div><small>DESNIVEL +</small><strong>${Number.isFinite(Number(route.routePositiveM))?`${Math.round(Number(route.routePositiveM))} m`:'—'}</strong></div></div>`}
+function classificationRowsHtml(rows=[]){return rows.length?rows.map(row=>{const name=classificationName(row),username=String(row.username||'').replace(/^@/,''),meta=[username?`@${username}`:'',row.participantId||'',row.routeId||''].filter(Boolean).join(' · '),photo=String(row.photoURL||'').trim(),me=String(row.runnerUid||'')===String(currentUser?.uid||''),rank=row.rank==null?'—':`${row.rank}º`,time=row.officialDurationMs==null?'—':formatDuration(row.officialDurationMs);return `<article class="history-class-row ${me?'is-me':''}"><div class="history-class-rank">${esc(rank)}</div><button type="button" class="history-class-photo" data-class-photo-uid="${esc(row.runnerUid||'')}" data-class-photo-url="${esc(photo)}" data-class-photo-name="${esc(name)}" aria-label="Ver foto de ${esc(name)}">${photo?`<img src="${esc(photo)}" alt="">`:esc(classificationInitials(row))}</button><div class="history-class-person"><strong>${esc(name)}${me?' · TÚ':''}</strong><span>${esc(meta||classificationStatus(row))}</span></div><div class="history-class-time"><strong>${esc(time)}</strong><span>${esc(classificationStatus(row))}</span></div></article>`}).join(''):'<div class="history-class-empty">Sin corredores en esta clasificación.</div>'}
+function renderHistoricalClassification(data,view='general'){if(!data)return '';const routeIds=(data.routes||[]).map(r=>String(r.routeId||'')).filter(Boolean);const active=view==='general'?'general':(routeIds.includes(view)?view:'general');const rows=active==='general'?(data.general||[]):((data.byRoute||{})[active]||[]);const tabs=[`<button type="button" class="${active==='general'?'is-active':''}" data-history-class-view="general">GENERAL</button>`,...routeIds.map(id=>`<button type="button" class="${active===id?'is-active':''}" data-history-class-view="${esc(id)}">${esc(id)}</button>`)].join('');const summary=data.summary||{};return `<section class="history-classification" data-history-classification data-current-view="${esc(active)}"><div class="history-class-head"><div><small>CLASIFICACIÓN DE LA CARRERA</small><strong>${active==='general'?'GENERAL':`RECORRIDO ${esc(active)}`}</strong></div><span>${esc(summary.total??rows.length)} participantes · ${esc(routeIds.length)} recorridos</span></div><div class="history-class-tabs">${tabs}</div>${active==='general'?'':classificationRouteInfo(data,active)}<div class="history-class-list">${classificationRowsHtml(rows)}</div></section>`}
+function bindHistoricalClassification(root,data){if(!root||!data)return;root.querySelectorAll('[data-history-class-view]').forEach(btn=>btn.addEventListener('click',()=>{const section=root.querySelector('[data-history-classification]');if(!section)return;section.outerHTML=renderHistoricalClassification(data,btn.dataset.historyClassView||'general');bindHistoricalClassification(root,data)}));root.querySelectorAll('[data-class-photo-uid]').forEach(btn=>btn.addEventListener('click',()=>{const uid=String(btn.dataset.classPhotoUid||''),photoURL=String(btn.dataset.classPhotoUrl||''),name=String(btn.dataset.classPhotoName||'Corredor');if(uid&&uid===String(currentUser?.uid||''))openProfilePhotoMenu({photoURL:profile?.photoURL||photoURL,name,canChange:true,onSave:saveRunnerPhotoBlob});else openProfilePhotoViewer({photoURL,name})}))}
+
 async function hydrateVisibleRanks(){
   const nodes=[...document.querySelectorAll("[data-rank-event]")];
   await Promise.allSettled(nodes.map(async node=>{
@@ -390,7 +401,8 @@ async function openResultDetail(eventId,eventName){
     const replayReady=Array.isArray(d.track)&&d.track.length>1;
     if(els.resultBody){
       if(state==="not_started"){
-        els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>NO SALIÓ</strong></div><div class="detail-general"><small>RECORRIDO</small><strong class="detail-rank">${esc(routeId)}</strong></div></div><div class="detail-empty-result"><strong>Sin salida registrada</strong><span>No hay tiempos, penalizaciones ni datos GPS que mostrar para esta participación.</span></div>`;
+        els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>NO SALIÓ</strong></div><div class="detail-general"><small>RECORRIDO</small><strong class="detail-rank">${esc(routeId)}</strong></div></div><div class="detail-empty-result"><strong>Sin salida registrada</strong><span>No hay tiempos, penalizaciones ni datos GPS que mostrar para esta participación.</span></div>${renderHistoricalClassification(classRes)}`;
+        bindHistoricalClassification(els.resultBody,classRes);
         return;
       }
       const controls=Number(r.controlExpectedCount||0)>0?`${Math.max(0,Number(r.controlDetectedCount||0))}/${Math.max(0,Number(r.controlExpectedCount||0))}`:"—";
@@ -408,8 +420,9 @@ async function openResultDetail(eventId,eventName){
         ["RITMO",Number.isFinite(Number(r.paceMinKm))?`${Number(r.paceMinKm).toFixed(2)} min/km`:"—"],
         ["VELOCIDAD MEDIA",Number.isFinite(Number(r.avgSpeedKmh))?`${Number(r.avgSpeedKmh).toFixed(2)} km/h`:"—"]
       ];
-      els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>${esc(statusES(state))}</strong></div><div class="detail-general"><small>GENERAL</small><strong class="detail-rank">${esc(generalRank)}</strong></div></div><div class="detail-grid">${boxes.map(([a,b])=>`<div class="detail-box"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join("")}</div>${replayReady?`<button class="btn replay result-replay-btn" type="button" data-open-result-replay>▶ MAPA Y REPRODUCTOR GPS</button>`:`<div class="detail-note">Este resultado no contiene un track GPS reproducible.</div>`}`;
+      els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>${esc(statusES(state))}</strong></div><div class="detail-general"><small>GENERAL</small><strong class="detail-rank">${esc(generalRank)}</strong></div></div><div class="detail-grid">${boxes.map(([a,b])=>`<div class="detail-box"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join("")}</div>${replayReady?`<button class="btn replay result-replay-btn" type="button" data-open-result-replay>▶ MAPA Y REPRODUCTOR GPS</button>`:`<div class="detail-note">Este resultado no contiene un track GPS reproducible.</div>`}${renderHistoricalClassification(classRes)}`;
       els.resultBody.querySelector("[data-open-result-replay]")?.addEventListener("click",async()=>{closeResultModal();await globalThis.MILITOPO_RUNNER_HISTORY_V2?.open?.({detail:d,classification:classRes,eventName:eventName||d.event?.eventName||"Carrera"});});
+      bindHistoricalClassification(els.resultBody,classRes);
     }
   }catch(error){console.error("[MILITOPO runner result detail]",error);if(els.resultBody)els.resultBody.innerHTML=`<div class="status err">No se pudo cargar este resultado. ${esc(error?.message||"")}</div>`;}
 }
@@ -505,8 +518,7 @@ function schedulePostRaceRefresh(eventId){
 
 async function boot(){try{const app=await initFirebase();currentApp=app;updateConnectivity();const user=await waitForUser();if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");currentUser=user;if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");await loadProfile(app,user);startInvitationRealtime(app);await loadEvents(app);}catch(error){console.error("[MILITOPO runner boot]",error);text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}}
 
-els.photoBtn?.addEventListener("click",()=>els.photoInput?.click());
-els.photoInput?.addEventListener("change",event=>{const file=event.target?.files?.[0];if(file)uploadRunnerPhoto(file);});
+els.photoBtn?.addEventListener("click",openRunnerPhotoMenu);
 els.detailsBtn?.addEventListener("click",()=>{els.details?.classList.toggle("show");if(els.detailsBtn)els.detailsBtn.textContent=els.details?.classList.contains("show")?"OCULTAR DATOS":"VER DATOS DE CUENTA";});
 els.logoutBtn?.addEventListener("click",async()=>{stopInvitationRealtime();stopActiveEventRealtime();try{globalThis.MILITOPO_V2_AUTH=null;}catch(_){}try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
 els.retry?.addEventListener("click",()=>{const app=findApp();if(app)loadEvents(app);});
