@@ -1,5 +1,6 @@
-/* MILITOPO V2 · Fase D3 · centro de eventos del Organizador.
+/* MILITOPO V2 · R8D · centro de eventos del Organizador.
    Organizer: solo sus eventos. Super admin: todos los eventos accesibles.
+   R8D añade búsqueda incremental por subcadena y retorno integrado a Administración.
    Mantiene la recuperación C3 y nunca borra eventos físicamente. */
 import "../bootstrap.js";
 import {
@@ -24,6 +25,8 @@ const state = {
   openResultsAfterRecover: "",
   reuseAfterRecover: "",
   filter: "all",
+  query: "",
+  adminReturn: false,
   historyFilter: "all",
   historyRows: []
 };
@@ -108,6 +111,9 @@ function esc(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+function searchKey(value) {
+  return String(value ?? "").toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
 
 async function services() {
   if (state.services) return state.services;
@@ -175,8 +181,8 @@ function ensureStyles() {
     .m2-cloud-event-open{min-height:42px;flex:0 0 auto;border-radius:10px;padding:9px 13px;background:#e5ead8;color:#111811}.m2-cloud-event-open:disabled{opacity:.55}
     @media(max-width:760px){.m2-cloud-recovery-overlay{padding:0}.m2-cloud-recovery-panel{width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;padding:14px}.m2-cloud-recovery-head{top:-14px;margin:-14px -14px 12px;padding:calc(14px + env(safe-area-inset-top)) 14px 12px}.m2-cloud-recovery-list.m2-r3-grid{grid-template-columns:1fr}.m2-r3-summary{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r3-head-actions .m2-r3-head-btn:not(.is-new){display:none}}
     @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:auto}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-r3-event-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.m2-r3-event-footer{align-items:flex-end}}
-    .m2-r5-choice{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:4px 0 14px}.m2-r5-choice button{min-height:82px;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:12px;background:#202b21;color:#eef1e6;text-align:left;display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:center;cursor:pointer}.m2-r5-choice button.is-active{background:#edf0df;color:#172018;border-color:#edf0df}.m2-r5-choice-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#101711;font-size:1.25rem}.m2-r5-choice button.is-active .m2-r5-choice-icon{background:#2f5b39;color:#fff}.m2-r5-choice strong{display:block;font:950 .77rem/1.05 system-ui}.m2-r5-choice small{display:block;margin-top:4px;font:650 .58rem/1.25 system-ui;opacity:.75}.m2-r5-existing-wrap[hidden]{display:none!important}.m2-r5-filterbar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;align-items:center;margin:8px 0 12px;padding:9px 10px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#171f17}.m2-r5-filterbar label{font:900 .57rem/1 system-ui;letter-spacing:.09em;color:#b6c0b3}.m2-r5-filterbar select{width:100%;min-height:40px;border:1px solid #d8ddc9;border-radius:10px;padding:8px 34px 8px 10px;background:#f8f5e6!important;color:#101810!important;-webkit-text-fill-color:#101810!important;font:900 .70rem/1 system-ui;color-scheme:light}.m2-r5-event-actions{display:flex;gap:7px;align-items:center}.m2-r5-reuse{min-height:38px;border:1px solid rgba(205,171,92,.32);border-radius:10px;padding:8px 10px;background:rgba(205,171,92,.10);color:#f2ddb0;font:900 .58rem/1 system-ui;cursor:pointer}.m2-r5-reuse:disabled{opacity:.42;cursor:not-allowed}.m2-r5-new-note{padding:12px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#141d15;color:#c7d0c4;font:650 .68rem/1.4 system-ui}.m2-r5-new-main{margin-top:10px;width:100%;min-height:48px;border:0;border-radius:13px;background:#edf0df;color:#172018;font:950 .72rem/1 system-ui;cursor:pointer}
-    @media(max-width:600px){.m2-r5-choice{grid-template-columns:1fr}.m2-r5-choice button{min-height:68px}.m2-r5-filterbar{grid-template-columns:1fr}.m2-r5-event-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}}
+    .m2-r5-choice{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:4px 0 11px}.m2-r5-choice.is-admin-context{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r5-choice button{min-width:0;min-height:64px;border:1px solid rgba(255,255,255,.12);border-radius:13px;padding:8px 9px;background:#202b21;color:#eef1e6;text-align:left;display:grid;grid-template-columns:31px minmax(0,1fr);gap:7px;align-items:center;cursor:pointer}.m2-r5-choice button.is-active{background:#edf0df;color:#172018;border-color:#edf0df}.m2-r5-choice-icon{width:31px;height:31px;border-radius:9px;display:grid;place-items:center;background:#101711;font-size:1rem}.m2-r5-choice button.is-active .m2-r5-choice-icon{background:#2f5b39;color:#fff}.m2-r5-choice strong{display:block;font:950 .67rem/1.05 system-ui}.m2-r5-choice small{display:block;margin-top:3px;font:650 .51rem/1.18 system-ui;opacity:.75}.m2-r5-admin-return{border-color:rgba(240,163,84,.52)!important;background:rgba(240,163,84,.10)!important;color:#f7e8c7!important}.m2-r5-admin-return .m2-r5-choice-icon{color:#f0a354}.m2-r5-existing-wrap[hidden]{display:none!important}.m2-r5-filterbar{display:grid;grid-template-columns:auto minmax(160px,1fr) minmax(150px,.55fr);gap:8px;align-items:center;margin:8px 0 12px;padding:9px 10px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#171f17}.m2-r5-filterbar label{font:900 .57rem/1 system-ui;letter-spacing:.09em;color:#b6c0b3}.m2-r5-filterbar input,.m2-r5-filterbar select{width:100%;min-height:40px;box-sizing:border-box;border:1px solid #d8ddc9;border-radius:10px;padding:8px 10px;background:#f8f5e6!important;color:#101810!important;-webkit-text-fill-color:#101810!important;font:900 .70rem/1 system-ui;color-scheme:light}.m2-r5-filterbar input::placeholder{color:#596258;opacity:1}.m2-r5-filterbar select{padding-right:34px}.m2-r5-result-count{grid-column:2/4;font:750 .54rem/1.2 system-ui;color:#aeb8ad}.m2-r5-event-actions{display:flex;gap:7px;align-items:center}.m2-r5-reuse{min-height:38px;border:1px solid rgba(205,171,92,.32);border-radius:10px;padding:8px 10px;background:rgba(205,171,92,.10);color:#f2ddb0;font:900 .58rem/1 system-ui;cursor:pointer}.m2-r5-reuse:disabled{opacity:.42;cursor:not-allowed}.m2-r5-new-note{padding:12px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#141d15;color:#c7d0c4;font:650 .68rem/1.4 system-ui}.m2-r5-new-main{margin-top:10px;width:100%;min-height:48px;border:0;border-radius:13px;background:#edf0df;color:#172018;font:950 .72rem/1 system-ui;cursor:pointer}
+    @media(max-width:600px){.m2-r5-choice{grid-template-columns:1fr 1fr}.m2-r5-choice.is-admin-context{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r5-choice button{min-height:58px;padding:7px;grid-template-columns:27px minmax(0,1fr);gap:5px}.m2-r5-choice-icon{width:27px;height:27px;font-size:.9rem}.m2-r5-choice strong{font-size:.57rem}.m2-r5-choice small{display:none}.m2-r5-filterbar{grid-template-columns:1fr}.m2-r5-filterbar label{grid-column:1}.m2-r5-filterbar input,.m2-r5-filterbar select{font-size:16px!important}.m2-r5-result-count{grid-column:1}.m2-r5-event-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}}
   `;
   document.head.appendChild(style);
 }
@@ -242,6 +248,7 @@ function ensureOverlay() {
       <div class="m2-r5-choice" role="tablist" aria-label="Opciones de carrera">
         <button type="button" class="is-active" data-r5-race-choice="existing" role="tab" aria-selected="true"><span class="m2-r5-choice-icon">☁</span><span><strong>CARRERA EXISTENTE</strong><small>Cargar o reutilizar una carrera guardada</small></span></button>
         <button type="button" data-r5-race-choice="new" role="tab" aria-selected="false"><span class="m2-r5-choice-icon">＋</span><span><strong>NUEVA DESDE CERO</strong><small>Crear un borrador completamente vacío</small></span></button>
+        <button type="button" class="m2-r5-admin-return" data-r8-admin-return hidden><span class="m2-r5-choice-icon">‹</span><span><strong>VOLVER A ADMIN</strong><small>Regresar a Supervisión global</small></span></button>
       </div>
       <div class="m2-r5-existing-wrap" id="m2R5ExistingWrap">
         <div id="m2R3RaceSummary" class="m2-r3-summary"></div>
@@ -265,13 +272,17 @@ function ensureOverlay() {
     });
   };
   overlay.querySelectorAll("[data-r5-race-choice]").forEach(button => button.addEventListener("click", () => choose(button.dataset.r5RaceChoice)));
+  overlay.querySelector("[data-r8-admin-return]")?.addEventListener("click", () => {
+    closeOverlay();
+    globalThis.dispatchEvent(new CustomEvent("militopo:r8-return-admin", { detail:{ tab:"events" } }));
+  });
   overlay.querySelector("#m2R5CreateFromZero")?.addEventListener("click", () => {
     globalThis.dispatchEvent(new CustomEvent("militopo:r3-new-race"));
   });
   overlay.querySelector(".m2-cloud-recovery-close")?.addEventListener("click", closeOverlay);
   overlay.querySelector("#m2R3Refresh")?.addEventListener("click", () => {
     if (state.overlayMode === "history") openHistoryPicker();
-    else openCloudPicker(false);
+    else openCloudPicker(false, { returnToAdmin:state.adminReturn });
   });
   overlay.addEventListener("click", event => {
     if (event.target === overlay) closeOverlay();
@@ -393,19 +404,31 @@ function renderEventList(rows) {
     ["all","TODAS"],["draft","BORRADOR"],["prepared","PREPARADO"],["published","PUBLICADO"],
     ["live","EN DIRECTO"],["finished","FINALIZADO"],["archived","ARCHIVADO"]
   ];
+  const queryKey = searchKey(state.query);
+  const byStatus = state.filter === "all" ? rows : rows.filter(row => String(row.status || "draft") === state.filter);
+  const visible = !queryKey ? byStatus : byStatus.filter(row => {
+    const haystack = [row.eventName,row.eventId,statusLabel(row.status),row.ownerUid].map(searchKey).join(" ");
+    return haystack.includes(queryKey);
+  });
   if (filters) {
     filters.hidden = false;
     const options = filterDefs.map(([key,label]) => `<option value="${key}"${state.filter === key ? " selected" : ""}>${label} · ${key === "all" ? rows.length : (counts[key] || 0)}</option>`).join("");
-    filters.innerHTML = `<div class="m2-r5-filterbar"><label for="m2R5FilterSelect">FILTRAR CARRERAS</label><select id="m2R5FilterSelect" aria-label="Filtrar carreras por estado">${options}</select></div>`;
+    filters.innerHTML = `<div class="m2-r5-filterbar"><label for="m2R5Search">BUSCAR / FILTRAR</label><input id="m2R5Search" type="search" value="${esc(state.query)}" placeholder="Nombre o ID de carrera" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Buscar carreras"><select id="m2R5FilterSelect" aria-label="Filtrar carreras por estado">${options}</select><span class="m2-r5-result-count">${visible.length} de ${rows.length} carrera${rows.length === 1 ? "" : "s"}</span></div>`;
     filters.querySelector("#m2R5FilterSelect")?.addEventListener("change", event => {
       state.filter = event.target.value || "all";
       renderEventList(rows);
     });
+    filters.querySelector("#m2R5Search")?.addEventListener("input", event => {
+      state.query = event.target.value || "";
+      const caret = event.target.selectionStart ?? state.query.length;
+      renderEventList(rows);
+      const next = document.getElementById("m2R5Search");
+      if (next) { next.focus({preventScroll:true}); try { next.setSelectionRange(caret,caret); } catch (_) {} }
+    });
   }
-  const visible = state.filter === "all" ? rows : rows.filter(row => String(row.status || "draft") === state.filter);
   state.list.classList.add("m2-r3-grid");
   if (!visible.length) {
-    state.list.innerHTML = `<div class="m2-cloud-recovery-empty">No hay carreras en este estado.</div>`;
+    state.list.innerHTML = `<div class="m2-cloud-recovery-empty">No hay carreras que coincidan con la búsqueda o el filtro.</div>`;
     return;
   }
   state.list.innerHTML = visible.map(row => {
@@ -572,17 +595,23 @@ async function openHistoryPicker() {
   }
 }
 
-async function openCloudPicker(resetFilter = true) {
+async function openCloudPicker(resetFilter = true, options = {}) {
   const launcher = document.getElementById("m2CloudRecoveryOpen");
   if (state.busy) return;
   ensureOverlay();
-  if (resetFilter) state.filter = "all";
+  if (resetFilter) { state.filter = "all"; state.query = ""; }
+  state.adminReturn = options?.returnToAdmin === true;
+  if (typeof options?.query === "string") state.query = options.query;
   state.overlayMode = "events";
   const title = document.getElementById("m2CloudRecoveryTitle");
   const subtitle = document.getElementById("m2CloudRecoverySubtitle");
   if (title) title.textContent = "CARGAR / CREAR CARRERA";
   if (subtitle) subtitle.textContent = "Abre una carrera, reutiliza su diseño o crea una nueva desde cero.";
-  state.overlay?.querySelector(".m2-r5-choice")?.removeAttribute("hidden");
+  const choice = state.overlay?.querySelector(".m2-r5-choice");
+  choice?.removeAttribute("hidden");
+  choice?.classList.toggle("is-admin-context", state.adminReturn);
+  const adminReturn = state.overlay?.querySelector("[data-r8-admin-return]");
+  if (adminReturn) adminReturn.hidden = !state.adminReturn;
   document.getElementById("m2R5ExistingWrap")?.removeAttribute("hidden");
   document.getElementById("m2R5NewWrap")?.setAttribute("hidden", "");
   state.overlay?.querySelectorAll("[data-r5-race-choice]").forEach(button=>{const active=button.dataset.r5RaceChoice==="existing";button.classList.toggle("is-active",active);button.setAttribute("aria-selected",String(active))});
@@ -726,8 +755,8 @@ function onApplied(event) {
 }
 
 globalThis.MILITOPO_V2_ORGANIZER_CENTER = Object.freeze({
-  open: () => openCloudPicker(true),
-  refresh: () => openCloudPicker(false),
+  open: (options = {}) => openCloudPicker(true, options),
+  refresh: () => openCloudPicker(false, { returnToAdmin:state.adminReturn }),
   close: closeOverlay
 });
 
@@ -738,7 +767,7 @@ function init() {
   globalThis.addEventListener("militopo:v2-cloud-event-applied", onApplied);
   globalThis.addEventListener("militopo:v2-event-status-changed", () => {
     if (state.overlayMode === "events" && state.overlay && !state.overlay.hidden) {
-      setTimeout(() => openCloudPicker(false), 180);
+      setTimeout(() => openCloudPicker(false, { returnToAdmin:state.adminReturn }), 180);
     }
   });
   globalThis.addEventListener("online", () => {
