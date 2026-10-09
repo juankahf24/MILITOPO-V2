@@ -1,7 +1,6 @@
-/* MILITOPO · R8H · SÚPER ADMINISTRADOR
+/* MILITOPO · R8I · SÚPER ADMINISTRADOR
    Administración global: usuarios/roles, fichas profesionales y supervisión de carreras.
-   R8H convierte VER en un perfil de usuario a pantalla completa, mejora navegación móvil
-   y normaliza visualmente la iconografía de actividad. */
+   R8I compacta la ficha seleccionada en una pantalla fija sin scroll e integra foto de perfil. */
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const EVENT_PAGE_SIZE=5;
@@ -58,6 +57,10 @@ function detailMetric(iconName,value,label,sub=""){
 }
 function detailPill(iconName,value,label,kind=""){
   return `<div class="r8-detail-pill ${esc(kind)}"><span>${icon(iconName)}</span><div><strong>${esc(value)}</strong><small>${esc(label)}</small></div></div>`;
+}
+function profilePhoto(photoURL,role,className=""){
+  const url=String(photoURL||"").trim();
+  return `<span class="r8-user-profile-photo ${esc(className)}" data-role="${esc(role)}">${url?`<img src="${esc(url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:icon("user")}</span>`;
 }
 function ensureUi(){
   if(state.overlay?.isConnected)return state.overlay;
@@ -120,7 +123,7 @@ function userRowHtml(row){
   const display=String(row.displayName||username||row.email||"Usuario");
   const secondary=username?`@${username}`:String(row.email||"");
   return `<article class="r8-user-row r8-user-row-compact" data-r8-user-row="${esc(row.uid)}">
-    <div class="r8-user-compact-id"><span class="r8-user-avatar" data-role="${esc(role)}">${icon("user")}</span><div><strong>${esc(display)}${self?' <span class="r8-self">· TÚ</span>':""}</strong>${secondary?`<span>${esc(secondary)}</span>`:""}</div></div>
+    <div class="r8-user-compact-id">${profilePhoto(row.photoURL,role,"r8-user-avatar")}<div><strong>${esc(display)}${self?' <span class="r8-self">· TÚ</span>':""}</strong>${secondary?`<span>${esc(secondary)}</span>`:""}</div></div>
     <div class="r8-user-compact-actions">
       <span class="r8-mail-state ${verified?"is-ok":"is-pending"}" title="${verified?"Correo verificado":"Correo pendiente de verificar"}" aria-label="${verified?"Correo verificado":"Correo no verificado"}">${icon(verified?"check":"alert")}</span>
       <select class="r8-user-role r8-user-role-compact" data-r8-role ${self?'disabled title="Tu propio rol no se cambia desde este panel"':""} aria-label="Rol de ${esc(display)}"><option value="runner" ${role==="runner"?"selected":""}>CORREDOR</option><option value="organizer" ${role==="organizer"?"selected":""}>ORGANIZADOR</option><option value="super_admin" ${role==="super_admin"?"selected":""}>SÚPER ADMIN</option></select>
@@ -135,7 +138,8 @@ function renderUserDetail(){
   const username=String(row.usernameKey||row.username||"").replace(/^@/,"");
   const role=userRole(row);
   const display=String(row.displayName||row.email||"Usuario");
-  const profileHead=`<header class="r8-user-profile-head"><div class="r8-user-profile-head-inner"><button type="button" class="r8-user-profile-back" data-r8-close-user-detail aria-label="Volver a usuarios">${icon("back")}<span>VOLVER</span></button><div class="r8-user-profile-title"><span class="r8-user-profile-photo" data-role="${esc(role)}">${icon("user")}</span><div><small>PERFIL DE USUARIO</small><strong>${esc(display)}</strong><span>${username?`@${esc(username)} · `:""}${esc(roleLabel(role))}</span></div></div></div></header>`;
+  const headPhoto=profilePhoto(row.photoURL,role,"");
+  const profileHead=`<header class="r8-user-profile-head"><div class="r8-user-profile-head-inner"><button type="button" class="r8-user-profile-back" data-r8-close-user-detail aria-label="Volver a usuarios">${icon("back")}<span>VOLVER</span></button><div class="r8-user-profile-title">${headPhoto}<div><small>PERFIL DE USUARIO</small><strong>${esc(display)}</strong><span>${username?`@${esc(username)} · `:""}${esc(roleLabel(role))}</span></div></div></div></header>`;
   if(state.userDetailLoading)return `<section class="r8-user-profile-full" data-r8-user-detail-card>${profileHead}<main class="r8-user-profile-main"><div class="r8-user-profile-content"><div class="r8-user-detail-loading r8-user-profile-state">${icon("activity")}<span>Cargando actividad MILITOPO…</span></div></div></main></section>`;
   if(state.userDetailError)return `<section class="r8-user-profile-full" data-r8-user-detail-card>${profileHead}<main class="r8-user-profile-main"><div class="r8-user-profile-content"><div class="r8-user-detail-error r8-user-profile-state">${icon("alert")}<span>${esc(state.userDetailError)}</span></div></div></main></section>`;
   const d=state.userDetail;if(!d)return "";
@@ -151,8 +155,8 @@ function renderUserDetail(){
   const runnerMetrics=[
     detailMetric("race",Number(runner.participations||0),"PARTICIPACIONES"),
     detailMetric("trophy",Number(runner.finished||0),"FINALIZADAS"),
-    detailMetric("route",formatKm(runner.trackDistanceM),"KM RECORRIDOS","Distancia GPS acumulada"),
-    detailMetric("mountain",`${Math.round(Number(runner.positiveM||0)).toLocaleString("es-ES")} m`,"DESNIVEL + ACUMULADO","Suma de todos los ascensos positivos"),
+    detailMetric("route",formatKm(runner.trackDistanceM),"KM RECORRIDOS","GPS acumulado"),
+    detailMetric("mountain",`${Math.round(Number(runner.positiveM||0)).toLocaleString("es-ES")} m`,"DESNIVEL +","Ascenso acumulado"),
     detailMetric("target",Number(runner.controlDetectedCount||0),"CONTROLES"),
     detailMetric("discard",Number(runner.discardedControlCount||0),"DESCARTES")
   ].join("");
@@ -165,7 +169,7 @@ function renderUserDetail(){
   ].filter(Boolean).join("");
   const hasRunnerActivity=Number(runner.participations||0)>0||Number(runner.trackDistanceM||0)>0;
   const organizerMetrics=organizerVisible?[
-    detailMetric("race",Number(organizer.total||0),"CARRERAS CREADAS"),
+    detailMetric("race",Number(organizer.total||0),"CARRERAS"),
     detailMetric("activity",Number(organizer.live||0),"EN DIRECTO"),
     detailMetric("flag",Number(organizer.published||0),"PUBLICADAS"),
     detailMetric("target",Number(organizer.prepared||0),"PREPARADAS"),
@@ -173,20 +177,20 @@ function renderUserDetail(){
     detailMetric("check",Number(organizer.finished||0)+Number(organizer.archived||0),"CERRADAS")
   ].join(""):"";
   const lastRaceDate=tsMs(runner.lastRace?.atMs);
+  const photoURL=profile.photoURL||row.photoURL||account.photoURL||"";
   return `<section class="r8-user-profile-full" data-r8-user-detail-card>${profileHead}<main class="r8-user-profile-main"><div class="r8-user-profile-content">
-    <section class="r8-user-profile-hero"><div class="r8-user-profile-identity"><span class="r8-user-profile-photo r8-user-profile-photo-large" data-role="${esc(role)}">${icon("user")}</span><div><small>USUARIO SELECCIONADO</small><h3>${esc(display)}</h3><p>${username?`@${esc(username)}`:"Sin nombre de usuario"}</p></div></div><div class="r8-user-profile-badges"><span class="r8-profile-role">${icon("shield")} ${esc(roleLabel(account.role||role))}</span><span class="r8-profile-status ${active?"is-active":"is-disabled"}">${icon(active?"shield":"lock")} ${active?"ACTIVA":"BLOQUEADA"}</span></div></section>
+    <section class="r8-user-profile-hero"><div class="r8-user-profile-identity">${profilePhoto(photoURL,role,"r8-user-profile-photo-large")}<div><small>USUARIO SELECCIONADO</small><h3>${esc(display)}</h3><p>${username?`@${esc(username)}`:"Sin nombre de usuario"}</p></div></div><div class="r8-user-profile-badges"><span class="r8-profile-role">${icon("shield")} ${esc(roleLabel(account.role||role))}</span><span class="r8-profile-status ${active?"is-active":"is-disabled"}">${icon(active?"shield":"lock")} ${active?"ACTIVA":"BLOQUEADA"}</span></div></section>
     <section class="r8-user-detail r8-user-detail-visual r8-user-detail-fullscreen">
-      <div class="r8-user-account-strip">
-        <div class="r8-account-email">${icon("mail")}<div><small>CORREO</small><strong>${esc(account.email||row.email||"Sin correo")}</strong></div><span class="r8-mail-state ${verified?"is-ok":"is-pending"}" title="${verified?"Correo verificado":"Correo pendiente de verificar"}">${icon(verified?"check":"alert")}</span></div>
-        <div class="r8-account-status ${active?"is-active":"is-disabled"}">${icon(active?"shield":"lock")}<span>${active?"CUENTA ACTIVA":"CUENTA BLOQUEADA"}</span></div>
-        <div class="r8-account-role">${icon("shield")}<span>${esc(roleLabel(account.role||role))}</span></div>
-      </div>
+      <div class="r8-user-account-strip r8-user-account-strip-single"><div class="r8-account-email">${icon("mail")}<div><small>CORREO</small><strong>${esc(account.email||row.email||"Sin correo")}</strong></div><span class="r8-mail-state ${verified?"is-ok":"is-pending"}" title="${verified?"Correo verificado":"Correo pendiente de verificar"}">${icon(verified?"check":"alert")}</span></div></div>
       ${dates.length?`<div class="r8-detail-pills r8-date-pills">${dates.join("")}</div>`:""}
-      <div class="r8-user-detail-section"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO CORREDOR</strong><small>Resumen acumulado en MILITOPO</small></div>${hasRunnerActivity?`<div class="r8-visual-metrics">${runnerMetrics}</div>${runnerPills?`<div class="r8-detail-pills">${runnerPills}</div>`:""}${runner.lastRace?.eventName?`<div class="r8-user-last-race r8-user-last-race-visual"><span class="r8-last-race-icon">${icon("flag")}</span><div><b>ÚLTIMA PARTICIPACIÓN</b><strong>${esc(runner.lastRace.eventName)}</strong><small>${esc(resultStatusLabel(runner.lastRace.status))}${lastRaceDate?` · ${esc(formatDate(lastRaceDate))}`:""}</small></div></div>`:""}`:`<div class="r8-user-empty-visual">${icon("route")}<div><strong>SIN PARTICIPACIONES</strong><span>Todavía no hay actividad como corredor.</span></div></div>`}</div>
-      ${organizerVisible?`<div class="r8-user-detail-section"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO ORGANIZADOR</strong><small>Resumen de carreras creadas</small></div><div class="r8-visual-metrics">${organizerMetrics}</div></div>`:""}
+      <div class="r8-user-activity-layout ${organizerVisible?"has-organizer":""}">
+        <div class="r8-user-detail-section"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO CORREDOR</strong><small>Acumulado MILITOPO</small></div>${hasRunnerActivity?`<div class="r8-visual-metrics">${runnerMetrics}</div>${runnerPills?`<div class="r8-detail-pills r8-runner-pills">${runnerPills}</div>`:""}${runner.lastRace?.eventName?`<div class="r8-user-last-race r8-user-last-race-visual"><span class="r8-last-race-icon">${icon("flag")}</span><div><b>ÚLTIMA PARTICIPACIÓN</b><strong>${esc(runner.lastRace.eventName)}</strong><small>${esc(resultStatusLabel(runner.lastRace.status))}${lastRaceDate?` · ${esc(formatDate(lastRaceDate))}`:""}</small></div></div>`:""}`:`<div class="r8-user-empty-visual">${icon("route")}<div><strong>SIN PARTICIPACIONES</strong><span>Todavía no hay actividad como corredor.</span></div></div>`}</div>
+        ${organizerVisible?`<div class="r8-user-detail-section r8-organizer-activity"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO ORGANIZADOR</strong><small>Carreras creadas</small></div><div class="r8-visual-metrics">${organizerMetrics}</div></div>`:""}
+      </div>
     </section>
   </div></main></section>`;
 }
+
 function renderUsers(){
   const view=$("[data-r8-view='users']",ensureUi());if(!view)return;
   const rows=filteredUsers(),visible=rows.slice(0,state.usersVisible),remaining=Math.max(0,rows.length-visible.length);
