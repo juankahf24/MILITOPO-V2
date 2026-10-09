@@ -33,12 +33,11 @@
   function currentEventName(){return String($("#eventName")?.value||"MILITOPO ORIENTACIÓN").trim()||"MILITOPO ORIENTACIÓN"}
   function currentEventId(){return String($("#eventId")?.value||"").trim()}
 
-  /* R7F.1 · Señal de navegación robusta para Organizer.
-     Se marca por semántica/atributos y también sobre módulos creados dinámicamente.
-     Así una pestaña o control que ABRE/CAMBIA VISTA siempre recibe el chevron naranja,
-     mientras guardar, borrar, aceptar, rechazar, actualizar, GPS, etc. siguen sin él. */
+  /* R7F.2 · Señal de navegación robusta dentro de módulos.
+     La pantalla principal de Organizer/Súper Admin conserva su diseño original SIN flechas.
+     En módulos, pestañas y accesos que profundizan en otra vista sí mantenemos el chevron naranja. */
   const NAV_TARGET_SELECTOR=[
-    '[data-r1-action]','[data-more-action]','[role="tab"]','button[aria-expanded]',
+    '[data-more-action]','[role="tab"]','button[aria-expanded]',
     '[data-r3-manager-action]','[data-r3-manager-tab]','[data-r3-back-manager]',
     '[data-r4-part-tab]','[data-r4-live-jump]','[data-r4-analysis-tab]','[data-r4-go-lifecycle]',
     '[data-r3-complete-routes]','[data-r2-route-choice]','[data-r5-race-choice]',
