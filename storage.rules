@@ -1,8 +1,20 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Fase A: Storage permanece cerrado. Se abrirán rutas concretas para avatar,
-    // mapas y exportaciones cuando existan sus flujos y validaciones.
+    // R8I · Foto de perfil universal.
+    // Solo usuarios autenticados pueden ver avatares y cada usuario solo puede
+    // crear/actualizar/eliminar su propia foto. El cliente normaliza a JPEG 512x512.
+    match /avatars/{uid}/profile.jpg {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+                            && request.auth.uid == uid
+                            && request.resource != null
+                            && request.resource.size < 3 * 1024 * 1024
+                            && request.resource.contentType == 'image/jpeg';
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // El resto de Storage continúa cerrado hasta que exista un flujo explícito.
     match /{allPaths=**} {
       allow read, write: if false;
     }
