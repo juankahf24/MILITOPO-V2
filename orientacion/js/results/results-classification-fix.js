@@ -217,29 +217,39 @@
 
 // ORIENTATION GUIDE MODAL START
 (function(){
+    function updateGuideRoleContext(){
+        let storedRole="";try{storedRole=localStorage.getItem("militopo_v2_last_role")||""}catch(_){}
+        const role=String(globalThis.MILITOPO_V2_AUTH?.role||storedRole||"organizer");
+        const superAdmin=role==="super_admin";
+        const badge=document.getElementById("orientationGuideRole");
+        if(badge) badge.textContent=superAdmin?"SÚPER ADMIN":"ORGANIZADOR";
+        document.querySelectorAll("[data-guide-super-admin]").forEach(el=>el.hidden=!superAdmin);
+    }
     function showOrientationGuide(){
         const modal=document.getElementById("orientationGuideModal");
-        if(modal) modal.style.display="flex";
+        if(!modal)return;
+        updateGuideRoleContext();
+        modal.style.display="flex";
+        modal.setAttribute("aria-hidden","false");
+        document.body.classList.add("orientation-guide-open");
+        setTimeout(()=>document.getElementById("closeOrientationGuideBtn")?.focus?.({preventScroll:true}),20);
     }
     function hideOrientationGuide(){
         const modal=document.getElementById("orientationGuideModal");
-        if(modal) modal.style.display="none";
+        if(!modal)return;
+        modal.style.display="none";
+        modal.setAttribute("aria-hidden","true");
+        document.body.classList.remove("orientation-guide-open");
     }
     document.addEventListener("DOMContentLoaded", function(){
         const modal=document.getElementById("orientationGuideModal");
-        const close=document.getElementById("closeOrientationGuideBtn");
-        let hideGuide=false;
-        try { hideGuide = localStorage.getItem("militopo_v2_orientacion_guide_hidden") === "1"; } catch(e) {}
-        if(!hideGuide) setTimeout(showOrientationGuide, 450);
-        close?.addEventListener("click", hideOrientationGuide);
-        document.getElementById("dontShowOrientationGuideBtn")?.addEventListener("click", function(){
-            try { localStorage.setItem("militopo_v2_orientacion_guide_hidden", "1"); } catch(e) {}
-            hideOrientationGuide();
-        });
-        modal?.addEventListener("click", function(e){
-            if(e.target===modal) hideOrientationGuide();
-        });
+        document.getElementById("closeOrientationGuideBtn")?.addEventListener("click", hideOrientationGuide);
+        document.getElementById("orientationGuideDoneBtn")?.addEventListener("click", hideOrientationGuide);
+        modal?.addEventListener("click", function(e){ if(e.target===modal) hideOrientationGuide(); });
+        document.addEventListener("keydown",e=>{if(e.key==="Escape"&&modal?.style.display==="flex")hideOrientationGuide()});
     });
+    globalThis.addEventListener("militopo:v2-auth-ready",updateGuideRoleContext);
     window.showOrientationGuide=showOrientationGuide;
+    window.hideOrientationGuide=hideOrientationGuide;
 })();
 // ORIENTATION GUIDE MODAL END
