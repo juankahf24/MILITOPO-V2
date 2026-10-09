@@ -1,7 +1,8 @@
-/* MILITOPO · R8I · SÚPER ADMINISTRADOR
+/* MILITOPO · R8J · SÚPER ADMINISTRADOR
    Administración global: usuarios/roles, fichas profesionales y supervisión de carreras.
    R8I compacta la ficha seleccionada en una pantalla fija sin scroll e integra foto de perfil. */
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { collection, getDocs, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { openProfilePhotoMenu } from "../../../js/v2/profile/profile-photo-ui.js?v=v2-r8j-profile-photo-20261009";
 
 const EVENT_PAGE_SIZE=5;
 const USER_PAGE_SIZE=10;
@@ -179,12 +180,12 @@ function renderUserDetail(){
   const lastRaceDate=tsMs(runner.lastRace?.atMs);
   const photoURL=profile.photoURL||row.photoURL||account.photoURL||"";
   return `<section class="r8-user-profile-full" data-r8-user-detail-card>${profileHead}<main class="r8-user-profile-main"><div class="r8-user-profile-content">
-    <section class="r8-user-profile-hero"><div class="r8-user-profile-identity">${profilePhoto(photoURL,role,"r8-user-profile-photo-large")}<div><small>USUARIO SELECCIONADO</small><h3>${esc(display)}</h3><p>${username?`@${esc(username)}`:"Sin nombre de usuario"}</p></div></div><div class="r8-user-profile-badges"><span class="r8-profile-role">${icon("shield")} ${esc(roleLabel(account.role||role))}</span><span class="r8-profile-status ${active?"is-active":"is-disabled"}">${icon(active?"shield":"lock")} ${active?"ACTIVA":"BLOQUEADA"}</span></div></section>
+    <section class="r8-user-profile-hero"><div class="r8-user-profile-identity"><div class="r8-profile-photo-stack"><button type="button" class="r8-user-profile-photo-action" data-r8-profile-photo-action="${esc(row.uid)}" aria-label="Ver foto de perfil">${profilePhoto(photoURL,role,"r8-user-profile-photo-large")}</button><small>TOCA LA FOTO</small></div><div><small>USUARIO SELECCIONADO</small><h3>${esc(display)}</h3><p>${username?`@${esc(username)}`:"Sin nombre de usuario"}</p></div></div><div class="r8-user-profile-badges"><span class="r8-profile-role">${icon("shield")} ${esc(roleLabel(account.role||role))}</span><span class="r8-profile-status ${active?"is-active":"is-disabled"}">${icon(active?"shield":"lock")} ${active?"ACTIVA":"BLOQUEADA"}</span></div></section>
     <section class="r8-user-detail r8-user-detail-visual r8-user-detail-fullscreen">
       <div class="r8-user-account-strip r8-user-account-strip-single"><div class="r8-account-email">${icon("mail")}<div><small>CORREO</small><strong>${esc(account.email||row.email||"Sin correo")}</strong></div><span class="r8-mail-state ${verified?"is-ok":"is-pending"}" title="${verified?"Correo verificado":"Correo pendiente de verificar"}">${icon(verified?"check":"alert")}</span></div></div>
       ${dates.length?`<div class="r8-detail-pills r8-date-pills">${dates.join("")}</div>`:""}
       <div class="r8-user-activity-layout ${organizerVisible?"has-organizer":""}">
-        <div class="r8-user-detail-section"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO CORREDOR</strong><small>Acumulado MILITOPO</small></div>${hasRunnerActivity?`<div class="r8-visual-metrics">${runnerMetrics}</div>${runnerPills?`<div class="r8-detail-pills r8-runner-pills">${runnerPills}</div>`:""}${runner.lastRace?.eventName?`<div class="r8-user-last-race r8-user-last-race-visual"><span class="r8-last-race-icon">${icon("flag")}</span><div><b>ÚLTIMA PARTICIPACIÓN</b><strong>${esc(runner.lastRace.eventName)}</strong><small>${esc(resultStatusLabel(runner.lastRace.status))}${lastRaceDate?` · ${esc(formatDate(lastRaceDate))}`:""}</small></div></div>`:""}`:`<div class="r8-user-empty-visual">${icon("route")}<div><strong>SIN PARTICIPACIONES</strong><span>Todavía no hay actividad como corredor.</span></div></div>`}</div>
+        <div class="r8-user-detail-section r8-runner-activity-section"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO CORREDOR</strong><small>Acumulado MILITOPO</small></div>${hasRunnerActivity?`<div class="r8-user-runner-stack"><div class="r8-visual-metrics">${runnerMetrics}</div>${runnerPills?`<div class="r8-detail-pills r8-runner-pills">${runnerPills}</div>`:""}${runner.lastRace?.eventName?`<div class="r8-user-last-race r8-user-last-race-visual"><span class="r8-last-race-icon">${icon("flag")}</span><div><b>ÚLTIMA PARTICIPACIÓN</b><strong>${esc(runner.lastRace.eventName)}</strong><small>${esc(resultStatusLabel(runner.lastRace.status))}${lastRaceDate?` · ${esc(formatDate(lastRaceDate))}`:""}</small></div></div>`:""}</div>`:`<div class="r8-user-empty-visual">${icon("route")}<div><strong>SIN PARTICIPACIONES</strong><span>Todavía no hay actividad como corredor.</span></div></div>`}</div>
         ${organizerVisible?`<div class="r8-user-detail-section r8-organizer-activity"><div class="r8-user-detail-label"><strong>ACTIVIDAD COMO ORGANIZADOR</strong><small>Carreras creadas</small></div><div class="r8-visual-metrics">${organizerMetrics}</div></div>`:""}
       </div>
     </section>
@@ -261,6 +262,18 @@ async function applyRole(button){
   button.disabled=true;setStatus(`Aplicando rol ${roleLabel(role)}…`);
   try{const svc=await services();await svc.callable("setUserRole",{uid,role});user.roleMirror=role;if(state.selectedUserId===uid&&state.userDetail?.account)state.userDetail.account.role=role;setStatus(`Rol actualizado: ${name} · ${roleLabel(role)}`);render()}catch(error){console.error("[MILITOPO R8 role]",error);setStatus(`No se pudo cambiar el rol: ${String(error?.message||error)}`,true);button.disabled=false}
 }
+async function saveOwnProfilePhoto(blob){
+  const svc=await services(),user=svc.auth?.currentUser;if(!user||!blob||user.uid!==state.selectedUserId)throw new Error("Solo puedes cambiar tu propia foto.");
+  const storageSdk=await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js"),authSdk=await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js");
+  const storage=storageSdk.getStorage(svc.app),target=storageSdk.ref(storage,`avatars/${user.uid}/profile.jpg`);
+  await storageSdk.uploadBytes(target,blob,{contentType:"image/jpeg",cacheControl:"public,max-age=3600"});const base=await storageSdk.getDownloadURL(target),photoURL=`${base}${base.includes("?")?"&":"?"}v=${Date.now()}`;
+  await authSdk.updateProfile(user,{photoURL});await setDoc(doc(svc.firestore,"users",user.uid),{photoURL,updatedAt:serverTimestamp()},{merge:true});
+  const row=state.users.find(item=>item.uid===user.uid);if(row)row.photoURL=photoURL;if(state.userDetail){state.userDetail.profile={...(state.userDetail.profile||{}),photoURL};state.userDetail.account={...(state.userDetail.account||{}),photoURL}}renderUsers();
+}
+function openSelectedProfilePhoto(uid){
+  const row=state.users.find(item=>item.uid===uid);if(!row)return;const detail=uid===state.selectedUserId?state.userDetail:null,photoURL=String(detail?.profile?.photoURL||detail?.account?.photoURL||row.photoURL||""),name=String(row.displayName||row.username||row.email||"Usuario"),canChange=uid===state.auth?.uid;
+  openProfilePhotoMenu({photoURL,name,canChange,onSave:canChange?saveOwnProfilePhoto:null});
+}
 async function openUserDetail(uid){
   uid=String(uid||"").trim();if(!uid)return;
   state.usersScrollTop=$(".r8-admin-body",state.overlay)?.scrollTop||0;
@@ -283,6 +296,7 @@ function onClick(event){
   const userChip=event.target.closest("[data-r8-user-chip]");if(userChip){state.roleFilter=userChip.dataset.r8UserChip||"all";state.usersVisible=USER_PAGE_SIZE;renderUsers();return}
   if(event.target.closest("[data-r8-user-load-more]")){state.usersVisible+=USER_PAGE_SIZE;renderUsers();return}
   const userView=event.target.closest("[data-r8-user-view]");if(userView){openUserDetail(userView.dataset.r8UserView);return}
+  const photoAction=event.target.closest("[data-r8-profile-photo-action]");if(photoAction){openSelectedProfilePhoto(photoAction.dataset.r8ProfilePhotoAction);return}
   if(event.target.closest("[data-r8-close-user-detail]")){state.selectedUserId="";state.userDetail=null;state.userDetailError="";state.userDetailLoading=false;renderUsers();setTimeout(()=>{const body=$(".r8-admin-body",state.overlay);if(body)body.scrollTop=state.usersScrollTop||0},0);return}
   const apply=event.target.closest("[data-r8-apply-role]");if(apply){applyRole(apply);return}
   if(event.target.closest("[data-r8-open-events]")){state.eventStatusFilter="all";setTab("events");return}
