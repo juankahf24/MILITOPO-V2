@@ -42,8 +42,8 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="apple-touch-startup-image" href="../icons/militopo-startup-premium-2048x3072.jpg">
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
-<link rel="stylesheet" href="css/styles.css?v=v2-r4c-live-center-20261004" />
-<link rel="stylesheet" href="css/r1-shell.css?v=r8d-center-search-detail-20261009" />
+<link rel="stylesheet" href="css/styles.css?v=v2-r8e-help-center-20261009" />
+<link rel="stylesheet" href="css/r1-shell.css?v=r8e-summary-order-20261009" />
 <link rel="stylesheet" href="css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003" />
 <link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-r5a1-auth-layer-20261005" />
 
@@ -98,14 +98,14 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script type="module" src="../js/v2/data/participants-admin.js?v=v2-r5a1-confirmaciones-20261005"></script>
 <script type="module" src="../js/v2/data/events.js?v=v2-f3b-runtimefix-20260924"></script>
 <script type="module" src="../js/v2/data/orientation-structure.js?v=v2-r2h-live-rules-20261003"></script>
-<script type="module" src="../js/v2/data/cloud-recovery.js?v=v2-r8d-center-search-return-20261009"></script>
+<script type="module" src="../js/v2/data/cloud-recovery.js?v=v2-r8e-admin-context-20261009"></script>
 <script type="module" src="../js/v2/data/event-lifecycle.js?v=v2-r6e-live-direct-20261007"></script>
 <script type="module" src="../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924"></script>
 <script type="module" src="../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924"></script>
 <script type="module" src="../js/v2/live/organizer-monitor.js?v=v2-r4d-results-center-20261004"></script>
 <script type="module" src="../js/v2/live/organizer-live-map.js?v=v2-r4d-results-center-20261004"></script>
 <script type="module" src="../js/v2/data/event-results.js?v=v2-r4d-results-center-20261004"></script>
-<script type="module" src="js/ui/r8-super-admin.js?v=r8d-center-search-detail-20261009"></script>
+<script type="module" src="js/ui/r8-super-admin.js?v=r8e-summary-order-20261009"></script>
 </head>
 <body class="ori-page-booting" style="background:#0a0e0a;">
 
@@ -640,35 +640,75 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <!-- ROUTE GENERATION LOADER END -->
 <div id="toast" class="toast"></div>
 
-<div id="orientationGuideModal" class="orientation-guide-modal">
-    <div class="orientation-guide-content">
+<div id="orientationGuideModal" class="orientation-guide-modal" aria-hidden="true">
+    <div class="orientation-guide-content" role="dialog" aria-modal="true" aria-labelledby="orientationGuideTitle">
         <div class="orientation-guide-header">
-            <h3>🧭 Guía fácil de MILITOPO Orientación</h3>
+            <div class="orientation-guide-titleblock">
+                <span class="orientation-guide-kicker">MILITOPO · CENTRO DE AYUDA</span>
+                <h3 id="orientationGuideTitle">GUÍA OPERATIVA</h3>
+                <p>Organiza una carrera desde el diseño hasta el análisis final sin perderte entre módulos.</p>
+            </div>
             <button type="button" id="closeOrientationGuideBtn" class="orientation-guide-close" aria-label="Cerrar guía">&times;</button>
         </div>
 
-        <h4>🎯 ¿Qué hace esta rama?</h4>
-        <p>Esta rama sirve para crear un <strong>ejercicio de orientación</strong>: salida, llegada, balizas, recorridos para participantes, códigos QR, planos PDF, control de salida/llegada y resultados.</p>
+        <div class="orientation-guide-hero">
+            <div><span>FLUJO PRINCIPAL</span><strong>CREAR → DISEÑAR → PUBLICAR → LIVE → RESULTADOS → ANÁLISIS</strong></div>
+            <b id="orientationGuideRole">ORGANIZADOR</b>
+        </div>
 
-        <h4>🪖 Guía a seguir paso por paso</h4>
-        <p><strong>1. Paso 1 · Configurar prueba.</strong> Pon el nombre del ejercicio. Elige participantes, número de balizas, cuántas balizas lleva cada recorrido y cuántas veces se puede reutilizar una baliza.</p>
-        <p><strong>2. Escala del plano.</strong> Elige 1:10.000 o 1:7.500 y la equidistancia. Esto afecta a los planos PDF que se generan después.</p>
-        <p><strong>3. Paso 2 · Balizas y mapa.</strong> Coloca START, FINISH y las balizas. Puedes hacerlo desde el mapa, escribiendo UTM o importando GPX de ATAK por ID.</p>
-        <p><strong>4. Si importas desde ATAK.</strong> Nombra los waypoints como <strong>START</strong>, <strong>FINISH</strong>, <strong>B01</strong>, <strong>B02</strong>, <strong>B03</strong>... y usa el botón de importar GPX ATAK por ID.</p>
-        <p><strong>5. Revisa que todo esté completo.</strong> Si un punto sale pendiente, le falta coordenada o no se ha reconocido bien. No pases al siguiente paso hasta que salida, llegada y balizas estén bien.</p>
-        <p><strong>6. Paso 3 · Recorridos manuales.</strong> Usa TRAZAR sobre el mapa, elige R01, R02, R03… y selecciona las balizas en el orden exacto de cada recorrido. MILITOPO no genera recorridos automáticamente.</p>
-        <p><strong>7. Regenerar un recorrido.</strong> Si un recorrido no te gusta, puedes regenerarlo individualmente. La app intentará buscar otra variante sin cambiar toda la prueba.</p>
-        <p><strong>8. Paso 4 · Material.</strong> Verifica el ejercicio y genera el ZIP. Ahí salen planos PDF, QR, CSV, app participante y archivos de control.</p>
-        <p><strong>9. Paso 5 · Salida y llegada.</strong> Sirve para organizar participantes, confirmar salidas, registrar llegadas y controlar el ejercicio con QR.</p>
-        <p><strong>10. Paso 6 · Resultados.</strong> Importa o revisa resultados y genera la clasificación final.</p>
+        <section class="orientation-guide-flow" aria-label="Flujo de trabajo recomendado">
+            <div><b>1</b><strong>CARGAR / CREAR</strong><span>Abre una carrera existente o crea un borrador.</span></div>
+            <div><b>2</b><strong>DISEÑAR</strong><span>Salida, llegada, balizas y recorridos manuales.</span></div>
+            <div><b>3</b><strong>PREPARAR</strong><span>Completa material, participantes y comprobaciones.</span></div>
+            <div><b>4</b><strong>PUBLICAR</strong><span>Activa invitaciones y deja la carrera lista.</span></div>
+            <div><b>5</b><strong>LIVE</strong><span>Controla salidas, progreso, GPS y llegada.</span></div>
+            <div><b>6</b><strong>FINALIZAR</strong><span>Resultados, clasificación, histórico y análisis.</span></div>
+        </section>
 
-        <h4>✅ Resumen rápido</h4>
-        <p><strong>Configuras → colocas puntos → generas recorridos → verificas → descargas ZIP → controlas salida/llegada → sacas resultados.</strong></p>
+        <div class="orientation-guide-grid">
+            <article class="orientation-guide-card">
+                <div class="guide-card-icon">◎</div><div><span>01 · CARRERA</span><h4>Crear, cargar y configurar</h4></div>
+                <ul><li><strong>CARGAR CARRERA</strong> abre carreras guardadas o permite crear una nueva.</li><li>Define nombre, plazas, balizas, recorridos y reglas antes de publicar.</li><li>Estados: <strong>BORRADOR → PREPARADO → PUBLICADO → EN DIRECTO → FINALIZADO → ARCHIVADO</strong>.</li></ul>
+            </article>
+            <article class="orientation-guide-card">
+                <div class="guide-card-icon">⌖</div><div><span>02 · MAPA</span><h4>Puntos y cartografía</h4></div>
+                <ul><li>Coloca <strong>SALIDA, LLEGADA y BALIZAS</strong> desde el mapa o mediante coordenadas/importación.</li><li>Usa MAPANT, IGN, AÉREO o tu propio plano según el trabajo.</li><li>Si falta un punto obligatorio, complétalo antes de preparar la carrera.</li></ul>
+            </article>
+            <article class="orientation-guide-card">
+                <div class="guide-card-icon">⌁</div><div><span>03 · RECORRIDOS</span><h4>Trazado manual</h4></div>
+                <ul><li>Los recorridos se crean <strong>manualmente</strong> desde TRAZAR.</li><li>Selecciona R01, R02… y pulsa las balizas en el orden correcto.</li><li>Editar no altera el original hasta pulsar <strong>GUARDAR</strong>; DESHACER quita el último control.</li></ul>
+            </article>
+            <article class="orientation-guide-card">
+                <div class="guide-card-icon">👥</div><div><span>04 · PARTICIPANTES</span><h4>Invitaciones y asignaciones</h4></div>
+                <ul><li>Gestiona <strong>INVITACIONES, CENSO y ASIGNACIONES</strong> desde un mismo módulo.</li><li>Las invitaciones tienen sentido cuando la carrera está <strong>PUBLICADA</strong>.</li><li>Comprueba plazas libres, asignadas y pendientes antes de iniciar.</li></ul>
+            </article>
+            <article class="orientation-guide-card">
+                <div class="guide-card-icon">◉</div><div><span>05 · OPERACIÓN</span><h4>LIVE y carrera en curso</h4></div>
+                <ul><li>En EN DIRECTO, LIVE concentra mapa, progreso, tiempos y sincronización.</li><li>La PWA está preparada para mala cobertura: evita recargar o actualizar durante una carrera activa.</li><li>Finaliza la carrera desde el flujo previsto para consolidar resultados e histórico.</li></ul>
+            </article>
+            <article class="orientation-guide-card">
+                <div class="guide-card-icon">↗</div><div><span>06 · POST-CARRERA</span><h4>Resultados y análisis</h4></div>
+                <ul><li>Revisa resultados, clasificación general y por recorrido.</li><li>El <strong>TIEMPO OFICIAL</strong> incluye las penalizaciones registradas.</li><li>ANÁLISIS permite revisar tracks y reproducción multicorredor después de la prueba.</li></ul>
+            </article>
+            <article class="orientation-guide-card orientation-guide-card-wide">
+                <div class="guide-card-icon">↪</div><div><span>SEÑALES DE INTERFAZ</span><h4>Cómo saber qué se puede abrir</h4></div>
+                <div class="guide-legend"><p><i>›</i><strong>Flecha naranja</strong><span>abre otra vista, pestaña, detalle o contenido adicional.</span></p><p><i>🔒</i><strong>Candado</strong><span>función todavía no disponible por el estado de la carrera.</span></p><p><i>✓</i><strong>Sin flecha</strong><span>normalmente es una acción directa o un dato informativo.</span></p></div>
+            </article>
+            <article class="orientation-guide-card orientation-guide-card-wide is-super-admin" data-guide-super-admin hidden>
+                <div class="guide-card-icon">◆</div><div><span>SÚPER ADMIN</span><h4>Control global de la plataforma</h4></div>
+                <ul><li><strong>RESUMEN</strong> ofrece la situación general de usuarios y carreras.</li><li><strong>CARRERAS</strong> permite supervisar eventos de todos los organizadores y abrir su ficha.</li><li><strong>USUARIOS Y ROLES</strong> permite localizar cuentas y asignar CORREDOR, ORGANIZADOR o SÚPER ADMIN.</li><li>Los cambios de rol afectan permisos: aplícalos solo cuando sea necesario.</li></ul>
+            </article>
+        </div>
+
+        <section class="orientation-guide-tips">
+            <strong>ANTES DE UNA CARRERA REAL</strong>
+            <div><span>1</span>Revisa salida, llegada, balizas y todos los recorridos.</div><div><span>2</span>Comprueba participantes y asignaciones.</div><div><span>3</span>Verifica GPS/QR y sincronización.</div><div><span>4</span>No fuerces actualizaciones de la PWA durante una carrera activa.</div>
+        </section>
 
         <div class="guide-modal-actions">
-            <button type="button" id="dontShowOrientationGuideBtn" class="dont-show-guide-btn">No volver a mostrar</button>
+            <button type="button" id="orientationGuideDoneBtn" class="dont-show-guide-btn">ENTENDIDO · CERRAR GUÍA</button>
         </div>
-        <div class="orientation-guide-footer">MILITOPO · Orientación paso a paso</div>
+        <div class="orientation-guide-footer">Disponible siempre desde MÁS → AYUDA Y GUÍA</div>
     </div>
 </div>
 
@@ -678,8 +718,8 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
-<script src="js/app.js?v=r5a1-auth-confirm-20261005"></script>
-<script src="js/ui/r1-shell.js?v=r8c-users-return-20261009"></script>
+<script src="js/app.js?v=r8e-help-center-20261009"></script>
+<script src="js/ui/r1-shell.js?v=r8e-help-center-20261009"></script>
 <script src="js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007"></script>
 
 <script>
