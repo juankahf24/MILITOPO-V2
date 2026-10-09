@@ -1,4 +1,4 @@
-/* MILITOPO V2 · R8I · Auth + perfil/cuenta + foto de perfil.
+/* MILITOPO V2 · R8J · Auth + perfil/cuenta + foto interactiva con recorte manual.
    La foto se procesa en cliente, se sube a Storage en la ruta propia del usuario
    y se refleja en Auth/Firestore sin afectar al arranque offline. */
 import "../bootstrap.js?v=v2-f3b-recovery-signals-20260924";
@@ -24,6 +24,7 @@ import {
   setDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { normalizeRole } from "./roles.js";
+import { openProfilePhotoMenu } from "../profile/profile-photo-ui.js?v=v2-r8j-profile-photo-20261009";
 
 const ROOT_ICON_URL = new URL("../../../icons/militopo-512.png", import.meta.url).href;
 const TRUSTED_DEVICE_KEY = "militopo_v2_trusted_device";
@@ -326,14 +327,15 @@ function buildUi() {
 
         <div class="m2-account-identity">
           <div class="m2-account-photo-block">
-            <div class="m2-account-avatar" id="m2AccountAvatar">M</div>
-            <button id="m2AccountPhotoBtn" class="m2-account-photo-btn" type="button">CAMBIAR FOTO</button>
-            <input id="m2AccountPhotoInput" type="file" accept="image/*" hidden>
+            <button id="m2AccountPhotoBtn" class="m2-account-photo-trigger" type="button" aria-label="Ver opciones de foto de perfil">
+              <span class="m2-account-avatar" id="m2AccountAvatar">M</span>
+            </button>
+            <small class="m2-account-photo-tap">TOCA LA FOTO</small>
           </div>
           <div>
             <strong id="m2AccountIdentityName">Usuario</strong>
             <span id="m2AccountIdentityEmail">correo</span>
-            <small class="m2-account-photo-help">JPG/PNG · recorte cuadrado automático</small>
+            <small class="m2-account-photo-help">Foto visible en MILITOPO · encuadre manual</small>
           </div>
         </div>
 
@@ -436,46 +438,16 @@ function paintAvatar(node, name, photoURL = "") {
   } else node.textContent = initials(name);
 }
 
-function imageToSquareJpeg(file, size = 512, quality = 0.86) {
-  return new Promise((resolve, reject) => {
-    if (!file || !String(file.type || "").startsWith("image/")) return reject(new Error("Selecciona una imagen válida."));
-    if (Number(file.size || 0) > 12 * 1024 * 1024) return reject(new Error("La imagen original no puede superar 12 MB."));
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("El formato de imagen no es compatible."));
-      img.onload = () => {
-        try {
-          const side = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
-          if (!side) throw new Error("La imagen está vacía.");
-          const sx = Math.max(0, ((img.naturalWidth || img.width) - side) / 2);
-          const sy = Math.max(0, ((img.naturalHeight || img.height) - side) / 2);
-          const canvas = document.createElement("canvas");
-          canvas.width = size; canvas.height = size;
-          const ctx = canvas.getContext("2d", { alpha: false });
-          ctx.fillStyle = "#17231a"; ctx.fillRect(0, 0, size, size);
-          ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
-          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("No se pudo preparar la foto.")), "image/jpeg", quality);
-        } catch (error) { reject(error); }
-      };
-      img.src = String(reader.result || "");
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function uploadAccountPhoto(file) {
+async function saveAccountPhotoBlob(blob) {
   if (!state.currentUser || state.busy) return;
+  if (!blob) return;
   if (navigator.onLine === false) return setAccountMessage("Necesitas conexión para cambiar la foto de perfil.", "error");
   setBusy(true);
-  setAccountMessage("Preparando foto…");
+  setAccountMessage("Subiendo foto…");
   try {
-    const blob = await imageToSquareJpeg(file);
     const storageSdk = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js");
     const storage = storageSdk.getStorage(state.services.app);
     const target = storageSdk.ref(storage, `avatars/${state.currentUser.uid}/profile.jpg`);
-    setAccountMessage("Subiendo foto…");
     await storageSdk.uploadBytes(target, blob, { contentType: "image/jpeg", cacheControl: "public,max-age=3600" });
     const basePhotoURL = await storageSdk.getDownloadURL(target);
     const photoURL = `${basePhotoURL}${basePhotoURL.includes("?") ? "&" : "?"}v=${Date.now()}`;
@@ -490,9 +462,9 @@ async function uploadAccountPhoto(file) {
     const code = String(error?.code || "");
     if (code.includes("storage/unauthorized")) setAccountMessage("Storage todavía no permite subir fotos. Despliega las reglas de Storage de este bloque.", "error");
     else setAccountMessage(String(error?.message || "No se pudo actualizar la foto."), "error");
+    throw error;
   } finally {
     setBusy(false);
-    const input = el("m2AccountPhotoInput"); if (input) input.value = "";
   }
 }
 
@@ -1016,8 +988,11 @@ async function init() {
   el("m2AuthAccountBtn")?.addEventListener("click", openAccountPanel);
   el("m2AccountClose")?.addEventListener("click", closeAccountPanel);
   el("m2AccountForm")?.addEventListener("submit", saveAccount);
-  el("m2AccountPhotoBtn")?.addEventListener("click", () => el("m2AccountPhotoInput")?.click());
-  el("m2AccountPhotoInput")?.addEventListener("change", event => { const file = event.target?.files?.[0]; if (file) uploadAccountPhoto(file); });
+  el("m2AccountPhotoBtn")?.addEventListener("click", () => {
+    const name = state.profile?.displayName || state.currentUser?.displayName || state.currentUser?.email || "Usuario";
+    const photoURL = state.profile?.photoURL || state.currentUser?.photoURL || "";
+    openProfilePhotoMenu({ photoURL, name, canChange: true, onSave: saveAccountPhotoBlob });
+  });
   el("m2AccountReload")?.addEventListener("click", () => window.location.reload());
   el("m2AccountResetPassword")?.addEventListener("click", async () => {
     const email = state.currentUser?.email;
