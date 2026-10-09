@@ -204,20 +204,20 @@
     .history-class-summary div{min-width:0;padding:6px 5px;border:1px solid rgba(255,255,255,.055);border-radius:9px;background:rgba(255,255,255,.022);text-align:center}
     .history-class-summary strong{display:block;color:#f0db9b;font-size:.56rem}.history-class-summary small{display:block;margin-top:3px;color:#7e8b82;font-size:.31rem;font-weight:950;letter-spacing:.05em}
     .history-class-table-scroll{margin-top:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid rgba(255,255,255,.065);border-radius:11px;background:rgba(0,0,0,.08);scrollbar-width:thin}
-    .history-class-table{width:100%;min-width:980px;border-collapse:collapse;table-layout:auto}
+    .history-class-table{width:100%;min-width:900px;border-collapse:collapse;table-layout:auto}
     .history-class-table th{position:sticky;top:0;z-index:1;padding:7px 8px;background:#1a281f;color:#93a096;font-size:.32rem;letter-spacing:.055em;text-align:left;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)}
     .history-class-table td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.05);color:#dfe5dc;font-size:.43rem;white-space:nowrap;vertical-align:middle}
     .history-class-table tr:last-child td{border-bottom:0}.history-class-table tbody tr.is-me{background:rgba(226,190,102,.075)}
     .history-class-table td.is-rank{color:#f0db9b;font-size:.57rem;font-weight:950;text-align:center}
-    .history-class-runner{display:grid;grid-template-columns:34px minmax(110px,1fr);align-items:center;gap:7px;min-width:150px}
-    .history-class-runner-copy{min-width:0}.history-class-runner-copy strong{display:block;font-size:.48rem;color:#f1f3e8;max-width:150px;overflow:hidden;text-overflow:ellipsis}
-    .history-class-runner-copy span{display:block;margin-top:2px;color:#7f8c82;font-size:.34rem;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+    .history-class-runner{display:grid;grid-template-columns:32px minmax(72px,1fr);align-items:center;gap:6px;min-width:108px;max-width:122px}
+    .history-class-runner-copy{min-width:0}.history-class-runner-copy strong{display:block;font-size:.46rem;color:#f1f3e8;max-width:84px;overflow:hidden;text-overflow:ellipsis}
+    .history-class-runner-copy span{display:block;margin-top:2px;color:#7f8c82;font-size:.32rem;max-width:84px;overflow:hidden;text-overflow:ellipsis}
     .history-class-photo{width:32px!important;height:32px!important;border-radius:8px!important;border:2px solid rgba(216,180,94,.55)!important}
     .history-class-status{display:inline-flex;align-items:center;min-height:22px;padding:3px 6px;border-radius:999px;background:#26352a;color:#cdd7cd;font-size:.32rem;font-weight:950}
     .history-class-status.finished{background:rgba(57,113,63,.30);color:#dcf2d9}.history-class-status.incomplete{background:rgba(142,88,43,.28);color:#ffddb8}.history-class-status.not_started{background:#2a342d;color:#aeb7b0}
     .history-class-official{color:#fff0bd!important;font-weight:950!important;font-size:.48rem!important}
     .history-class-zero{color:#6f7b73!important}.history-class-table-note{margin-top:5px;color:#718077;font-size:.34rem;line-height:1.3}
-    @media(max-width:520px){.history-class-summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.history-class-summary div{padding:5px 3px}.history-class-table{min-width:940px}.history-class-table th,.history-class-table td{padding:6px 7px}.history-class-runner{grid-template-columns:30px minmax(105px,1fr)}.history-class-photo{width:29px!important;height:29px!important}}
+    @media(max-width:520px){.history-class-summary{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}.history-class-summary div{padding:5px 3px}.history-class-table{min-width:850px}.history-class-table th,.history-class-table td{padding:6px 6px}.history-class-runner{grid-template-columns:29px minmax(66px,1fr);min-width:100px;max-width:112px}.history-class-runner-copy strong,.history-class-runner-copy span{max-width:74px}.history-class-photo{width:28px!important;height:28px!important}}
 </style>
 </head>
 <body>
@@ -389,7 +389,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r8l-profile-lines-classification-table-20261009"></script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r8m-classification-photo-compact-user-20261010"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>

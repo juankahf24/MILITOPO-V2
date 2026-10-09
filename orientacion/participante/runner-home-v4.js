@@ -10,7 +10,7 @@ import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, update
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { openProfilePhotoMenu, openProfilePhotoViewer } from "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
-const VERSION="v2-r8l-profile-lines-classification-table-20261009";
+const VERSION="v2-r8m-classification-photo-compact-user-20261010";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -88,7 +88,7 @@ function runnerPhotoMessage(message,type=""){
 async function saveRunnerPhotoBlob(blob){
   if(!currentUser||!currentApp||!blob)return;if(navigator.onLine===false){runnerPhotoMessage("Necesitas conexión para cambiar la foto.","err");return;}
   if(els.photoBtn)els.photoBtn.disabled=true;runnerPhotoMessage("Subiendo foto…");
-  try{const sdk=await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js");const storage=sdk.getStorage(currentApp),target=sdk.ref(storage,`avatars/${currentUser.uid}/profile.jpg`);await sdk.uploadBytes(target,blob,{contentType:"image/jpeg",cacheControl:"public,max-age=3600"});const basePhotoURL=await sdk.getDownloadURL(target);const photoURL=`${basePhotoURL}${basePhotoURL.includes("?")?"&":"?"}v=${Date.now()}`;await updateProfile(currentUser,{photoURL});const db=getFirestore(currentApp);await setDoc(doc(db,"users",currentUser.uid),{photoURL,updatedAt:serverTimestamp()},{merge:true});profile={...(profile||{}),photoURL};paintRunnerAvatar(String(profile?.displayName||currentUser.displayName||currentUser.email||"Usuario"),photoURL);publishRunnerAuth();runnerPhotoMessage("Foto actualizada.","ok");}
+  try{const sdk=await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js");const storage=sdk.getStorage(currentApp),target=sdk.ref(storage,`avatars/${currentUser.uid}/profile.jpg`);await sdk.uploadBytes(target,blob,{contentType:"image/jpeg",cacheControl:"public,max-age=3600"});const basePhotoURL=await sdk.getDownloadURL(target);const photoURL=`${basePhotoURL}${basePhotoURL.includes("?")?"&":"?"}v=${Date.now()}`;await updateProfile(currentUser,{photoURL});const db=getFirestore(currentApp);await setDoc(doc(db,"users",currentUser.uid),{photoURL,updatedAt:serverTimestamp()},{merge:true});profile={...(profile||{}),photoURL};classificationCache.clear();paintRunnerAvatar(String(profile?.displayName||currentUser.displayName||currentUser.email||"Usuario"),photoURL);publishRunnerAuth();runnerPhotoMessage("Foto actualizada.","ok");}
   catch(error){console.error("[MILITOPO runner photo]",error);const code=String(error?.code||"");runnerPhotoMessage(code.includes("storage/unauthorized")?"Falta desplegar las reglas de Storage de este bloque.":String(error?.message||"No se pudo actualizar la foto."),"err");throw error}
   finally{if(els.photoBtn)els.photoBtn.disabled=false;}
 }
@@ -338,7 +338,7 @@ function classificationRouteInfo(data,routeId){if(!routeId)return '';const route
 function classificationRowsHtml(rows=[]){
   if(!rows.length)return '<div class="history-class-empty">Sin corredores en esta clasificación.</div>';
   const body=rows.map(row=>{
-    const name=classificationName(row),username=String(row.username||'').replace(/^@/,''),photo=String(row.photoURL||'').trim(),me=String(row.runnerUid||'')===String(currentUser?.uid||'');
+    const name=classificationName(row),username=String(row.username||'').replace(/^@/,''),me=String(row.runnerUid||'')===String(currentUser?.uid||''),photo=String((me?profile?.photoURL:'')||row.photoURL||'').trim();
     const rank=row.rank==null?'—':`${row.rank}º`,official=row.officialDurationMs==null?'—':formatDuration(row.officialDurationMs),real=row.durationMs==null?'—':formatDuration(row.durationMs),penalty=Number(row.penaltyMs||0)>0?formatDuration(row.penaltyMs):'0:00';
     const statusKey=String(row.status||'not_started').toLowerCase(),status=classificationStatus(row),participant=[username?`@${username}`:'',row.participantId||''].filter(Boolean).join(' · ');
     return `<tr class="${me?'is-me':''}"><td class="is-rank">${esc(rank)}</td><td><div class="history-class-runner"><button type="button" class="history-class-photo" data-class-photo-uid="${esc(row.runnerUid||'')}" data-class-photo-url="${esc(photo)}" data-class-photo-name="${esc(name)}" aria-label="Ver foto de ${esc(name)}">${photo?`<img src="${esc(photo)}" alt="">`:esc(classificationInitials(row))}</button><div class="history-class-runner-copy"><strong>${esc(name)}${me?' · TÚ':''}</strong><span>${esc(participant||'Corredor MILITOPO')}</span></div></div></td><td>${esc(row.routeId||'—')}</td><td><span class="history-class-status ${esc(statusKey)}">${esc(status)}</span></td><td class="history-class-official">${esc(official)}</td><td class="${Number(row.penaltyMs||0)>0?'':'history-class-zero'}">${esc(penalty)}</td><td>${esc(real)}</td><td>${esc(classificationControls(row))}</td><td>${esc(Number(row.discardedControlCount||0))}</td><td>${esc(Number(row.pendingControlCount||0))}</td><td>${esc(classificationDistance(row.trackDistanceM))}</td></tr>`;
