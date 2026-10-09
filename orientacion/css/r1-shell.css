@@ -1462,3 +1462,41 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
   .r8-user-profile-full .r8-runner-pills .r8-detail-pill{min-height:26px}
   .r8-user-profile-full .r8-user-last-race.r8-user-last-race-visual{min-height:29px}
 }
+
+/* R8J · Ficha seleccionada ocupa realmente toda la pantalla + foto interactiva. */
+.r8-user-profile-photo-action{
+  appearance:none;display:grid;place-items:center;flex:0 0 auto;padding:3px;border-radius:50%;
+  border:2px solid #d9b45f;background:rgba(217,180,95,.08);box-shadow:0 0 0 4px rgba(217,180,95,.10);cursor:pointer
+}
+.r8-user-profile-photo-action .r8-user-profile-photo-large{border-radius:50%!important;border:0!important}
+.r8-user-profile-photo-action:active{transform:scale(.975)}
+.r8-user-detail.r8-user-detail-visual.r8-user-detail-fullscreen{
+  display:grid!important;grid-template-rows:auto auto minmax(0,1fr);align-content:stretch
+}
+.r8-user-activity-layout{height:100%;align-items:stretch}
+.r8-runner-activity-section{display:flex!important;flex-direction:column;min-height:0;height:100%}
+.r8-user-runner-stack{flex:1;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:5px;margin-top:4px}
+.r8-user-runner-stack>.r8-visual-metrics{height:100%;min-height:0;margin-top:0!important;grid-auto-rows:minmax(0,1fr)}
+.r8-user-runner-stack>.r8-visual-metrics .r8-visual-metric{height:100%;align-content:center}
+.r8-user-runner-stack>.r8-runner-pills{margin-top:0!important}
+.r8-user-runner-stack>.r8-user-last-race{margin-top:0!important}
+.r8-user-profile-full:not(:has(.r8-organizer-activity)) .r8-user-activity-layout{grid-template-rows:minmax(0,1fr)}
+@media(max-width:760px){
+  .r8-user-profile-content{width:100%!important}
+  .r8-user-profile-full .r8-user-activity-layout{min-height:0}
+  .r8-user-profile-full .r8-runner-activity-section{height:100%}
+  .r8-user-profile-full .r8-user-runner-stack>.r8-visual-metrics{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:520px){
+  .r8-user-profile-photo-action{padding:2px;box-shadow:0 0 0 3px rgba(217,180,95,.10)}
+  .r8-user-profile-full .r8-user-runner-stack{gap:4px}
+  .r8-user-profile-full .r8-user-runner-stack>.r8-visual-metrics{gap:4px!important}
+  .r8-user-profile-full .r8-user-runner-stack>.r8-visual-metrics .r8-visual-metric{min-height:0!important}
+}
+@media(max-width:819px){
+  .r8-user-profile-full .r8-user-activity-layout.has-organizer{grid-template-rows:minmax(0,1.25fr) minmax(0,.75fr)}
+  .r8-user-profile-full .r8-organizer-activity{display:flex;flex-direction:column;min-height:0}
+  .r8-user-profile-full .r8-organizer-activity>.r8-visual-metrics{flex:1;min-height:0;grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-auto-rows:minmax(0,1fr)}
+}
+.r8-profile-photo-stack{display:grid;justify-items:center;gap:3px;flex:0 0 auto}.r8-profile-photo-stack>small{color:#c7ad6f;font:900 .31rem/1 system-ui;letter-spacing:.07em;white-space:nowrap}
+@media(max-width:520px){.r8-profile-photo-stack>small{font-size:.28rem}}
