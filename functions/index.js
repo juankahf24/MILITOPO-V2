@@ -2597,7 +2597,7 @@ async function buildEventClassification(eventRef, eventData) {
       routeId: routeId || null,
       displayName: String(result.displayName || member.displayName || profile.displayName || "").slice(0, 120) || null,
       username: String(result.username || member.username || profile.usernameKey || profile.username || "").replace(/^@/, "").slice(0, 40) || null,
-      photoURL: String(result.photoURL || member.photoURL || profile.photoURL || "").slice(0, 1800) || null,
+      photoURL: String(profile.photoURL || result.photoURL || member.photoURL || "").slice(0, 1800) || null,
       status: hasResult ? h5ResultStatus(result.status) : "not_started",
       durationMs: hasResult && result.durationMs != null ? Math.max(0, Number(result.durationMs || 0)) : null,
       officialDurationMs: hasResult && (result.officialDurationMs != null || result.durationMs != null) ? Math.max(0, Number(result.officialDurationMs ?? result.durationMs ?? 0)) : null,
