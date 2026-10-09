@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r8l-profile-lines-classification-table-20261009";
+const BUILD_ID="v2-r8m-classification-photo-compact-user-20261010";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -11,11 +11,11 @@ const CORE_ASSETS=[
   "./index.html",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
   "./css/styles.css?v=v2-r8e-help-center-20261009",
-  "./css/r1-shell.css?v=r8l-profile-lines-classification-table-20261009",
+  "./css/r1-shell.css?v=r8m-classification-photo-compact-user-20261010",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./js/app.js?v=r8e-help-center-20261009",
   "./js/ui/r1-shell.js?v=r8e-help-center-20261009",
-  "./js/ui/r8-super-admin.js?v=r8l-profile-lines-photo-square-20261009",
+  "./js/ui/r8-super-admin.js?v=r8m-classification-photo-compact-user-20261010",
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
