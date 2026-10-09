@@ -10,7 +10,7 @@ import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, update
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { openProfilePhotoMenu, openProfilePhotoViewer } from "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
-const VERSION="v2-r8m-classification-photo-compact-user-20261010";
+const VERSION="v2-r9a-history-responsive-photo-fill-20261010";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
