@@ -1,6 +1,6 @@
-/* MILITOPO V2 · Fase B3 · Auth + perfil/cuenta en Firebase Spark.
-   Sin Cloud Functions ni Storage. Roles privilegiados siguen administrándose
-   exclusivamente con Firebase Admin SDK desde Cloud Shell. */
+/* MILITOPO V2 · R8I · Auth + perfil/cuenta + foto de perfil.
+   La foto se procesa en cliente, se sube a Storage en la ruta propia del usuario
+   y se refleja en Auth/Firestore sin afectar al arranque offline. */
 import "../bootstrap.js?v=v2-f3b-recovery-signals-20260924";
 import {
   browserLocalPersistence,
@@ -79,8 +79,7 @@ function paintAccountFromSnapshot(snapshot = readAuthSnapshot()) {
   const badgeRole = el("m2AuthBadgeRole");
   if (badgeName) badgeName.textContent = name;
   if (badgeRole) badgeRole.textContent = username ? `@${username} · ${roleLabel(role)}` : roleLabel(role);
-  const avatar = initials(name);
-  [el("m2AuthAvatar"), el("m2AccountAvatar")].forEach(node => { if (node) node.textContent = avatar; });
+  [el("m2AuthAvatar"), el("m2AccountAvatar")].forEach(node => paintAvatar(node, name, snapshot.photoURL || ""));
   if (badge) {
     badge.hidden = false;
     badge.style.removeProperty("display");
@@ -326,10 +325,15 @@ function buildUi() {
         </header>
 
         <div class="m2-account-identity">
-          <div class="m2-account-avatar" id="m2AccountAvatar">M</div>
+          <div class="m2-account-photo-block">
+            <div class="m2-account-avatar" id="m2AccountAvatar">M</div>
+            <button id="m2AccountPhotoBtn" class="m2-account-photo-btn" type="button">CAMBIAR FOTO</button>
+            <input id="m2AccountPhotoInput" type="file" accept="image/*" hidden>
+          </div>
           <div>
             <strong id="m2AccountIdentityName">Usuario</strong>
             <span id="m2AccountIdentityEmail">correo</span>
+            <small class="m2-account-photo-help">JPG/PNG · recorte cuadrado automático</small>
           </div>
         </div>
 
@@ -417,9 +421,84 @@ function initials(name) {
   return (parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : parts[0].slice(0, 2)).toUpperCase();
 }
 
+function paintAvatar(node, name, photoURL = "") {
+  if (!node) return;
+  const url = String(photoURL || "").trim();
+  node.replaceChildren();
+  if (url) {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    img.decoding = "async";
+    img.referrerPolicy = "no-referrer";
+    img.addEventListener("error", () => { node.textContent = initials(name); }, { once: true });
+    node.appendChild(img);
+  } else node.textContent = initials(name);
+}
+
+function imageToSquareJpeg(file, size = 512, quality = 0.86) {
+  return new Promise((resolve, reject) => {
+    if (!file || !String(file.type || "").startsWith("image/")) return reject(new Error("Selecciona una imagen válida."));
+    if (Number(file.size || 0) > 12 * 1024 * 1024) return reject(new Error("La imagen original no puede superar 12 MB."));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("El formato de imagen no es compatible."));
+      img.onload = () => {
+        try {
+          const side = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+          if (!side) throw new Error("La imagen está vacía.");
+          const sx = Math.max(0, ((img.naturalWidth || img.width) - side) / 2);
+          const sy = Math.max(0, ((img.naturalHeight || img.height) - side) / 2);
+          const canvas = document.createElement("canvas");
+          canvas.width = size; canvas.height = size;
+          const ctx = canvas.getContext("2d", { alpha: false });
+          ctx.fillStyle = "#17231a"; ctx.fillRect(0, 0, size, size);
+          ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("No se pudo preparar la foto.")), "image/jpeg", quality);
+        } catch (error) { reject(error); }
+      };
+      img.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadAccountPhoto(file) {
+  if (!state.currentUser || state.busy) return;
+  if (navigator.onLine === false) return setAccountMessage("Necesitas conexión para cambiar la foto de perfil.", "error");
+  setBusy(true);
+  setAccountMessage("Preparando foto…");
+  try {
+    const blob = await imageToSquareJpeg(file);
+    const storageSdk = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js");
+    const storage = storageSdk.getStorage(state.services.app);
+    const target = storageSdk.ref(storage, `avatars/${state.currentUser.uid}/profile.jpg`);
+    setAccountMessage("Subiendo foto…");
+    await storageSdk.uploadBytes(target, blob, { contentType: "image/jpeg", cacheControl: "public,max-age=3600" });
+    const basePhotoURL = await storageSdk.getDownloadURL(target);
+    const photoURL = `${basePhotoURL}${basePhotoURL.includes("?") ? "&" : "?"}v=${Date.now()}`;
+    await updateProfile(state.currentUser, { photoURL });
+    await setDoc(doc(state.services.firestore, "users", state.currentUser.uid), { photoURL, updatedAt: serverTimestamp() }, { merge: true });
+    state.profile = { ...(state.profile || {}), photoURL };
+    paintAccount(state.currentUser, state.profile?.displayName || state.currentUser.displayName || null);
+    publishAuthState(state.currentUser, state.profile?.displayName || state.currentUser.displayName || null);
+    setAccountMessage("Foto de perfil actualizada.", "ok");
+  } catch (error) {
+    console.error("[MILITOPO V2 photo]", error);
+    const code = String(error?.code || "");
+    if (code.includes("storage/unauthorized")) setAccountMessage("Storage todavía no permite subir fotos. Despliega las reglas de Storage de este bloque.", "error");
+    else setAccountMessage(String(error?.message || "No se pudo actualizar la foto."), "error");
+  } finally {
+    setBusy(false);
+    const input = el("m2AccountPhotoInput"); if (input) input.value = "";
+  }
+}
+
 function setBusy(busy) {
   state.busy = Boolean(busy);
-  ["m2AuthSubmit", "m2AuthVerifiedBtn", "m2AuthResendBtn", "m2AccountSave", "m2AccountResetPassword", "m2AccountLogout"].forEach(id => {
+  ["m2AuthSubmit", "m2AuthVerifiedBtn", "m2AuthResendBtn", "m2AccountSave", "m2AccountResetPassword", "m2AccountLogout", "m2AccountPhotoBtn"].forEach(id => {
     const node = el(id);
     if (node) node.disabled = state.busy;
   });
@@ -565,7 +644,8 @@ function publishAuthState(user, displayName) {
     displayName: displayName || null,
     username: username || null,
     role: state.role,
-    emailVerified: Boolean(user.emailVerified)
+    emailVerified: Boolean(user.emailVerified),
+    photoURL: state.profile?.photoURL || user.photoURL || null
   });
   writeAuthSnapshot(globalThis.MILITOPO_V2_AUTH);
   globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-ready", {
@@ -579,7 +659,8 @@ function paintAccount(user, displayName) {
   const badgeRole = el("m2AuthBadgeRole");
   if (badgeName) badgeName.textContent = finalName;
   if (badgeRole) badgeRole.textContent = state.profile?.usernameKey ? `@${normalizeUsername(state.profile.usernameKey)} · ${roleLabel(state.role)}` : roleLabel(state.role);
-  [el("m2AuthAvatar"), el("m2AccountAvatar")].forEach(node => { if (node) node.textContent = initials(finalName); });
+  const photoURL = state.profile?.photoURL || user.photoURL || "";
+  [el("m2AuthAvatar"), el("m2AccountAvatar")].forEach(node => paintAvatar(node, finalName, photoURL));
   if (el("m2AccountIdentityName")) el("m2AccountIdentityName").textContent = finalName;
   if (el("m2AccountIdentityEmail")) el("m2AccountIdentityEmail").textContent = user.email || "";
   if (el("m2AccountDisplayName")) el("m2AccountDisplayName").value = finalName === user.email ? "" : finalName;
@@ -611,7 +692,8 @@ async function enterAppCore(user) {
     state.profile = {
       displayName: cached.displayName || user.displayName || null,
       username: cached.username || null,
-      usernameKey: cached.username || null
+      usernameKey: cached.username || null,
+      photoURL: cached.photoURL || user.photoURL || null
     };
     const quickName = state.profile.displayName || user.displayName || user.email || null;
     paintAccount(user, quickName);
@@ -638,7 +720,8 @@ async function enterAppCore(user) {
   state.profile = profileResult || state.profile || {
     displayName: cached?.displayName || user.displayName || null,
     username: cached?.username || null,
-    usernameKey: cached?.username || null
+    usernameKey: cached?.username || null,
+    photoURL: cached?.photoURL || user.photoURL || null
   };
   const displayName = state.profile?.displayName || cached?.displayName || user.displayName || null;
 
@@ -933,6 +1016,8 @@ async function init() {
   el("m2AuthAccountBtn")?.addEventListener("click", openAccountPanel);
   el("m2AccountClose")?.addEventListener("click", closeAccountPanel);
   el("m2AccountForm")?.addEventListener("submit", saveAccount);
+  el("m2AccountPhotoBtn")?.addEventListener("click", () => el("m2AccountPhotoInput")?.click());
+  el("m2AccountPhotoInput")?.addEventListener("change", event => { const file = event.target?.files?.[0]; if (file) uploadAccountPhoto(file); });
   el("m2AccountReload")?.addEventListener("click", () => window.location.reload());
   el("m2AccountResetPassword")?.addEventListener("click", async () => {
     const email = state.currentUser?.email;
