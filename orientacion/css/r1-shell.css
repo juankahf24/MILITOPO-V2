@@ -1615,3 +1615,17 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
 .r8-admin-overlay.has-user-profile .r8-admin-shell,
 .r8-admin-overlay.has-user-profile .r8-admin-body,
 .r8-admin-overlay.has-user-profile [data-r8-view="users"]{overflow:hidden!important;overscroll-behavior:none!important}
+
+
+/* R8M · Lista de usuarios: foto protagonista y acciones compactas. */
+.r8-user-row.r8-user-row-compact{min-height:66px!important;padding:7px 9px!important}
+.r8-user-compact-id{gap:10px!important}
+.r8-user-list-photo{padding:2px!important;border-radius:14px!important;box-shadow:0 0 0 2px rgba(217,180,95,.20)!important}
+.r8-user-list-photo .r8-user-avatar{width:44px!important;height:44px!important;border-radius:11px!important}
+.r8-user-list-photo .r8-user-avatar .r8-icon{width:21px!important;height:21px!important}
+.r8-user-compact-actions{gap:4px!important}
+@media(max-width:520px){
+  .r8-user-row.r8-user-row-compact{min-height:64px!important;padding:6px 7px!important}
+  .r8-user-list-photo .r8-user-avatar{width:42px!important;height:42px!important;border-radius:10px!important}
+  .r8-user-compact-id{gap:8px!important}
+}
