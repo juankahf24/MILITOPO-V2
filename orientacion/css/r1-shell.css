@@ -1167,3 +1167,175 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
 .r8-user-empty-visual{display:flex;align-items:center;gap:9px;margin-top:7px;padding:12px;border-radius:11px;background:rgba(255,255,255,.025);color:#929e94}.r8-user-empty-visual>.r8-icon{width:22px;height:22px;flex:0 0 auto;color:#c5ae70}.r8-user-empty-visual strong{display:block;color:#dfe4db;font:900 .51rem/1 system-ui}.r8-user-empty-visual span{display:block;margin-top:4px;font:650 .47rem/1.15 system-ui}
 @media(max-width:760px){.r8-user-row.r8-user-row-compact{grid-template-columns:minmax(0,1fr) auto}.r8-user-compact-actions{gap:4px}.r8-user-role.r8-user-role-compact{min-width:101px}.r8-user-account-strip{grid-template-columns:1fr 1fr}.r8-account-email{grid-column:1/-1}.r8-visual-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.r8-user-row.r8-user-row-compact{padding:7px}.r8-user-avatar{width:29px;height:29px;border-radius:9px}.r8-user-compact-id{gap:6px}.r8-user-compact-id strong{font-size:.59rem}.r8-user-compact-id span:not(.r8-user-avatar):not(.r8-self){font-size:.46rem}.r8-user-role.r8-user-role-compact{min-width:90px;font-size:.50rem!important;padding-left:6px!important}.r8-user-view{min-width:48px;padding:5px 6px}.r8-user-view span{font-size:.45rem}.r8-user-account-strip{grid-template-columns:1fr}.r8-account-email{grid-column:auto}.r8-account-status,.r8-account-role{min-height:38px}.r8-visual-metrics{gap:5px}.r8-visual-metric{min-height:58px;padding:7px}.r8-visual-metric-icon{width:26px;height:26px}.r8-date-pills .r8-detail-pill{flex:1 1 100%}}
+
+/* R8H · Perfil de usuario a pantalla completa + iconografía ópticamente centrada. */
+.r8-user-profile-full{
+  position:fixed;
+  inset:0;
+  z-index:100520;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  width:100%;
+  height:100dvh;
+  max-width:none;
+  margin:0;
+  padding:0;
+  overflow:hidden;
+  box-sizing:border-box;
+  background:
+    radial-gradient(circle at 15% -10%,rgba(223,178,85,.13),transparent 32%),
+    linear-gradient(180deg,#17231a 0%,#111a14 100%);
+  color:#f5f1e5;
+}
+.r8-user-profile-head{
+  position:relative;
+  z-index:2;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  background:rgba(17,27,20,.95);
+  padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left));
+  box-shadow:0 10px 30px rgba(0,0,0,.15)
+}
+.r8-user-profile-head-inner{
+  width:min(1120px,100%);
+  margin:0 auto;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0
+}
+.r8-user-profile-back{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  flex:0 0 auto;
+  min-height:38px;
+  padding:8px 11px;
+  border:1px solid rgba(240,163,84,.40);
+  border-radius:11px;
+  background:rgba(240,163,84,.09);
+  color:#f4dcae;
+  cursor:pointer
+}
+.r8-user-profile-back .r8-icon{width:16px;height:16px}
+.r8-user-profile-back span{font:950 .53rem/1 system-ui;letter-spacing:.07em}
+.r8-user-profile-title{display:flex;align-items:center;gap:9px;min-width:0;flex:1}
+.r8-user-profile-title>div{min-width:0}
+.r8-user-profile-title small{display:block;color:#c8af72;font:900 .42rem/1 system-ui;letter-spacing:.10em}
+.r8-user-profile-title strong{display:block;margin-top:4px;color:#fbf8ed;font:950 .82rem/1.05 system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r8-user-profile-title>div>span{display:block;margin-top:3px;color:#9da89e;font:750 .49rem/1 system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r8-user-profile-main{
+  min-height:0;
+  overflow:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding:12px max(12px,env(safe-area-inset-right)) max(18px,calc(12px + env(safe-area-inset-bottom))) max(12px,env(safe-area-inset-left));
+  box-sizing:border-box
+}
+.r8-user-profile-content{width:min(1120px,100%);max-width:100%;margin:0 auto;min-width:0;box-sizing:border-box}
+.r8-user-profile-hero{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+  min-width:0;
+  padding:12px;
+  border:1px solid rgba(240,163,84,.24);
+  border-radius:16px;
+  background:linear-gradient(145deg,rgba(240,163,84,.08),rgba(255,255,255,.025));
+  box-sizing:border-box
+}
+.r8-user-profile-identity{display:flex;align-items:center;gap:11px;min-width:0}
+.r8-user-profile-identity>div{min-width:0}
+.r8-user-profile-identity small{display:block;color:#b9a66d;font:900 .43rem/1 system-ui;letter-spacing:.10em}
+.r8-user-profile-identity h3{margin:5px 0 0;color:#fbf8ed;font:950 1.05rem/1.03 system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r8-user-profile-identity p{margin:4px 0 0;color:#9ba79d;font:750 .56rem/1.1 system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r8-user-profile-photo{
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  width:34px;
+  height:34px;
+  border-radius:11px;
+  overflow:hidden;
+  background:rgba(203,183,122,.10);
+  border:1px solid rgba(203,183,122,.24);
+  color:#e1c881
+}
+.r8-user-profile-photo .r8-icon{width:18px;height:18px}
+.r8-user-profile-photo-large{width:48px;height:48px;border-radius:15px}
+.r8-user-profile-photo-large .r8-icon{width:24px;height:24px}
+.r8-user-profile-photo img{width:100%;height:100%;display:block;object-fit:cover}
+.r8-user-profile-photo[data-role="organizer"]{color:#e7ad68;background:rgba(231,173,104,.10);border-color:rgba(231,173,104,.26)}
+.r8-user-profile-photo[data-role="super_admin"]{color:#f2d58b;background:rgba(242,213,139,.12);border-color:rgba(242,213,139,.30)}
+.r8-user-profile-badges{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.r8-user-profile-badges>span{display:inline-flex;align-items:center;gap:5px;min-height:30px;padding:6px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);font:900 .45rem/1 system-ui;letter-spacing:.04em;white-space:nowrap}
+.r8-user-profile-badges .r8-icon{width:12px;height:12px}
+.r8-profile-role{color:#e5cb86}.r8-profile-status.is-active{color:#b7ddb0}.r8-profile-status.is-disabled{color:#efad9f}
+.r8-user-detail-fullscreen{width:100%;max-width:100%;margin-top:9px!important;margin-bottom:0!important;box-sizing:border-box;overflow:hidden}
+.r8-user-profile-state{width:100%;max-width:700px;margin:14px auto 0!important;box-sizing:border-box}
+
+/* Centrado óptico de los pictogramas de actividad. */
+.r8-visual-metric-icon,
+.r8-detail-pill>span,
+.r8-last-race-icon{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0!important;
+  line-height:0!important
+}
+.r8-visual-metric-icon .r8-icon,
+.r8-detail-pill>span .r8-icon,
+.r8-last-race-icon .r8-icon{
+  display:block;
+  margin:auto;
+  flex:0 0 auto;
+  transform-box:view-box;
+  transform-origin:center
+}
+.r8-visual-metric-icon .r8-icon-race{transform:translate(1px,-.25px)}
+.r8-visual-metric-icon .r8-icon-route{transform:translate(-.75px,.25px)}
+.r8-visual-metric-icon .r8-icon-trophy{transform:translateY(-.25px)}
+.r8-visual-metric-icon .r8-icon-mountain{transform:translateY(.25px)}
+.r8-visual-metric-icon .r8-icon-target{transform:translate(.25px,.25px)}
+.r8-visual-metric-icon .r8-icon-discard{transform:translate(.25px,.25px)}
+.r8-detail-pill>span .r8-icon-flag{transform:translate(1px,-.25px)}
+.r8-last-race-icon .r8-icon-flag{transform:translate(1px,-.25px)}
+
+/* Evita cualquier desbordamiento horizontal en fichas de usuario. */
+.r8-user-profile-full .r8-visual-metrics,
+.r8-user-profile-full .r8-detail-pills,
+.r8-user-profile-full .r8-user-account-strip,
+.r8-user-profile-full .r8-user-last-race{max-width:100%;min-width:0;box-sizing:border-box}
+.r8-user-profile-full .r8-visual-metric,
+.r8-user-profile-full .r8-detail-pill{min-width:0;box-sizing:border-box}
+
+@media(max-width:760px){
+  .r8-user-profile-main{padding-top:9px}
+  .r8-user-profile-hero{align-items:flex-start}
+  .r8-user-profile-badges{max-width:42%}
+  .r8-user-profile-full .r8-visual-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .r8-user-profile-head{padding-bottom:8px}
+  .r8-user-profile-head-inner{gap:8px}
+  .r8-user-profile-back{min-width:38px;width:38px;padding:0;border-radius:10px}
+  .r8-user-profile-back span{display:none}
+  .r8-user-profile-title .r8-user-profile-photo{display:none}
+  .r8-user-profile-title strong{font-size:.74rem}
+  .r8-user-profile-title>div>span{font-size:.45rem}
+  .r8-user-profile-main{padding-left:8px;padding-right:8px}
+  .r8-user-profile-hero{padding:10px}
+  .r8-user-profile-photo-large{width:44px;height:44px}
+  .r8-user-profile-badges{max-width:48%;gap:4px}
+  .r8-user-profile-badges>span{min-height:27px;padding:5px 7px;font-size:.40rem}
+  .r8-user-detail-fullscreen{padding:8px!important}
+  .r8-user-profile-full .r8-visual-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+  .r8-user-profile-full .r8-visual-metric{min-height:58px;padding:7px 6px;gap:6px}
+  .r8-user-profile-full .r8-visual-metric-icon{width:28px;height:28px}
+  .r8-user-profile-full .r8-visual-metric strong{font-size:.66rem}
+  .r8-user-profile-full .r8-visual-metric span{font-size:.39rem}
+  .r8-user-profile-full .r8-visual-metric small{font-size:.36rem;line-height:1.15;white-space:normal}
+}
