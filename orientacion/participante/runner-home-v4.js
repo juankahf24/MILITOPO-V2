@@ -1,15 +1,15 @@
-/* MILITOPO V2 · R7E · Cierre Runner: navegación, resultados y reproductor coherentes. */
+/* MILITOPO V2 · R8I · Runner: navegación, resultados, perfil y foto de usuario. */
 import "./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007";
 import "./runner-history-v2.js?v=v2-r7e-runner-coherence-20261008";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
-  onAuthStateChanged,signOut
+  onAuthStateChanged,signOut,updateProfile
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
-const VERSION="v2-r7e-runner-coherence-20261008";
+const VERSION="v2-r8i-profile-photo-20261009";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -19,7 +19,7 @@ try{clearTimeout(window.__MILITOPO_RUNNER_HOME_V4_WATCHDOG);}catch(_){ }
 
 const els={
   name:document.getElementById("rhName"),meta:document.getElementById("rhMeta"),avatar:document.getElementById("rhAvatar"),
-  detailsBtn:document.getElementById("rhDetailsBtn"),logoutBtn:document.getElementById("rhLogoutBtn"),details:document.getElementById("rhDetails"),
+  detailsBtn:document.getElementById("rhDetailsBtn"),logoutBtn:document.getElementById("rhLogoutBtn"),details:document.getElementById("rhDetails"),photoBtn:document.getElementById("rhPhotoBtn"),photoInput:document.getElementById("rhPhotoInput"),photoStatus:document.getElementById("rhPhotoStatus"),
   status:document.getElementById("rhStatus"),activeEvents:document.getElementById("rhActiveEvents"),historyEvents:document.getElementById("rhHistoryEvents"),
   activeCount:document.getElementById("rhActiveCount"),historyCount:document.getElementById("rhHistoryCount"),retry:document.getElementById("rhRetry"),
   headerUser:document.getElementById("rhHeaderUser"),headerHandle:document.getElementById("rhHeaderHandle"),hero:document.getElementById("rhDashboardHero"),
@@ -62,7 +62,7 @@ async function waitForUser(){setStatus("Recuperando tu sesión MILITOPO…");if(
 function runnerAuthContext(){
   if(!currentUser?.uid)return null;
   const username=String(profile?.usernameKey||profile?.username||"").replace(/^@/,"").trim().toLowerCase();
-  return {uid:String(currentUser.uid),email:currentUser.email||null,displayName:String(profile?.displayName||currentUser.displayName||currentUser.email||"Corredor"),username:username||null,role:"runner"};
+  return {uid:String(currentUser.uid),email:currentUser.email||null,displayName:String(profile?.displayName||currentUser.displayName||currentUser.email||"Corredor"),username:username||null,role:"runner",photoURL:String(profile?.photoURL||currentUser.photoURL||"")||null};
 }
 function publishRunnerAuth(){
   const ctx=runnerAuthContext();if(!ctx)return;
@@ -75,13 +75,33 @@ function updateConnectivity(){
   els.network.classList.toggle("is-offline",!online);
 }
 
+function paintRunnerAvatar(name,photoURL=""){
+  if(!els.avatar)return;
+  const url=String(photoURL||"").trim();
+  els.avatar.replaceChildren();
+  if(url){const img=document.createElement("img");img.src=url;img.alt="";img.decoding="async";img.referrerPolicy="no-referrer";img.addEventListener("error",()=>{els.avatar.textContent=initials(name)},{once:true});els.avatar.appendChild(img);}else els.avatar.textContent=initials(name);
+}
+function runnerPhotoMessage(message,type=""){
+  if(!els.photoStatus)return;els.photoStatus.textContent=String(message||"");els.photoStatus.className=`profile-photo-status${type?` ${type}`:""}`;
+}
+function imageToSquareJpeg(file,size=512,quality=.86){
+  return new Promise((resolve,reject)=>{if(!file||!String(file.type||"").startsWith("image/"))return reject(new Error("Selecciona una imagen válida."));if(Number(file.size||0)>12*1024*1024)return reject(new Error("La imagen original no puede superar 12 MB."));const reader=new FileReader();reader.onerror=()=>reject(new Error("No se pudo leer la imagen."));reader.onload=()=>{const img=new Image();img.onerror=()=>reject(new Error("El formato de imagen no es compatible."));img.onload=()=>{try{const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,side=Math.min(w,h);if(!side)throw new Error("La imagen está vacía.");const canvas=document.createElement("canvas");canvas.width=size;canvas.height=size;const ctx=canvas.getContext("2d",{alpha:false});ctx.fillStyle="#17231a";ctx.fillRect(0,0,size,size);ctx.drawImage(img,Math.max(0,(w-side)/2),Math.max(0,(h-side)/2),side,side,0,0,size,size);canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("No se pudo preparar la foto.")),"image/jpeg",quality);}catch(error){reject(error)}};img.src=String(reader.result||"")};reader.readAsDataURL(file);});
+}
+async function uploadRunnerPhoto(file){
+  if(!currentUser||!currentApp)return;if(navigator.onLine===false){runnerPhotoMessage("Necesitas conexión para cambiar la foto.","err");return;}
+  if(els.photoBtn)els.photoBtn.disabled=true;runnerPhotoMessage("Preparando foto…");
+  try{const blob=await imageToSquareJpeg(file);const sdk=await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js");const storage=sdk.getStorage(currentApp),target=sdk.ref(storage,`avatars/${currentUser.uid}/profile.jpg`);runnerPhotoMessage("Subiendo foto…");await sdk.uploadBytes(target,blob,{contentType:"image/jpeg",cacheControl:"public,max-age=3600"});const basePhotoURL=await sdk.getDownloadURL(target);const photoURL=`${basePhotoURL}${basePhotoURL.includes("?")?"&":"?"}v=${Date.now()}`;await updateProfile(currentUser,{photoURL});const db=getFirestore(currentApp);await setDoc(doc(db,"users",currentUser.uid),{photoURL,updatedAt:serverTimestamp()},{merge:true});profile={...(profile||{}),photoURL};paintRunnerAvatar(String(profile?.displayName||currentUser.displayName||currentUser.email||"Usuario"),photoURL);publishRunnerAuth();runnerPhotoMessage("Foto actualizada.","ok");}
+  catch(error){console.error("[MILITOPO runner photo]",error);const code=String(error?.code||"");runnerPhotoMessage(code.includes("storage/unauthorized")?"Falta desplegar las reglas de Storage de este bloque.":String(error?.message||"No se pudo actualizar la foto."),"err");}
+  finally{if(els.photoBtn)els.photoBtn.disabled=false;if(els.photoInput)els.photoInput.value="";}
+}
+
 async function loadProfile(app,user){
   const db=getFirestore(app);let data={};
   try{const snap=await withTimeout(getDoc(doc(db,"users",user.uid)),8000,"El perfil tardó demasiado en responder.");if(snap.exists())data=snap.data()||{};}catch(error){console.warn("[MILITOPO runner profile]",error);}
   profile=data;
   const displayName=String(data.displayName||user.displayName||user.email||"Usuario").trim();
   const username=String(data.usernameKey||data.username||"").trim().toLowerCase().replace(/^@/,"");
-  text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);text(els.avatar,initials(displayName));
+  text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);paintRunnerAvatar(displayName,data.photoURL||user.photoURL||"");
   if(els.detailsBtn)els.detailsBtn.disabled=false;if(els.logoutBtn)els.logoutBtn.disabled=false;
   if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> CORREDOR`;
   publishRunnerAuth();
@@ -485,6 +505,8 @@ function schedulePostRaceRefresh(eventId){
 
 async function boot(){try{const app=await initFirebase();currentApp=app;updateConnectivity();const user=await waitForUser();if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");currentUser=user;if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");await loadProfile(app,user);startInvitationRealtime(app);await loadEvents(app);}catch(error){console.error("[MILITOPO runner boot]",error);text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}}
 
+els.photoBtn?.addEventListener("click",()=>els.photoInput?.click());
+els.photoInput?.addEventListener("change",event=>{const file=event.target?.files?.[0];if(file)uploadRunnerPhoto(file);});
 els.detailsBtn?.addEventListener("click",()=>{els.details?.classList.toggle("show");if(els.detailsBtn)els.detailsBtn.textContent=els.details?.classList.contains("show")?"OCULTAR DATOS":"VER DATOS DE CUENTA";});
 els.logoutBtn?.addEventListener("click",async()=>{stopInvitationRealtime();stopActiveEventRealtime();try{globalThis.MILITOPO_V2_AUTH=null;}catch(_){}try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
 els.retry?.addEventListener("click",()=>{const app=findApp();if(app)loadEvents(app);});
