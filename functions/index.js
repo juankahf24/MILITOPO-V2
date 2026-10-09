@@ -94,6 +94,142 @@ exports.ensureUserProfile = onCall({ enforceAppCheck: false }, async request => 
   return { uid: user.uid, role, emailVerified: Boolean(user.emailVerified) };
 });
 
+function timestampMs(value) {
+  try {
+    if (value && typeof value.toMillis === "function") return value.toMillis();
+    if (value instanceof Date) return value.getTime();
+    const parsed = Date.parse(value || "");
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+// R8F · Ficha profesional de usuario para SÚPER ADMIN.
+// Auth metadata solo se expone mediante backend y únicamente a un super_admin verificado.
+exports.getAdminUserOverview = onCall({ enforceAppCheck: false }, async request => {
+  requireSuperAdmin(request);
+  const targetUid = String(request.data?.uid || "").trim();
+  if (!targetUid || targetUid.length > 180) {
+    throw new HttpsError("invalid-argument", "UID de usuario no válido.");
+  }
+
+  try {
+    const [authUser, profileSnap, eventsSnap] = await Promise.all([
+      auth.getUser(targetUid),
+      db.collection("users").doc(targetUid).get(),
+      db.collection("events").get()
+    ]);
+
+    const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
+    const role = VALID_ROLES.has(String(authUser.customClaims?.role || ""))
+      ? String(authUser.customClaims.role)
+      : (VALID_ROLES.has(String(profile.roleMirror || "")) ? String(profile.roleMirror) : "runner");
+
+    const eventDocs = [];
+    const organizer = { total: 0, draft: 0, prepared: 0, published: 0, live: 0, finished: 0, archived: 0 };
+    eventsSnap.forEach(eventSnap => {
+      const data = eventSnap.data() || {};
+      if (String(data.kind || "orientation") !== "orientation") return;
+      eventDocs.push(eventSnap);
+      if (String(data.ownerUid || "") === targetUid) {
+        organizer.total += 1;
+        const status = String(data.status || "draft").toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(organizer, status)) organizer[status] += 1;
+      }
+    });
+
+    const runner = {
+      participations: 0,
+      started: 0,
+      finished: 0,
+      incomplete: 0,
+      notStarted: 0,
+      trackDistanceM: 0,
+      positiveM: 0,
+      controlDetectedCount: 0,
+      discardedControlCount: 0,
+      penaltyMs: 0,
+      lastRace: null
+    };
+
+    const batchSize = 150;
+    for (let offset = 0; offset < eventDocs.length; offset += batchSize) {
+      const slice = eventDocs.slice(offset, offset + batchSize);
+      const refs = slice.map(eventSnap => eventSnap.ref.collection("results").doc(targetUid));
+      const resultSnaps = refs.length ? await db.getAll(...refs) : [];
+      resultSnaps.forEach((resultSnap, index) => {
+        if (!resultSnap.exists) return;
+        const row = resultSnap.data() || {};
+        if (String(row.runnerUid || targetUid) !== targetUid) return;
+        const eventSnap = slice[index];
+        const eventData = eventSnap?.data() || {};
+        const statusRaw = String(row.status || "not_started").toLowerCase();
+        const status = ["finished", "incomplete", "not_started"].includes(statusRaw) ? statusRaw : "not_started";
+
+        runner.participations += 1;
+        if (status === "finished") {
+          runner.finished += 1;
+          runner.started += 1;
+        } else if (status === "incomplete") {
+          runner.incomplete += 1;
+          runner.started += 1;
+        } else {
+          runner.notStarted += 1;
+        }
+        runner.trackDistanceM += Math.max(0, Number(row.trackDistanceM || 0));
+        runner.positiveM += Math.max(0, Number(row.routePositiveM ?? row.coursePositiveM ?? 0));
+        runner.controlDetectedCount += Math.max(0, Number(row.controlDetectedCount ?? row.completedControlCount ?? 0));
+        runner.discardedControlCount += Math.max(0, Number(row.discardedControlCount || 0));
+        runner.penaltyMs += Math.max(0, Number(row.penaltyMs || 0));
+
+        const atMs = Math.max(
+          0,
+          Number(row.finishedAtMs || 0),
+          Number(row.startedAtMs || 0),
+          timestampMs(row.consolidatedAt) || 0,
+          timestampMs(row.updatedAt) || 0
+        );
+        if (!runner.lastRace || atMs > Number(runner.lastRace.atMs || 0)) {
+          runner.lastRace = {
+            eventId: String(row.eventId || eventSnap?.id || "").slice(0, 120),
+            eventName: String(row.eventName || eventData.eventName || eventData.name || "Carrera de orientación").slice(0, 140),
+            status,
+            atMs: atMs || null
+          };
+        }
+      });
+    }
+
+    return {
+      ok: true,
+      account: {
+        uid: authUser.uid,
+        email: authUser.email || profile.email || null,
+        emailVerified: Boolean(authUser.emailVerified),
+        disabled: Boolean(authUser.disabled),
+        role,
+        creationTimeMs: timestampMs(authUser.metadata?.creationTime),
+        lastSignInTimeMs: timestampMs(authUser.metadata?.lastSignInTime)
+      },
+      profile: {
+        displayName: String(profile.displayName || authUser.displayName || "").slice(0, 120) || null,
+        username: String(profile.usernameKey || profile.username || "").replace(/^@/, "").slice(0, 40) || null,
+        accountStatus: String(profile.accountStatus || (authUser.disabled ? "disabled" : "active")).slice(0, 40),
+        createdAtMs: timestampMs(profile.createdAt),
+        updatedAtMs: timestampMs(profile.updatedAt)
+      },
+      runner,
+      organizer
+    };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    if (error?.code === "auth/user-not-found") throw new HttpsError("not-found", "El usuario no existe.");
+    console.error("[MILITOPO getAdminUserOverview]", { targetUid, code: error?.code || null, message: error?.message || String(error) });
+    throw new HttpsError("internal", "No se pudo construir la ficha del usuario.");
+  }
+});
+
 exports.setUserRole = onCall({ enforceAppCheck: false }, async request => {
   const actor = requireSuperAdmin(request);
   const targetUid = String(request.data?.uid || "").trim();
