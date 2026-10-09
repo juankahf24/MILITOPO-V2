@@ -290,3 +290,91 @@ html.militopo-pwa-launch #militopoV2AccountBadge {
 .m2-account-photo-trigger{border-radius:14px!important}
 .m2-account-photo-trigger .m2-account-avatar{border-radius:10px!important}
 .m2-account-photo-tap{display:none!important}
+
+
+/* R9C · MI CUENTA Organizer/Super Admin: identidad visual, rol naranja y responsive PWA. */
+.m2-account-identity{
+  gap:18px;
+  padding:16px;
+  align-items:center;
+}
+.m2-account-photo-block{align-self:center}
+.m2-account-photo-trigger{
+  width:86px!important;
+  height:86px!important;
+  padding:4px!important;
+  border:2px solid #d99837!important;
+  border-radius:18px!important;
+  background:rgba(217,152,55,.075)!important;
+  box-shadow:0 0 0 4px rgba(217,152,55,.10),0 10px 24px rgba(0,0,0,.18)!important;
+  box-sizing:border-box;
+}
+.m2-account-photo-trigger .m2-account-avatar{
+  width:74px!important;
+  height:74px!important;
+  flex:0 0 74px!important;
+  border-radius:13px!important;
+  overflow:hidden!important;
+}
+.m2-account-photo-trigger .m2-account-avatar img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  object-position:center!important;
+  display:block!important;
+}
+.m2-account-identity>div:last-child{gap:6px!important;min-width:0;padding-left:2px}
+.m2-account-identity>div:last-child>strong{font-size:1.08rem!important;line-height:1.05}
+.m2-account-identity>div:last-child>span:not(.m2-account-role-badge){font-size:.80rem!important;line-height:1.25}
+.m2-account-photo-help{display:none!important}
+.m2-account-role-badge{
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  width:max-content;
+  max-width:100%;
+  min-height:29px;
+  margin-top:3px;
+  padding:0 12px;
+  border:1px solid rgba(239,157,47,.82);
+  border-radius:999px;
+  background:linear-gradient(135deg,#e89b30,#bf7020);
+  color:#18150f!important;
+  font-size:.50rem!important;
+  font-weight:1000;
+  letter-spacing:.075em;
+  line-height:1;
+  box-shadow:0 6px 15px rgba(151,81,18,.22),inset 0 1px 0 rgba(255,255,255,.30);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.m2-account-role-badge::before{content:"✦";margin-right:6px;font-size:.58rem;line-height:1}
+
+@media(max-width:480px){
+  .m2-account-card{
+    max-height:96dvh!important;
+    padding:18px 16px max(18px,env(safe-area-inset-bottom))!important;
+  }
+  .m2-account-identity{
+    display:grid!important;
+    grid-template-columns:86px minmax(0,1fr);
+    gap:18px!important;
+    align-items:center!important;
+    margin:16px 0 15px!important;
+    padding:14px!important;
+  }
+  .m2-account-photo-trigger{width:84px!important;height:84px!important}
+  .m2-account-photo-trigger .m2-account-avatar{width:72px!important;height:72px!important;flex-basis:72px!important}
+  .m2-account-identity>div:last-child{padding-left:2px}
+  .m2-account-role-badge{min-height:28px;padding:0 11px;font-size:.47rem!important}
+  .m2-account-form input:not([type="checkbox"]){font-size:16px!important}
+}
+@media(max-width:370px){
+  .m2-account-identity{grid-template-columns:78px minmax(0,1fr);gap:14px!important;padding:12px!important}
+  .m2-account-photo-trigger{width:76px!important;height:76px!important}
+  .m2-account-photo-trigger .m2-account-avatar{width:64px!important;height:64px!important;flex-basis:64px!important}
+  .m2-account-identity>div:last-child>strong{font-size:1rem!important}
+  .m2-account-identity>div:last-child>span:not(.m2-account-role-badge){font-size:.75rem!important}
+  .m2-account-role-badge{min-height:26px;padding:0 9px;font-size:.44rem!important}
+}

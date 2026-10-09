@@ -1,4 +1,4 @@
-/* MILITOPO V2 · R8J · Auth + perfil/cuenta + foto interactiva con recorte manual.
+/* MILITOPO V2 · R9C · Auth + perfil/cuenta responsive + foto interactiva con recorte manual.
    La foto se procesa en cliente, se sube a Storage en la ruta propia del usuario
    y se refleja en Auth/Firestore sin afectar al arranque offline. */
 import "../bootstrap.js?v=v2-f3b-recovery-signals-20260924";
@@ -334,7 +334,7 @@ function buildUi() {
           <div>
             <strong id="m2AccountIdentityName">Usuario</strong>
             <span id="m2AccountIdentityEmail">correo</span>
-            <small class="m2-account-photo-help">Foto visible en MILITOPO · encuadre manual</small>
+            <span class="m2-account-role-badge" id="m2AccountRoleBadge">CORREDOR</span>
           </div>
         </div>
 
@@ -648,6 +648,11 @@ function paintAccount(user, displayName) {
   if (el("m2AccountEmail")) el("m2AccountEmail").textContent = user.email || "—";
   if (el("m2AccountVerified")) el("m2AccountVerified").textContent = user.emailVerified ? "Verificado ✓" : "Pendiente";
   if (el("m2AccountRole")) el("m2AccountRole").textContent = roleLabel(state.role);
+  const roleBadge = el("m2AccountRoleBadge");
+  if (roleBadge) {
+    roleBadge.textContent = roleLabel(state.role);
+    roleBadge.dataset.role = normalizeRole(state.role);
+  }
   if (el("m2AccountKeepSession")) el("m2AccountKeepSession").checked = keepSessionEnabled();
   if (el("m2AccountTrustedDevice")) el("m2AccountTrustedDevice").checked = trustedDeviceEnabled();
 }
