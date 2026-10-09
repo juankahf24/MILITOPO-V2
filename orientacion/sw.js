@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r8i-fixed-profile-photo-20261009";
+const BUILD_ID="v2-r8jk-profile-classification-photo-20261009";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -11,11 +11,11 @@ const CORE_ASSETS=[
   "./index.html",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
   "./css/styles.css?v=v2-r8e-help-center-20261009",
-  "./css/r1-shell.css?v=r8i-fixed-profile-photo-20261009",
+  "./css/r1-shell.css?v=r8jk-profile-classification-photo-20261009",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./js/app.js?v=r8e-help-center-20261009",
   "./js/ui/r1-shell.js?v=r8e-help-center-20261009",
-  "./js/ui/r8-super-admin.js?v=r8i-fixed-profile-photo-20261009",
+  "./js/ui/r8-super-admin.js?v=r8j-profile-photo-screen-20261009",
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
@@ -35,8 +35,9 @@ const CORE_ASSETS=[
   "../js/v2/ui/connectivity-status.js?v=v2-j1a-connectivity-no-spam-20261001",
   "../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../js/v2/auth/roles.js",
-  "../js/v2/auth/auth-ui.css?v=v2-r8i-profile-photo-20261009",
-  "../js/v2/auth/auth-ui.js?v=v2-r8i-profile-photo-20261009",
+  "../js/v2/profile/profile-photo-ui.js?v=v2-r8j-profile-photo-20261009",
+  "../js/v2/auth/auth-ui.css?v=v2-r8j-profile-photo-20261009",
+  "../js/v2/auth/auth-ui.js?v=v2-r8j-profile-photo-20261009",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
   "../js/v2/data/invitations.js?v=v2-r6d-invitaciones-realtime-20261007",
   "../js/v2/data/participants-admin.js?v=v2-r5a1-confirmaciones-20261005",
