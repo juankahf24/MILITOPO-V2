@@ -122,14 +122,13 @@ function renderUserSummary(){
   return `<div class="r8-user-summary">${chips.map(([key,label,count])=>`<button type="button" data-r8-user-chip="${key}" class="${state.roleFilter===key?"is-active":""}"><strong>${count}</strong><span>${label}</span></button>`).join("")}</div>`;
 }
 function userRowHtml(row){
-  const role=userRole(row),self=row.uid===state.auth?.uid,verified=row.emailVerified===true;
+  const role=userRole(row),self=row.uid===state.auth?.uid;
   const username=String(row.usernameKey||row.username||"").replace(/^@/,"");
   const display=String(row.displayName||username||row.email||"Usuario");
   const secondary=username?`@${username}`:String(row.email||"");
   return `<article class="r8-user-row r8-user-row-compact" data-r8-user-row="${esc(row.uid)}">
     <div class="r8-user-compact-id"><button type="button" class="r8-user-list-photo" data-r8-list-photo="${esc(row.uid)}" aria-label="Ver foto de ${esc(display)}">${profilePhoto(row.photoURL,role,"r8-user-avatar")}</button><div><strong>${esc(display)}${self?' <span class="r8-self">· TÚ</span>':""}</strong>${secondary?`<span>${esc(secondary)}</span>`:""}</div></div>
     <div class="r8-user-compact-actions">
-      <span class="r8-mail-state ${verified?"is-ok":"is-pending"}" title="${verified?"Correo verificado":"Correo pendiente de verificar"}" aria-label="${verified?"Correo verificado":"Correo no verificado"}">${icon(verified?"check":"alert")}</span>
       <select class="r8-user-role r8-user-role-compact" data-r8-role ${self?'disabled title="Tu propio rol no se cambia desde este panel"':""} aria-label="Rol de ${esc(display)}"><option value="runner" ${role==="runner"?"selected":""}>CORREDOR</option><option value="organizer" ${role==="organizer"?"selected":""}>ORGANIZADOR</option><option value="super_admin" ${role==="super_admin"?"selected":""}>SÚPER ADMIN</option></select>
       ${self?"":`<button type="button" class="r8-user-apply r8-user-apply-icon" data-r8-apply-role title="Aplicar cambio de rol" aria-label="Aplicar cambio de rol">${icon("check")}</button>`}
       <button type="button" class="r8-user-view" data-r8-user-view="${esc(row.uid)}">${icon("eye")}<span>VER</span></button>
