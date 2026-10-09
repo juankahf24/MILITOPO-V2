@@ -1,6 +1,6 @@
-/* MILITOPO · R8C · SÚPER ADMINISTRADOR
+/* MILITOPO · R8D · SÚPER ADMINISTRADOR
    Administración global: usuarios/roles y supervisión avanzada de carreras.
-   R8C añade gestión progresiva de usuarios y retorno contextual desde CARGAR CARRERA.
+   R8D integra retorno limpio desde CARGAR CARRERA y ficha rápida de supervisión.
    Frontend seguro: reutiliza setUserRole y CARGAR CARRERA; no altera Functions. */
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -9,11 +9,11 @@ const USER_PAGE_SIZE=10;
 const state={
   auth:null,overlay:null,users:[],events:[],tab:"summary",services:null,loading:false,
   userQuery:"",roleFilter:"all",usersVisible:USER_PAGE_SIZE,
-  eventQuery:"",eventStatusFilter:"all",eventsVisible:EVENT_PAGE_SIZE,
-  returnButton:null,wrappedOrganizerCenter:null
+  eventQuery:"",eventStatusFilter:"all",eventsVisible:EVENT_PAGE_SIZE,selectedEventId:""
 };
 const $=(s,r=document)=>r.querySelector(s);
 const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+const searchKey=value=>String(value??"").toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 const cleanRole=value=>["runner","organizer","super_admin"].includes(String(value||""))?String(value):"runner";
 const roleLabel=value=>({runner:"CORREDOR",organizer:"ORGANIZADOR",super_admin:"SÚPER ADMIN"}[cleanRole(value)]||"CORREDOR");
 const statusLabel=value=>({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"}[String(value||"draft").toLowerCase()]||String(value||"BORRADOR").toUpperCase());
@@ -62,7 +62,7 @@ function renderSummary(){
     <div class="r8-admin-metric"><strong>${m.users}</strong><span>USUARIOS</span></div><div class="r8-admin-metric"><strong>${m.runner}</strong><span>CORREDORES</span></div><div class="r8-admin-metric"><strong>${m.organizer}</strong><span>ORGANIZADORES</span></div><div class="r8-admin-metric"><strong>${m.super_admin}</strong><span>SÚPER ADMIN</span></div><div class="r8-admin-metric"><strong>${m.events}</strong><span>CARRERAS</span></div><div class="r8-admin-metric"><strong>${m.live}</strong><span>EN DIRECTO</span></div>
   </div><section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>ACTIVIDAD DE CARRERAS</strong><small>Vista global de los eventos más recientes</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-events>VER TODAS</button></div><div class="r8-event-list">${recent.length?recent.map(eventRowHtml).join(""):'<div class="r8-admin-empty">Todavía no hay carreras.</div>'}</div></section>`;
 }
-function filteredUsers(){const q=state.userQuery.trim().toLowerCase();return state.users.filter(row=>{if(state.roleFilter!=="all"&&userRole(row)!==state.roleFilter)return false;if(!q)return true;return [row.displayName,row.username,row.usernameKey,row.email,row.uid].some(value=>String(value||"").toLowerCase().includes(q))})}
+function filteredUsers(){const q=searchKey(state.userQuery.trim());return state.users.filter(row=>{if(state.roleFilter!=="all"&&userRole(row)!==state.roleFilter)return false;if(!q)return true;return [row.displayName,row.username,row.usernameKey,row.email,row.uid].some(value=>searchKey(value).includes(q))})}
 function userRoleCounts(){const counts={runner:0,organizer:0,super_admin:0};state.users.forEach(row=>counts[userRole(row)]++);return counts}
 function renderUserSummary(){
   const counts=userRoleCounts();
@@ -83,16 +83,25 @@ function eventRowHtml(row){
   const controlCount=Math.max(0,Math.trunc(Number(row.controlCount)||0));
   const routeCount=Math.max(0,Math.trunc(Number(row.courseSyncedCount)||0));
   const metrics=[participantCount?`${participantCount} plazas`:"",controlCount?`${controlCount} balizas`:"",routeCount?`${routeCount} recorridos`:""].filter(Boolean).join(" · ");
-  return `<div class="r8-event-row"><div class="r8-event-copy"><strong>${esc(row.eventName||row.name||row.eventId||"Carrera")}</strong><span>${esc(row.eventId||"")}</span><small><b>ORGANIZADOR</b> · ${esc(ownerLabel(String(row.ownerUid||"")))}</small>${metrics?`<small>${esc(metrics)}</small>`:""}<small>Actualizada · ${esc(formatDate(row.updatedAt||row.createdAt))}</small></div><b class="r8-event-status" data-status="${esc(String(row.status||"draft"))}">${esc(statusLabel(row.status))}</b></div>`;
+  return `<div class="r8-event-row"><div class="r8-event-copy"><strong>${esc(row.eventName||row.name||row.eventId||"Carrera")}</strong><span>${esc(row.eventId||"")}</span><small><b>ORGANIZADOR</b> · ${esc(ownerLabel(String(row.ownerUid||"")))}</small>${metrics?`<small>${esc(metrics)}</small>`:""}<small>Actualizada · ${esc(formatDate(row.updatedAt||row.createdAt))}</small></div><div class="r8-event-side"><b class="r8-event-status" data-status="${esc(String(row.status||"draft"))}">${esc(statusLabel(row.status))}</b><button type="button" class="r8-event-detail-btn militopo-nav-target" data-r8-event-detail="${esc(row.eventId)}">VER FICHA</button></div></div>`;
+}
+function renderEventDetail(){
+  const row=state.events.find(item=>item.eventId===state.selectedEventId);if(!row)return "";
+  const owner=state.users.find(user=>user.uid===String(row.ownerUid||""));
+  const participantCount=Math.max(0,Math.trunc(Number(row.participantCount)||0));
+  const controlCount=Math.max(0,Math.trunc(Number(row.controlCount)||0));
+  const routeCount=Math.max(0,Math.trunc(Number(row.courseSyncedCount)||0));
+  const controlsPerRoute=Math.max(0,Math.trunc(Number(row.controlsPerRoute)||0));
+  return `<section class="r8-event-detail" data-r8-event-detail-card><div class="r8-event-detail-head"><div><span>FICHA DE SUPERVISIÓN</span><strong>${esc(row.eventName||row.name||row.eventId||"Carrera")}</strong><small>${esc(row.eventId||"")}</small></div><button type="button" data-r8-close-event-detail aria-label="Cerrar ficha">✕</button></div><div class="r8-event-detail-grid"><div><strong>${esc(statusLabel(row.status))}</strong><span>ESTADO</span></div><div><strong>${participantCount}</strong><span>PARTICIPANTES</span></div><div><strong>${controlCount}</strong><span>BALIZAS</span></div><div><strong>${routeCount||"—"}</strong><span>RECORRIDOS</span></div><div><strong>${controlsPerRoute||"—"}</strong><span>BALIZAS / REC.</span></div><div><strong>${esc(formatDate(row.updatedAt||row.createdAt))}</strong><span>ÚLTIMA ACT.</span></div></div><div class="r8-event-detail-owner"><b>ORGANIZADOR</b><span>${esc(ownerLabel(String(row.ownerUid||"")))}</span>${owner?.email?`<small>${esc(owner.email)}</small>`:""}</div><button type="button" class="r8-event-detail-open militopo-nav-target" data-r8-open-organizer-center="${esc(row.eventId)}">LOCALIZAR EN CARGAR CARRERA</button></section>`;
 }
 function eventCounts(rows=state.events){const counts=Object.fromEntries(statusKeys.map(key=>[key,0]));rows.forEach(row=>{const key=String(row.status||"draft");if(key in counts)counts[key]++});return counts}
 function filteredEvents(){
-  const q=state.eventQuery.trim().toLowerCase();
+  const q=searchKey(state.eventQuery.trim());
   return state.events.slice().filter(row=>{
     if(state.eventStatusFilter!=="all"&&String(row.status||"draft")!==state.eventStatusFilter)return false;
     if(!q)return true;
     const owner=ownerLabel(String(row.ownerUid||""));
-    return [row.eventName,row.name,row.eventId,owner,row.ownerUid,statusLabel(row.status)].some(value=>String(value||"").toLowerCase().includes(q));
+    return [row.eventName,row.name,row.eventId,owner,row.ownerUid,statusLabel(row.status)].some(value=>searchKey(value).includes(q));
   }).sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt));
 }
 function renderEventSummary(){
@@ -109,10 +118,10 @@ function renderEventSummary(){
 function renderEvents(){
   const view=$("[data-r8-view='events']",ensureUi());if(!view)return;
   let rows=filteredEvents();
-  if(state.eventStatusFilter==="closed")rows=state.events.slice().filter(row=>["finished","archived"].includes(String(row.status||""))).filter(row=>{const q=state.eventQuery.trim().toLowerCase();if(!q)return true;return [row.eventName,row.name,row.eventId,ownerLabel(String(row.ownerUid||"")),row.ownerUid].some(value=>String(value||"").toLowerCase().includes(q))}).sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt));
+  if(state.eventStatusFilter==="closed")rows=state.events.slice().filter(row=>["finished","archived"].includes(String(row.status||""))).filter(row=>{const q=searchKey(state.eventQuery.trim());if(!q)return true;return [row.eventName,row.name,row.eventId,ownerLabel(String(row.ownerUid||"")),row.ownerUid].some(value=>searchKey(value).includes(q))}).sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt));
   const visible=rows.slice(0,state.eventsVisible);const remaining=Math.max(0,rows.length-visible.length);
   const statusOptions=[["all","TODOS LOS ESTADOS"],["draft","BORRADOR"],["prepared","PREPARADO"],["published","PUBLICADO"],["live","EN DIRECTO"],["closed","CERRADAS"],["finished","FINALIZADO"],["archived","ARCHIVADO"]];
-  view.innerHTML=`${renderEventSummary()}<div class="r8-admin-toolbar r8-events-toolbar"><input type="search" value="${esc(state.eventQuery)}" data-r8-event-search placeholder="Buscar carrera, ID u organizador" aria-label="Buscar carreras"><select data-r8-event-status aria-label="Filtrar carreras por estado">${statusOptions.map(([key,label])=>`<option value="${key}" ${state.eventStatusFilter===key?"selected":""}>${label}</option>`).join("")}</select><button type="button" class="r8-admin-refresh" data-r8-refresh>ACTUALIZAR</button></div><section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>SUPERVISIÓN GLOBAL</strong><small>${rows.length===state.events.length?`${rows.length} carreras accesibles como súper administrador`:`${rows.length} de ${state.events.length} carreras coinciden con el filtro`}</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-organizer-center>ABRIR CARGAR CARRERA</button></div><div class="r8-event-list">${visible.length?visible.map(eventRowHtml).join(""):'<div class="r8-admin-empty">No hay carreras que coincidan con la búsqueda o el filtro.</div>'}</div>${remaining?`<div class="r8-load-more-wrap"><button type="button" class="r8-load-more" data-r8-load-more><span>CARGAR MÁS</span><small>${Math.min(EVENT_PAGE_SIZE,remaining)} de ${remaining} restantes</small></button></div>`:""}</section>`;
+  view.innerHTML=`${renderEventSummary()}<div class="r8-admin-toolbar r8-events-toolbar"><input type="search" value="${esc(state.eventQuery)}" data-r8-event-search placeholder="Buscar carrera, ID u organizador" aria-label="Buscar carreras"><select data-r8-event-status aria-label="Filtrar carreras por estado">${statusOptions.map(([key,label])=>`<option value="${key}" ${state.eventStatusFilter===key?"selected":""}>${label}</option>`).join("")}</select><button type="button" class="r8-admin-refresh" data-r8-refresh>ACTUALIZAR</button></div>${renderEventDetail()}<section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>SUPERVISIÓN GLOBAL</strong><small>${rows.length===state.events.length?`${rows.length} carreras accesibles como súper administrador`:`${rows.length} de ${state.events.length} carreras coinciden con el filtro`}</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-organizer-center>ABRIR CARGAR CARRERA</button></div><div class="r8-event-list">${visible.length?visible.map(eventRowHtml).join(""):'<div class="r8-admin-empty">No hay carreras que coincidan con la búsqueda o el filtro.</div>'}</div>${remaining?`<div class="r8-load-more-wrap"><button type="button" class="r8-load-more" data-r8-load-more><span>CARGAR MÁS</span><small>${Math.min(EVENT_PAGE_SIZE,remaining)} de ${remaining} restantes</small></button></div>`:""}</section>`;
 }
 function render(){if(!state.overlay)return;if(state.tab==="summary")renderSummary();else if(state.tab==="users")renderUsers();else renderEvents()}
 async function services(){if(state.services)return state.services;if(!globalThis.MILITOPO_V2?.firebase)throw new Error("Backend de MILITOPO no disponible.");state.services=await globalThis.MILITOPO_V2.firebase();return state.services}
@@ -134,33 +143,11 @@ async function applyRole(button){
   button.disabled=true;setStatus(`Aplicando rol ${roleLabel(role)}…`);
   try{const svc=await services();await svc.callable("setUserRole",{uid,role});user.roleMirror=role;setStatus(`Rol actualizado: ${name} · ${roleLabel(role)}`);render()}catch(error){console.error("[MILITOPO R8 role]",error);setStatus(`No se pudo cambiar el rol: ${String(error?.message||error)}`,true);button.disabled=false}
 }
-function removeReturnButton(){try{state.returnButton?.remove?.()}catch(_){}state.returnButton=null}
-function wrapOrganizerCenterClose(center){
-  if(!center||state.wrappedOrganizerCenter===center)return;
-  try{
-    const original=center.close;
-    if(typeof original!=="function")return;
-    center.close=function(...args){const result=original.apply(center,args);removeReturnButton();return result};
-    state.wrappedOrganizerCenter=center;
-  }catch(_){}
-}
-function showReturnToAdmin(center){
-  removeReturnButton();
-  const button=document.createElement("button");
-  button.type="button";button.className="r8-return-admin";button.innerHTML="<span>‹</span><b>VOLVER A ADMINISTRACIÓN</b><small>SUPERVISIÓN GLOBAL</small>";
-  button.addEventListener("click",()=>{
-    try{center?.close?.()}catch(_){}
-    removeReturnButton();
-    state.tab="events";
-    setTimeout(()=>open(),50);
-  });
-  document.body.appendChild(button);state.returnButton=button;
-}
-function openOrganizerCenter(){
+function openOrganizerCenter(query=""){
   const center=globalThis.MILITOPO_V2_ORGANIZER_CENTER;
   if(!center?.open){toast("CARGAR CARRERA todavía se está iniciando.");return}
-  state.tab="events";close();wrapOrganizerCenterClose(center);
-  setTimeout(()=>{try{center.open();showReturnToAdmin(center)}catch(error){console.error("[MILITOPO R8 center]",error);toast("No se pudo abrir CARGAR CARRERA.");open()}},60);
+  state.tab="events";close();
+  setTimeout(()=>{try{center.open({returnToAdmin:true,query:String(query||"")})}catch(error){console.error("[MILITOPO R8 center]",error);toast("No se pudo abrir CARGAR CARRERA.");open()}},60);
 }
 function onClick(event){
   if(event.target===state.overlay||event.target.closest("[data-r8-close]")){close();return}
@@ -170,7 +157,9 @@ function onClick(event){
   if(event.target.closest("[data-r8-user-load-more]")){state.usersVisible+=USER_PAGE_SIZE;renderUsers();return}
   const apply=event.target.closest("[data-r8-apply-role]");if(apply){applyRole(apply);return}
   if(event.target.closest("[data-r8-open-events]")){setTab("events");return}
-  if(event.target.closest("[data-r8-open-organizer-center]")){openOrganizerCenter();return}
+  const openCenter=event.target.closest("[data-r8-open-organizer-center]");if(openCenter){openOrganizerCenter(openCenter.dataset.r8OpenOrganizerCenter||"");return}
+  const detail=event.target.closest("[data-r8-event-detail]");if(detail){state.selectedEventId=detail.dataset.r8EventDetail||"";if(state.tab!=="events")setTab("events");else renderEvents();setTimeout(()=>$("[data-r8-event-detail-card]",state.overlay)?.scrollIntoView?.({block:"nearest",behavior:"smooth"}),20);return}
+  if(event.target.closest("[data-r8-close-event-detail]")){state.selectedEventId="";renderEvents();return}
   const chip=event.target.closest("[data-r8-event-chip]");if(chip){const key=chip.dataset.r8EventChip;state.eventStatusFilter=key==="closed"?"closed":key;state.eventsVisible=EVENT_PAGE_SIZE;renderEvents();return}
   if(event.target.closest("[data-r8-load-more]")){state.eventsVisible+=EVENT_PAGE_SIZE;renderEvents();return}
 }
@@ -182,12 +171,12 @@ function onChange(event){
   if(event.target.matches("[data-r8-role-filter]")){state.roleFilter=event.target.value;state.usersVisible=USER_PAGE_SIZE;renderUsers();return}
   if(event.target.matches("[data-r8-event-status]")){state.eventStatusFilter=event.target.value||"all";state.eventsVisible=EVENT_PAGE_SIZE;renderEvents()}
 }
-function open(){state.auth=globalThis.MILITOPO_V2_AUTH||state.auth;if(!isSuperAdmin()){toast("Esta zona requiere SÚPER ADMINISTRADOR.");return false}removeReturnButton();const overlay=ensureUi();overlay.classList.add("is-open");document.body.style.overflow="hidden";setTab(state.tab||"summary");refresh();return true}
+function open(){state.auth=globalThis.MILITOPO_V2_AUTH||state.auth;if(!isSuperAdmin()){toast("Esta zona requiere SÚPER ADMINISTRADOR.");return false}const overlay=ensureUi();overlay.classList.add("is-open");document.body.style.overflow="hidden";setTab(state.tab||"summary");refresh();return true}
 function close(){if(!state.overlay)return;state.overlay.classList.remove("is-open");document.body.style.overflow=""}
 function onAuth(detail){state.auth=detail||null;if(!isSuperAdmin())close()}
 
 globalThis.MILITOPO_R8_SUPER_ADMIN=Object.freeze({open,close,refresh});
 globalThis.addEventListener("militopo:r8-open-admin",open);
 globalThis.addEventListener("militopo:v2-auth-ready",event=>onAuth(event.detail));
-globalThis.addEventListener("militopo:v2-cloud-event-applied",()=>removeReturnButton());
+globalThis.addEventListener("militopo:r8-return-admin",()=>{state.tab="events";setTimeout(()=>open(),30)});
 if(globalThis.MILITOPO_V2_AUTH)onAuth(globalThis.MILITOPO_V2_AUTH);
