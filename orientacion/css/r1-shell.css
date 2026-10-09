@@ -1339,3 +1339,126 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
   .r8-user-profile-full .r8-visual-metric span{font-size:.39rem}
   .r8-user-profile-full .r8-visual-metric small{font-size:.36rem;line-height:1.15;white-space:normal}
 }
+
+/* R8I · Ficha de usuario fija, sin scroll, y soporte visual de foto de perfil. */
+.r8-user-profile-full{overscroll-behavior:none;touch-action:manipulation}
+.r8-user-profile-main{
+  overflow:hidden!important;
+  padding:7px max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;
+  display:flex;
+  min-height:0
+}
+.r8-user-profile-content{
+  height:100%;
+  min-height:0;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr);
+  gap:6px
+}
+.r8-user-profile-hero{padding:8px 10px;border-radius:13px;min-height:58px}
+.r8-user-profile-photo img,.r8-user-avatar img{width:100%;height:100%;display:block;object-fit:cover;border-radius:inherit}
+.r8-user-profile-photo-large{width:42px;height:42px;border-radius:13px}
+.r8-user-profile-identity h3{margin-top:3px;font-size:.92rem}
+.r8-user-profile-identity p{margin-top:3px;font-size:.49rem}
+.r8-user-profile-identity small{font-size:.38rem}
+.r8-user-profile-badges>span{min-height:24px;padding:4px 7px;font-size:.39rem}
+.r8-user-detail.r8-user-detail-visual.r8-user-detail-fullscreen{
+  min-height:0;
+  height:100%;
+  margin:0!important;
+  padding:6px!important;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden!important
+}
+.r8-user-account-strip.r8-user-account-strip-single{display:block;margin:0}
+.r8-user-account-strip-single .r8-account-email{min-height:38px;padding:6px 8px}
+.r8-user-account-strip-single .r8-account-email>.r8-icon{width:14px;height:14px}
+.r8-user-account-strip-single .r8-account-email strong{font-size:.49rem;margin-top:2px}
+.r8-user-account-strip-single .r8-account-email small{font-size:.35rem}
+.r8-user-profile-full .r8-date-pills{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px;
+  margin-top:4px
+}
+.r8-user-profile-full .r8-date-pills .r8-detail-pill{min-height:31px;padding:4px 5px;gap:4px}
+.r8-user-profile-full .r8-date-pills .r8-detail-pill>span{width:19px;height:19px;border-radius:6px}
+.r8-user-profile-full .r8-date-pills .r8-detail-pill strong{font-size:.45rem}
+.r8-user-profile-full .r8-date-pills .r8-detail-pill small{font-size:.32rem;margin-top:2px}
+.r8-user-activity-layout{
+  min-height:0;
+  flex:1;
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:5px;
+  margin-top:4px
+}
+.r8-user-detail-section{
+  min-height:0;
+  margin:0!important;
+  padding:5px 0 0!important;
+  border-top:1px solid rgba(255,255,255,.065)!important
+}
+.r8-user-detail-label{align-items:center}
+.r8-user-detail-label strong{font-size:.48rem!important}
+.r8-user-detail-label small{font-size:.39rem!important}
+.r8-user-profile-full .r8-visual-metrics{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:4px!important;
+  margin-top:4px!important
+}
+.r8-user-profile-full .r8-visual-metric{
+  min-height:45px!important;
+  padding:5px!important;
+  gap:5px!important;
+  border-radius:9px
+}
+.r8-user-profile-full .r8-visual-metric-icon{width:23px!important;height:23px!important;border-radius:7px}
+.r8-user-profile-full .r8-visual-metric-icon .r8-icon{width:12px;height:12px}
+.r8-user-profile-full .r8-visual-metric strong{font-size:.56rem!important}
+.r8-user-profile-full .r8-visual-metric span{font-size:.31rem!important;margin-top:2px;line-height:1.1;white-space:normal}
+.r8-user-profile-full .r8-visual-metric small{font-size:.29rem!important;margin-top:2px;line-height:1.05}
+.r8-user-profile-full .r8-runner-pills{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:3px;
+  margin-top:4px
+}
+.r8-user-profile-full .r8-runner-pills .r8-detail-pill{min-height:30px;padding:3px 4px;gap:3px;justify-content:center}
+.r8-user-profile-full .r8-runner-pills .r8-detail-pill>span{width:18px;height:18px;border-radius:6px}
+.r8-user-profile-full .r8-runner-pills .r8-detail-pill strong{font-size:.44rem}
+.r8-user-profile-full .r8-runner-pills .r8-detail-pill small{font-size:.29rem;margin-top:2px;letter-spacing:.02em}
+.r8-user-profile-full .r8-user-last-race.r8-user-last-race-visual{min-height:33px;margin-top:4px;padding:4px 6px;gap:5px;border-radius:8px}
+.r8-user-profile-full .r8-last-race-icon{width:22px;height:22px;border-radius:7px}
+.r8-user-profile-full .r8-user-last-race-visual b{font-size:.32rem}
+.r8-user-profile-full .r8-user-last-race-visual strong{font-size:.45rem;margin-top:1px}
+.r8-user-profile-full .r8-user-last-race-visual small{font-size:.34rem;margin-top:1px}
+.r8-user-profile-full .r8-user-empty-visual{margin-top:4px;padding:7px;min-height:45px}
+.r8-user-profile-full .r8-user-empty-visual>.r8-icon{width:17px;height:17px}
+.r8-user-profile-full .r8-user-empty-visual strong{font-size:.43rem}
+.r8-user-profile-full .r8-user-empty-visual span{font-size:.37rem;margin-top:2px}
+@media(min-width:820px){
+  .r8-user-activity-layout.has-organizer{grid-template-columns:1.35fr .85fr;align-items:start}
+}
+@media(max-width:520px){
+  .r8-user-profile-head{padding-top:max(7px,env(safe-area-inset-top));padding-bottom:6px}
+  .r8-user-profile-head-inner{gap:6px}
+  .r8-user-profile-back{width:34px;min-width:34px;min-height:34px;border-radius:9px}
+  .r8-user-profile-title strong{font-size:.66rem}
+  .r8-user-profile-title>div>span{font-size:.40rem}
+  .r8-user-profile-hero{padding:6px 7px;min-height:52px}
+  .r8-user-profile-photo-large{width:38px;height:38px;border-radius:12px}
+  .r8-user-profile-badges{max-width:46%;gap:3px}
+  .r8-user-profile-badges>span{min-height:22px;padding:3px 5px;font-size:.35rem}
+  .r8-user-profile-full .r8-runner-pills{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .r8-user-profile-full .r8-runner-pills .r8-detail-pill{justify-content:flex-start}
+}
+@media(max-height:720px){
+  .r8-user-profile-hero{min-height:46px;padding:5px 7px}
+  .r8-user-profile-photo-large{width:34px;height:34px}
+  .r8-user-profile-full .r8-visual-metric{min-height:40px!important;padding:4px!important}
+  .r8-user-profile-full .r8-visual-metric-icon{width:20px!important;height:20px!important}
+  .r8-user-profile-full .r8-runner-pills .r8-detail-pill{min-height:26px}
+  .r8-user-profile-full .r8-user-last-race.r8-user-last-race-visual{min-height:29px}
+}
