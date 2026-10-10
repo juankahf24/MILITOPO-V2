@@ -218,11 +218,11 @@ function ensureStyles() {
     }
     /* R9E · buscar / filtrar: más ancho útil y un punto menos de altura. */
     .m2-r5-filterbar{width:100%;max-width:none;box-sizing:border-box}
-    .m2-r5-filterbar input,.m2-r5-filterbar select{min-height:34px;height:34px;padding-top:4px;padding-bottom:4px}
+    .m2-r5-filterbar input,.m2-r5-filterbar select{min-height:30px;height:30px;padding-top:2px;padding-bottom:2px}
     @media(max-width:760px){
       .m2-r5-filterbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;padding:6px 4px;margin:6px 0 9px;border-left:0;border-right:0;border-radius:9px}
       .m2-r5-filterbar label,.m2-r5-result-count{grid-column:1/-1}
-      .m2-r5-filterbar input,.m2-r5-filterbar select{width:100%;min-height:36px!important;height:36px!important;padding:4px 8px;font-size:16px!important}
+      .m2-r5-filterbar input,.m2-r5-filterbar select{width:100%;min-height:30px!important;height:30px!important;padding:1px 8px;font-size:16px!important}
     }
     @media(max-width:430px){
       .m2-r5-filterbar{grid-template-columns:1fr;padding-left:2px;padding-right:2px}
