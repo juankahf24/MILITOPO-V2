@@ -1354,7 +1354,13 @@ function bringPlanPreviewToFront(){
         if(pdfPlanCenterMarker&&typeof pdfPlanCenterMarker.setZIndexOffset==="function")pdfPlanCenterMarker.setZIndexOffset(1250);
     }catch(e){console.warn("No se pudo colocar el borde de impresión al frente",e)}
 }
-function switchLayer(name){if(!map)return;const pnoaNativeMaxZoom=19;const normalMaxZoom=24;if(name==="custom"){if(!orientationGeoTiffRuntime.ready){toast("Importa primero un GeoTIFF o KMZ georreferenciado");updateOrientationCustomOpacityPanel();return}map.setMaxZoom(normalMaxZoom);showOrientationGeoTiffOverlay();state.selectedMapLayer="custom"}else{if(!layers[name])return;map.setMaxZoom(name==="pnoa"?22:normalMaxZoom);if(name==="pnoa"&&map.getZoom()>22)map.setZoom(22,{animate:false});hideOrientationGeoTiffOverlay();if(currentLayer)map.removeLayer(currentLayer);currentLayer=layers[name].addTo(map);state.selectedMapLayer=name}document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===name));updateOrientationCustomOpacityPanel();bringPlanPreviewToFront();saveState();setTimeout(()=>{map.invalidateSize();if(name==="custom"&&orientationGeoTiffRuntime.ready&&orientationGeoTiffRuntime.bounds){map.fitBounds(orientationGeoTiffRuntime.bounds,{padding:[24,24],maxZoom:19,animate:true})}bringPlanPreviewToFront()},80)}
+function switchLayer(name){if(!map){try{initMap()}catch(e){console.warn("No se pudo iniciar el mapa para cambiar de capa",e);return}}const pnoaNativeMaxZoom=19;const normalMaxZoom=24;if(name==="custom"){if(!orientationGeoTiffRuntime.ready){toast("Importa primero un GeoTIFF o KMZ georreferenciado");updateOrientationCustomOpacityPanel();return}map.setMaxZoom(normalMaxZoom);showOrientationGeoTiffOverlay();state.selectedMapLayer="custom"}else{if(!layers[name])return;map.setMaxZoom(name==="pnoa"?22:normalMaxZoom);if(name==="pnoa"&&map.getZoom()>22)map.setZoom(22,{animate:false});hideOrientationGeoTiffOverlay();if(currentLayer&&map.hasLayer(currentLayer))map.removeLayer(currentLayer);currentLayer=layers[name];if(!map.hasLayer(currentLayer))currentLayer.addTo(map);state.selectedMapLayer=name}document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===name));updateOrientationCustomOpacityPanel();bringPlanPreviewToFront();saveState();setTimeout(()=>{try{map.invalidateSize();if(name==="custom"&&orientationGeoTiffRuntime.ready&&orientationGeoTiffRuntime.bounds){map.fitBounds(orientationGeoTiffRuntime.bounds,{padding:[24,24],maxZoom:19,animate:true})}bringPlanPreviewToFront()}catch(e){console.warn("No se pudo refrescar la capa",e)}},80)}
+window.MILITOPO_MAP_CONTROL={
+  switchLayer(name){if(!map)try{initMap()}catch(e){console.warn(e)};switchLayer(name)},
+  zoomIn(){if(!map)try{initMap()}catch(e){console.warn(e)};try{map?.zoomIn(1,{animate:true})}catch(e){console.warn(e)}},
+  zoomOut(){if(!map)try{initMap()}catch(e){console.warn(e)};try{map?.zoomOut(1,{animate:true})}catch(e){console.warn(e)}},
+  invalidate(){try{map?.invalidateSize()}catch(e){console.warn(e)}}
+};
 
 // ORIENTATION POINT POPUP JS START
 function getPointPopupIcon(type){
@@ -6549,7 +6555,6 @@ const MILITOPO_PARTICIPANT_CACHE = "militopo-participante-offline-v64";
 const PARTICIPANT_CORE = ["./", "./index.html", "./sw.js"];
 
 self.addEventListener("install", event => {
-  self.skipWaiting();
   event.waitUntil((async () => {
     const cache = await caches.open(MILITOPO_PARTICIPANT_CACHE);
     await Promise.allSettled(PARTICIPANT_CORE.map(url => cache.add(new Request(url, { cache: "reload" }))));
@@ -11525,21 +11530,73 @@ async function detectOrientationCustomMapType(file){
   if(name.endsWith(".tif")||name.endsWith(".tiff"))return "geotiff";
   throw new Error("El archivo seleccionado no es un KMZ ni un GeoTIFF compatible");
 }
+function emitOrientationImport(detail={}){try{window.dispatchEvent(new CustomEvent("militopo:v2-orientation-import",{detail}))}catch(_){}}
+function orientationImportErrorMessage(err){return err&&err.message?String(err.message):(err==null?"Error interno sin detalle":String(err))}
 async function importOrientationCustomMap(file){
   if(!file)return;
+  emitOrientationImport({state:"progress",progress:5,stage:"Archivo seleccionado",message:`${file.name||"Plano"} · comprobando formato`});
   setOrientationGeoTiffStatus("⏳ Analizando el archivo seleccionado...","warn");
   try{
     const kind=await detectOrientationCustomMapType(file);
+    emitOrientationImport({state:"progress",progress:14,stage:"Formato reconocido",message:kind==="kmz"?"KMZ georreferenciado":"GeoTIFF georreferenciado"});
     if(kind==="kmz")return await importOrientationKmz(file);
     return await importOrientationGeoTiff(file);
   }catch(err){
     console.error(err);
-    setOrientationGeoTiffStatus(`⚠️ No se pudo reconocer el plano.<br><b>Motivo:</b> ${escapeHtml(err&&err.message?err.message:(err==null?"Error interno sin detalle":String(err)))}`,"err");
+    const reason=orientationImportErrorMessage(err);
+    setOrientationGeoTiffStatus(`⚠️ No se pudo reconocer el plano.<br><b>Motivo:</b> ${escapeHtml(reason)}`,"err");
+    emitOrientationImport({state:"error",progress:0,stage:"No se pudo importar",message:reason,fileName:file.name||""});
     const input=document.getElementById("orientationGeoTiffInput");if(input)input.value="";
   }
 }
-async function importOrientationGeoTiff(file){if(!file)return;setOrientationGeoTiffStatus("⏳ Leyendo y preparando el GeoTIFF. En planos grandes puede tardar...","warn");try{const GeoTIFF=await ensureOrientationGeoTiffLib(),tiff=await GeoTIFF.fromArrayBuffer(await file.arrayBuffer()),image=await tiff.getImage(),bbox=image.getBoundingBox(),epsg=orientationGeoTiffEpsg(image);if(!bbox||bbox.length!==4||!epsg)throw new Error("El archivo no contiene georreferenciación EPSG legible");const bounds=orientationBoundsFromProjected(bbox,epsg),png=await orientationRasterToPng(image,4096),record={id:orientationMapId(),name:file.name,format:"geotiff",epsg,bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString()};await saveOrientationGeoTiffRecord(record);applyOrientationGeoTiffRecord(record);state.customGeoTiffOpacity=1;switchLayer("custom");fitOrientationGeoTiff();saveState();toast("Plano GeoTIFF guardado en la biblioteca")}catch(err){console.error(err);setOrientationGeoTiffStatus(`⚠️ No se pudo cargar el GeoTIFF.<br><b>Motivo:</b> ${escapeHtml(err&&err.message?err.message:(err==null?"Error interno sin detalle":String(err)))}`,"err")}finally{const input=document.getElementById("orientationGeoTiffInput");if(input)input.value=""}}
-async function importOrientationKmz(file){setOrientationGeoTiffStatus("⏳ Abriendo el KMZ y preparando su imagen georreferenciada...","warn");try{const png=await parseOrientationKmz(file),record={id:orientationMapId(),name:file.name,format:"kmz",epsg:null,bounds:png.bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString()};await saveOrientationGeoTiffRecord(record);applyOrientationGeoTiffRecord(record);state.customGeoTiffOpacity=1;switchLayer("custom");fitOrientationGeoTiff();saveState();toast("Plano KMZ guardado en la biblioteca")}catch(err){console.error(err);setOrientationGeoTiffStatus(`⚠️ No se pudo cargar el KMZ.<br><b>Motivo:</b> ${escapeHtml(err&&err.message?err.message:(err==null?"Error interno sin detalle":String(err)))}`,"err")}finally{const input=document.getElementById("orientationGeoTiffInput");if(input)input.value=""}}
+async function importOrientationGeoTiff(file){
+  if(!file)return;
+  setOrientationGeoTiffStatus("⏳ Leyendo y preparando el GeoTIFF. En planos grandes puede tardar...","warn");
+  try{
+    emitOrientationImport({state:"progress",progress:22,stage:"Leyendo GeoTIFF",message:"Abriendo la imagen y sus metadatos"});
+    const GeoTIFF=await ensureOrientationGeoTiffLib();
+    const tiff=await GeoTIFF.fromArrayBuffer(await file.arrayBuffer());
+    const image=await tiff.getImage();
+    const bbox=image.getBoundingBox(),epsg=orientationGeoTiffEpsg(image);
+    if(!bbox||bbox.length!==4||!epsg)throw new Error("El archivo no contiene georreferenciación EPSG legible");
+    emitOrientationImport({state:"progress",progress:42,stage:"Georreferenciación correcta",message:`EPSG:${epsg} · preparando límites del plano`});
+    const bounds=orientationBoundsFromProjected(bbox,epsg);
+    emitOrientationImport({state:"progress",progress:58,stage:"Procesando imagen",message:"Optimizando el TIFF para visualizarlo en el mapa"});
+    const png=await orientationRasterToPng(image,4096);
+    emitOrientationImport({state:"progress",progress:82,stage:"Guardando plano",message:"Añadiéndolo a la biblioteca local del dispositivo"});
+    const record={id:orientationMapId(),name:file.name,format:"geotiff",epsg,bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString()};
+    await saveOrientationGeoTiffRecord(record);
+    applyOrientationGeoTiffRecord(record);
+    state.customGeoTiffOpacity=1;
+    switchLayer("custom");fitOrientationGeoTiff();saveState();
+    emitOrientationImport({state:"success",progress:100,stage:"Plano importado",message:"El GeoTIFF está activo en el mapa",fileName:file.name||"",map:orientationCustomMapDescriptor()});
+  }catch(err){
+    console.error(err);
+    const reason=orientationImportErrorMessage(err);
+    setOrientationGeoTiffStatus(`⚠️ No se pudo cargar el GeoTIFF.<br><b>Motivo:</b> ${escapeHtml(reason)}`,"err");
+    emitOrientationImport({state:"error",progress:0,stage:"GeoTIFF no importado",message:reason,fileName:file.name||""});
+  }finally{const input=document.getElementById("orientationGeoTiffInput");if(input)input.value=""}
+}
+async function importOrientationKmz(file){
+  setOrientationGeoTiffStatus("⏳ Abriendo el KMZ y preparando su imagen georreferenciada...","warn");
+  try{
+    emitOrientationImport({state:"progress",progress:24,stage:"Leyendo KMZ",message:"Extrayendo KML e imagen del plano"});
+    const png=await parseOrientationKmz(file);
+    emitOrientationImport({state:"progress",progress:64,stage:"Georreferenciación correcta",message:"Preparando la imagen para el mapa"});
+    const record={id:orientationMapId(),name:file.name,format:"kmz",epsg:null,bounds:png.bounds,pngBlob:png.blob,dataUrl:png.dataUrl,width:png.width,height:png.height,sourceWidth:png.sourceWidth,sourceHeight:png.sourceHeight,importedAt:new Date().toISOString()};
+    emitOrientationImport({state:"progress",progress:84,stage:"Guardando plano",message:"Añadiéndolo a la biblioteca local del dispositivo"});
+    await saveOrientationGeoTiffRecord(record);
+    applyOrientationGeoTiffRecord(record);
+    state.customGeoTiffOpacity=1;
+    switchLayer("custom");fitOrientationGeoTiff();saveState();
+    emitOrientationImport({state:"success",progress:100,stage:"Plano importado",message:"El KMZ está activo en el mapa",fileName:file.name||"",map:orientationCustomMapDescriptor()});
+  }catch(err){
+    console.error(err);
+    const reason=orientationImportErrorMessage(err);
+    setOrientationGeoTiffStatus(`⚠️ No se pudo cargar el KMZ.<br><b>Motivo:</b> ${escapeHtml(reason)}`,"err");
+    emitOrientationImport({state:"error",progress:0,stage:"KMZ no importado",message:reason,fileName:file.name||""});
+  }finally{const input=document.getElementById("orientationGeoTiffInput");if(input)input.value=""}
+}
 
 function orientationCustomMapDescriptor(){
     if(!orientationGeoTiffRuntime.ready||!orientationGeoTiffRuntime.bounds)return null;
