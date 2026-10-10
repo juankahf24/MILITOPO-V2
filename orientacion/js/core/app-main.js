@@ -1161,6 +1161,71 @@ function createMapantWmtsLayer(options={}){
     return layer;
 }
 
+/* R9K · IGN/PNOA HD híbrido.
+   Conserva el TMS oficial que ya funciona y, al superar su zoom nativo,
+   añade encima el WMS oficial para volver a renderizar la cartografía al
+   nivel solicitado. Si el WMS no responde, el TMS sobre-ampliado sigue
+   visible debajo: no dejamos el mapa en blanco. */
+function createIgnHdHybridLayer(kind,options={}){
+    const key=String(kind||'').toLowerCase();
+    const aerial=key==='pnoa'||key==='aerial'||key==='aereo'||key==='aéreo';
+    const maxZoom=Number(options.maxZoom||25);
+    const nativeMax=Number(options.maxNativeZoom||(aerial?19:20));
+    const tmsUrl=aerial
+        ? 'https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg'
+        : 'https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg';
+    const attribution=aerial?'© PNOA Máxima Actualidad · IGN':'© Instituto Geográfico Nacional';
+    const tms=L.tileLayer(tmsUrl,{
+        attribution,
+        maxNativeZoom:nativeMax,
+        maxZoom,
+        keepBuffer:aerial?8:6,
+        updateWhenIdle:false,
+        updateWhenZooming:true,
+        zIndex:200
+    });
+    const wms=L.tileLayer.wms(aerial?'https://www.ign.es/wms-inspire/pnoa-ma':'https://www.ign.es/wms-inspire/mapa-raster',{
+        layers:aerial?'OI.OrthoimageCoverage':'mtn_rasterizado',
+        styles:'',
+        format:'image/jpeg',
+        transparent:false,
+        version:'1.3.0',
+        attribution,
+        maxZoom,
+        keepBuffer:4,
+        updateWhenIdle:false,
+        updateWhenZooming:true,
+        zIndex:210
+    });
+    const wmsGetTileUrl=wms.getTileUrl.bind(wms);
+    wms.getTileUrl=coords=>wmsGetTileUrl(coords).replace(/([?&](?:width|height)=)\d+/gi,(_,prefix)=>`${prefix}512`);
+    const group=L.layerGroup([tms]);
+    const hdFromZoom=nativeMax+1;
+    let hostMap=null;
+    const syncHd=()=>{
+        if(!hostMap)return;
+        const useHd=Number(hostMap.getZoom?.()||0)>=hdFromZoom;
+        if(useHd){if(!group.hasLayer(wms))group.addLayer(wms)}
+        else if(group.hasLayer(wms))group.removeLayer(wms);
+    };
+    group.on('add',()=>{
+        hostMap=group._map||null;
+        hostMap?.on?.('zoomend',syncHd);
+        hostMap?.on?.('moveend',syncHd);
+        requestAnimationFrame(syncHd);
+    });
+    group.on('remove',()=>{
+        hostMap?.off?.('zoomend',syncHd);
+        hostMap?.off?.('moveend',syncHd);
+        if(group.hasLayer(wms))group.removeLayer(wms);
+        hostMap=null;
+    });
+    group._militopoTms=tms;
+    group._militopoHdWms=wms;
+    group._militopoNativeMax=nativeMax;
+    return group;
+}
+
 function selectPoint(id){selectedPointId=id;document.getElementById("selectedPoint").value=id;loadSelectedPointFields();zoomSelectedPoint()}
 
 /* MILITOPO · ajuste manual seguro del centro del plano PDF */
@@ -1346,7 +1411,7 @@ function renderPlanPdfPreview(){
     });
 }
 
-function initMap(){if(map)return;const step2MaxZoom=24;const pnoaNativeMaxZoom=19;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=L.tileLayer("https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg",{attribution:"© Instituto Geográfico Nacional",maxNativeZoom:20,maxZoom:step2MaxZoom,keepBuffer:6,updateWhenZooming:true});layers.pnoa=L.tileLayer("https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg",{attribution:"© PNOA Máxima Actualidad · IGN",maxNativeZoom:pnoaNativeMaxZoom,maxZoom:22,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:true,className:"pnoa-overzoom-tile"});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(initialLayer==="pnoa"?22:step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(window.__MILITOPO_R2_TRACE_MODE__===true)return;if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;p.elevation=null;document.getElementById("selectedUtm").value=utm;militopoR2OnPointGeometryChanged(p.id);renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
+function initMap(){if(map)return;const step2MaxZoom=25;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=createIgnHdHybridLayer("ign",{maxZoom:step2MaxZoom,maxNativeZoom:20});layers.pnoa=createIgnHdHybridLayer("pnoa",{maxZoom:step2MaxZoom,maxNativeZoom:19});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(window.__MILITOPO_R2_TRACE_MODE__===true)return;if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;p.elevation=null;document.getElementById("selectedUtm").value=utm;militopoR2OnPointGeometryChanged(p.id);renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
 function bringPlanPreviewToFront(){
     try{
         if(pdfPlanPreviewRectangle&&typeof pdfPlanPreviewRectangle.bringToFront==="function")pdfPlanPreviewRectangle.bringToFront();
@@ -1354,7 +1419,7 @@ function bringPlanPreviewToFront(){
         if(pdfPlanCenterMarker&&typeof pdfPlanCenterMarker.setZIndexOffset==="function")pdfPlanCenterMarker.setZIndexOffset(1250);
     }catch(e){console.warn("No se pudo colocar el borde de impresión al frente",e)}
 }
-function switchLayer(name){if(!map){try{initMap()}catch(e){console.warn("No se pudo iniciar el mapa para cambiar de capa",e);return}}const pnoaNativeMaxZoom=19;const normalMaxZoom=24;if(name==="custom"){if(!orientationGeoTiffRuntime.ready){toast("Importa primero un GeoTIFF o KMZ georreferenciado");updateOrientationCustomOpacityPanel();return}map.setMaxZoom(normalMaxZoom);showOrientationGeoTiffOverlay();state.selectedMapLayer="custom"}else{if(!layers[name])return;map.setMaxZoom(name==="pnoa"?22:normalMaxZoom);if(name==="pnoa"&&map.getZoom()>22)map.setZoom(22,{animate:false});hideOrientationGeoTiffOverlay();if(currentLayer&&map.hasLayer(currentLayer))map.removeLayer(currentLayer);currentLayer=layers[name];if(!map.hasLayer(currentLayer))currentLayer.addTo(map);state.selectedMapLayer=name}document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===name));updateOrientationCustomOpacityPanel();bringPlanPreviewToFront();saveState();setTimeout(()=>{try{map.invalidateSize();if(name==="custom"&&orientationGeoTiffRuntime.ready&&orientationGeoTiffRuntime.bounds){map.fitBounds(orientationGeoTiffRuntime.bounds,{padding:[24,24],maxZoom:19,animate:true})}bringPlanPreviewToFront()}catch(e){console.warn("No se pudo refrescar la capa",e)}},80)}
+function switchLayer(name){if(!map){try{initMap()}catch(e){console.warn("No se pudo iniciar el mapa para cambiar de capa",e);return}}const normalMaxZoom=25;if(name==="custom"){if(!orientationGeoTiffRuntime.ready){toast("Importa primero un GeoTIFF o KMZ georreferenciado");updateOrientationCustomOpacityPanel();return}map.setMaxZoom(normalMaxZoom);showOrientationGeoTiffOverlay();state.selectedMapLayer="custom"}else{if(!layers[name])return;map.setMaxZoom(normalMaxZoom);hideOrientationGeoTiffOverlay();if(currentLayer&&map.hasLayer(currentLayer))map.removeLayer(currentLayer);currentLayer=layers[name];if(!map.hasLayer(currentLayer))currentLayer.addTo(map);state.selectedMapLayer=name}document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===name));updateOrientationCustomOpacityPanel();bringPlanPreviewToFront();saveState();setTimeout(()=>{try{map.invalidateSize();if(name==="custom"&&orientationGeoTiffRuntime.ready&&orientationGeoTiffRuntime.bounds){map.fitBounds(orientationGeoTiffRuntime.bounds,{padding:[24,24],maxZoom:19,animate:true})}bringPlanPreviewToFront()}catch(e){console.warn("No se pudo refrescar la capa",e)}},80)}
 window.MILITOPO_MAP_CONTROL={
   switchLayer(name){if(!map)try{initMap()}catch(e){console.warn(e)};switchLayer(name)},
   zoomIn(){if(!map)try{initMap()}catch(e){console.warn(e)};try{map?.zoomIn(1,{animate:true})}catch(e){console.warn(e)}},
@@ -2797,9 +2862,9 @@ function manualRouteLatLng(pointId){
 
 function buildManualRouteBaseLayers(){
     return{
-        mapant:createMapantWmtsLayer({maxZoom:24,maxNativeZoom:19}),
-        ign:L.tileLayer("https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg",{attribution:"© Instituto Geográfico Nacional",maxNativeZoom:20,maxZoom:24,keepBuffer:6,updateWhenZooming:true}),
-        pnoa:L.tileLayer("https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg",{attribution:"© PNOA Máxima Actualidad · IGN",maxNativeZoom:19,maxZoom:22,keepBuffer:8,updateWhenIdle:false,updateWhenZooming:true,className:"pnoa-overzoom-tile"})
+        mapant:createMapantWmtsLayer({maxZoom:25,maxNativeZoom:19}),
+        ign:createIgnHdHybridLayer("ign",{maxZoom:25,maxNativeZoom:20}),
+        pnoa:createIgnHdHybridLayer("pnoa",{maxZoom:25,maxNativeZoom:19})
     };
 }
 
@@ -2807,8 +2872,7 @@ function switchManualRouteEditorLayer(name){
     const m=manualRouteEditorMap;
     if(!m||!manualRouteEditorLayers[name])return;
     if(manualRouteEditorCurrentLayer)m.removeLayer(manualRouteEditorCurrentLayer);
-    m.setMaxZoom(name==="pnoa"?22:24);
-    if(name==="pnoa"&&m.getZoom()>22)m.setZoom(22,{animate:false});
+    m.setMaxZoom(25);
     manualRouteEditorCurrentLayer=manualRouteEditorLayers[name].addTo(m);
     manualRouteEditorLayerName=name;
     document.querySelectorAll("[data-manual-map-layer]").forEach(btn=>btn.classList.toggle("active",btn.dataset.manualMapLayer===name));
@@ -2821,7 +2885,7 @@ function ensureManualRouteEditorMap(){
     const el=document.getElementById("manualRouteEditorMap");
     if(!el||typeof L==="undefined")return null;
     if(manualRouteEditorMap)return manualRouteEditorMap;
-    manualRouteEditorMap=L.map(el,{zoomControl:true,maxZoom:24,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false});
+    manualRouteEditorMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false});
     manualRouteEditorLayers=buildManualRouteBaseLayers();
     const preferred=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";
     manualRouteEditorCurrentLayer=manualRouteEditorLayers[preferred].addTo(manualRouteEditorMap);
@@ -3270,13 +3334,13 @@ function initStep3RouteMapIfNeeded(){
         return;
     }
 
-    const step3MaxZoom=22;
+    const step3MaxZoom=25;
     step3RouteMap=L.map("step3RouteMap",{zoomControl:true,maxZoom:step3MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:42}).setView([40.4168,-3.7038],7);
 
     step3RouteLayers={
         mapant:createMapantWmtsLayer({maxZoom:step3MaxZoom,maxNativeZoom:19}),
-        ign:L.tileLayer("https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg",{attribution:"© IGN",maxNativeZoom:20,maxZoom:step3MaxZoom}),
-        pnoa:L.tileLayer("https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg",{attribution:"© PNOA",maxNativeZoom:19,maxZoom:step3MaxZoom}),
+        ign:createIgnHdHybridLayer("ign",{maxZoom:step3MaxZoom,maxNativeZoom:20}),
+        pnoa:createIgnHdHybridLayer("pnoa",{maxZoom:step3MaxZoom,maxNativeZoom:19}),
         custom:null
     };
 
@@ -9259,8 +9323,8 @@ html,body{margin:0;padding:0;background:#eee;font-family:Arial,Helvetica,sans-se
 const points=${json}; const commonBounds=${boundsJson}; const pdfLayerKey=${JSON.stringify(pdfLayerKey)}; window.militopoPlanExportBounds=commonBounds; window.militopoPlanExportLayer=pdfLayerKey;
 const map=L.map('participantPlanMap',{zoomControl:false,attributionControl:false,preferCanvas:true,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false}).setView([commonBounds.centerLat,commonBounds.centerLon],15);
 function createPdfSelectedLayer(key){
-    if(key==='ign')return L.tileLayer('https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg',{maxNativeZoom:20,maxZoom:22});
-    if(key==='pnoa')return L.tileLayer('https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg',{maxNativeZoom:19,maxZoom:22});
+    if(key==='ign')return L.tileLayer('https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg',{maxNativeZoom:20,maxZoom:25});
+    if(key==='pnoa')return L.tileLayer('https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg',{maxNativeZoom:19,maxZoom:25});
     if(key==='custom')return L.layerGroup();
     return L.tileLayer.wms('https://raster.trailmap.fi/mapproxy/service',{layers:'spain_mapant',styles:'',format:'image/png',transparent:false,version:'1.1.1',attribution:'© MapAnt / Trailmap',minZoom:0,maxZoom:22,tileSize:256,updateWhenIdle:false,updateWhenZooming:true,keepBuffer:4});
 }
@@ -11989,8 +12053,8 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
     const normalized=raw.map((p,i)=>{let t=trackTimeMs(p.timestamp??p.time??p.ts??p.recordedAt);if(t===null)t=previous+(i?2000:0);if(t<previous)t=previous;previous=t;return {lat:Number(p.lat??p.latitude),lng:Number(p.lng??p.lon??p.longitude),timestamp:t,accuracy:Number(p.accuracy),heading:Number(p.heading??p.course),speed:Number(p.speed)}}).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
     analysisNormalizedTrackCache.set(signature,normalized);if(analysisNormalizedTrackCache.size>40){const firstKey=analysisNormalizedTrackCache.keys().next().value;analysisNormalizedTrackCache.delete(firstKey)}return normalized;
   }
-  function analysisTrackLayer(key){if(key==='ign')return L.tileLayer('https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg',{maxNativeZoom:20,maxZoom:22,attribution:'© IGN'});if(key==='pnoa')return L.tileLayer('https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg',{maxNativeZoom:19,maxZoom:22,attribution:'© PNOA'});if(key==='custom'&&orientationGeoTiffRuntime?.ready)return L.imageOverlay(orientationGeoTiffRuntime.url,orientationGeoTiffRuntime.bounds,{opacity:1});return createMapantWmtsLayer({maxZoom:22,maxNativeZoom:19})}
-  function ensureAnalysisTrackMap(){const el=document.getElementById('raceAnalysisTrackMap');if(!el||!window.L)return null;if(!analysisTrackMap){analysisTrackMap=L.map(el,{zoomControl:true,maxZoom:22,zoomSnap:.25}).setView([40.4168,-3.7038],7);analysisTrackGroup=L.layerGroup().addTo(analysisTrackMap);analysisTrackAnimationGroup=L.layerGroup().addTo(analysisTrackMap);analysisSmartInspectionGroup=L.layerGroup().addTo(analysisTrackMap);setAnalysisTrackLayer(analysisTrackBaseKey);setTimeout(()=>analysisTrackMap.invalidateSize(),80)}return analysisTrackMap}
+  function analysisTrackLayer(key){if(key==='ign')return createIgnHdHybridLayer('ign',{maxNativeZoom:20,maxZoom:25});if(key==='pnoa')return createIgnHdHybridLayer('pnoa',{maxNativeZoom:19,maxZoom:25});if(key==='custom'&&orientationGeoTiffRuntime?.ready)return L.imageOverlay(orientationGeoTiffRuntime.url,orientationGeoTiffRuntime.bounds,{opacity:1});return createMapantWmtsLayer({maxZoom:25,maxNativeZoom:19})}
+  function ensureAnalysisTrackMap(){const el=document.getElementById('raceAnalysisTrackMap');if(!el||!window.L)return null;if(!analysisTrackMap){analysisTrackMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25}).setView([40.4168,-3.7038],7);analysisTrackGroup=L.layerGroup().addTo(analysisTrackMap);analysisTrackAnimationGroup=L.layerGroup().addTo(analysisTrackMap);analysisSmartInspectionGroup=L.layerGroup().addTo(analysisTrackMap);setAnalysisTrackLayer(analysisTrackBaseKey);setTimeout(()=>analysisTrackMap.invalidateSize(),80)}return analysisTrackMap}
   window.setAnalysisTrackLayer=function(key){if(key==='custom'&&!orientationGeoTiffRuntime?.ready){toast('Selecciona o carga primero un plano propio');return}analysisTrackBaseKey=key;const m=ensureAnalysisTrackMap();if(!m)return;if(analysisTrackBase)m.removeLayer(analysisTrackBase);analysisTrackBase=analysisTrackLayer(key);if(analysisTrackBase)analysisTrackBase.addTo(m);[analysisTrackGroup,analysisTrackAnimationGroup,analysisSmartInspectionGroup].forEach(g=>{if(g){m.removeLayer(g);g.addTo(m)}});document.querySelectorAll('[data-track-layer]').forEach(b=>b.classList.toggle('active',b.dataset.trackLayer===key));setTimeout(()=>{m.invalidateSize();if(key==='custom'&&orientationGeoTiffRuntime?.bounds){m.fitBounds(orientationGeoTiffRuntime.bounds,{padding:[24,24],maxZoom:19,animate:true})}},80)};
   function clearAnalysisTrackView(){
     analysisPlayback.prepared=[];analysisPlayback.currentMs=0;analysisPlayback.durationMs=0;analysisPlayback.playing=false;analysisPlayback.lastFrame=0;analysisPlayback.lastVisualFrame=0;analysisPlayback.lastUiFrame=0;analysisPlayback.inspectionEndMs=null;
