@@ -183,6 +183,39 @@ function ensureStyles() {
     @media(max-width:480px){.m2-cloud-recovery-panel{padding:12px}.m2-cloud-event-open{width:auto}.m2-cloud-history-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-r3-event-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.m2-r3-event-footer{align-items:flex-end}}
     .m2-r5-choice{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:4px 0 11px}.m2-r5-choice.is-admin-context{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r5-choice button{min-width:0;min-height:64px;border:1px solid rgba(255,255,255,.12);border-radius:13px;padding:8px 9px;background:#202b21;color:#eef1e6;text-align:left;display:grid;grid-template-columns:31px minmax(0,1fr);gap:7px;align-items:center;cursor:pointer}.m2-r5-choice button.is-active{background:#edf0df;color:#172018;border-color:#edf0df}.m2-r5-choice-icon{width:31px;height:31px;border-radius:9px;display:grid;place-items:center;background:#101711;font-size:1rem}.m2-r5-choice button.is-active .m2-r5-choice-icon{background:#2f5b39;color:#fff}.m2-r5-choice strong{display:block;font:950 .67rem/1.05 system-ui}.m2-r5-choice small{display:block;margin-top:3px;font:650 .51rem/1.18 system-ui;opacity:.75}.m2-r5-admin-return{border-color:rgba(240,163,84,.52)!important;background:rgba(240,163,84,.10)!important;color:#f7e8c7!important}.m2-r5-admin-return[hidden]{display:none!important}.m2-r5-admin-return .m2-r5-choice-icon{color:#f0a354}.m2-r5-existing-wrap[hidden]{display:none!important}.m2-r5-filterbar{display:grid;grid-template-columns:auto minmax(160px,1fr) minmax(150px,.55fr);gap:8px;align-items:center;margin:8px 0 12px;padding:9px 10px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#171f17}.m2-r5-filterbar label{font:900 .57rem/1 system-ui;letter-spacing:.09em;color:#b6c0b3}.m2-r5-filterbar input,.m2-r5-filterbar select{width:100%;min-height:40px;box-sizing:border-box;border:1px solid #d8ddc9;border-radius:10px;padding:8px 10px;background:#f8f5e6!important;color:#101810!important;-webkit-text-fill-color:#101810!important;font:900 .70rem/1 system-ui;color-scheme:light}.m2-r5-filterbar input::placeholder{color:#596258;opacity:1}.m2-r5-filterbar select{padding-right:34px}.m2-r5-result-count{grid-column:2/4;font:750 .54rem/1.2 system-ui;color:#aeb8ad}.m2-r5-event-actions{display:flex;gap:7px;align-items:center}.m2-r5-reuse{min-height:38px;border:1px solid rgba(205,171,92,.32);border-radius:10px;padding:8px 10px;background:rgba(205,171,92,.10);color:#f2ddb0;font:900 .58rem/1 system-ui;cursor:pointer}.m2-r5-reuse:disabled{opacity:.42;cursor:not-allowed}.m2-r5-new-note{padding:12px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#141d15;color:#c7d0c4;font:650 .68rem/1.4 system-ui}.m2-r5-new-main{margin-top:10px;width:100%;min-height:48px;border:0;border-radius:13px;background:#edf0df;color:#172018;font:950 .72rem/1 system-ui;cursor:pointer}
     @media(max-width:600px){.m2-r5-choice{grid-template-columns:1fr 1fr}.m2-r5-choice.is-admin-context{grid-template-columns:repeat(3,minmax(0,1fr))}.m2-r5-choice button{min-height:58px;padding:7px;grid-template-columns:27px minmax(0,1fr);gap:5px}.m2-r5-choice-icon{width:27px;height:27px;font-size:.9rem}.m2-r5-choice strong{font-size:.57rem}.m2-r5-choice small{display:none}.m2-r5-filterbar{grid-template-columns:1fr}.m2-r5-filterbar label{grid-column:1}.m2-r5-filterbar input,.m2-r5-filterbar select{font-size:16px!important}.m2-r5-result-count{grid-column:1}.m2-r5-event-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}}
+    /* R9D · CARGAR / CREAR CARRERA · responsive PWA profesional. */
+    body.m2-cloud-picker-open{overflow:hidden!important;overscroll-behavior:none!important}
+    .m2-cloud-recovery-overlay{overflow:hidden;overscroll-behavior:contain}
+    .m2-cloud-recovery-panel{overflow-x:hidden!important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+    .m2-r5-choice button,.m2-r5-filterbar>*{min-width:0}
+    @media(max-width:760px){
+      .m2-cloud-recovery-panel{padding:12px 12px max(14px,env(safe-area-inset-bottom))}
+      .m2-cloud-recovery-head{top:-12px;margin:-12px -12px 10px;padding:calc(12px + env(safe-area-inset-top)) 12px 10px}
+      .m2-r5-choice{gap:6px;margin-bottom:9px}
+      .m2-r5-choice button{min-height:54px;padding:6px 7px;grid-template-columns:26px minmax(0,1fr);gap:6px;border-radius:12px}
+      .m2-r5-choice-icon{width:26px;height:26px;border-radius:8px;font-size:.84rem}
+      .m2-r5-choice strong{font-size:.55rem}.m2-r5-choice small{display:none}
+      .m2-r5-filterbar{grid-template-columns:minmax(0,1.35fr) minmax(116px,.65fr);gap:6px;padding:8px;margin:7px 0 10px}
+      .m2-r5-filterbar label{grid-column:1/-1}.m2-r5-filterbar input,.m2-r5-filterbar select{min-width:0;min-height:44px;font-size:16px!important}
+      .m2-r5-result-count{grid-column:1/-1}
+      .m2-r3-summary{gap:5px;margin-bottom:8px}.m2-r3-summary-card{padding:8px 4px}
+      .m2-cloud-event{padding:11px 10px;border-radius:14px}.m2-r3-event-title h3{font-size:.94rem}
+      .m2-r3-event-metrics{gap:4px}.m2-r3-event-metric{padding:6px 3px}
+      .m2-cloud-recovery-list{padding-bottom:max(4px,env(safe-area-inset-bottom))}
+    }
+    @media(max-width:430px){
+      .m2-r5-choice.is-admin-context{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .m2-r5-choice button{grid-template-columns:1fr;place-items:center;align-content:center;text-align:center;min-height:60px;padding:6px 4px;gap:4px}
+      .m2-r5-choice-icon{width:24px;height:24px}.m2-r5-choice strong{font-size:.48rem;line-height:1.08;white-space:normal;text-align:center}
+      .m2-r5-filterbar{grid-template-columns:1fr}.m2-r5-filterbar label,.m2-r5-result-count{grid-column:1}
+      .m2-r3-summary-card strong{font-size:1rem}.m2-r3-summary-card span{font-size:.49rem;letter-spacing:.05em}
+      .m2-r3-event-title{gap:7px}.m2-cloud-event-status{font-size:.63rem;padding:3px 6px}
+      .m2-r3-event-metric span{font-size:.44rem;letter-spacing:.02em}
+      .m2-r3-event-footer{display:grid;grid-template-columns:1fr;gap:7px;align-items:stretch}
+      .m2-r5-event-actions{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:6px}
+      .m2-cloud-event-open,.m2-r5-reuse{width:100%;min-width:0;min-height:40px;padding:8px 6px}
+      .m2-r3-event-updated{order:2;text-align:right}
+    }
   `;
   document.head.appendChild(style);
 }
@@ -296,6 +329,7 @@ function closeOverlay() {
   if (!state.overlay) return;
   state.overlay.hidden = true;
   state.overlay.style.display = "none";
+  document.body.classList.remove("m2-cloud-picker-open");
   /* R8E: el retorno a Administración es contextual. Al cerrar el centro
      nunca debe quedarse visible al abrir CARGAR CARRERA desde la pantalla principal. */
   state.adminReturn = false;
@@ -585,6 +619,7 @@ async function openHistoryPicker() {
   const newRaceButton = document.getElementById("m2R3NewRace"); if (newRaceButton) newRaceButton.hidden = true;
   state.list?.classList.remove("m2-r3-grid");
   state.overlay.hidden = false; state.overlay.style.display = "grid";
+  document.body.classList.add("m2-cloud-picker-open");
   if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Construyendo histórico y resultados…</div>`;
   if (launcher) launcher.disabled = true;
   try {
@@ -627,6 +662,7 @@ async function openCloudPicker(resetFilter = true, options = {}) {
   state.list?.classList.add("m2-r3-grid");
   state.overlay.hidden = false;
   state.overlay.style.display = "grid";
+  document.body.classList.add("m2-cloud-picker-open");
   if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Consultando tus carreras en Firestore…</div>`;
   if (launcher) launcher.disabled = true;
   try {
