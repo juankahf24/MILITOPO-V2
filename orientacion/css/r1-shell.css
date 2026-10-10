@@ -1778,3 +1778,10 @@ body.r1-shell-active.r1-map-home{width:100%;max-width:100vw;overflow:hidden!impo
 .r1-map-import-actions button{min-height:39px;border:1px solid #d9decd;border-radius:10px;background:#ecefe1;color:#172018;font:900 .58rem/1 system-ui}
 .r1-map-import-actions button.is-primary{border-color:#d7b45f;background:#d7b45f}
 @media(max-width:390px){.r1-map-import-card{padding:12px}.r1-map-import-mark{width:43px;height:43px}.r1-map-import-actions button{min-height:37px}}
+
+
+/* R9I.1 · Importación de plano: progreso por etapas visible y profesional. */
+.r1-map-import-progress{height:7px;margin-top:10px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.08)}
+.r1-map-import-progress i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#d49a3b,#f0cc73);transition:width .28s ease}
+.r1-map-import-stage{display:block;margin-top:6px;color:rgba(239,231,208,.72);font:800 10px/1.2 system-ui;letter-spacing:.04em}
+.r1-map-import-notice[data-kind="success"] .r1-map-import-progress i{background:linear-gradient(90deg,#477c52,#7fc58a)}
