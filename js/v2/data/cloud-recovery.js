@@ -216,6 +216,18 @@ function ensureStyles() {
       .m2-cloud-event-open,.m2-r5-reuse{width:100%;min-width:0;min-height:40px;padding:8px 6px}
       .m2-r3-event-updated{order:2;text-align:right}
     }
+    /* R9E · buscar / filtrar: más ancho útil y un punto menos de altura. */
+    .m2-r5-filterbar{width:100%;max-width:none;box-sizing:border-box}
+    .m2-r5-filterbar input,.m2-r5-filterbar select{min-height:38px;padding-top:6px;padding-bottom:6px}
+    @media(max-width:760px){
+      .m2-r5-filterbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;padding:6px 4px;margin:6px 0 9px;border-left:0;border-right:0;border-radius:9px}
+      .m2-r5-filterbar label,.m2-r5-result-count{grid-column:1/-1}
+      .m2-r5-filterbar input,.m2-r5-filterbar select{width:100%;min-height:40px!important;padding:6px 8px;font-size:16px!important}
+    }
+    @media(max-width:430px){
+      .m2-r5-filterbar{grid-template-columns:1fr;padding-left:2px;padding-right:2px}
+      .m2-r5-filterbar label,.m2-r5-result-count{grid-column:1}
+    }
   `;
   document.head.appendChild(style);
 }
