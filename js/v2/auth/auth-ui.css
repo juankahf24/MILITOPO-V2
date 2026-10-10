@@ -723,3 +723,98 @@ body.m2-account-settings-open .m2-account-actions .m2-account-danger{
   body.m2-account-settings-open .m2-account-photo-trigger .m2-account-avatar{width:80px!important;height:80px!important;flex-basis:80px!important}
   body.m2-account-settings-open .m2-account-identity>div:last-child>strong{font-size:1.14rem!important}
 }
+
+/* R9J · AJUSTES: composición compacta real. Sin bloques que se estiren para rellenar la pantalla. */
+body.m2-account-settings-open #m2AccountEditCard.m2-account-card{
+  align-content:start!important;
+  grid-template-rows:auto auto auto!important;
+}
+body.m2-account-settings-open .m2-account-form{
+  min-height:0!important;
+  overflow:hidden!important;
+  align-content:start!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-template-rows:40px 40px 40px auto auto auto!important;
+  gap:7px 8px!important;
+}
+body.m2-account-settings-open .m2-account-form>.m2-account-main-field{
+  min-height:40px!important;
+  height:40px!important;
+  grid-template-columns:72px minmax(0,1fr)!important;
+}
+body.m2-account-settings-open .m2-account-form>.m2-account-main-field input,
+body.m2-account-settings-open .m2-account-email-value{
+  min-height:34px!important;
+  height:34px!important;
+}
+body.m2-account-settings-open .m2-account-options{
+  align-self:start!important;
+  height:auto!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:8px!important;
+}
+body.m2-account-settings-open .m2-account-option{
+  min-height:58px!important;
+  height:58px!important;
+  padding:9px 10px!important;
+  align-items:center!important;
+  align-content:center!important;
+}
+body.m2-account-settings-open .m2-account-option input{
+  width:18px!important;
+  height:18px!important;
+  flex:0 0 18px!important;
+}
+body.m2-account-settings-open .m2-account-option strong{
+  font-size:.58rem!important;
+  line-height:1.08!important;
+}
+body.m2-account-settings-open .m2-account-option small{
+  font-size:.47rem!important;
+  line-height:1.18!important;
+  -webkit-line-clamp:2!important;
+}
+body.m2-account-settings-open .m2-account-message{
+  min-height:0!important;
+  height:auto!important;
+  padding:0!important;
+  margin:0!important;
+}
+body.m2-account-settings-open .m2-account-message:empty{display:none!important}
+body.m2-account-settings-open .m2-account-actions{
+  align-self:start!important;
+  grid-template-columns:1fr 1fr!important;
+  grid-template-rows:44px 44px!important;
+  gap:7px!important;
+  margin-top:1px!important;
+}
+body.m2-account-settings-open .m2-account-actions button{
+  min-height:44px!important;
+  height:44px!important;
+  padding:7px 9px!important;
+  font-size:.56rem!important;
+}
+body.m2-account-settings-open #m2AccountLogout{
+  grid-column:1/-1!important;
+  width:100%!important;
+}
+body.m2-account-settings-open #m2AccountReload[hidden]{display:none!important}
+@media(max-height:720px){
+  body.m2-account-settings-open .m2-account-form{
+    grid-template-rows:36px 36px 36px auto auto auto!important;
+    gap:5px 7px!important;
+  }
+  body.m2-account-settings-open .m2-account-form>.m2-account-main-field{
+    min-height:36px!important;height:36px!important
+  }
+  body.m2-account-settings-open .m2-account-option{
+    min-height:50px!important;height:50px!important;padding:6px 8px!important
+  }
+  body.m2-account-settings-open .m2-account-option small{display:none!important}
+  body.m2-account-settings-open .m2-account-actions{
+    grid-template-rows:38px 38px!important;gap:5px!important
+  }
+  body.m2-account-settings-open .m2-account-actions button{
+    min-height:38px!important;height:38px!important
+  }
+}
