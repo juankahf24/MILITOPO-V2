@@ -1,4 +1,4 @@
-/* MILITOPO V2 · R9C · Auth + perfil/cuenta responsive + foto interactiva con recorte manual.
+/* MILITOPO V2 · R9E · Auth + perfil propio completo + cuenta + foto interactiva con recorte manual.
    La foto se procesa en cliente, se sube a Storage en la ruta propia del usuario
    y se refleja en Auth/Firestore sin afectar al arranque offline. */
 import "../bootstrap.js?v=v2-f3b-recovery-signals-20260924";
@@ -161,7 +161,10 @@ const state = {
   currentUser: null,
   role: "runner",
   profile: null,
-  trustedDeviceAtBoot: false
+  trustedDeviceAtBoot: false,
+  ownOverview: null,
+  ownOverviewLoading: false,
+  ownOverviewError: ""
 };
 
 function boolFromStorage(key, fallback = false) {
@@ -316,9 +319,19 @@ function buildUi() {
     </div>
 
     <div id="militopoV2AccountPanel" class="m2-account-overlay" hidden>
-      <section class="m2-account-card" role="dialog" aria-modal="true" aria-labelledby="m2AccountTitle">
+      <section id="m2SelfProfile" class="m2-self-profile" role="dialog" aria-modal="true" aria-labelledby="m2SelfProfileTitle" hidden>
+        <header class="m2-self-profile-head">
+          <button id="m2SelfProfileClose" class="m2-self-profile-back" type="button" aria-label="Volver">‹ <span>VOLVER</span></button>
+          <div class="m2-self-profile-title"><small>PERFIL DE USUARIO</small><strong id="m2SelfProfileTitle">MI PERFIL</strong><span id="m2SelfProfileSubtitle">MILITOPO</span></div>
+          <button id="m2SelfProfileSettings" class="m2-self-profile-settings" type="button">AJUSTES</button>
+        </header>
+        <main id="m2SelfProfileContent" class="m2-self-profile-main"></main>
+      </section>
+
+      <section id="m2AccountEditCard" class="m2-account-card" role="dialog" aria-modal="true" aria-labelledby="m2AccountTitle">
         <header class="m2-account-header">
           <div>
+            <button id="m2AccountBackProfile" class="m2-account-back-profile" type="button" hidden>← VOLVER AL PERFIL</button>
             <span class="m2-account-kicker">MILITOPO V2</span>
             <h2 id="m2AccountTitle">Mi cuenta</h2>
           </div>
@@ -453,8 +466,16 @@ async function saveAccountPhotoBlob(blob) {
     await updateProfile(state.currentUser, { photoURL });
     await setDoc(doc(state.services.firestore, "users", state.currentUser.uid), { photoURL, updatedAt: serverTimestamp() }, { merge: true });
     state.profile = { ...(state.profile || {}), photoURL };
+    if (state.ownOverview) {
+      state.ownOverview = {
+        ...state.ownOverview,
+        account: { ...(state.ownOverview.account || {}), photoURL },
+        profile: { ...(state.ownOverview.profile || {}), photoURL, updatedAtMs: Date.now() }
+      };
+    }
     paintAccount(state.currentUser, state.profile?.displayName || state.currentUser.displayName || null);
     publishAuthState(state.currentUser, state.profile?.displayName || state.currentUser.displayName || null);
+    renderOwnOverview();
     setAccountMessage("Foto de perfil actualizada.", "ok");
   } catch (error) {
     console.error("[MILITOPO V2 photo]", error);
@@ -734,15 +755,193 @@ async function enterApp(user) {
   return enterAppInFlight;
 }
 
+
+function profileEsc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[char]));
+}
+function profileTsMs(value) {
+  try {
+    if (Number.isFinite(Number(value)) && Number(value) > 0) return Number(value);
+    if (typeof value?.toMillis === "function") return value.toMillis();
+    if (value?.seconds) return Number(value.seconds) * 1000;
+    const parsed = Date.parse(value || "");
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch (_) { return 0; }
+}
+function profileDate(value, withTime = true) {
+  const ms = profileTsMs(value);
+  if (!ms) return "";
+  try {
+    return new Intl.DateTimeFormat("es-ES", withTime
+      ? { day:"2-digit", month:"2-digit", year:"2-digit", hour:"2-digit", minute:"2-digit" }
+      : { day:"2-digit", month:"2-digit", year:"numeric" }).format(ms);
+  } catch (_) { return new Date(ms).toLocaleString("es-ES"); }
+}
+function profileKm(meters) {
+  const km = Math.max(0, Number(meters || 0)) / 1000;
+  return `${km.toLocaleString("es-ES", { minimumFractionDigits: km >= 100 ? 0 : 1, maximumFractionDigits: 1 })} km`;
+}
+function profilePenalty(ms) {
+  const total = Math.max(0, Math.round(Number(ms || 0) / 60000));
+  const h = Math.floor(total / 60), m = total % 60;
+  return h ? `+${h} h ${String(m).padStart(2,"0")} min` : `+${m} min`;
+}
+function profileResultLabel(value) {
+  return ({ finished:"FINALIZADA", incomplete:"INCOMPLETA", not_started:"NO SALIÓ" }[String(value || "not_started").toLowerCase()] || String(value || "—").toUpperCase());
+}
+function profileIcon(name) {
+  const paths = {
+    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>',
+    shield:'<path d="M12 3 4.5 6v5.5c0 4.4 3.1 7.5 7.5 9.5 4.4-2 7.5-5.1 7.5-9.5V6L12 3Z"/>',
+    race:'<path d="M4 20V5m0 1h11l-2 3 2 3H4"/><path d="M18 13v7M15 20h6"/>',
+    trophy:'<path d="M8 4h8v5a4 4 0 0 1-8 0V4Z"/><path d="M8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 13v4M8 21h8M9 17h6"/>',
+    route:'<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h3a3 3 0 0 0 3-3v-6a3 3 0 0 1 3-3h-1"/>',
+    mountain:'<path d="m3 19 6-10 4 6 2-3 6 7H3Z"/><path d="m8 11 2 2 2-2"/>',
+    target:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+    discard:'<circle cx="12" cy="12" r="9"/><path d="m8 8 8 8M16 8l-8 8"/>',
+    flag:'<path d="M5 21V4m0 1h10l-2 3 2 3H5"/>',
+    activity:'<path d="M3 12h4l2-5 4 10 2-5h6"/>',
+    alert:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/>',
+    check:'<path d="m5 12 4 4L19 6"/>',
+    penalty:'<path d="M13 2 5 14h6l-1 8 9-13h-6V2Z"/>',
+    refresh:'<path d="M20 6v5h-5M4 18v-5h5"/><path d="M18 9a7 7 0 0 0-12-2L4 11M6 15a7 7 0 0 0 12 2l2-4"/>'
+  };
+  return `<svg class="m2-self-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.activity}</svg>`;
+}
+function profileLine(iconName, label, value, sub = "", kind = "") {
+  return `<div class="m2-self-line ${profileEsc(kind)}"><span class="m2-self-line-icon">${profileIcon(iconName)}</span><div class="m2-self-line-copy"><small>${profileEsc(label)}</small>${sub ? `<span>${profileEsc(sub)}</span>` : ""}</div><strong>${profileEsc(value)}</strong></div>`;
+}
+function isFullOwnProfileRole() {
+  return ["organizer", "super_admin"].includes(normalizeRole(state.role || "runner"));
+}
+function renderOwnOverview() {
+  const host = el("m2SelfProfileContent");
+  if (!host || !state.currentUser) return;
+  const currentName = state.profile?.displayName || state.currentUser.displayName || state.currentUser.email || "Usuario";
+  const currentUsername = normalizeUsername(state.profile?.usernameKey || state.profile?.username);
+  const currentPhoto = state.profile?.photoURL || state.currentUser.photoURL || "";
+  const currentRole = normalizeRole(state.role || "runner");
+  if (state.ownOverviewLoading && !state.ownOverview) {
+    host.innerHTML = `<div class="m2-self-state">${profileIcon("activity")}<strong>Cargando actividad MILITOPO…</strong></div>`;
+    return;
+  }
+  const d = state.ownOverview || {};
+  const account = d.account || {};
+  const profile = d.profile || {};
+  const runner = d.runner || {};
+  const organizer = d.organizer || {};
+  const role = normalizeRole(account.role || currentRole);
+  const name = profile.displayName || currentName;
+  const username = String(profile.username || currentUsername || "").replace(/^@/, "");
+  const photoURL = profile.photoURL || account.photoURL || currentPhoto;
+  const verified = account.emailVerified ?? Boolean(state.currentUser.emailVerified);
+  const active = account.disabled !== true;
+  const completion = Number(runner.started || 0) > 0 ? `${Math.round((Number(runner.finished || 0) / Math.max(1, Number(runner.started || 0))) * 100)}%` : "0%";
+  const created = profileDate(account.creationTimeMs || profile.createdAtMs, false);
+  const lastAccess = profileDate(account.lastSignInTimeMs, true);
+  const updated = profileDate(profile.updatedAtMs, true);
+  const organizerVisible = ["organizer", "super_admin"].includes(role) || Number(organizer.total || 0) > 0;
+  const hasRunner = Number(runner.participations || 0) > 0 || Number(runner.trackDistanceM || 0) > 0;
+  const runnerLines = [
+    profileLine("race", "PARTICIPACIONES", Number(runner.participations || 0)),
+    profileLine("trophy", "FINALIZADAS", Number(runner.finished || 0)),
+    profileLine("route", "KM RECORRIDOS", profileKm(runner.trackDistanceM), "Distancia GPS acumulada"),
+    profileLine("mountain", "DESNIVEL + ACUMULADO", `${Math.round(Number(runner.positiveM || 0)).toLocaleString("es-ES")} m`, "Suma de ascensos positivos"),
+    profileLine("target", "CONTROLES", Number(runner.controlDetectedCount || 0)),
+    profileLine("discard", "DESCARTES", Number(runner.discardedControlCount || 0)),
+    profileLine("flag", "CARRERAS INICIADAS", Number(runner.started || 0)),
+    profileLine("activity", "INCOMPLETAS", Number(runner.incomplete || 0), "", "is-warn"),
+    profileLine("alert", "NO SALIÓ", Number(runner.notStarted || 0), "", "is-muted"),
+    profileLine("trophy", "TASA DE FINALIZACIÓN", completion, "", "is-good"),
+    profileLine("penalty", "PENALIZACIÓN ACUMULADA", profilePenalty(runner.penaltyMs), "", "is-warn")
+  ].join("");
+  const organizerLines = organizerVisible ? [
+    profileLine("race", "CARRERAS CREADAS", Number(organizer.total || 0)),
+    profileLine("activity", "EN DIRECTO", Number(organizer.live || 0)),
+    profileLine("flag", "PUBLICADAS", Number(organizer.published || 0)),
+    profileLine("target", "PREPARADAS", Number(organizer.prepared || 0)),
+    profileLine("refresh", "BORRADORES", Number(organizer.draft || 0)),
+    profileLine("check", "CERRADAS", Number(organizer.finished || 0) + Number(organizer.archived || 0))
+  ].join("") : "";
+  const dateBits = [
+    created ? `<div><small>REGISTRO</small><strong>${profileEsc(created)}</strong></div>` : "",
+    lastAccess ? `<div><small>ÚLTIMO ACCESO</small><strong>${profileEsc(lastAccess)}</strong></div>` : "",
+    updated ? `<div><small>PERFIL ACTUALIZADO</small><strong>${profileEsc(updated)}</strong></div>` : ""
+  ].filter(Boolean).join("");
+  const lastRaceDate = profileDate(runner.lastRace?.atMs, true);
+  host.innerHTML = `
+    <section class="m2-self-hero">
+      <div class="m2-self-identity">
+        <button id="m2SelfProfilePhotoBtn" class="m2-self-photo" type="button" aria-label="Ver o cambiar foto de perfil"><span id="m2SelfAvatar" class="m2-self-avatar"></span></button>
+        <div><small>MI PERFIL</small><h3>${profileEsc(name)}</h3><p>${username ? `@${profileEsc(username)}` : "Sin nombre de usuario"}</p></div>
+      </div>
+      <div class="m2-self-badges"><span class="m2-self-role">${profileIcon("shield")} ${profileEsc(roleLabel(role))}</span><span class="m2-self-status ${active ? "is-active" : "is-disabled"}">${profileIcon(active ? "shield" : "alert")} ${active ? "ACTIVA" : "BLOQUEADA"}</span></div>
+    </section>
+    <section class="m2-self-detail">
+      <div class="m2-self-account"><span class="m2-self-line-icon">${profileIcon("mail")}</span><div><small>CORREO</small><strong>${profileEsc(account.email || state.currentUser.email || "Sin correo")}</strong></div><span class="m2-self-mail ${verified ? "is-ok" : "is-pending"}" title="${verified ? "Correo verificado" : "Correo pendiente"}">${profileIcon(verified ? "check" : "alert")}</span></div>
+      ${dateBits ? `<div class="m2-self-dates">${dateBits}</div>` : ""}
+      <div class="m2-self-activity ${organizerVisible ? "has-organizer" : ""}">
+        <section class="m2-self-section"><div class="m2-self-section-title"><strong>ACTIVIDAD COMO CORREDOR</strong><small>Resumen acumulado en MILITOPO</small></div>${hasRunner ? `<div class="m2-self-lines">${runnerLines}</div>${runner.lastRace?.eventName ? `<div class="m2-self-last"><span class="m2-self-line-icon">${profileIcon("flag")}</span><div><small>ÚLTIMA PARTICIPACIÓN</small><strong>${profileEsc(runner.lastRace.eventName)}</strong><span>${profileEsc(profileResultLabel(runner.lastRace.status))}${lastRaceDate ? ` · ${profileEsc(lastRaceDate)}` : ""}</span></div></div>` : ""}` : `<div class="m2-self-empty">${profileIcon("route")}<div><strong>SIN PARTICIPACIONES</strong><span>Todavía no hay actividad como corredor.</span></div></div>`}</section>
+        ${organizerVisible ? `<section class="m2-self-section m2-self-organizer"><div class="m2-self-section-title"><strong>ACTIVIDAD COMO ORGANIZADOR</strong><small>Resumen de carreras creadas</small></div><div class="m2-self-lines">${organizerLines}</div></section>` : ""}
+      </div>
+      ${state.ownOverviewError ? `<div class="m2-self-inline-error">${profileEsc(state.ownOverviewError)}</div>` : ""}
+    </section>`;
+  paintAvatar(el("m2SelfAvatar"), name, photoURL);
+  if (el("m2SelfProfileTitle")) el("m2SelfProfileTitle").textContent = name;
+  if (el("m2SelfProfileSubtitle")) el("m2SelfProfileSubtitle").textContent = `${username ? `@${username} · ` : ""}${roleLabel(role)}`;
+}
+async function loadOwnOverview(force = false) {
+  if (!state.currentUser || !isFullOwnProfileRole()) return;
+  if (state.ownOverviewLoading) return;
+  if (state.ownOverview && !force) { renderOwnOverview(); return; }
+  state.ownOverviewLoading = true;
+  state.ownOverviewError = "";
+  renderOwnOverview();
+  try {
+    const result = await state.services.callable("getMyUserOverview", {});
+    state.ownOverview = result?.data || null;
+    if (!state.ownOverview) throw new Error("La ficha no devolvió datos.");
+  } catch (error) {
+    console.error("[MILITOPO R9E own profile]", error);
+    state.ownOverviewError = navigator.onLine === false
+      ? "Sin conexión: se muestran los datos locales disponibles."
+      : "No se pudo actualizar la actividad. Comprueba que getMyUserOverview está desplegada.";
+  } finally {
+    state.ownOverviewLoading = false;
+    renderOwnOverview();
+  }
+}
+function showSelfProfileView() {
+  const profile = el("m2SelfProfile"), edit = el("m2AccountEditCard");
+  if (profile) profile.hidden = false;
+  if (edit) edit.hidden = true;
+  document.body.classList.add("m2-self-profile-open");
+  renderOwnOverview();
+}
+function showAccountEditView() {
+  const profile = el("m2SelfProfile"), edit = el("m2AccountEditCard");
+  if (profile) profile.hidden = true;
+  if (edit) edit.hidden = false;
+  if (el("m2AccountBackProfile")) el("m2AccountBackProfile").hidden = !isFullOwnProfileRole();
+  document.body.classList.remove("m2-self-profile-open");
+}
+
 function openAccountPanel() {
   if (!state.currentUser) return;
   paintAccount(state.currentUser, state.profile?.displayName || state.currentUser.displayName || null);
   setAccountMessage("");
   if (el("m2AccountReload")) el("m2AccountReload").hidden = true;
   if (el("militopoV2AccountPanel")) el("militopoV2AccountPanel").hidden = false;
+  if (isFullOwnProfileRole()) {
+    showSelfProfileView();
+    loadOwnOverview(false);
+  } else {
+    showAccountEditView();
+  }
 }
 function closeAccountPanel() {
   if (el("militopoV2AccountPanel")) el("militopoV2AccountPanel").hidden = true;
+  document.body.classList.remove("m2-self-profile-open");
 }
 
 function friendlyError(error) {
@@ -896,8 +1095,12 @@ async function saveAccount(event) {
     writeBoolStorage(TRUSTED_DEVICE_KEY, trustedDevice);
 
     state.profile = { ...(state.profile || {}), displayName: name, username, usernameKey: username };
+    if (state.ownOverview) {
+      state.ownOverview = { ...state.ownOverview, profile: { ...(state.ownOverview.profile || {}), displayName: name, username, updatedAtMs: Date.now() } };
+    }
     paintAccount(state.currentUser, name);
     publishAuthState(state.currentUser, name);
+    renderOwnOverview();
 
     if (beforeTrusted !== trustedDevice || state.trustedDeviceAtBoot !== trustedDevice) {
       setAccountMessage("Cambios guardados. Recarga para aplicar el modo offline de este dispositivo.", "ok");
@@ -991,6 +1194,15 @@ async function init() {
 
   el("m2AuthAccountBtn")?.addEventListener("click", openAccountPanel);
   el("m2AccountClose")?.addEventListener("click", closeAccountPanel);
+  el("m2SelfProfileClose")?.addEventListener("click", closeAccountPanel);
+  el("m2SelfProfileSettings")?.addEventListener("click", showAccountEditView);
+  el("m2AccountBackProfile")?.addEventListener("click", () => { showSelfProfileView(); loadOwnOverview(false); });
+  el("m2SelfProfileContent")?.addEventListener("click", event => {
+    if (!event.target.closest("#m2SelfProfilePhotoBtn")) return;
+    const name = state.profile?.displayName || state.currentUser?.displayName || state.currentUser?.email || "Usuario";
+    const photoURL = state.profile?.photoURL || state.currentUser?.photoURL || "";
+    openProfilePhotoMenu({ photoURL, name, canChange: true, onSave: saveAccountPhotoBlob });
+  });
   el("m2AccountForm")?.addEventListener("submit", saveAccount);
   el("m2AccountPhotoBtn")?.addEventListener("click", () => {
     const name = state.profile?.displayName || state.currentUser?.displayName || state.currentUser?.email || "Usuario";
