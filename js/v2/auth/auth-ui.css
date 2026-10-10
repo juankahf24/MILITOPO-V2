@@ -638,3 +638,88 @@ body.m2-account-settings-open .m2-account-actions button{
   body.m2-account-settings-open .m2-account-option{padding:5px 7px!important}
   body.m2-account-settings-open .m2-account-option small{display:none!important}
 }
+
+
+/* R9I · AJUSTES: acabado más profesional, bloque superior protagonista y paleta uniforme. */
+body.m2-account-settings-open #m2AccountEditCard.m2-account-card{
+  max-width:min(560px,100%)!important;
+  border:1px solid rgba(219,190,113,.22)!important;
+  box-shadow:0 30px 80px rgba(0,0,0,.52)!important;
+  background:linear-gradient(180deg,rgba(16,25,20,.98),rgba(8,14,11,.985))!important;
+}
+body.m2-account-settings-open .m2-account-header{align-items:center!important}
+body.m2-account-settings-open .m2-account-kicker,
+body.m2-account-settings-open .m2-account-form>.m2-account-main-field label,
+body.m2-account-settings-open .m2-account-option small,
+body.m2-account-settings-open .m2-account-message{color:#d7d0b8!important}
+body.m2-account-settings-open .m2-account-header h2,
+body.m2-account-settings-open .m2-account-identity>div:last-child>strong,
+body.m2-account-settings-open .m2-account-form>.m2-account-main-field input,
+body.m2-account-settings-open .m2-account-email-value strong,
+body.m2-account-settings-open .m2-account-option strong,
+body.m2-account-settings-open .m2-account-close,
+body.m2-account-settings-open .m2-account-back-profile{color:#f1ead3!important}
+body.m2-account-settings-open .m2-account-identity{
+  background:linear-gradient(180deg,rgba(33,47,36,.88),rgba(16,23,18,.92))!important;
+  border:1px solid rgba(219,190,113,.18)!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)!important;
+}
+body.m2-account-settings-open .m2-account-role-badge{
+  background:linear-gradient(180deg,#d89a34,#b7791d)!important;
+  color:#1a1409!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+  box-shadow:0 10px 22px rgba(0,0,0,.22)!important;
+}
+body.m2-account-settings-open .m2-account-form>.m2-account-main-field input,
+body.m2-account-settings-open .m2-account-email-value,
+body.m2-account-settings-open .m2-account-option,
+body.m2-account-settings-open .m2-account-close,
+body.m2-account-settings-open .m2-account-back-profile{
+  background:linear-gradient(180deg,rgba(14,22,17,.92),rgba(9,15,12,.95))!important;
+  border:1px solid rgba(219,190,113,.16)!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.03)!important;
+}
+body.m2-account-settings-open .m2-account-form>.m2-account-main-field input::placeholder{color:rgba(219,208,184,.55)!important}
+body.m2-account-settings-open .m2-account-email-value{
+  grid-template-columns:minmax(0,1fr) 28px!important;
+  gap:8px!important;
+  padding:4px 10px!important;
+}
+body.m2-account-settings-open .m2-account-email-value strong{
+  font-size:15px!important;
+  letter-spacing:.01em!important;
+}
+body.m2-account-settings-open .m2-account-email-tick{
+  background:#275b35!important;
+  border:1px solid rgba(120,215,149,.42)!important;
+  color:#eff8f0!important;
+  box-shadow:none!important;
+}
+body.m2-account-settings-open .m2-account-email-tick.is-pending{
+  background:#7a5b1f!important;
+  border-color:rgba(233,188,95,.42)!important;
+}
+body.m2-account-settings-open .m2-account-option{align-items:flex-start!important}
+body.m2-account-settings-open .m2-account-option input{accent-color:#d89a34}
+body.m2-account-settings-open .m2-account-actions .m2-auth-primary,
+body.m2-account-settings-open .m2-account-actions .m2-auth-secondary,
+body.m2-account-settings-open .m2-account-actions .m2-account-danger{
+  font-weight:900!important;
+  letter-spacing:.02em!important;
+}
+body.m2-account-settings-open .m2-account-actions .m2-auth-secondary{
+  background:linear-gradient(180deg,rgba(21,30,24,.98),rgba(10,16,13,.98))!important;
+  color:#efe6cd!important;
+  border:1px solid rgba(219,190,113,.18)!important;
+}
+body.m2-account-settings-open .m2-account-actions .m2-account-danger{
+  background:linear-gradient(180deg,rgba(56,20,20,.72),rgba(36,12,12,.78))!important;
+  color:#f2c5c5!important;
+  border:1px solid rgba(202,112,112,.28)!important;
+}
+@media(max-width:480px){
+  body.m2-account-settings-open .m2-account-identity{min-height:116px!important}
+  body.m2-account-settings-open .m2-account-photo-trigger{width:92px!important;height:92px!important;flex-basis:92px!important}
+  body.m2-account-settings-open .m2-account-photo-trigger .m2-account-avatar{width:80px!important;height:80px!important;flex-basis:80px!important}
+  body.m2-account-settings-open .m2-account-identity>div:last-child>strong{font-size:1.14rem!important}
+}
