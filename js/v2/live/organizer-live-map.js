@@ -5,7 +5,7 @@ import "../bootstrap.js";
 import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-r4d-results-center-20261004";
+const VERSION = "v2-r9k-cartografia-hd-20261010";
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const DEFAULT_RACE_PLAN_ID = "el-valle-matizado";
 const EVENT_STATUS_ES = {
@@ -184,15 +184,40 @@ function createMapantLayer(L) {
     updateWhenIdle:false, updateWhenZooming:true, keepBuffer:4
   });
 }
+function createIgnHdHybridLayer(L, kind, options={}) {
+  const key=String(kind||"").toLowerCase();
+  const aerial=key==="aerial"||key==="pnoa"||key==="aereo"||key==="aéreo";
+  const maxZoom=Number(options.maxZoom||25);
+  const nativeMax=Number(options.maxNativeZoom||(aerial?19:20));
+  const attribution=aerial?"© PNOA Máxima Actualidad · IGN":"© Instituto Geográfico Nacional";
+  const tms=L.tileLayer(aerial
+    ? "https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg"
+    : "https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg", {
+      attribution,maxNativeZoom:nativeMax,maxZoom,keepBuffer:aerial?8:6,updateWhenIdle:false,updateWhenZooming:true,zIndex:200
+    });
+  const hd=L.tileLayer.wms(aerial?"https://www.ign.es/wms-inspire/pnoa-ma":"https://www.ign.es/wms-inspire/mapa-raster", {
+    layers:aerial?"OI.OrthoimageCoverage":"mtn_rasterizado",styles:"",format:"image/jpeg",transparent:false,version:"1.3.0",
+    attribution,maxZoom,keepBuffer:4,updateWhenIdle:false,updateWhenZooming:true,zIndex:210
+  });
+  const hdGetTileUrl=hd.getTileUrl.bind(hd);
+  hd.getTileUrl=coords=>hdGetTileUrl(coords).replace(/([?&](?:width|height)=)\d+/gi,(_,prefix)=>`${prefix}512`);
+  const group=L.layerGroup([tms]);
+  let hostMap=null;
+  const hdFrom=nativeMax+1;
+  const sync=()=>{
+    if(!hostMap)return;
+    if(Number(hostMap.getZoom?.()||0)>=hdFrom){if(!group.hasLayer(hd))group.addLayer(hd)}
+    else if(group.hasLayer(hd))group.removeLayer(hd);
+  };
+  group.on("add",()=>{hostMap=group._map||null;hostMap?.on?.("zoomend",sync);hostMap?.on?.("moveend",sync);requestAnimationFrame(sync)});
+  group.on("remove",()=>{hostMap?.off?.("zoomend",sync);hostMap?.off?.("moveend",sync);if(group.hasLayer(hd))group.removeLayer(hd);hostMap=null});
+  return group;
+}
 function buildBaseLayers(L) {
   return {
     mapant:createMapantLayer(L),
-    ign:L.tileLayer("https://www.ign.es/wmts/mapa-raster?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=MTN&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}", {
-      attribution:"© Instituto Geográfico Nacional", maxNativeZoom:18, maxZoom:22, keepBuffer:6, updateWhenZooming:true
-    }),
-    aerial:L.tileLayer("https://www.ign.es/wmts/pnoa-ma?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=OI.OrthoimageCoverage&STYLE=default&TILEMATRIXSET=GoogleMapsCompatible&FORMAT=image/jpeg&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}", {
-      attribution:"© PNOA Máxima Actualidad · IGN", maxNativeZoom:19, maxZoom:22, keepBuffer:8, updateWhenIdle:false, updateWhenZooming:true, crossOrigin:true
-    })
+    ign:createIgnHdHybridLayer(L,"ign",{maxNativeZoom:20,maxZoom:25}),
+    aerial:createIgnHdHybridLayer(L,"aerial",{maxNativeZoom:19,maxZoom:25})
   };
 }
 function ensureMap() {
@@ -205,7 +230,7 @@ function ensureMap() {
     setTimeout(ensureMap, 500);
     return null;
   }
-  state.map = L.map(node, { zoomControl:true, preferCanvas:true, maxZoom:22, zoomSnap:.25, zoomDelta:.5 }).setView([40.2, -3.7], 5);
+  state.map = L.map(node, { zoomControl:true, preferCanvas:true, maxZoom:25, zoomSnap:.25, zoomDelta:.5 }).setView([40.2, -3.7], 5);
   state.baseLayers = buildBaseLayers(L);
   state.baseLayer = state.baseLayers.mapant.addTo(state.map);
   state.baseLayerKey = "mapant";
