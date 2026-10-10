@@ -113,7 +113,7 @@
     node.hidden=true;
     node.innerHTML=`<section class="r1-map-import-card" role="dialog" aria-modal="true" aria-labelledby="r1MapImportTitle">
       <div class="r1-map-import-mark" data-map-import-mark>…</div>
-      <div class="r1-map-import-copy"><small data-map-import-kicker>MI PLANO</small><strong id="r1MapImportTitle" data-map-import-title>IMPORTANDO PLANO</strong><p data-map-import-message>Preparando archivo…</p></div>
+      <div class="r1-map-import-copy"><small data-map-import-kicker>MI PLANO</small><strong id="r1MapImportTitle" data-map-import-title>IMPORTANDO PLANO</strong><p data-map-import-message>Preparando archivo…</p><div class="r1-map-import-progress" data-map-import-progress><i data-map-import-progress-bar></i></div><span class="r1-map-import-stage" data-map-import-stage>Preparando…</span></div>
       <div class="r1-map-import-actions" data-map-import-actions></div>
     </section>`;
     document.body.appendChild(node);
@@ -132,18 +132,25 @@
     });
     return node;
   }
-  function showCustomMapNotice(kind,title,message){
+  function showCustomMapNotice(kind,title,message,progress=0,stage=""){
     const node=ensureCustomMapNotice();
     const mark=node.querySelector("[data-map-import-mark]");
     const kicker=node.querySelector("[data-map-import-kicker]");
     const titleEl=node.querySelector("[data-map-import-title]");
     const msg=node.querySelector("[data-map-import-message]");
     const actions=node.querySelector("[data-map-import-actions]");
+    const progressWrap=node.querySelector("[data-map-import-progress]");
+    const progressBar=node.querySelector("[data-map-import-progress-bar]");
+    const stageEl=node.querySelector("[data-map-import-stage]");
     node.dataset.kind=kind||"loading";
     if(mark)mark.textContent=kind==="success"?"✓":kind==="error"?"!":"…";
     if(kicker)kicker.textContent=kind==="success"?"PLANO DISPONIBLE":kind==="error"?"IMPORTACIÓN FALLIDA":"IMPORTANDO";
     if(titleEl)titleEl.textContent=title||"MI PLANO";
     if(msg)msg.textContent=message||"";
+    const pct=Math.max(0,Math.min(100,Number(progress)||0));
+    if(progressWrap)progressWrap.hidden=kind!=="loading"&&kind!=="success";
+    if(progressBar)progressBar.style.width=`${kind==="success"?100:pct}%`;
+    if(stageEl){stageEl.hidden=kind==="error";stageEl.textContent=kind==="success"?"100 % · listo":`${Math.round(pct)} %${stage?` · ${stage}`:""}`;}
     if(actions){
       actions.innerHTML=kind==="success"
         ? '<button type="button" data-map-import-action="close">CERRAR</button><button type="button" class="is-primary" data-map-import-action="view">VER PLANO</button>'
@@ -191,16 +198,31 @@
   }
   function bindCustomMapImportFeedback(){
     const input=$("#orientationGeoTiffInput");
-    if(input&&!input.dataset.r9hFeedback){
-      input.dataset.r9hFeedback="1";
-      input.addEventListener("change",()=>{const file=input.files&&input.files[0];if(file)watchCustomMapImport(file)});
+    if(input&&!input.dataset.r9iFeedback){
+      input.dataset.r9iFeedback="1";
+      input.addEventListener("change",()=>{const file=input.files&&input.files[0];if(file){state.customMapImportPending={name:String(file.name||"plano"),startedAt:Date.now()};showCustomMapNotice("loading","IMPORTANDO PLANO",`${file.name||"Plano"} · iniciando importación`,3,"Archivo seleccionado")}});
     }
-    window.addEventListener("militopo:v2-orientation-custom-map",event=>{
-      if(!state.customMapImportPending)return;
-      const map=event.detail?.map;
-      if(map&&map.id)finishCustomMapImportSuccess(map);
+    window.addEventListener("militopo:v2-orientation-import",event=>{
+      const d=event.detail||{};
+      if(d.state==="progress"){
+        state.customMapImportPending=state.customMapImportPending||{name:String(d.fileName||"plano"),startedAt:Date.now()};
+        showCustomMapNotice("loading","IMPORTANDO PLANO",String(d.message||"Procesando plano…"),Number(d.progress)||0,String(d.stage||""));
+        return;
+      }
+      if(d.state==="success"){
+        state.customMapImportPending=null;stopCustomMapImportWatch();
+        const name=String(d.fileName||d.map?.name||"MI PLANO");
+        showCustomMapNotice("success","PLANO IMPORTADO",`${name} se ha importado correctamente y ya está activo en el mapa.`,100,"Completado");
+        return;
+      }
+      if(d.state==="error"){
+        state.customMapImportPending=null;stopCustomMapImportWatch();
+        showCustomMapNotice("error","NO SE HA PODIDO IMPORTAR",`Motivo: ${String(d.message||"No se pudo interpretar el archivo seleccionado.")}`,0,String(d.stage||""));
+      }
     });
+    /* Compatibilidad: si un plano antiguo se activa sin emitir evento de importación, no mostramos mensajes falsos. */
   }
+
   async function requestNewCustomMap(options={}){
     const input=$("#orientationGeoTiffInput");
     if(!input){safeCall("toast","Abre AJUSTES DE MAPA para importar el plano");return}
@@ -227,10 +249,9 @@
   function activateShellLayer(name,layers){
     layers?.classList.remove("is-open");closeCustomMapChoices(layers);
     try{
-      if(typeof window.switchLayer==="function"){
-        window.switchLayer(name);
-        return true;
-      }
+      const api=window.MILITOPO_MAP_CONTROL;
+      if(api&&typeof api.switchLayer==="function"){api.switchLayer(name);return true}
+      if(typeof window.switchLayer==="function"){window.switchLayer(name);return true}
       const legacy=document.querySelector(`.layer-btn[data-layer="${name}"]`);
       if(legacy){legacy.click();return true}
       safeCall("toast","La capa del mapa todavía se está iniciando. Inténtalo de nuevo.");
@@ -260,6 +281,8 @@
       const a=button?.dataset.mapAction;if(!a)return;
       if(a==="layers"){layers.classList.toggle("is-open");if(!layers.classList.contains("is-open"))closeCustomMapChoices(layers);return}
       if(a==="locate"){safeCall("useMyLocation");return}
+      const api=window.MILITOPO_MAP_CONTROL;
+      if(api){if(a==="zoom-in"&&typeof api.zoomIn==="function"){api.zoomIn();return}if(a==="zoom-out"&&typeof api.zoomOut==="function"){api.zoomOut();return}}
       const selector=a==="zoom-in"?".leaflet-control-zoom-in":".leaflet-control-zoom-out";
       const control=$("#map")?.querySelector(selector)||document.querySelector(selector);
       if(control){control.click();return}
