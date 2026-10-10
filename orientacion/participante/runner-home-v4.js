@@ -1,6 +1,6 @@
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
 import "./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007";
-import "./runner-history-v2.js?v=v2-r7e-runner-coherence-20261008";
+import "./runner-history-v2.js?v=v2-r9k-cartografia-hd-20261010";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -10,7 +10,7 @@ import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, update
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { openProfilePhotoMenu, openProfilePhotoViewer } from "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
-const VERSION="v2-r9b-profile-responsive-role-20261010";
+const VERSION="v2-r9k-cartografia-hd-20261010";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;

@@ -1,10 +1,10 @@
-/* MILITOPO Participante · R9B responsive de perfil + identidad/rol visual 20261010.
+/* MILITOPO Participante · R9K cartografía HD y coherencia PWA 20261010.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r9b-profile-responsive-role-20261010";
+const CACHE_NAME="militopo-v2-participante-r9k-cartografia-hd-20261010";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
-  "./runner-home-v4.js?v=v2-r9b-profile-responsive-role-20261010","./runner-history-v2.js?v=v2-r7e-runner-coherence-20261008","./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007",
+  "./runner-home-v4.js?v=v2-r9k-cartografia-hd-20261010","./runner-history-v2.js?v=v2-r9k-cartografia-hd-20261010","./runner-live-loader.js?v=v2-r6f-race-focus-summary-20261007",
   "../../js/v2/firebase-config.js","../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",
