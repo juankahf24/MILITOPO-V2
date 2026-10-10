@@ -292,7 +292,7 @@ html.militopo-pwa-launch #militopoV2AccountBadge {
 .m2-account-photo-tap{display:none!important}
 
 
-/* R9C · MI CUENTA Organizer/Super Admin: identidad visual, rol naranja y responsive PWA. */
+/* R9D · MI CUENTA Organizer/Super Admin: ajuste fino de avatar + responsive PWA. */
 .m2-account-identity{
   gap:18px;
   padding:16px;
@@ -300,8 +300,8 @@ html.militopo-pwa-launch #militopoV2AccountBadge {
 }
 .m2-account-photo-block{align-self:center}
 .m2-account-photo-trigger{
-  width:86px!important;
-  height:86px!important;
+  width:84px!important;
+  height:84px!important;
   padding:4px!important;
   border:2px solid #d99837!important;
   border-radius:18px!important;
@@ -310,9 +310,9 @@ html.militopo-pwa-launch #militopoV2AccountBadge {
   box-sizing:border-box;
 }
 .m2-account-photo-trigger .m2-account-avatar{
-  width:74px!important;
-  height:74px!important;
-  flex:0 0 74px!important;
+  width:72px!important;
+  height:72px!important;
+  flex:0 0 72px!important;
   border-radius:13px!important;
   overflow:hidden!important;
 }
@@ -358,22 +358,22 @@ html.militopo-pwa-launch #militopoV2AccountBadge {
   }
   .m2-account-identity{
     display:grid!important;
-    grid-template-columns:86px minmax(0,1fr);
+    grid-template-columns:84px minmax(0,1fr);
     gap:18px!important;
     align-items:center!important;
     margin:16px 0 15px!important;
     padding:14px!important;
   }
-  .m2-account-photo-trigger{width:84px!important;height:84px!important}
-  .m2-account-photo-trigger .m2-account-avatar{width:72px!important;height:72px!important;flex-basis:72px!important}
+  .m2-account-photo-trigger{width:82px!important;height:82px!important}
+  .m2-account-photo-trigger .m2-account-avatar{width:70px!important;height:70px!important;flex-basis:70px!important}
   .m2-account-identity>div:last-child{padding-left:2px}
   .m2-account-role-badge{min-height:28px;padding:0 11px;font-size:.47rem!important}
   .m2-account-form input:not([type="checkbox"]){font-size:16px!important}
 }
 @media(max-width:370px){
-  .m2-account-identity{grid-template-columns:78px minmax(0,1fr);gap:14px!important;padding:12px!important}
-  .m2-account-photo-trigger{width:76px!important;height:76px!important}
-  .m2-account-photo-trigger .m2-account-avatar{width:64px!important;height:64px!important;flex-basis:64px!important}
+  .m2-account-identity{grid-template-columns:76px minmax(0,1fr);gap:14px!important;padding:12px!important}
+  .m2-account-photo-trigger{width:74px!important;height:74px!important}
+  .m2-account-photo-trigger .m2-account-avatar{width:62px!important;height:62px!important;flex-basis:62px!important}
   .m2-account-identity>div:last-child>strong{font-size:1rem!important}
   .m2-account-identity>div:last-child>span:not(.m2-account-role-badge){font-size:.75rem!important}
   .m2-account-role-badge{min-height:26px;padding:0 9px;font-size:.44rem!important}
