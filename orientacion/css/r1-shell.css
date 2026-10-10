@@ -1629,3 +1629,40 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
   .r8-user-list-photo .r8-user-avatar{width:42px!important;height:42px!important;border-radius:10px!important}
   .r8-user-compact-id{gap:8px!important}
 }
+
+
+/* R9D · SÚPER ADMIN · responsive PWA: filtros, carreras y supervisión sin desbordes. */
+.r8-admin-shell,.r8-admin-body,.r8-admin-view,.r8-admin-section,.r8-event-list,.r8-user-list{min-width:0;max-width:100%;box-sizing:border-box}
+.r8-admin-body{overflow-x:hidden!important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+.r8-admin-toolbar>*{min-width:0;box-sizing:border-box}
+.r8-event-copy,.r8-event-side{min-width:0}
+.r8-event-copy strong,.r8-event-copy span,.r8-event-copy small{max-width:100%}
+@media(max-width:760px){
+  .r8-admin-head{padding:calc(10px + env(safe-area-inset-top)) 11px 10px;gap:8px}
+  .r8-admin-head-copy h2{font-size:1.08rem;margin-top:4px}.r8-admin-head-copy small{font-size:.56rem}
+  .r8-admin-close{width:38px;height:38px;border-radius:10px}
+  .r8-admin-tabs{gap:4px;padding:7px 8px}.r8-admin-tabs button{min-width:0;min-height:41px;padding:6px 5px;white-space:normal;line-height:1.05}
+  .r8-admin-body{padding-left:8px;padding-right:8px}
+  .r8-admin-section{padding:9px}.r8-admin-section-head{align-items:flex-start;flex-wrap:wrap;gap:7px}
+  .r8-admin-section-head>div{min-width:0;flex:1 1 180px}.r8-admin-section-head small{display:block;margin-top:4px}
+  .r8-admin-open-events{flex:1 0 auto;min-width:150px}
+  .r8-events-toolbar{grid-template-columns:minmax(0,1fr) 138px}
+  .r8-event-row{grid-template-columns:minmax(0,1fr) 92px;gap:7px;padding:9px}
+  .r8-event-side{width:92px;justify-items:stretch;gap:6px}.r8-event-status{justify-self:stretch;justify-content:center;text-align:center}
+  .r8-event-detail-btn{width:100%;min-width:0;padding-left:7px;padding-right:21px}
+  .r8-event-detail{padding:9px}.r8-event-detail-grid{gap:5px}
+}
+@media(max-width:430px){
+  .r8-admin-head-copy small{display:none}.r8-admin-head-copy span{font-size:.50rem}.r8-admin-head-copy h2{font-size:1rem}
+  .r8-admin-close{width:36px;height:36px;font-size:1rem}
+  .r8-admin-tabs button{min-height:39px;font-size:.52rem!important;letter-spacing:.025em}
+  .r8-admin-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.r8-admin-metric{padding:9px 4px}.r8-admin-metric strong{font-size:1rem}
+  .r8-events-toolbar{grid-template-columns:1fr}.r8-events-toolbar input,.r8-events-toolbar select{width:100%;font-size:16px!important;min-height:44px!important}
+  .r8-admin-section-head{display:grid;grid-template-columns:1fr}.r8-admin-open-events{width:100%;min-width:0}
+  .r8-event-row{grid-template-columns:minmax(0,1fr) 84px;gap:6px;padding:8px}
+  .r8-event-side{width:84px}.r8-event-copy strong{font-size:.68rem}.r8-event-copy span,.r8-event-copy small{font-size:.51rem}
+  .r8-event-status{font-size:.47rem;padding:5px 4px}.r8-event-detail-btn{font-size:.47rem;min-height:32px}
+  .r8-event-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.r8-event-detail-grid>div{padding:8px 4px}
+  .r8-event-detail-owner{grid-template-columns:1fr!important;gap:4px}.r8-event-detail-owner small{grid-column:auto!important}
+  .r8-ops-grid{gap:5px}.r8-ops-grid button{padding:10px 7px}.r8-ops-grid button small{font-size:.46rem}
+}
