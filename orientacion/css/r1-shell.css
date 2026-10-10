@@ -1750,3 +1750,31 @@ body.r1-shell-active.r1-map-home{width:100%;max-width:100vw;overflow:hidden!impo
   .r1-custom-map-choices{grid-template-columns:1fr}
   .r1-custom-map-choices .r1-custom-map-loaded{grid-column:1}
 }
+
+/* R9H · BUSCAR / FILTRAR: más finos, manteniendo 16px para evitar zoom en iPhone. */
+.r8-admin-toolbar input,.r8-admin-toolbar select{
+  min-height:28px!important;height:28px!important;padding:0 8px!important;line-height:28px!important
+}
+@media(max-width:760px){
+  .r8-admin-toolbar input,.r8-admin-toolbar select{min-height:28px!important;height:28px!important;padding:0 8px!important;font-size:16px!important;line-height:28px!important}
+}
+
+/* R9H · Aviso interactivo de importación de MI PLANO. */
+.r1-map-import-notice{
+  position:fixed;inset:0;z-index:100500;display:grid;place-items:center;padding:16px;
+  background:rgba(7,11,8,.58);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)
+}
+.r1-map-import-notice[hidden]{display:none!important}
+.r1-map-import-card{
+  width:min(430px,calc(100vw - 24px));box-sizing:border-box;padding:15px;border:1px solid rgba(255,255,255,.62);border-radius:18px;
+  background:rgba(246,247,238,.97);color:#172018;box-shadow:0 20px 60px rgba(0,0,0,.30);display:grid;grid-template-columns:48px minmax(0,1fr);gap:11px
+}
+.r1-map-import-mark{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:#d7b45f;color:#172018;font:950 1.2rem/1 system-ui}
+.r1-map-import-notice[data-kind="success"] .r1-map-import-mark{background:#2f7d46;color:#fff}
+.r1-map-import-notice[data-kind="error"] .r1-map-import-mark{background:#a74736;color:#fff}
+.r1-map-import-copy{min-width:0;align-self:center}.r1-map-import-copy small{display:block;color:#6a7269;font:900 .48rem/1 system-ui;letter-spacing:.08em}
+.r1-map-import-copy strong{display:block;margin-top:4px;font:950 .78rem/1.05 system-ui}.r1-map-import-copy p{margin:6px 0 0;color:#475047;font:700 .61rem/1.3 system-ui}
+.r1-map-import-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:3px}
+.r1-map-import-actions button{min-height:39px;border:1px solid #d9decd;border-radius:10px;background:#ecefe1;color:#172018;font:900 .58rem/1 system-ui}
+.r1-map-import-actions button.is-primary{border-color:#d7b45f;background:#d7b45f}
+@media(max-width:390px){.r1-map-import-card{padding:12px}.r1-map-import-mark{width:43px;height:43px}.r1-map-import-actions button{min-height:37px}}
