@@ -88,6 +88,43 @@
     compass.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();onTopAction(event)}});
     bar.addEventListener("click",onTopAction);
   }
+  function activeCustomMapInfo(){
+    try{
+      const api=globalThis.MILITOPO_ORIENTATION_CUSTOM_MAP;
+      const active=api&&typeof api.getActive==="function"?api.getActive():null;
+      if(active&&active.id)return active;
+    }catch(_){}
+    const select=$("#orientationGeoTiffLibrary");
+    const id=String(select?.value||"").trim();
+    if(!id)return null;
+    const label=String(select?.selectedOptions?.[0]?.textContent||"MI PLANO").replace(/^✓\s*/,"").trim();
+    return {id,name:label||"MI PLANO"};
+  }
+  function closeCustomMapChoices(layers=$("#r1LayerPop")){
+    const choices=layers?.querySelector?.("[data-custom-map-choices]");
+    if(choices)choices.hidden=true;
+  }
+  async function requestNewCustomMap(){
+    const input=$("#orientationGeoTiffInput");
+    if(!input){safeCall("toast","Abre AJUSTES DE MAPA para importar el plano");return}
+    const message="Selecciona un plano georreferenciado para usarlo directamente en el mapa principal.\n\nFormatos admitidos: GeoTIFF (.tif / .tiff) con georreferenciación —preferiblemente UTM ETRS89/WGS84— o KMZ georreferenciado. MILITOPO lo guardará en la biblioteca local de este dispositivo y lo activará como MI PLANO.";
+    let ok=true;
+    try{
+      if(typeof globalThis.MILITOPO_CONFIRM==="function")ok=await globalThis.MILITOPO_CONFIRM(message,{title:"CARGAR PLANO",confirmText:"SELECCIONAR ARCHIVO"});
+      else ok=window.confirm(message);
+    }catch(_){ok=false}
+    if(!ok)return;
+    input.click();
+  }
+  async function openCustomMapChoices(layers=$("#r1LayerPop")){
+    const active=activeCustomMapInfo();
+    if(!active){layers?.classList.remove("is-open");closeCustomMapChoices(layers);await requestNewCustomMap();return}
+    const choices=layers?.querySelector?.("[data-custom-map-choices]");
+    const name=layers?.querySelector?.("[data-custom-map-name]");
+    if(name)name.textContent=String(active.name||"MI PLANO").trim()||"MI PLANO";
+    if(choices)choices.hidden=false;
+  }
+
   function buildMapDock(){
     const dock=document.createElement("aside");dock.className="r1-map-dock";dock.id="r1MapDock";dock.innerHTML=`
       <button class="r1-map-btn" type="button" data-map-action="locate" aria-label="Mi ubicación" title="Mi ubicación">${icon("locate")}</button>
@@ -97,10 +134,23 @@
       <button class="r1-map-btn" type="button" data-map-action="zoom-out" aria-label="Alejar" title="Alejar">${icon("zoomout")}</button>`;
     const layers=document.createElement("div");layers.className="r1-layer-pop";layers.id="r1LayerPop";layers.innerHTML=`
       <button type="button" data-layer="mapant">MAPANT</button><button type="button" data-layer="ign">IGN</button>
-      <button type="button" data-layer="pnoa">AÉREO</button><button type="button" data-layer="custom">MI PLANO</button>`;
+      <button type="button" data-layer="pnoa">AÉREO</button>
+      <button type="button" class="r1-custom-map-main" data-custom-map-main><span>MI PLANO</span><small>/ CARGAR PLANO</small></button>
+      <div class="r1-custom-map-choices" data-custom-map-choices hidden>
+        <div class="r1-custom-map-loaded"><small>PLANO CARGADO</small><strong data-custom-map-name>MI PLANO</strong></div>
+        <button type="button" class="r1-custom-map-use" data-custom-map-action="use">UTILIZAR PLANO</button>
+        <button type="button" class="r1-custom-map-new" data-custom-map-action="load">CARGAR NUEVO</button>
+      </div>`;
     document.body.append(dock,layers);
-    dock.addEventListener("click",event=>{const a=event.target.closest("[data-map-action]")?.dataset.mapAction;if(!a)return;if(a==="layers"){layers.classList.toggle("is-open");return}if(a==="locate"){safeCall("useMyLocation");return}const selector=a==="zoom-in"?".leaflet-control-zoom-in":".leaflet-control-zoom-out";const mapEl=$("#map");mapEl?.querySelector(selector)?.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true}))});
-    layers.addEventListener("click",event=>{const b=event.target.closest("[data-layer]");if(!b)return;safeCall("switchLayer",b.dataset.layer);layers.classList.remove("is-open")});
+    dock.addEventListener("click",event=>{const a=event.target.closest("[data-map-action]")?.dataset.mapAction;if(!a)return;if(a==="layers"){layers.classList.toggle("is-open");if(!layers.classList.contains("is-open"))closeCustomMapChoices(layers);return}if(a==="locate"){safeCall("useMyLocation");return}const selector=a==="zoom-in"?".leaflet-control-zoom-in":".leaflet-control-zoom-out";const mapEl=$("#map");mapEl?.querySelector(selector)?.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true}))});
+    layers.addEventListener("click",async event=>{
+      const customMain=event.target.closest("[data-custom-map-main]");
+      if(customMain){await openCustomMapChoices(layers);return}
+      const customAction=event.target.closest("[data-custom-map-action]")?.dataset.customMapAction;
+      if(customAction==="use"){safeCall("switchLayer","custom");safeCall("fitOrientationGeoTiff");layers.classList.remove("is-open");closeCustomMapChoices(layers);return}
+      if(customAction==="load"){layers.classList.remove("is-open");closeCustomMapChoices(layers);await requestNewCustomMap();return}
+      const b=event.target.closest("[data-layer]");if(!b)return;safeCall("switchLayer",b.dataset.layer);layers.classList.remove("is-open");closeCustomMapChoices(layers)
+    });
   }
   function buildMore(){
     const wrap=document.createElement("div");wrap.className="r1-more-backdrop";wrap.id="r1More";wrap.innerHTML=`<section class="r1-more-panel" role="dialog" aria-modal="true" aria-label="Más herramientas">
