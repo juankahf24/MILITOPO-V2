@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r9h-map-hotfix-settings-20261010";
+const BUILD_ID="v2-r9i1-verified-capas-import-20261010";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -10,19 +10,18 @@ const CORE_ASSETS=[
   "./",
   "./index.html",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
-  "./css/styles.css?v=v2-r8e-help-center-20261009",
-  "./css/r1-shell.css?v=r9h-map-hotfix-settings-20261010",
+  "./css/styles.css?v=v2-r4c-live-center-20261004",
+  "./css/r1-shell.css?v=r9i1-verified-capas-import-20261010",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
-  "./js/app.js?v=r8e-help-center-20261009",
-  "./js/ui/r1-shell.js?v=r9h-map-hotfix-import-feedback-20261010",
-  "./js/ui/r8-super-admin.js?v=r8m-classification-photo-compact-user-20261010",
+  "./js/app.js?v=r9i1-verified-capas-import-20261010",
+  "./js/ui/r1-shell.js?v=r9i1-verified-capas-import-20261010",
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
-  "./js/core/app-main.js?v=v2-r5a1-auth-confirm-20261005",
+  "./js/core/app-main.js?v=v2-r9i1-map-layer-hotfix-20261010",
   "./js/pdf/pdf-professional.js?v=v2-r2k-compass-direct-img-20261003",
   "./js/results/results-v16.js?v=v2-r2k-compass-direct-img-20261003",
-  "./js/results/results-classification-fix.js?v=v2-r8e-help-center-20261009",
+  "./js/results/results-classification-fix.js?v=v2-r2k-compass-direct-img-20261003",
   "./js/config/plan-assets.js?v=v77-reset-seguro-wakelock-20260919",
   "./js/vendor/qr.js?v=modular-fase2",
   "./maps/index.json",
@@ -35,15 +34,14 @@ const CORE_ASSETS=[
   "../js/v2/ui/connectivity-status.js?v=v2-j1a-connectivity-no-spam-20261001",
   "../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../js/v2/auth/roles.js",
-  "../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
-  "../js/v2/auth/auth-ui.css?v=v2-r9h-settings-hero-20261010",
-  "../js/v2/auth/auth-ui.js?v=v2-r9g-settings-full-20261010",
+  "../js/v2/auth/auth-ui.css?v=v2-r9i1-ajustes-pro-20261010",
+  "../js/v2/auth/auth-ui.js?v=v2-r9i1-ajustes-pro-20261010",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
   "../js/v2/data/invitations.js?v=v2-r6d-invitaciones-realtime-20261007",
   "../js/v2/data/participants-admin.js?v=v2-r5a1-confirmaciones-20261005",
   "../js/v2/data/events.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/orientation-structure.js?v=v2-r2h-live-rules-20261003",
-  "../js/v2/data/cloud-recovery.js?v=v2-r9h-filters-28-20261010",
+  "../js/v2/data/cloud-recovery.js?v=v2-r5a1-reuse-confirm-20261005",
   "../js/v2/data/event-lifecycle.js?v=v2-r6e-live-direct-20261007",
   "../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924",
@@ -58,7 +56,6 @@ const FIREBASE_SDK_ASSETS=[
   "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js",
   "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js",
   "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js",
-  "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js",
   "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js"
 ];
 const REMOTE_ASSETS=[
@@ -102,8 +99,8 @@ self.addEventListener("install",event=>{
     /* I2: Firebase y librerías remotas se precachean en el mismo runtime cache
        que consulta el fetch handler. */
     await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(runtime,u)));
-    /* La versión instalada queda esperando de forma segura: una carrera activa
-       nunca debe cambiar de versión en caliente. */
+    /* La versión queda instalada y esperará al cierre/reapertura normal de la PWA.
+       No se fuerza activación durante una carrera activa. */
   })());
 });
 
@@ -120,8 +117,6 @@ self.addEventListener("activate",event=>event.waitUntil((async()=>{
 
 self.addEventListener("message",event=>{
   const data=event.data||{};
-  /* MILITOPO_ACTIVATE_UPDATE se ignora deliberadamente: la activación queda
-     para el ciclo normal del navegador y evita cambios en caliente. */
   if(data.type==="MILITOPO_GET_SW_VERSION")event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:BUILD_ID,scope:"orientacion"});
 });
 
