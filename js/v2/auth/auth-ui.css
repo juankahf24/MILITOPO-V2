@@ -431,3 +431,67 @@ body.m2-self-profile-open #militopoV2AccountPanel.m2-account-overlay{
 @media(max-height:720px){
   .m2-self-profile-head{min-height:52px}.m2-self-profile-main{padding-top:4px;gap:4px}.m2-self-hero{min-height:62px;padding-top:5px;padding-bottom:5px}.m2-self-photo{width:54px;height:54px}.m2-self-avatar{width:45px;height:45px}.m2-self-account{min-height:35px}.m2-self-dates{min-height:29px}.m2-self-section-title{margin-bottom:2px}.m2-self-section-title small{display:none}.m2-self-line-icon{width:21px;height:21px}.m2-self-line>strong{font-size:.48rem}.m2-self-line-copy small{font-size:.28rem}.m2-self-line-copy span{display:none}.m2-self-last{min-height:29px}
 }
+
+/* R9F · AJUSTES de ORGANIZADOR / SÚPER ADMIN a pantalla fija, sin scroll. */
+body.m2-account-settings-open{overflow:hidden!important;overscroll-behavior:none!important}
+body.m2-account-settings-open #militopoV2AccountPanel.m2-account-overlay{
+  padding:0!important;place-items:stretch!important;overflow:hidden!important;background:#090e0a!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important
+}
+body.m2-account-settings-open #m2AccountEditCard.m2-account-card{
+  width:100%!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;
+  overflow:hidden!important;border:0!important;border-radius:0!important;padding:calc(8px + env(safe-area-inset-top)) 10px max(8px,env(safe-area-inset-bottom))!important;
+  display:grid!important;grid-template-rows:auto auto minmax(0,1fr);gap:6px!important;background:linear-gradient(180deg,#162019,#0c120e)!important
+}
+body.m2-account-settings-open .m2-account-header{min-height:42px;align-items:center;gap:8px;padding:0 2px}
+body.m2-account-settings-open .m2-account-header>div{min-width:0;display:flex;align-items:center;gap:8px}
+body.m2-account-settings-open .m2-account-kicker{display:none!important}
+body.m2-account-settings-open .m2-account-header h2{margin:0!important;font-size:.92rem!important;line-height:1!important;letter-spacing:.06em}
+body.m2-account-settings-open .m2-account-back-profile{margin:0!important;min-height:34px!important;padding:0 8px!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:9px!important;background:rgba(255,255,255,.035)!important;font-size:.50rem!important;white-space:nowrap}
+body.m2-account-settings-open .m2-account-close{width:34px!important;height:34px!important;border-radius:10px!important;font-size:1.2rem!important}
+body.m2-account-settings-open .m2-account-identity{
+  margin:0!important;min-height:64px!important;padding:7px 9px!important;gap:11px!important;border-radius:13px!important;box-sizing:border-box
+}
+body.m2-account-settings-open .m2-account-photo-trigger{width:58px!important;height:58px!important;padding:3px!important;border-radius:13px!important}
+body.m2-account-settings-open .m2-account-photo-trigger .m2-account-avatar{width:48px!important;height:48px!important;flex-basis:48px!important;border-radius:9px!important}
+body.m2-account-settings-open .m2-account-identity>div:last-child{gap:3px!important;padding-left:1px!important}
+body.m2-account-settings-open .m2-account-identity>div:last-child>strong{font-size:.88rem!important}
+body.m2-account-settings-open .m2-account-identity>div:last-child>span:not(.m2-account-role-badge){font-size:.68rem!important}
+body.m2-account-settings-open .m2-account-role-badge{min-height:23px!important;width:max-content!important;padding:0 8px!important;font-size:.40rem!important}
+body.m2-account-settings-open .m2-account-form{
+  min-height:0!important;overflow:hidden!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  grid-auto-rows:auto;align-content:start;gap:6px 7px!important;padding:0 1px!important
+}
+body.m2-account-settings-open .m2-account-form>.m2-auth-field{min-width:0!important;margin:0!important;gap:3px!important}
+body.m2-account-settings-open .m2-account-form>.m2-auth-field label{font-size:.52rem!important;line-height:1!important;letter-spacing:.06em!important}
+body.m2-account-settings-open .m2-account-form>.m2-auth-field input{width:100%!important;min-height:38px!important;height:38px!important;padding:6px 9px!important;border-radius:10px!important;font-size:16px!important;box-sizing:border-box}
+body.m2-account-settings-open #m2AccountUsernameHelp{display:none!important}
+body.m2-account-settings-open .m2-account-readonly-grid{grid-column:1/-1!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important}
+body.m2-account-settings-open .m2-account-readonly{min-height:38px!important;padding:6px 8px!important;border-radius:10px!important;gap:2px!important;box-sizing:border-box}
+body.m2-account-settings-open .m2-account-readonly:last-child{display:none!important}
+body.m2-account-settings-open .m2-account-readonly span{font-size:.46rem!important;line-height:1!important}
+body.m2-account-settings-open .m2-account-readonly strong{font-size:.68rem!important;line-height:1.05!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+body.m2-account-settings-open .m2-account-options{grid-column:1/-1!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important}
+body.m2-account-settings-open .m2-account-option{min-width:0!important;min-height:48px!important;padding:7px 8px!important;gap:7px!important;border-radius:11px!important;align-items:center!important;box-sizing:border-box}
+body.m2-account-settings-open .m2-account-option input{width:17px!important;height:17px!important;margin:0!important}
+body.m2-account-settings-open .m2-account-option span{min-width:0!important;gap:2px!important}
+body.m2-account-settings-open .m2-account-option strong{font-size:.57rem!important;line-height:1.05!important}
+body.m2-account-settings-open .m2-account-option small{font-size:.48rem!important;line-height:1.15!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+body.m2-account-settings-open .m2-account-message{grid-column:1/-1!important;min-height:14px!important;margin:0!important;font-size:.53rem!important;line-height:1.1!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.m2-account-settings-open .m2-account-actions{grid-column:1/-1!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important}
+body.m2-account-settings-open .m2-account-actions button{min-height:38px!important;height:38px!important;padding:6px 8px!important;border-radius:10px!important;font-size:.55rem!important;line-height:1!important}
+@media(max-width:360px), (max-height:680px){
+  body.m2-account-settings-open #m2AccountEditCard.m2-account-card{padding-top:max(5px,env(safe-area-inset-top))!important;gap:4px!important}
+  body.m2-account-settings-open .m2-account-header{min-height:36px}
+  body.m2-account-settings-open .m2-account-back-profile{min-height:30px!important}
+  body.m2-account-settings-open .m2-account-close{width:31px!important;height:31px!important}
+  body.m2-account-settings-open .m2-account-identity{min-height:56px!important;padding:5px 7px!important}
+  body.m2-account-settings-open .m2-account-photo-trigger{width:50px!important;height:50px!important}
+  body.m2-account-settings-open .m2-account-photo-trigger .m2-account-avatar{width:41px!important;height:41px!important;flex-basis:41px!important}
+  body.m2-account-settings-open .m2-account-form{gap:4px 6px!important}
+  body.m2-account-settings-open .m2-account-form>.m2-auth-field input{height:35px!important;min-height:35px!important}
+  body.m2-account-settings-open .m2-account-readonly{min-height:34px!important;padding:4px 7px!important}
+  body.m2-account-settings-open .m2-account-option{min-height:42px!important;padding:5px 7px!important}
+  body.m2-account-settings-open .m2-account-option small{display:none!important}
+  body.m2-account-settings-open .m2-account-actions button{height:34px!important;min-height:34px!important}
+}

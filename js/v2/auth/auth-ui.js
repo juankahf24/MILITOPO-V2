@@ -333,7 +333,7 @@ function buildUi() {
           <div>
             <button id="m2AccountBackProfile" class="m2-account-back-profile" type="button" hidden>← VOLVER AL PERFIL</button>
             <span class="m2-account-kicker">MILITOPO V2</span>
-            <h2 id="m2AccountTitle">Mi cuenta</h2>
+            <h2 id="m2AccountTitle">AJUSTES</h2>
           </div>
           <button id="m2AccountClose" class="m2-account-close" type="button" aria-label="Cerrar">×</button>
         </header>
@@ -353,14 +353,14 @@ function buildUi() {
 
         <form id="m2AccountForm" class="m2-account-form" novalidate>
           <div class="m2-auth-field">
-            <label for="m2AccountDisplayName">Nombre para mostrar</label>
+            <label for="m2AccountDisplayName">NOMBRE</label>
             <input id="m2AccountDisplayName" autocomplete="name" maxlength="80" placeholder="Nombre y apellidos">
           </div>
 
           <div class="m2-auth-field">
-            <label for="m2AccountUsername">Usuario único</label>
+            <label for="m2AccountUsername">USUARIO</label>
             <input id="m2AccountUsername" autocomplete="username" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="@tuusuario">
-            <small id="m2AccountUsernameHelp">El usuario te identifica para invitaciones. Una vez reservado no se puede cambiar desde la web.</small>
+            <small id="m2AccountUsernameHelp">@usuario único de MILITOPO. Una vez reservado no se cambia desde la web.</small>
           </div>
 
           <div class="m2-account-readonly-grid">
@@ -382,15 +382,15 @@ function buildUi() {
             <label class="m2-account-option">
               <input id="m2AccountKeepSession" type="checkbox">
               <span>
-                <strong>Mantener sesión iniciada</strong>
-                <small>Conserva el acceso en este navegador.</small>
+                <strong>MANTENER SESIÓN</strong>
+                <small>Conserva el acceso en este dispositivo.</small>
               </span>
             </label>
             <label class="m2-account-option">
               <input id="m2AccountTrustedDevice" type="checkbox">
               <span>
-                <strong>Dispositivo de confianza</strong>
-                <small>Permite conservar Firestore offline en este dispositivo. Úsalo solo en un móvil u ordenador personal.</small>
+                <strong>DISPOSITIVO DE CONFIANZA</strong>
+                <small>Mantiene los datos offline en este dispositivo personal.</small>
               </span>
             </label>
           </div>
@@ -399,7 +399,7 @@ function buildUi() {
           <div class="m2-account-actions">
             <button id="m2AccountSave" class="m2-auth-primary" type="submit">GUARDAR CAMBIOS</button>
             <button id="m2AccountReload" class="m2-auth-secondary" type="button" hidden>APLICAR Y RECARGAR</button>
-            <button id="m2AccountResetPassword" class="m2-auth-secondary" type="button">ENVIAR CAMBIO DE CONTRASEÑA</button>
+            <button id="m2AccountResetPassword" class="m2-auth-secondary" type="button">CAMBIAR CONTRASEÑA</button>
             <button id="m2AccountLogout" class="m2-account-danger" type="button">CERRAR SESIÓN</button>
           </div>
         </form>
@@ -915,6 +915,7 @@ function showSelfProfileView() {
   const profile = el("m2SelfProfile"), edit = el("m2AccountEditCard");
   if (profile) profile.hidden = false;
   if (edit) edit.hidden = true;
+  document.body.classList.remove("m2-account-settings-open");
   document.body.classList.add("m2-self-profile-open");
   renderOwnOverview();
 }
@@ -922,8 +923,10 @@ function showAccountEditView() {
   const profile = el("m2SelfProfile"), edit = el("m2AccountEditCard");
   if (profile) profile.hidden = true;
   if (edit) edit.hidden = false;
-  if (el("m2AccountBackProfile")) el("m2AccountBackProfile").hidden = !isFullOwnProfileRole();
+  const fullProfile = isFullOwnProfileRole();
+  if (el("m2AccountBackProfile")) el("m2AccountBackProfile").hidden = !fullProfile;
   document.body.classList.remove("m2-self-profile-open");
+  document.body.classList.toggle("m2-account-settings-open", fullProfile);
 }
 
 function openAccountPanel() {
@@ -941,7 +944,7 @@ function openAccountPanel() {
 }
 function closeAccountPanel() {
   if (el("militopoV2AccountPanel")) el("militopoV2AccountPanel").hidden = true;
-  document.body.classList.remove("m2-self-profile-open");
+  document.body.classList.remove("m2-self-profile-open", "m2-account-settings-open");
 }
 
 function friendlyError(error) {
