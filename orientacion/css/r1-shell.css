@@ -1720,3 +1720,33 @@ body.r1-shell-active.r1-map-home{width:100%;max-width:100vw;overflow:hidden!impo
 @media(max-width:430px){
   .r8-admin-toolbar input,.r8-admin-toolbar select{min-height:36px!important;height:36px!important}
 }
+
+
+/* R9G · Buscar/filtrar: más finos sin provocar zoom de Safari. */
+.r8-admin-toolbar input,.r8-admin-toolbar select{min-height:30px!important;height:30px!important;padding:2px 8px!important}
+@media(max-width:760px){
+  .r8-admin-toolbar input,.r8-admin-toolbar select{min-height:30px!important;height:30px!important;padding:1px 8px!important;font-size:16px!important}
+}
+@media(max-width:430px){
+  .r8-admin-toolbar input,.r8-admin-toolbar select{min-height:30px!important;height:30px!important}
+}
+
+/* R9G · CAPAS / MI PLANO: acceso directo a usar o cargar cartografía propia. */
+.r1-layer-pop .r1-custom-map-main{
+  grid-column:1/-1!important;display:grid!important;place-items:center!important;gap:2px!important;min-height:48px!important;
+  border-color:rgba(215,180,95,.48)!important;background:linear-gradient(145deg,rgba(215,180,95,.14),rgba(255,255,255,.06))!important
+}
+.r1-layer-pop .r1-custom-map-main span{font:950 .66rem/1 system-ui;letter-spacing:.045em}
+.r1-layer-pop .r1-custom-map-main small{font:850 .45rem/1 system-ui;color:#8d7450;letter-spacing:.035em}
+.r1-custom-map-choices{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding-top:2px}
+.r1-custom-map-choices[hidden]{display:none!important}
+.r1-custom-map-choices .r1-custom-map-loaded{grid-column:1/-1;min-width:0;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,.06);text-align:left}
+.r1-custom-map-loaded small{display:block;color:#6f796f;font:850 .42rem/1 system-ui;letter-spacing:.05em}
+.r1-custom-map-loaded strong{display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#1b241c;font:950 .57rem/1.05 system-ui}
+.r1-custom-map-choices button{min-height:40px!important;padding:6px 7px!important;font-size:.52rem!important;line-height:1.1!important}
+.r1-custom-map-use{background:#e9ecdc!important;color:#152016!important}
+.r1-custom-map-new{border-color:rgba(215,180,95,.5)!important;background:rgba(215,180,95,.10)!important;color:#493719!important}
+@media(max-width:390px){
+  .r1-custom-map-choices{grid-template-columns:1fr}
+  .r1-custom-map-choices .r1-custom-map-loaded{grid-column:1}
+}
