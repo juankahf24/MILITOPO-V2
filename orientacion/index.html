@@ -43,9 +43,9 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <link rel="stylesheet" href="css/styles.css?v=v2-r8e-help-center-20261009" />
-<link rel="stylesheet" href="css/r1-shell.css?v=r9f-settings-workspace-20261010" />
+<link rel="stylesheet" href="css/r1-shell.css?v=r9g-custom-map-settings-20261010" />
 <link rel="stylesheet" href="css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003" />
-<link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-r9f-settings-fixed-20261010" />
+<link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=v2-r9g-settings-full-20261010" />
 
 
 
@@ -92,13 +92,13 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script type="module" src="../js/v2/bootstrap.js"></script>
 <script type="module" src="../js/v2/ui/connectivity-status.js?v=v2-j1a-connectivity-no-spam-20261001"></script>
 <script src="../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005"></script>
-<script type="module" src="../js/v2/auth/auth-ui.js?v=v2-r9f-settings-fixed-20261010"></script>
+<script type="module" src="../js/v2/auth/auth-ui.js?v=v2-r9g-settings-full-20261010"></script>
 <script type="module" src="../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005"></script>
 <script type="module" src="../js/v2/data/invitations.js?v=v2-r6d-invitaciones-realtime-20261007"></script>
 <script type="module" src="../js/v2/data/participants-admin.js?v=v2-r5a1-confirmaciones-20261005"></script>
 <script type="module" src="../js/v2/data/events.js?v=v2-f3b-runtimefix-20260924"></script>
 <script type="module" src="../js/v2/data/orientation-structure.js?v=v2-r2h-live-rules-20261003"></script>
-<script type="module" src="../js/v2/data/cloud-recovery.js?v=v2-r9f-filters-thin-20261010"></script>
+<script type="module" src="../js/v2/data/cloud-recovery.js?v=v2-r9g-filters-slim-20261010"></script>
 <script type="module" src="../js/v2/data/event-lifecycle.js?v=v2-r6e-live-direct-20261007"></script>
 <script type="module" src="../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924"></script>
 <script type="module" src="../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924"></script>
@@ -190,7 +190,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <div class="block"><label>Buscar zona del mapa</label><div class="map-tools"><input id="searchBox" placeholder="Lugar, dirección o coordenada UTM"><button class="btn" onclick="searchPlace()">🔍 BUSCAR</button><button class="btn secondary" onclick="fitAllPoints()">🧭 VER TODO</button></div></div>
 <div class="geotiff-map-manager">
   <div class="geotiff-map-head"><div><b>🗺️ BIBLIOTECA DE PLANOS PROPIOS</b><div class="help">Importa un GeoTIFF o KMZ georreferenciado, guárdalo en este dispositivo y compáralo con MAPANT, IGN o PNOA.</div></div><button class="btn secondary geotiff-import-main" type="button" onclick="document.getElementById('orientationGeoTiffInput').click()">📂 IMPORTAR PLANO<br><small>GEOTIFF / KMZ</small></button></div>
-  <input id="orientationGeoTiffInput" type="file" hidden onchange="importOrientationCustomMap(this.files&&this.files[0])">
+  <input id="orientationGeoTiffInput" type="file" accept=".tif,.tiff,.kmz,image/tiff,application/vnd.google-earth.kmz" hidden onchange="importOrientationCustomMap(this.files&&this.files[0])">
   <div class="geotiff-library-row"><label>PLANO GUARDADO<select id="orientationGeoTiffLibrary" onchange="activateOrientationCustomMap(this.value)"><option value="">— Sin plano seleccionado —</option></select></label></div>
   <div class="geotiff-map-controls">
     <button id="orientationGeoTiffFitBtn" class="btn secondary" type="button" onclick="fitOrientationGeoTiff()" disabled>🔍 AJUSTAR AL PLANO</button>
@@ -719,7 +719,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script src="js/vendor/qr.js?v=modular-fase2"></script>
 <script src="js/app.js?v=r8e-help-center-20261009"></script>
-<script src="js/ui/r1-shell.js?v=r8e-help-center-20261009"></script>
+<script src="js/ui/r1-shell.js?v=r9g-custom-map-20261010"></script>
 <script src="js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007"></script>
 
 <script>
