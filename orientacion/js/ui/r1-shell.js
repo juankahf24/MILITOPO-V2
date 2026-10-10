@@ -3,7 +3,7 @@
   if(window.__MILITOPO_R1_SHELL__) return;
   window.__MILITOPO_R1_SHELL__=true;
 
-  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,participantsTab:"invites",managerTab:"design"};
+  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,participantsTab:"invites",managerTab:"design",customMapImportPending:null,customMapImportTimer:null};
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const icon=(name)=>{
@@ -104,16 +104,116 @@
     const choices=layers?.querySelector?.("[data-custom-map-choices]");
     if(choices)choices.hidden=true;
   }
-  async function requestNewCustomMap(){
+  function ensureCustomMapNotice(){
+    let node=$("#r1MapImportNotice");
+    if(node)return node;
+    node=document.createElement("div");
+    node.id="r1MapImportNotice";
+    node.className="r1-map-import-notice";
+    node.hidden=true;
+    node.innerHTML=`<section class="r1-map-import-card" role="dialog" aria-modal="true" aria-labelledby="r1MapImportTitle">
+      <div class="r1-map-import-mark" data-map-import-mark>…</div>
+      <div class="r1-map-import-copy"><small data-map-import-kicker>MI PLANO</small><strong id="r1MapImportTitle" data-map-import-title>IMPORTANDO PLANO</strong><p data-map-import-message>Preparando archivo…</p></div>
+      <div class="r1-map-import-actions" data-map-import-actions></div>
+    </section>`;
+    document.body.appendChild(node);
+    node.addEventListener("click",event=>{
+      const action=event.target.closest("[data-map-import-action]")?.dataset.mapImportAction;
+      if(event.target===node||action==="close"){node.hidden=true;return}
+      if(action==="view"){
+        node.hidden=true;
+        try{if(typeof window.switchLayer==="function")window.switchLayer("custom");if(typeof window.fitOrientationGeoTiff==="function")window.fitOrientationGeoTiff()}catch(err){console.warn("MILITOPO R9H map view",err)}
+        return;
+      }
+      if(action==="retry"){
+        node.hidden=true;
+        requestNewCustomMap({skipIntro:true});
+      }
+    });
+    return node;
+  }
+  function showCustomMapNotice(kind,title,message){
+    const node=ensureCustomMapNotice();
+    const mark=node.querySelector("[data-map-import-mark]");
+    const kicker=node.querySelector("[data-map-import-kicker]");
+    const titleEl=node.querySelector("[data-map-import-title]");
+    const msg=node.querySelector("[data-map-import-message]");
+    const actions=node.querySelector("[data-map-import-actions]");
+    node.dataset.kind=kind||"loading";
+    if(mark)mark.textContent=kind==="success"?"✓":kind==="error"?"!":"…";
+    if(kicker)kicker.textContent=kind==="success"?"PLANO DISPONIBLE":kind==="error"?"IMPORTACIÓN FALLIDA":"IMPORTANDO";
+    if(titleEl)titleEl.textContent=title||"MI PLANO";
+    if(msg)msg.textContent=message||"";
+    if(actions){
+      actions.innerHTML=kind==="success"
+        ? '<button type="button" data-map-import-action="close">CERRAR</button><button type="button" class="is-primary" data-map-import-action="view">VER PLANO</button>'
+        : kind==="error"
+          ? '<button type="button" data-map-import-action="close">CERRAR</button><button type="button" class="is-primary" data-map-import-action="retry">REINTENTAR</button>'
+          : '<button type="button" data-map-import-action="close">OCULTAR</button>';
+    }
+    node.hidden=false;
+  }
+  function cleanImportReason(text){
+    const clean=String(text||"").replace(/\s+/g," ").trim();
+    const match=clean.match(/Motivo:\s*(.+)$/i);
+    if(match&&match[1])return match[1].trim();
+    return clean.replace(/^⚠️\s*/,"").replace(/^No se pudo cargar (?:el )?(?:GeoTIFF|KMZ)\.?\s*/i,"").trim()||"El archivo no pudo procesarse como plano georreferenciado.";
+  }
+  function stopCustomMapImportWatch(){
+    if(state.customMapImportTimer){clearInterval(state.customMapImportTimer);state.customMapImportTimer=null}
+  }
+  function finishCustomMapImportSuccess(map){
+    const pending=state.customMapImportPending;
+    if(!pending)return;
+    state.customMapImportPending=null;stopCustomMapImportWatch();
+    const name=String(map?.name||pending.name||"MI PLANO").trim();
+    try{if(typeof window.switchLayer==="function")window.switchLayer("custom");setTimeout(()=>{try{window.fitOrientationGeoTiff?.()}catch(_){}},120)}catch(_){}
+    showCustomMapNotice("success","PLANO IMPORTADO",`${name} se ha importado correctamente y ya está activo en el mapa.`);
+  }
+  function finishCustomMapImportError(reason){
+    const pending=state.customMapImportPending;
+    if(!pending)return;
+    state.customMapImportPending=null;stopCustomMapImportWatch();
+    showCustomMapNotice("error","NO SE HA PODIDO IMPORTAR",`Motivo: ${reason||"No se pudo interpretar el archivo seleccionado."}`);
+  }
+  function watchCustomMapImport(file){
+    const name=String(file?.name||"plano").trim()||"plano";
+    state.customMapImportPending={name,startedAt:Date.now()};
+    stopCustomMapImportWatch();
+    showCustomMapNotice("loading","IMPORTANDO PLANO",`${name} · comprobando georreferenciación y preparando el mapa. En TIFF grandes puede tardar unos segundos.`);
+    const status=$("#orientationGeoTiffStatus");
+    state.customMapImportTimer=setInterval(()=>{
+      if(!state.customMapImportPending){stopCustomMapImportWatch();return}
+      const text=String(status?.textContent||"").trim();
+      if(/No se pudo cargar|Motivo:/i.test(text)){finishCustomMapImportError(cleanImportReason(text));return}
+      if(Date.now()-state.customMapImportPending.startedAt>90000){finishCustomMapImportError("La importación no terminó dentro del tiempo esperado. Comprueba que el TIFF/KMZ esté georreferenciado y vuelve a intentarlo.")}
+    },350);
+  }
+  function bindCustomMapImportFeedback(){
+    const input=$("#orientationGeoTiffInput");
+    if(input&&!input.dataset.r9hFeedback){
+      input.dataset.r9hFeedback="1";
+      input.addEventListener("change",()=>{const file=input.files&&input.files[0];if(file)watchCustomMapImport(file)});
+    }
+    window.addEventListener("militopo:v2-orientation-custom-map",event=>{
+      if(!state.customMapImportPending)return;
+      const map=event.detail?.map;
+      if(map&&map.id)finishCustomMapImportSuccess(map);
+    });
+  }
+  async function requestNewCustomMap(options={}){
     const input=$("#orientationGeoTiffInput");
     if(!input){safeCall("toast","Abre AJUSTES DE MAPA para importar el plano");return}
-    const message="Selecciona un plano georreferenciado para usarlo directamente en el mapa principal.\n\nFormatos admitidos: GeoTIFF (.tif / .tiff) con georreferenciación —preferiblemente UTM ETRS89/WGS84— o KMZ georreferenciado. MILITOPO lo guardará en la biblioteca local de este dispositivo y lo activará como MI PLANO.";
-    let ok=true;
-    try{
-      if(typeof globalThis.MILITOPO_CONFIRM==="function")ok=await globalThis.MILITOPO_CONFIRM(message,{title:"CARGAR PLANO",confirmText:"SELECCIONAR ARCHIVO"});
-      else ok=window.confirm(message);
-    }catch(_){ok=false}
-    if(!ok)return;
+    if(!options.skipIntro){
+      const message="Selecciona un plano georreferenciado para usarlo directamente en el mapa principal.\n\nFormatos admitidos: GeoTIFF (.tif / .tiff) con georreferenciación —preferiblemente UTM ETRS89/WGS84— o KMZ georreferenciado. MILITOPO lo guardará en la biblioteca local de este dispositivo y lo activará como MI PLANO.";
+      let ok=true;
+      try{
+        if(typeof globalThis.MILITOPO_CONFIRM==="function")ok=await globalThis.MILITOPO_CONFIRM(message,{title:"CARGAR PLANO",confirmText:"SELECCIONAR ARCHIVO"});
+        else ok=window.confirm(message);
+      }catch(_){ok=false}
+      if(!ok)return;
+    }
+    input.value="";
     input.click();
   }
   async function openCustomMapChoices(layers=$("#r1LayerPop")){
@@ -123,6 +223,19 @@
     const name=layers?.querySelector?.("[data-custom-map-name]");
     if(name)name.textContent=String(active.name||"MI PLANO").trim()||"MI PLANO";
     if(choices)choices.hidden=false;
+  }
+  function activateShellLayer(name,layers){
+    layers?.classList.remove("is-open");closeCustomMapChoices(layers);
+    try{
+      if(typeof window.switchLayer==="function"){
+        window.switchLayer(name);
+        return true;
+      }
+      const legacy=document.querySelector(`.layer-btn[data-layer="${name}"]`);
+      if(legacy){legacy.click();return true}
+      safeCall("toast","La capa del mapa todavía se está iniciando. Inténtalo de nuevo.");
+    }catch(error){console.error("MILITOPO R9H layer",name,error);safeCall("toast",`No se pudo activar ${String(name||"").toUpperCase()}`)}
+    return false;
   }
 
   function buildMapDock(){
@@ -135,21 +248,31 @@
     const layers=document.createElement("div");layers.className="r1-layer-pop";layers.id="r1LayerPop";layers.innerHTML=`
       <button type="button" data-layer="mapant">MAPANT</button><button type="button" data-layer="ign">IGN</button>
       <button type="button" data-layer="pnoa">AÉREO</button>
-      <button type="button" class="r1-custom-map-main" data-custom-map-main><span>MI PLANO</span><small>/ CARGAR PLANO</small></button>
+      <button type="button" class="r1-custom-map-main" data-layer="custom"><span>MI PLANO</span><small>/ CARGAR PLANO</small></button>
       <div class="r1-custom-map-choices" data-custom-map-choices hidden>
         <div class="r1-custom-map-loaded"><small>PLANO CARGADO</small><strong data-custom-map-name>MI PLANO</strong></div>
         <button type="button" class="r1-custom-map-use" data-custom-map-action="use">UTILIZAR PLANO</button>
         <button type="button" class="r1-custom-map-new" data-custom-map-action="load">CARGAR NUEVO</button>
       </div>`;
     document.body.append(dock,layers);
-    dock.addEventListener("click",event=>{const a=event.target.closest("[data-map-action]")?.dataset.mapAction;if(!a)return;if(a==="layers"){layers.classList.toggle("is-open");if(!layers.classList.contains("is-open"))closeCustomMapChoices(layers);return}if(a==="locate"){safeCall("useMyLocation");return}const selector=a==="zoom-in"?".leaflet-control-zoom-in":".leaflet-control-zoom-out";const mapEl=$("#map");mapEl?.querySelector(selector)?.dispatchEvent(new MouseEvent("click",{bubbles:true,cancelable:true}))});
-    layers.addEventListener("click",async event=>{
-      const customMain=event.target.closest("[data-custom-map-main]");
-      if(customMain){await openCustomMapChoices(layers);return}
+    dock.addEventListener("click",event=>{
+      const button=event.target.closest("[data-map-action]");
+      const a=button?.dataset.mapAction;if(!a)return;
+      if(a==="layers"){layers.classList.toggle("is-open");if(!layers.classList.contains("is-open"))closeCustomMapChoices(layers);return}
+      if(a==="locate"){safeCall("useMyLocation");return}
+      const selector=a==="zoom-in"?".leaflet-control-zoom-in":".leaflet-control-zoom-out";
+      const control=$("#map")?.querySelector(selector)||document.querySelector(selector);
+      if(control){control.click();return}
+      safeCall("toast","El mapa todavía se está iniciando.");
+    });
+    layers.addEventListener("click",event=>{
       const customAction=event.target.closest("[data-custom-map-action]")?.dataset.customMapAction;
-      if(customAction==="use"){safeCall("switchLayer","custom");safeCall("fitOrientationGeoTiff");layers.classList.remove("is-open");closeCustomMapChoices(layers);return}
-      if(customAction==="load"){layers.classList.remove("is-open");closeCustomMapChoices(layers);await requestNewCustomMap();return}
-      const b=event.target.closest("[data-layer]");if(!b)return;safeCall("switchLayer",b.dataset.layer);layers.classList.remove("is-open");closeCustomMapChoices(layers)
+      if(customAction==="use"){activateShellLayer("custom",layers);setTimeout(()=>safeCall("fitOrientationGeoTiff"),100);return}
+      if(customAction==="load"){layers.classList.remove("is-open");closeCustomMapChoices(layers);requestNewCustomMap();return}
+      const b=event.target.closest("[data-layer]");if(!b)return;
+      const name=b.dataset.layer;
+      if(name==="custom"){openCustomMapChoices(layers);return}
+      activateShellLayer(name,layers);
     });
   }
   function buildMore(){
@@ -759,7 +882,7 @@
 function init(){
     document.body.classList.add("r1-shell-active");
     try{setRole(localStorage.getItem("militopo_v2_last_role")||"organizer")}catch(_){}
-    buildTopbar();buildMapDock();buildMore();buildWorkspace();bindEvents();startNavigationDecorator();setProfileOnline(Boolean(window.MILITOPO_V2_AUTH?.uid));refreshContext();
+    buildTopbar();buildMapDock();buildMore();buildWorkspace();bindEvents();bindCustomMapImportFeedback();startNavigationDecorator();setProfileOnline(Boolean(window.MILITOPO_V2_AUTH?.uid));refreshContext();
     setTimeout(()=>{safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;state.mapHome=true;window.MILITOPO_R2_MAP_HOME?.activate?.();refreshContext()},260);
     setTimeout(refreshContext,700);setTimeout(refreshContext,1600);
   }
