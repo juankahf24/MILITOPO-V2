@@ -346,35 +346,27 @@ function buildUi() {
           </div>
           <div>
             <strong id="m2AccountIdentityName">Usuario</strong>
-            <span id="m2AccountIdentityEmail">correo</span>
             <span class="m2-account-role-badge" id="m2AccountRoleBadge">CORREDOR</span>
           </div>
         </div>
 
         <form id="m2AccountForm" class="m2-account-form" novalidate>
-          <div class="m2-auth-field">
+          <div class="m2-auth-field m2-account-main-field">
             <label for="m2AccountDisplayName">NOMBRE</label>
             <input id="m2AccountDisplayName" autocomplete="name" maxlength="80" placeholder="Nombre y apellidos">
           </div>
 
-          <div class="m2-auth-field">
+          <div class="m2-auth-field m2-account-main-field">
             <label for="m2AccountUsername">USUARIO</label>
             <input id="m2AccountUsername" autocomplete="username" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="@tuusuario">
             <small id="m2AccountUsernameHelp">@usuario único de MILITOPO. Una vez reservado no se cambia desde la web.</small>
           </div>
 
-          <div class="m2-account-readonly-grid">
-            <div class="m2-account-readonly">
-              <span>Correo</span>
+          <div class="m2-auth-field m2-account-main-field m2-account-email-field">
+            <label>CORREO</label>
+            <div class="m2-account-email-value" aria-label="Correo de la cuenta">
               <strong id="m2AccountEmail">—</strong>
-            </div>
-            <div class="m2-account-readonly">
-              <span>Verificación</span>
-              <strong id="m2AccountVerified">—</strong>
-            </div>
-            <div class="m2-account-readonly">
-              <span>Rol</span>
-              <strong id="m2AccountRole">runner</strong>
+              <span id="m2AccountEmailVerifiedTick" class="m2-account-email-tick" title="Estado de verificación" aria-label="Estado de verificación">✓</span>
             </div>
           </div>
 
@@ -668,6 +660,14 @@ function paintAccount(user, displayName) {
   }
   if (el("m2AccountEmail")) el("m2AccountEmail").textContent = user.email || "—";
   if (el("m2AccountVerified")) el("m2AccountVerified").textContent = user.emailVerified ? "Verificado ✓" : "Pendiente";
+  const emailTick = el("m2AccountEmailVerifiedTick");
+  if (emailTick) {
+    emailTick.textContent = user.emailVerified ? "✓" : "!";
+    emailTick.classList.toggle("is-verified", Boolean(user.emailVerified));
+    emailTick.classList.toggle("is-pending", !user.emailVerified);
+    emailTick.title = user.emailVerified ? "Correo verificado" : "Correo pendiente de verificación";
+    emailTick.setAttribute("aria-label", emailTick.title);
+  }
   if (el("m2AccountRole")) el("m2AccountRole").textContent = roleLabel(state.role);
   const roleBadge = el("m2AccountRoleBadge");
   if (roleBadge) {
