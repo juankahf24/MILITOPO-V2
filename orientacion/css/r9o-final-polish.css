@@ -1,0 +1,96 @@
+/* MILITOPO · R9O FINAL · cierre responsive/PWA.
+   Solo presentación: no modifica lógica de carrera, cartografía, permisos ni datos. */
+html,body{max-width:100%;overflow-x:hidden}
+body{overscroll-behavior-x:none}
+img,video,canvas,svg{max-width:100%}
+
+/* Contenedores con desplazamiento horizontal propio: nunca arrastran la página completa. */
+.table-wrap,.m2-f2c-table-wrap,.analysis-smart-table,.analysis-track-participants{
+  max-width:100%;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;touch-action:pan-x pan-y
+}
+
+/* LIVE Organizer: controles limpios y mapa estable en móvil/PWA. */
+.m2-f2c,.m2-g5map{width:100%;max-width:100%;min-width:0;box-sizing:border-box;overflow:hidden}
+.m2-f2c-head,.m2-g5map-head,.m2-g5map-toolbar,.m2-g5map-layers{min-width:0}
+.m2-g5map-canvas{width:100%;max-width:100%;min-width:0}
+.m2-g5map-select{min-width:0;width:100%}
+.m2-g5map-btn,.m2-g5-layer-btn{touch-action:manipulation}
+
+/* Análisis / reproductor Organizer. */
+.analysis-panel,.analysis-tracks-layout,.analysis-tracks-sidebar,.analysis-track-map-card,
+.analysis-track-map-stage,.analysis-playback-panel,.analysis-smart-panel,.analysis-live-leader-panel{
+  min-width:0;max-width:100%;box-sizing:border-box
+}
+.analysis-track-map,#raceAnalysisTrackMap{width:100%;max-width:100%}
+.analysis-playback-row,.analysis-track-controls,.analysis-playback-buttons,.analysis-track-layerbar{
+  min-width:0;max-width:100%
+}
+
+/* Modales y hojas: respetan notch, Dynamic Island y barra inferior. */
+.orientation-guide-modal,.militopo-platform-modal,.manual-route-modal,.route-generation-loader{
+  box-sizing:border-box;
+  padding-top:max(8px,env(safe-area-inset-top));
+  padding-right:max(8px,env(safe-area-inset-right));
+  padding-bottom:max(8px,env(safe-area-inset-bottom));
+  padding-left:max(8px,env(safe-area-inset-left));
+  overscroll-behavior:contain
+}
+.orientation-guide-content,.militopo-platform-card,.manual-route-modal-card,.route-generation-card{
+  max-width:100%;box-sizing:border-box
+}
+.orientation-guide-content,.militopo-platform-card,.manual-route-modal-card{
+  max-height:calc(100dvh - max(16px,env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain
+}
+.orientation-guide-header,.militopo-platform-head,.manual-route-modal-head{min-width:0}
+.orientation-guide-titleblock,.militopo-platform-head>div,.manual-route-modal-head>div{min-width:0}
+
+@media(max-width:720px){
+  .m2-f2c,.m2-g5map{padding:10px!important;border-radius:16px!important}
+  .m2-f2c-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+  .m2-f2c-metric{padding:8px 5px!important}
+  .m2-f2c-table{min-width:1120px!important}
+  .m2-f2c-table td:first-child{min-width:150px!important}
+
+  .m2-g5map-layers{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+  .m2-g5-layer-btn{min-height:40px!important;padding:7px 6px!important;font-size:.60rem!important}
+  .m2-g5map-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+  .m2-g5map-select{grid-column:1/-1!important;min-height:40px!important;font-size:16px!important}
+  .m2-g5map-btn{min-width:0!important;min-height:40px!important;padding:0 8px!important;font-size:.60rem!important;white-space:normal!important;line-height:1.1!important}
+  .m2-g5map-canvas{height:clamp(300px,50dvh,390px)!important;border-radius:12px!important}
+  .m2-g5map-legend{gap:6px 10px!important;font-size:.55rem!important;line-height:1.2!important}
+
+  .analysis-tracks-layout{grid-template-columns:1fr!important;gap:8px!important}
+  .analysis-tracks-sidebar{width:100%!important;max-width:100%!important;max-height:none!important}
+  .analysis-track-map,#raceAnalysisTrackMap{height:clamp(300px,49dvh,410px)!important}
+  .analysis-playback-buttons{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
+  .analysis-playback-buttons button{flex:1 1 88px!important;min-width:0!important}
+  .analysis-track-layerbar{display:flex!important;flex-wrap:wrap!important;gap:5px!important}
+  .analysis-track-layerbar button{flex:1 1 72px!important;min-width:0!important}
+  .analysis-live-leader-row{max-width:100%!important}
+
+  .orientation-guide-modal,.militopo-platform-modal,.manual-route-modal{padding-left:max(6px,env(safe-area-inset-left))!important;padding-right:max(6px,env(safe-area-inset-right))!important}
+  .orientation-guide-content,.militopo-platform-card,.manual-route-modal-card{border-radius:18px!important}
+  .orientation-guide-header,.militopo-platform-head{gap:8px!important}
+  .orientation-guide-close,.militopo-platform-close{flex:0 0 auto!important}
+  .guide-modal-actions{position:sticky;bottom:-1px;z-index:4;padding-bottom:max(4px,env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,rgba(16,28,18,.98) 24%)}
+}
+
+@media(max-width:390px){
+  .m2-g5map-title,.m2-f2c-title{font-size:.67rem!important}
+  .m2-g5map-chip,.m2-f2c-chip{font-size:.54rem!important;padding:5px 8px!important}
+  .m2-g5map-message,.m2-f2c-message{font-size:.58rem!important}
+  .m2-g5map-canvas{height:clamp(285px,48dvh,360px)!important}
+  .analysis-track-map,#raceAnalysisTrackMap{height:clamp(280px,46dvh,370px)!important}
+}
+
+@media(orientation:landscape) and (max-height:540px){
+  .orientation-guide-content,.militopo-platform-card,.manual-route-modal-card{max-height:calc(100dvh - 8px)!important;border-radius:14px!important}
+  .m2-g5map-canvas{height:min(70dvh,300px)!important}
+  .analysis-track-map,#raceAnalysisTrackMap{height:min(68dvh,300px)!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .orientation-guide-content,.militopo-platform-card,.manual-route-modal-card{scroll-behavior:auto!important}
+}
