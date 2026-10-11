@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-r9m-overzoom-persistente-20261011";
+const BUILD_ID="v2-r9o-final-responsive-20261011";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -13,6 +13,7 @@ const CORE_ASSETS=[
   "./css/styles.css?v=v2-r8e-help-center-20261009",
   "./css/r1-shell.css?v=r9l-estabilidad-cartografia-admin-20261011",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
+  "./css/r9o-final-polish.css?v=r9o-final-20261011",
   "./js/app.js?v=r9m-overzoom-persistente-20261011",
   "./js/ui/r1-shell.js?v=r9l-estabilidad-cartografia-admin-20261011",
   "./js/ui/r8-super-admin.js?v=r9l-admin-restaurado-20261011",
