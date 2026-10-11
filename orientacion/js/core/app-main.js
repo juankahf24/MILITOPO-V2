@@ -1161,26 +1161,90 @@ function createMapantWmtsLayer(options={}){
     return layer;
 }
 
-/* R9L · IGN/PNOA estable con zoom ampliado.
-   Usamos exclusivamente los TMS oficiales del IGN: son el servicio teselado
-   recomendado y evitan huecos al mezclar WMS en zoom alto. PNOA aprovecha
-   el nivel nativo 20 y, desde ahí hasta z25, Leaflet hace overzoom seguro
-   manteniendo siempre el fondo visible. */
+/* R9M · IGN/PNOA persistente con overzoom por tesela.
+   El servicio oficial tiene un límite de resolución nativa. A partir de ahí NO
+   pedimos niveles inexistentes ni escalamos una única tesela a miles de píxeles
+   (eso podía dejar el fondo vacío en Safari/iPhone). Cada tesela de zoom alto se
+   reconstruye en un canvas de 256 px recortando su tesela padre nativa. Si una
+   tesela nativa concreta falla, baja automáticamente un nivel hasta encontrar
+   fondo. Así el mapa permanece visible incluso en el zoom máximo. */
 function createIgnStableLayer(kind,options={}){
     const key=String(kind||'').toLowerCase();
     const aerial=key==='pnoa'||key==='aerial'||key==='aereo'||key==='aéreo';
     const maxZoom=Number(options.maxZoom||25);
-    const nativeMax=Number(options.maxNativeZoom||20);
-    return L.tileLayer(aerial
+    const nativeMax=Number(options.maxNativeZoom||(aerial?19:20));
+    const minSourceZoom=Math.max(0,Number(options.minSourceZoom||5));
+    const template=aerial
         ? 'https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg'
-        : 'https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg',{
-        attribution:aerial?'© PNOA Máxima Actualidad · IGN':'© Instituto Geográfico Nacional',
-        minZoom:0,
-        maxNativeZoom:nativeMax,
-        maxZoom,
-        keepBuffer:aerial?10:8,
-        updateWhenIdle:false,
-        updateWhenZooming:true
+        : 'https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg';
+    const attribution=aerial?'© PNOA Máxima Actualidad · IGN':'© Instituto Geográfico Nacional';
+    const PersistentLayer=L.GridLayer.extend({
+        initialize(opts={}){
+            L.GridLayer.prototype.initialize.call(this,opts);
+            this._militopoSourceCache=new Map();
+        },
+        _sourceUrl(z,x,y){
+            const n=Math.pow(2,z);
+            const wrappedX=((x%n)+n)%n;
+            const tmsY=n-1-y;
+            return template.replace('{z}',z).replace('{x}',wrappedX).replace('{-y}',tmsY);
+        },
+        _loadSource(url){
+            if(this._militopoSourceCache.has(url))return this._militopoSourceCache.get(url);
+            const promise=new Promise((resolve,reject)=>{
+                const img=new Image();
+                img.decoding='async';
+                img.onload=()=>resolve(img);
+                img.onerror=()=>reject(new Error('tile'));
+                img.src=url;
+            });
+            this._militopoSourceCache.set(url,promise);
+            if(this._militopoSourceCache.size>128){
+                const first=this._militopoSourceCache.keys().next().value;
+                if(first)this._militopoSourceCache.delete(first);
+            }
+            promise.catch(()=>{if(this._militopoSourceCache.get(url)===promise)this._militopoSourceCache.delete(url)});
+            return promise;
+        },
+        createTile(coords,done){
+            const size=this.getTileSize();
+            const tile=document.createElement('canvas');
+            tile.width=size.x;tile.height=size.y;
+            tile.setAttribute('role','presentation');
+            const ctx=tile.getContext('2d',{alpha:false});
+            ctx.fillStyle=aerial?'#c9c9c1':'#e9e5d8';
+            ctx.fillRect(0,0,size.x,size.y);
+            const requestedZ=coords.z;
+            const drawFrom=async sourceZ=>{
+                const z=Math.max(minSourceZoom,Math.min(sourceZ,nativeMax,requestedZ));
+                const scale=Math.pow(2,requestedZ-z);
+                const parentX=Math.floor(coords.x/scale);
+                const parentY=Math.floor(coords.y/scale);
+                const n=Math.pow(2,z);
+                if(parentY<0||parentY>=n){done(null,tile);return;}
+                const url=this._sourceUrl(z,parentX,parentY);
+                try{
+                    const img=await this._loadSource(url);
+                    const offsetX=((coords.x%scale)+scale)%scale;
+                    const offsetY=((coords.y%scale)+scale)%scale;
+                    const sourceW=img.naturalWidth/scale;
+                    const sourceH=img.naturalHeight/scale;
+                    ctx.imageSmoothingEnabled=true;
+                    try{ctx.imageSmoothingQuality='high'}catch(_){ }
+                    ctx.drawImage(img,offsetX*sourceW,offsetY*sourceH,sourceW,sourceH,0,0,size.x,size.y);
+                    done(null,tile);
+                }catch(_){
+                    if(z>minSourceZoom){drawFrom(z-1);return;}
+                    done(null,tile);
+                }
+            };
+            drawFrom(Math.min(requestedZ,nativeMax));
+            return tile;
+        }
+    });
+    return new PersistentLayer({
+        attribution,minZoom:0,maxZoom,tileSize:256,
+        keepBuffer:aerial?10:8,updateWhenIdle:false,updateWhenZooming:true
     });
 }
 
@@ -1369,7 +1433,7 @@ function renderPlanPdfPreview(){
     });
 }
 
-function initMap(){if(map)return;const step2MaxZoom=25;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=createIgnStableLayer("ign",{maxZoom:step2MaxZoom,maxNativeZoom:20});layers.pnoa=createIgnStableLayer("pnoa",{maxZoom:step2MaxZoom,maxNativeZoom:20});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(window.__MILITOPO_R2_TRACE_MODE__===true)return;if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;p.elevation=null;document.getElementById("selectedUtm").value=utm;militopoR2OnPointGeometryChanged(p.id);renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
+function initMap(){if(map)return;const step2MaxZoom=25;map=L.map("map",{zoomControl:true,maxZoom:step2MaxZoom,zoomSnap:.25,zoomDelta:.5,wheelPxPerZoomLevel:34,doubleClickZoom:true,boxZoom:true,touchZoom:true,bounceAtZoomLimits:false}).setView([40.4168,-3.7038],7);layers.mapant=createMapantWmtsLayer({maxZoom:step2MaxZoom,maxNativeZoom:19});layers.ign=createIgnStableLayer("ign",{maxZoom:step2MaxZoom,maxNativeZoom:20});layers.pnoa=createIgnStableLayer("pnoa",{maxZoom:step2MaxZoom,maxNativeZoom:19});const initialLayer=["mapant","ign","pnoa"].includes(state.selectedMapLayer)?state.selectedMapLayer:"mapant";map.setMaxZoom(step2MaxZoom);currentLayer=layers[initialLayer].addTo(map);document.querySelectorAll(".layer-btn").forEach(b=>b.classList.toggle("active",b.dataset.layer===state.selectedMapLayer));markersLayer=L.layerGroup().addTo(map);routeLayer=L.layerGroup().addTo(map);map.on("click",e=>{if(window.__MILITOPO_R2_TRACE_MODE__===true)return;if(rejectProtectedRaceMutation("colocar o mover balizas"))return;const p=state.points[selectedPointId];if(!p)return;const utm=latLonToUtm(e.latlng.lat,e.latlng.lng);p.lat=e.latlng.lat;p.lon=e.latlng.lng;p.utm=utm;p.elevation=null;document.getElementById("selectedUtm").value=utm;militopoR2OnPointGeometryChanged(p.id);renderPointsTable();renderMapMarkers();saveState();toast(`${p.id} colocado en el mapa`)});renderMapMarkers();fitAllPoints()}
 function bringPlanPreviewToFront(){
     try{
         if(pdfPlanPreviewRectangle&&typeof pdfPlanPreviewRectangle.bringToFront==="function")pdfPlanPreviewRectangle.bringToFront();
@@ -2822,7 +2886,7 @@ function buildManualRouteBaseLayers(){
     return{
         mapant:createMapantWmtsLayer({maxZoom:25,maxNativeZoom:19}),
         ign:createIgnStableLayer("ign",{maxZoom:25,maxNativeZoom:20}),
-        pnoa:createIgnStableLayer("pnoa",{maxZoom:25,maxNativeZoom:20})
+        pnoa:createIgnStableLayer("pnoa",{maxZoom:25,maxNativeZoom:19})
     };
 }
 
@@ -3298,7 +3362,7 @@ function initStep3RouteMapIfNeeded(){
     step3RouteLayers={
         mapant:createMapantWmtsLayer({maxZoom:step3MaxZoom,maxNativeZoom:19}),
         ign:createIgnStableLayer("ign",{maxZoom:step3MaxZoom,maxNativeZoom:20}),
-        pnoa:createIgnStableLayer("pnoa",{maxZoom:step3MaxZoom,maxNativeZoom:20}),
+        pnoa:createIgnStableLayer("pnoa",{maxZoom:step3MaxZoom,maxNativeZoom:19}),
         custom:null
     };
 
@@ -9281,8 +9345,8 @@ html,body{margin:0;padding:0;background:#eee;font-family:Arial,Helvetica,sans-se
 const points=${json}; const commonBounds=${boundsJson}; const pdfLayerKey=${JSON.stringify(pdfLayerKey)}; window.militopoPlanExportBounds=commonBounds; window.militopoPlanExportLayer=pdfLayerKey;
 const map=L.map('participantPlanMap',{zoomControl:false,attributionControl:false,preferCanvas:true,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false}).setView([commonBounds.centerLat,commonBounds.centerLon],15);
 function createPdfSelectedLayer(key){
-    if(key==='ign')return L.tileLayer('https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg',{maxNativeZoom:20,maxZoom:25});
-    if(key==='pnoa')return L.tileLayer('https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg',{maxNativeZoom:20,maxZoom:25});
+    if(key==='ign')return createIgnStableLayer('ign',{maxNativeZoom:20,maxZoom:25});
+    if(key==='pnoa')return createIgnStableLayer('pnoa',{maxNativeZoom:19,maxZoom:25});
     if(key==='custom')return L.layerGroup();
     return L.tileLayer.wms('https://raster.trailmap.fi/mapproxy/service',{layers:'spain_mapant',styles:'',format:'image/png',transparent:false,version:'1.1.1',attribution:'© MapAnt / Trailmap',minZoom:0,maxZoom:22,tileSize:256,updateWhenIdle:false,updateWhenZooming:true,keepBuffer:4});
 }
@@ -12011,7 +12075,7 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
     const normalized=raw.map((p,i)=>{let t=trackTimeMs(p.timestamp??p.time??p.ts??p.recordedAt);if(t===null)t=previous+(i?2000:0);if(t<previous)t=previous;previous=t;return {lat:Number(p.lat??p.latitude),lng:Number(p.lng??p.lon??p.longitude),timestamp:t,accuracy:Number(p.accuracy),heading:Number(p.heading??p.course),speed:Number(p.speed)}}).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
     analysisNormalizedTrackCache.set(signature,normalized);if(analysisNormalizedTrackCache.size>40){const firstKey=analysisNormalizedTrackCache.keys().next().value;analysisNormalizedTrackCache.delete(firstKey)}return normalized;
   }
-  function analysisTrackLayer(key){if(key==='ign')return createIgnStableLayer('ign',{maxNativeZoom:20,maxZoom:25});if(key==='pnoa')return createIgnStableLayer('pnoa',{maxNativeZoom:20,maxZoom:25});if(key==='custom'&&orientationGeoTiffRuntime?.ready)return L.imageOverlay(orientationGeoTiffRuntime.url,orientationGeoTiffRuntime.bounds,{opacity:1});return createMapantWmtsLayer({maxZoom:25,maxNativeZoom:19})}
+  function analysisTrackLayer(key){if(key==='ign')return createIgnStableLayer('ign',{maxNativeZoom:20,maxZoom:25});if(key==='pnoa')return createIgnStableLayer('pnoa',{maxNativeZoom:19,maxZoom:25});if(key==='custom'&&orientationGeoTiffRuntime?.ready)return L.imageOverlay(orientationGeoTiffRuntime.url,orientationGeoTiffRuntime.bounds,{opacity:1});return createMapantWmtsLayer({maxZoom:25,maxNativeZoom:19})}
   function ensureAnalysisTrackMap(){const el=document.getElementById('raceAnalysisTrackMap');if(!el||!window.L)return null;if(!analysisTrackMap){analysisTrackMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25}).setView([40.4168,-3.7038],7);analysisTrackGroup=L.layerGroup().addTo(analysisTrackMap);analysisTrackAnimationGroup=L.layerGroup().addTo(analysisTrackMap);analysisSmartInspectionGroup=L.layerGroup().addTo(analysisTrackMap);setAnalysisTrackLayer(analysisTrackBaseKey);setTimeout(()=>analysisTrackMap.invalidateSize(),80)}return analysisTrackMap}
   window.setAnalysisTrackLayer=function(key){if(key==='custom'&&!orientationGeoTiffRuntime?.ready){toast('Selecciona o carga primero un plano propio');return}analysisTrackBaseKey=key;const m=ensureAnalysisTrackMap();if(!m)return;if(analysisTrackBase)m.removeLayer(analysisTrackBase);analysisTrackBase=analysisTrackLayer(key);if(analysisTrackBase)analysisTrackBase.addTo(m);[analysisTrackGroup,analysisTrackAnimationGroup,analysisSmartInspectionGroup].forEach(g=>{if(g){m.removeLayer(g);g.addTo(m)}});document.querySelectorAll('[data-track-layer]').forEach(b=>b.classList.toggle('active',b.dataset.trackLayer===key));setTimeout(()=>{m.invalidateSize();if(key==='custom'&&orientationGeoTiffRuntime?.bounds){m.fitBounds(orientationGeoTiffRuntime.bounds,{padding:[24,24],maxZoom:19,animate:true})}},80)};
   function clearAnalysisTrackView(){
