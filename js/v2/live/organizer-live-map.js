@@ -184,40 +184,23 @@ function createMapantLayer(L) {
     updateWhenIdle:false, updateWhenZooming:true, keepBuffer:4
   });
 }
-function createIgnHdHybridLayer(L, kind, options={}) {
+function createIgnStableLayer(L, kind, options={}) {
   const key=String(kind||"").toLowerCase();
   const aerial=key==="aerial"||key==="pnoa"||key==="aereo"||key==="aéreo";
   const maxZoom=Number(options.maxZoom||25);
-  const nativeMax=Number(options.maxNativeZoom||(aerial?19:20));
-  const attribution=aerial?"© PNOA Máxima Actualidad · IGN":"© Instituto Geográfico Nacional";
-  const tms=L.tileLayer(aerial
+  const nativeMax=Number(options.maxNativeZoom||20);
+  return L.tileLayer(aerial
     ? "https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg"
     : "https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg", {
-      attribution,maxNativeZoom:nativeMax,maxZoom,keepBuffer:aerial?8:6,updateWhenIdle:false,updateWhenZooming:true,zIndex:200
+      attribution:aerial?"© PNOA Máxima Actualidad · IGN":"© Instituto Geográfico Nacional",
+      minZoom:0,maxNativeZoom:nativeMax,maxZoom,keepBuffer:aerial?10:8,updateWhenIdle:false,updateWhenZooming:true
     });
-  const hd=L.tileLayer.wms(aerial?"https://www.ign.es/wms-inspire/pnoa-ma":"https://www.ign.es/wms-inspire/mapa-raster", {
-    layers:aerial?"OI.OrthoimageCoverage":"mtn_rasterizado",styles:"",format:"image/jpeg",transparent:false,version:"1.3.0",
-    attribution,maxZoom,keepBuffer:4,updateWhenIdle:false,updateWhenZooming:true,zIndex:210
-  });
-  const hdGetTileUrl=hd.getTileUrl.bind(hd);
-  hd.getTileUrl=coords=>hdGetTileUrl(coords).replace(/([?&](?:width|height)=)\d+/gi,(_,prefix)=>`${prefix}512`);
-  const group=L.layerGroup([tms]);
-  let hostMap=null;
-  const hdFrom=nativeMax+1;
-  const sync=()=>{
-    if(!hostMap)return;
-    if(Number(hostMap.getZoom?.()||0)>=hdFrom){if(!group.hasLayer(hd))group.addLayer(hd)}
-    else if(group.hasLayer(hd))group.removeLayer(hd);
-  };
-  group.on("add",()=>{hostMap=group._map||null;hostMap?.on?.("zoomend",sync);hostMap?.on?.("moveend",sync);requestAnimationFrame(sync)});
-  group.on("remove",()=>{hostMap?.off?.("zoomend",sync);hostMap?.off?.("moveend",sync);if(group.hasLayer(hd))group.removeLayer(hd);hostMap=null});
-  return group;
 }
 function buildBaseLayers(L) {
   return {
     mapant:createMapantLayer(L),
-    ign:createIgnHdHybridLayer(L,"ign",{maxNativeZoom:20,maxZoom:25}),
-    aerial:createIgnHdHybridLayer(L,"aerial",{maxNativeZoom:19,maxZoom:25})
+    ign:createIgnStableLayer(L,"ign",{maxNativeZoom:20,maxZoom:25}),
+    aerial:createIgnStableLayer(L,"aerial",{maxNativeZoom:20,maxZoom:25})
   };
 }
 function ensureMap() {
