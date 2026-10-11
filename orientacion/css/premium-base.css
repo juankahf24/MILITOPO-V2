@@ -1,0 +1,28 @@
+/* MILITOPO Premium · P0A · tokens compartidos.
+   Esta hoja no rediseña todavía la interfaz actual; define una base única
+   para las pantallas Premium que iremos incorporando por fases. */
+:root{
+  --mp-bg:#0a0e0a;
+  --mp-surface:#101910;
+  --mp-surface-2:#172317;
+  --mp-surface-3:#203020;
+  --mp-text:#f3ead5;
+  --mp-text-soft:#c8c3ad;
+  --mp-muted:#969b86;
+  --mp-line:rgba(224,207,155,.20);
+  --mp-accent:#d89b42;
+  --mp-success:#7fa96c;
+  --mp-warning:#d7b860;
+  --mp-danger:#c56f5d;
+  --mp-radius-sm:12px;
+  --mp-radius-md:18px;
+  --mp-radius-lg:24px;
+  --mp-shadow:0 14px 36px rgba(0,0,0,.28);
+  --mp-safe-top:max(12px,env(safe-area-inset-top));
+  --mp-safe-right:max(12px,env(safe-area-inset-right));
+  --mp-safe-bottom:max(12px,env(safe-area-inset-bottom));
+  --mp-safe-left:max(12px,env(safe-area-inset-left));
+}
+.mp-hidden{display:none!important}
+.mp-no-page-x{max-width:100%;overflow-x:hidden}
+.mp-scroll-x{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
