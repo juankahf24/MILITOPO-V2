@@ -567,7 +567,7 @@
     if(btn){btn.click();return}
     safeCall("toast","El perfil todavía se está cargando. Inténtalo de nuevo en un instante.");
   }
-  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openParticipantsModule(false);return}if(a==="live"){openLiveModule(false);return}if(a==="more"){openMore();return}}
+  function onTopAction(event){const a=event.target.closest("[data-r1-action]")?.dataset.r1Action;if(!a)return;closeMore();if(a==="home"){const premiumHome=window.MILITOPO_PREMIUM?.get?.("organizer-home");if(premiumHome?.open?.()!==false)return;showMapHome();return}if(a==="profile"){openProfile();return}if(a==="races"){closeWorkspace(true);openRaces();return}if(a==="manager"){openRaceManager();return}if(a==="participants"){openParticipantsModule(false);return}if(a==="live"){openLiveModule(false);return}if(a==="more"){openMore();return}}
   function openSuperAdmin(){
     closeMore();
     if(state.role!=="super_admin"){safeCall("toast","Esta zona requiere SÚPER ADMINISTRADOR.");return false}
@@ -899,6 +899,27 @@
     const observer=new MutationObserver(refreshContext);$$('.card').forEach(card=>observer.observe(card,{attributes:true,attributeFilter:["class"]}));
   }
   
+  globalThis.MILITOPO_R1_SHELL=Object.freeze({
+    homeMap:()=>showMapHome(),
+    races:()=>{closeWorkspace(true);return openRaces()},
+    newRace:()=>startNewRace(),
+    manager:(event)=>openRaceManager(event||{}),
+    participants:()=>openParticipantsModule(false),
+    live:()=>openLiveModule(false),
+    results:()=>openResultsModule(false),
+    analysis:()=>openAnalysisModule(false),
+    history:()=>openHistory(),
+    profile:()=>openProfile(),
+    admin:()=>openSuperAdmin(),
+    current:()=>Object.freeze({
+      role:state.role,
+      eventId:currentEventId(),
+      eventName:currentEventName(),
+      status:currentLifecycleStatus(),
+      workspaceOpen:!!state.workspace?.classList.contains("is-open")
+    })
+  });
+
   globalThis.MILITOPO_R3_ORGANIZER_MANAGER=Object.freeze({open:(event)=>openRaceManager(event||{}),close:()=>closeWorkspace(true),mapAndTrace:openMapAndTrace,refreshRoutes:refreshRoutesProfessional});
   globalThis.addEventListener("militopo:r3-new-race",startNewRace);
   globalThis.addEventListener("militopo:r5-reuse-complete",()=>setTimeout(()=>openStep(1,"CONFIGURACIÓN DE CARRERA"),90));
