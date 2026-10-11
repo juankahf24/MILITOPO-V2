@@ -902,7 +902,8 @@
   globalThis.MILITOPO_R1_SHELL=Object.freeze({
     homeMap:()=>showMapHome(),
     races:()=>{closeWorkspace(true);return openRaces()},
-    newRace:()=>startNewRace(),
+    newRace:()=>{const builder=window.MILITOPO_PREMIUM?.get?.("event-builder");if(builder?.open)return builder.open();return startNewRace()},
+    newRaceLegacy:()=>startNewRace(),
     manager:(event)=>openRaceManager(event||{}),
     participants:()=>openParticipantsModule(false),
     live:()=>openLiveModule(false),
@@ -921,7 +922,7 @@
   });
 
   globalThis.MILITOPO_R3_ORGANIZER_MANAGER=Object.freeze({open:(event)=>openRaceManager(event||{}),close:()=>closeWorkspace(true),mapAndTrace:openMapAndTrace,refreshRoutes:refreshRoutesProfessional});
-  globalThis.addEventListener("militopo:r3-new-race",startNewRace);
+  globalThis.addEventListener("militopo:r3-new-race",()=>{const builder=window.MILITOPO_PREMIUM?.get?.("event-builder");if(builder?.open)return builder.open();return startNewRace()});
   globalThis.addEventListener("militopo:r5-reuse-complete",()=>setTimeout(()=>openStep(1,"CONFIGURACIÓN DE CARRERA"),90));
 function init(){
     document.body.classList.add("r1-shell-active");
