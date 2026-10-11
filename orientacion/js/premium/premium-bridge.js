@@ -1,4 +1,4 @@
-/* MILITOPO Premium · P1 · puente estable hacia la aplicación existente. */
+/* MILITOPO Premium · P2A · puente estable hacia la aplicación existente. */
 (function(global){
   "use strict";
   var premium = global.MILITOPO_PREMIUM;
@@ -39,6 +39,7 @@
     }),
     event: Object.freeze({
       create: function(){ return shellCall("newRace",[],false); },
+      createLegacy: function(){ return shellCall("newRaceLegacy",[],false); },
       saveRules: function(){ return invoke("confirmStep1", []); },
       hasCreate: function(){ return !!shell()?.newRace || !!fn("createNewRace"); }
     }),
@@ -82,7 +83,7 @@
     }
   };
 
-  premium.register("legacy-bridge", Object.freeze(bridge), { version: "p1", purpose: "isolation" });
+  premium.register("legacy-bridge", Object.freeze(bridge), { version: "p2a", purpose: "isolation" });
 
   function finish(){
     try { document.documentElement.dataset.militopoPremium = "p1-home"; } catch (_) {}

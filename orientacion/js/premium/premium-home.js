@@ -1,4 +1,4 @@
-/* MILITOPO Premium · P1 · Home contextual del Organizador/Super Admin */
+/* MILITOPO Premium · P2A · Home contextual del Organizador/Super Admin */
 import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const premium=globalThis.MILITOPO_PREMIUM;
@@ -123,7 +123,7 @@ async function fetchRows(force=false){
 async function run(action){
   const b=bridge();if(!b)return false;
   if(action!=="map")close();
-  if(action==="create")return await b.event.create();
+  if(action==="create"){const builder=premium.get("event-builder");if(builder?.open)return builder.open();return await b.event.create();}
   if(action==="races")return b.shell.races();
   if(action==="map"){close();return b.map.home();}
   if(action==="manager")return b.shell.manager();
@@ -144,7 +144,7 @@ function open(){
 function close(){if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-home-open");state.opened=false}
 function refresh(){if(!state.root)return;renderCurrent();if(state.opened)fetchRows(true)}
 
-premium.register("organizer-home",Object.freeze({open,close,refresh,isOpen:()=>state.opened}),{version:"p1",purpose:"role-home"});
+premium.register("organizer-home",Object.freeze({open,close,refresh,isOpen:()=>state.opened}),{version:"p2a",purpose:"role-home"});
 
 globalThis.addEventListener("militopo:v2-auth-ready",event=>{
   state.auth=event.detail||globalThis.MILITOPO_V2_AUTH||null;
