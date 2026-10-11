@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-premium-p2a1-plan-first-20261011";
+const BUILD_ID="v2-premium-p2a2-resume-builder-20261011";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -23,8 +23,8 @@ const CORE_ASSETS=[
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=premium-p2a1-plan-first-20261011",
-  "./js/premium/premium-builder.js?v=premium-p2a1-plan-first-20261011",
-  "./js/premium/premium-home.js?v=premium-p2a1-plan-first-20261011",
+  "./js/premium/premium-builder.js?v=premium-p2a2-resume-builder-20261011",
+  "./js/premium/premium-home.js?v=premium-p2a2-resume-builder-20261011",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
   "./js/core/app-main.js?v=v2-r9m-overzoom-persistente-20261011",
