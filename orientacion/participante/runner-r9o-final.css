@@ -1,0 +1,102 @@
+/* MILITOPO · R9O FINAL · cierre responsive/PWA Runner.
+   Presentación únicamente. La lógica GPS/QR/offline/runId/penalizaciones no se modifica. */
+html,body{max-width:100%;overflow-x:hidden}
+body{overscroll-behavior-x:none}
+.runner-home,.runner-panel,.panel-shell,.events,.event,.profile-shell{min-width:0;max-width:100%;box-sizing:border-box}
+button{touch-action:manipulation}
+
+/* Detalles e histórico: el scroll queda dentro del contenido que lo necesita. */
+.history-class-table-scroll{max-width:100%;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.result-modal{
+  box-sizing:border-box;
+  padding-top:max(8px,env(safe-area-inset-top));
+  padding-right:max(7px,env(safe-area-inset-right));
+  padding-bottom:max(8px,env(safe-area-inset-bottom));
+  padding-left:max(7px,env(safe-area-inset-left));
+  overscroll-behavior:contain
+}
+.result-sheet{
+  max-width:100%;max-height:calc(100dvh - max(16px,env(safe-area-inset-top) + env(safe-area-inset-bottom)))!important;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain
+}
+.result-sheet-body{min-width:0;overflow-x:hidden}
+.result-sheet-head>div{min-width:0}
+.result-sheet-head strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Carrera activa: ninguna capa puede provocar scroll lateral de la página. */
+#m2RaceV2{max-width:100vw!important;overflow-x:hidden!important;overscroll-behavior:contain!important}
+#m2RaceV2 .m2race-shell,#m2RaceV2 .m2race-top,#m2RaceV2 .m2race-dashboard,#m2RaceV2 .m2race-bottom,
+#m2RaceV2 .m2race-card,#m2RaceV2 .m2race-control-card,#m2RaceV2 .m2race-performance{min-width:0!important;max-width:100%!important;box-sizing:border-box!important}
+#m2RaceV2 .m2race-route-sheet{
+  left:max(7px,env(safe-area-inset-left))!important;
+  right:max(7px,env(safe-area-inset-right))!important;
+  bottom:max(7px,env(safe-area-inset-bottom))!important;
+  max-height:calc(100dvh - max(18px,env(safe-area-inset-top) + env(safe-area-inset-bottom)))!important;
+  -webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important
+}
+#m2RaceV2 .m2race-start-confirm{
+  padding-top:max(10px,env(safe-area-inset-top))!important;
+  padding-right:max(8px,env(safe-area-inset-right))!important;
+  padding-bottom:max(10px,env(safe-area-inset-bottom))!important;
+  padding-left:max(8px,env(safe-area-inset-left))!important
+}
+#m2RaceV2 .m2race-start-sheet{max-height:calc(100dvh - max(20px,env(safe-area-inset-top) + env(safe-area-inset-bottom)))!important;overflow:auto!important;overscroll-behavior:contain!important}
+
+/* Llegada: clasificación provisional/oficial siempre visible dentro de la ficha. */
+#m2RaceV2 .m2race-summary{box-sizing:border-box!important;overscroll-behavior:none!important}
+#m2RaceV2 .m2race-summary-sheet{max-width:100%!important;min-width:0!important;box-sizing:border-box!important}
+#m2RaceV2 .m2race-summary-classification{min-height:0!important;max-width:100%!important}
+#m2RaceV2 .m2race-summary-live-list{
+  overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch!important;
+  overscroll-behavior:contain!important;scrollbar-width:thin
+}
+#m2RaceV2 .m2race-summary-live-row{min-width:0!important}
+
+@media(max-width:430px){
+  .runner-home{width:100%!important}
+  .result-sheet{width:100%!important;border-radius:18px 18px 12px 12px!important}
+  .result-sheet-head{padding:10px 11px!important}
+  .result-sheet-body{padding:10px!important}
+  .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+  .detail-box{min-width:0!important;padding:8px!important}
+  .detail-box strong{overflow-wrap:anywhere}
+
+  #m2RaceV2 .m2race-summary{
+    padding-top:max(6px,env(safe-area-inset-top))!important;
+    padding-right:max(6px,env(safe-area-inset-right))!important;
+    padding-bottom:max(6px,env(safe-area-inset-bottom))!important;
+    padding-left:max(6px,env(safe-area-inset-left))!important
+  }
+  #m2RaceV2 .m2race-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  #m2RaceV2 .m2race-summary-actions{grid-template-columns:1fr 1fr!important}
+}
+
+@media(max-width:360px){
+  .runner-head{grid-template-columns:58px minmax(0,1fr) 78px!important;gap:7px!important;padding:7px!important}
+  .runner-logo{width:58px!important;height:58px!important;border-radius:16px!important}
+  .runner-logo img{width:100%!important;height:100%!important}
+  .brand h1{font-size:.96rem!important;letter-spacing:.10em!important}
+  .runner-account{min-width:0!important}
+  .runner-user,.runner-handle{max-width:78px!important}
+  .online{min-width:72px!important;padding:5px!important;font-size:.40rem!important}
+}
+
+/* En pantallas bajas no ocultamos la clasificación pedida por el corredor. */
+@media(max-height:640px){
+  #m2RaceV2 .m2race-summary-live-list{display:grid!important;max-height:48px!important;overflow-y:auto!important}
+  #m2RaceV2 .m2race-summary-classification{gap:3px!important;padding:4px!important}
+  #m2RaceV2 .m2race-summary-class-head{min-height:20px!important}
+  #m2RaceV2 .m2race-summary-ranks{gap:3px!important}
+}
+
+@media(orientation:landscape) and (max-height:540px){
+  .result-modal{align-items:stretch!important}
+  .result-sheet{width:min(760px,100%)!important;max-height:calc(100dvh - 8px)!important;margin:auto!important;border-radius:16px!important}
+  #m2RaceV2 .m2race-start-confirm{align-items:center!important}
+  #m2RaceV2 .m2race-start-sheet{width:min(680px,100%)!important;border-radius:18px!important;padding:14px!important}
+  #m2RaceV2 .m2race-summary-live-list{max-height:42px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .result-sheet,#m2RaceV2 .m2race-route-sheet,#m2RaceV2 .m2race-start-sheet{scroll-behavior:auto!important}
+}

@@ -1,8 +1,9 @@
-/* MILITOPO Participante · R9N clasificación provisional/oficial + cierre Runner 20261011.
+/* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r9n-provisional-classification-20261011";
+const CACHE_NAME="militopo-v2-participante-r9o-final-responsive-20261011";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
+  "./runner-r9o-final.css?v=r9o-final-20261011",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
   "./runner-home-v4.js?v=v2-r9n-provisional-classification-20261011","./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=v2-r9n-provisional-classification-20261011","./runner-r9m-responsive.js?v=v2-r9m-runner-responsive-20261011",
   "../../js/v2/firebase-config.js","../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
