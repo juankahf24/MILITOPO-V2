@@ -187,20 +187,23 @@ function createMapantLayer(L) {
 function createIgnStableLayer(L, kind, options={}) {
   const key=String(kind||"").toLowerCase();
   const aerial=key==="aerial"||key==="pnoa"||key==="aereo"||key==="aéreo";
-  const maxZoom=Number(options.maxZoom||25);
-  const nativeMax=Number(options.maxNativeZoom||20);
-  return L.tileLayer(aerial
-    ? "https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg"
-    : "https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg", {
-      attribution:aerial?"© PNOA Máxima Actualidad · IGN":"© Instituto Geográfico Nacional",
-      minZoom:0,maxNativeZoom:nativeMax,maxZoom,keepBuffer:aerial?10:8,updateWhenIdle:false,updateWhenZooming:true
-    });
+  const maxZoom=Number(options.maxZoom||25),nativeMax=Number(options.maxNativeZoom||(aerial?19:20));
+  const minSourceZoom=5;
+  const template=aerial?"https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg":"https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg";
+  const attribution=aerial?"© PNOA Máxima Actualidad · IGN":"© Instituto Geográfico Nacional";
+  const Persistent=L.GridLayer.extend({
+    initialize(opts={}){L.GridLayer.prototype.initialize.call(this,opts);this._src=new Map()},
+    _url(z,x,y){const n=2**z,wx=((x%n)+n)%n;return template.replace("{z}",z).replace("{x}",wx).replace("{-y}",n-1-y)},
+    _img(url){if(this._src.has(url))return this._src.get(url);const p=new Promise((res,rej)=>{const i=new Image();i.decoding="async";i.onload=()=>res(i);i.onerror=()=>rej(new Error("tile"));i.src=url});this._src.set(url,p);if(this._src.size>128){const k=this._src.keys().next().value;if(k)this._src.delete(k)}p.catch(()=>{if(this._src.get(url)===p)this._src.delete(url)});return p},
+    createTile(c,done){const size=this.getTileSize(),tile=document.createElement("canvas"),ctx=tile.getContext("2d",{alpha:false});tile.width=size.x;tile.height=size.y;ctx.fillStyle=aerial?"#c9c9c1":"#e9e5d8";ctx.fillRect(0,0,size.x,size.y);const rz=c.z;const draw=async z0=>{const z=Math.max(minSourceZoom,Math.min(z0,nativeMax,rz)),scale=2**(rz-z),px=Math.floor(c.x/scale),py=Math.floor(c.y/scale),n=2**z;if(py<0||py>=n){done(null,tile);return}try{const img=await this._img(this._url(z,px,py)),ox=((c.x%scale)+scale)%scale,oy=((c.y%scale)+scale)%scale,sw=img.naturalWidth/scale,sh=img.naturalHeight/scale;ctx.imageSmoothingEnabled=true;try{ctx.imageSmoothingQuality="high"}catch(_){ }ctx.drawImage(img,ox*sw,oy*sh,sw,sh,0,0,size.x,size.y);done(null,tile)}catch(_){if(z>minSourceZoom)return draw(z-1);done(null,tile)}};draw(Math.min(rz,nativeMax));return tile}
+  });
+  return new Persistent({attribution,minZoom:0,maxZoom,tileSize:256,keepBuffer:aerial?10:8,updateWhenIdle:false,updateWhenZooming:true});
 }
 function buildBaseLayers(L) {
   return {
     mapant:createMapantLayer(L),
     ign:createIgnStableLayer(L,"ign",{maxNativeZoom:20,maxZoom:25}),
-    aerial:createIgnStableLayer(L,"aerial",{maxNativeZoom:20,maxZoom:25})
+    aerial:createIgnStableLayer(L,"aerial",{maxNativeZoom:19,maxZoom:25})
   };
 }
 function ensureMap() {
