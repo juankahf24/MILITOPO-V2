@@ -1,4 +1,4 @@
-/* MILITOPO Premium · P2A · Home contextual del Organizador/Super Admin */
+/* MILITOPO Premium · P2A.2 · Home contextual + continuación guiada */
 import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const premium=globalThis.MILITOPO_PREMIUM;
@@ -32,7 +32,8 @@ function primaryFor(ctx){
   if(!ctx.eventId)return {label:"CREAR CARRERA",action:"create",kind:"primary"};
   if(ctx.status==="live")return {label:"ABRIR LIVE",action:"live",kind:"primary"};
   if(ctx.status==="finished"||ctx.status==="archived")return {label:"VER RESULTADOS",action:"results",kind:"primary"};
-  return {label:"CONTINUAR PREPARACIÓN",action:"manager",kind:"primary"};
+  if(ctx.status==="published")return {label:"GESTIONAR PARTICIPANTES",action:"participants",kind:"primary"};
+  return {label:"CONTINUAR PREPARACIÓN",action:"builder",kind:"primary"};
 }
 
 function ensure(){
@@ -124,6 +125,7 @@ async function run(action){
   const b=bridge();if(!b)return false;
   if(action!=="map")close();
   if(action==="create"){const builder=premium.get("event-builder");if(builder?.open)return builder.open();return await b.event.create();}
+  if(action==="builder"){const builder=premium.get("event-builder");if(builder?.resumeCurrent)return builder.resumeCurrent();if(builder?.open)return builder.open({resumeCurrent:true});return b.shell.manager();}
   if(action==="races")return b.shell.races();
   if(action==="map"){close();return b.map.home();}
   if(action==="manager")return b.shell.manager();
@@ -144,7 +146,7 @@ function open(){
 function close(){if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-home-open");state.opened=false}
 function refresh(){if(!state.root)return;renderCurrent();if(state.opened)fetchRows(true)}
 
-premium.register("organizer-home",Object.freeze({open,close,refresh,isOpen:()=>state.opened}),{version:"p2a",purpose:"role-home"});
+premium.register("organizer-home",Object.freeze({open,close,refresh,isOpen:()=>state.opened}),{version:"p2a2",purpose:"role-home-guided-resume"});
 
 globalThis.addEventListener("militopo:v2-auth-ready",event=>{
   state.auth=event.detail||globalThis.MILITOPO_V2_AUTH||null;

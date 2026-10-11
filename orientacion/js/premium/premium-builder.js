@@ -1,15 +1,16 @@
-/* MILITOPO Premium · P2A.1 · Creador guiado · plano al inicio */
+/* MILITOPO Premium · P2A.2 · Creador guiado · reanudación de carrera existente */
 import { doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const premium=globalThis.MILITOPO_PREMIUM;
 if(!premium)throw new Error("MILITOPO Premium core no disponible");
 
 const DRAFT_KEY="militopo_premium_builder_draft_v2";
+const EVENT_DRAFT_PREFIX="militopo_premium_builder_event_draft_v1:";
 const META_PREFIX="militopo_premium_event_meta_v1:";
 const MANAGER_ROLES=new Set(["organizer","super_admin"]);
 const steps=["TIPO","DATOS","PLANO","HORARIO","UBICACIÓN","REVISIÓN"];
 const state={
-  root:null,opened:false,step:0,busy:false,draft:null,
+  root:null,opened:false,step:0,busy:false,draft:null,mode:"create",eventId:"",
   auth:globalThis.MILITOPO_V2_AUTH||null,
   planMap:null,planBase:null,planMarker:null,
   importState:null
@@ -29,9 +30,40 @@ function freshDraft(){const start=nowLocalRounded();return {
   startAt:start,endAt:plusHours(start,4),locationName:"",lat:"",lon:"",
   timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone||"Europe/Madrid"
 }}
-function readDraft(){try{return {...freshDraft(),...JSON.parse(localStorage.getItem(DRAFT_KEY)||"{}")}}catch(_){return freshDraft()}}
-function saveDraft(){try{localStorage.setItem(DRAFT_KEY,JSON.stringify(state.draft))}catch(_){}}
-function clearDraft(){try{localStorage.removeItem(DRAFT_KEY)}catch(_){}}
+function draftStorageKey(){return state.mode==="resume"&&state.eventId?EVENT_DRAFT_PREFIX+state.eventId:DRAFT_KEY}
+function readDraft(key=DRAFT_KEY){try{return {...freshDraft(),...JSON.parse(localStorage.getItem(key)||"{}")}}catch(_){return freshDraft()}}
+function saveDraft(){try{localStorage.setItem(draftStorageKey(),JSON.stringify(state.draft))}catch(_){}}
+function clearDraft(){try{localStorage.removeItem(draftStorageKey())}catch(_){}}
+function localDateTime(iso){if(!iso)return "";const d=new Date(iso);if(Number.isNaN(d.getTime()))return "";const p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`}
+function hydrateExisting(eventId){
+  const ctx=bridge()?.shell?.current?.()||{};
+  let meta=null,eventDraft=null;
+  try{meta=JSON.parse(localStorage.getItem(META_PREFIX+eventId)||"null")}catch(_){ }
+  try{eventDraft=JSON.parse(localStorage.getItem(EVENT_DRAFT_PREFIX+eventId)||"null")}catch(_){ }
+  const base=freshDraft();
+  if(meta){
+    Object.assign(base,{
+      raceType:meta.raceType||base.raceType,description:meta.description||"",
+      mapLayer:meta.mapSelection?.layer||base.mapLayer,
+      mapCenterLat:meta.mapSelection?.workCenter?.lat??"",mapCenterLon:meta.mapSelection?.workCenter?.lon??"",
+      mapZoom:meta.mapSelection?.workCenter?.zoom??13,mapAreaConfirmed:Boolean(meta.mapSelection?.workCenter),
+      customMapId:meta.mapSelection?.customMap?.id||"",customMapName:meta.mapSelection?.customMap?.name||"",customMapFormat:meta.mapSelection?.customMap?.format||"",
+      startAt:localDateTime(meta.scheduledStartAt)||base.startAt,endAt:localDateTime(meta.scheduledEndAt)||base.endAt,
+      timeZone:meta.timeZone||base.timeZone,locationName:meta.meetingPoint?.name||"",lat:meta.meetingPoint?.lat??"",lon:meta.meetingPoint?.lon??""
+    });
+  }
+  if(eventDraft)Object.assign(base,eventDraft);
+  base.name=String(base.name||ctx.eventName||document.getElementById("eventName")?.value||"").trim();
+  const legacyCount=Number(document.getElementById("participantCount")?.value);if(Number.isFinite(legacyCount)&&legacyCount>0&&!eventDraft?.participantCount)base.participantCount=Math.min(100,legacyCount);
+  return base;
+}
+function suggestedResumeStep(){
+  if(String(state.draft.name||"").trim().length<3)return 1;
+  if(!state.draft.mapAreaConfirmed||!validWorkCenter())return 2;
+  const a=new Date(state.draft.startAt),b=new Date(state.draft.endAt);if(Number.isNaN(a.getTime())||Number.isNaN(b.getTime())||b<=a)return 3;
+  if(String(state.draft.locationName||"").trim().length<2||!validCoords())return 4;
+  return 5;
+}
 function mapsUrl(d=state.draft){const lat=Number(d.lat),lon=Number(d.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))return "";return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lon}`)}`}
 function fmtDate(local){if(!local)return "—";const d=new Date(local);if(Number.isNaN(d.getTime()))return local;return new Intl.DateTimeFormat("es-ES",{dateStyle:"medium",timeStyle:"short"}).format(d)}
 function typeLabel(v){return v==="competition"?"COMPETICIÓN":"ENTRENAMIENTO"}
@@ -43,7 +75,7 @@ function activeCustomMap(){try{return globalThis.MILITOPO_ORIENTATION_CUSTOM_MAP
 function ensure(){
   if(state.root?.isConnected)return state.root;
   const root=document.createElement("section");root.id="militopoPremiumBuilder";root.className="mpb";root.setAttribute("aria-hidden","true");
-  root.innerHTML=`<div class="mpb-shell"><header class="mpb-head"><div><small>MILITOPO · CREADOR PREMIUM</small><strong>NUEVA CARRERA</strong></div><button type="button" class="mpb-close" data-mpb-close aria-label="Cerrar">×</button></header><div class="mpb-progress" data-mpb-progress></div><main class="mpb-body" data-mpb-body></main><footer class="mpb-foot" data-mpb-foot></footer></div>`;
+  root.innerHTML=`<div class="mpb-shell"><header class="mpb-head"><div><small>MILITOPO · CREADOR PREMIUM</small><strong data-mpb-title>NUEVA CARRERA</strong></div><button type="button" class="mpb-close" data-mpb-close aria-label="Cerrar">×</button></header><div class="mpb-progress" data-mpb-progress></div><main class="mpb-body" data-mpb-body></main><footer class="mpb-foot" data-mpb-foot></footer></div>`;
   root.addEventListener("click",onClick);root.addEventListener("input",onInput);root.addEventListener("change",onInput);
   document.body.appendChild(root);state.root=root;return root;
 }
@@ -57,7 +89,8 @@ function progress(){
 }
 function footer(){
   const f=$("[data-mpb-foot]",ensure()),last=state.step===steps.length-1;
-  f.innerHTML=`${state.step?`<button type="button" class="mpb-btn mpb-btn-ghost" data-mpb-back>ATRÁS</button>`:`<button type="button" class="mpb-btn mpb-btn-ghost" data-mpb-close>GUARDAR Y SALIR</button>`}<div class="mpb-foot-spacer"></div>${last?`<button type="button" class="mpb-btn mpb-btn-primary" data-mpb-create ${state.busy?"disabled":""}>${state.busy?"CREANDO…":"CREAR BORRADOR Y CONTINUAR"}</button>`:`<button type="button" class="mpb-btn mpb-btn-primary" data-mpb-next>CONTINUAR</button>`}`;
+  const finalLabel=state.mode==="resume"?(state.busy?"GUARDANDO…":"GUARDAR Y CONTINUAR"):(state.busy?"CREANDO…":"CREAR BORRADOR Y CONTINUAR");
+  f.innerHTML=`${state.step?`<button type="button" class="mpb-btn mpb-btn-ghost" data-mpb-back>ATRÁS</button>`:`<button type="button" class="mpb-btn mpb-btn-ghost" data-mpb-close>GUARDAR Y SALIR</button>`}<div class="mpb-foot-spacer"></div>${last?`<button type="button" class="mpb-btn mpb-btn-primary" data-mpb-create ${state.busy?"disabled":""}>${finalLabel}</button>`:`<button type="button" class="mpb-btn mpb-btn-primary" data-mpb-next>CONTINUAR</button>`}`;
 }
 function field(id,label,type="text",value="",extra=""){return `<label class="mpb-field"><span>${label}</span><input id="${id}" type="${type}" value="${esc(value)}" ${extra}></label>`}
 function renderType(){return `<section class="mpb-step"><div class="mpb-step-copy"><small>PASO 1 DE 6</small><h2>¿Qué vas a organizar?</h2><p>Solo te enseñaremos las opciones que tengan sentido para este tipo de carrera.</p></div><div class="mpb-type-grid"><button type="button" class="mpb-type ${state.draft.raceType==="competition"?"is-selected":""}" data-mpb-type="competition"><span class="mpb-type-icon">🏁</span><strong>COMPETICIÓN</strong><small>Categorías, clasificaciones y opciones competitivas.</small></button><button type="button" class="mpb-type ${state.draft.raceType==="training"?"is-selected":""}" data-mpb-type="training"><span class="mpb-type-icon">🧭</span><strong>ENTRENAMIENTO</strong><small>Creación más rápida y sin complejidad competitiva innecesaria.</small></button><button type="button" class="mpb-type mpb-type-secondary" data-mpb-reuse><span class="mpb-type-icon">↻</span><strong>DESDE UNA CARRERA ANTERIOR</strong><small>Abre Mis carreras para reutilizar una configuración existente.</small></button></div></section>`}
@@ -98,7 +131,7 @@ function renderSchedule(){return `<section class="mpb-step"><div class="mpb-step
 function renderLocation(){const url=mapsUrl();return `<section class="mpb-step"><div class="mpb-step-copy"><small>PASO 5 DE 6</small><h2>¿Dónde debe ir la gente?</h2><p>Este es el punto de encuentro para llegar a la carrera. Puede ser distinto de la salida.</p></div><div class="mpb-form">${field("mpbLocation","LUGAR / PUNTO DE ENCUENTRO","text",state.draft.locationName,'maxlength="140" placeholder="Ej. Aparcamiento Área Recreativa"')}<div class="mpb-coords">${field("mpbLat","LATITUD","number",state.draft.lat,'step="any" inputmode="decimal" placeholder="38.123456"')}${field("mpbLon","LONGITUD","number",state.draft.lon,'step="any" inputmode="decimal" placeholder="-1.234567"')}</div></div><div class="mpb-location-actions"><button type="button" class="mpb-btn mpb-btn-soft" data-mpb-geolocate>USAR MI UBICACIÓN</button><button type="button" class="mpb-btn mpb-btn-ghost" data-mpb-use-work-center ${validWorkCenter()?"":"disabled"}>USAR CENTRO DEL PLANO</button>${url?`<a class="mpb-btn mpb-btn-ghost" href="${esc(url)}" target="_blank" rel="noopener">ABRIR EN GOOGLE MAPS</a>`:""}</div><div class="mpb-note"><strong>CÓMO LLEGAR</strong><span>Cuando la carrera sea pública, el corredor tendrá este punto y un acceso directo a Google Maps.</span></div></section>`}
 function renderReview(){const url=mapsUrl();return `<section class="mpb-step"><div class="mpb-step-copy"><small>PASO 6 DE 6</small><h2>Primera parte preparada</h2><p>Ahora crearemos el BORRADOR con el plano ya elegido. Después seguirá el diseño guiado de controles y recorridos.</p></div><div class="mpb-review"><article><small>TIPO</small><strong>${typeLabel(state.draft.raceType)}</strong></article><article><small>NOMBRE</small><strong>${esc(state.draft.name||"—")}</strong></article><article><small>PLANO</small><strong>${esc(mapLabel(state.draft.mapLayer))}${state.draft.mapLayer==="custom"&&state.draft.customMapName?` · ${esc(state.draft.customMapName)}`:""}</strong></article><article><small>ZONA DE TRABAJO</small><strong>${validWorkCenter()?`${Number(state.draft.mapCenterLat).toFixed(5)}, ${Number(state.draft.mapCenterLon).toFixed(5)}`:"—"}</strong></article><article><small>PLAZAS</small><strong>${esc(state.draft.participantCount)}</strong></article><article><small>INICIO</small><strong>${esc(fmtDate(state.draft.startAt))}</strong></article><article><small>FINAL PREVISTO</small><strong>${esc(fmtDate(state.draft.endAt))}</strong></article><article><small>UBICACIÓN</small><strong>${esc(state.draft.locationName||"—")}</strong>${url?`<a href="${esc(url)}" target="_blank" rel="noopener">VER EN GOOGLE MAPS</a>`:""}</article></div><div class="mpb-next-stage"><span>DESPUÉS</span><strong>CONTROLES → RECORRIDOS → ITINERARIO REAL → PREFLIGHT → PREPARAR → PUBLICAR → INVITAR</strong></div></section>`}
 function render(){
-  destroyPlanMap();progress();
+  destroyPlanMap();const title=$("[data-mpb-title]",ensure());if(title)title.textContent=state.mode==="resume"?"PREPARAR CARRERA":"NUEVA CARRERA";progress();
   const body=$("[data-mpb-body]",ensure());
   body.innerHTML=[renderType,renderData,renderPlan,renderSchedule,renderLocation,renderReview][state.step]();
   footer();body.scrollTop=0;
@@ -226,7 +259,16 @@ async function createRace(){
   for(let i=0;i<5;i++){const err=validateStep(i);if(err){state.step=i;render();notify(err);return}}
   if(state.busy)return;state.busy=true;footer();
   try{
-    const b=bridge();if(!b?.event?.createLegacy){notify("El creador todavía no está listo. Cierra y vuelve a abrir MILITOPO.");return}
+    const b=bridge();
+    if(state.mode==="resume"){
+      const eventId=String(state.eventId||b?.shell?.current?.().eventId||"").trim();if(!eventId){notify("No hay una carrera cargada para continuar.");return}
+      applyLegacyBasics();applySelectedPlan();
+      try{b.event.saveRules()}catch(error){console.warn("[MILITOPO Premium Builder] reglas",error)}
+      const ok=await syncMetadata(eventId);clearDraft();close();
+      setTimeout(()=>{notify(ok?"Preparación guardada. Continuamos con controles y recorridos.":"Preparación guardada en el dispositivo. Se sincronizará al recuperar conexión.");try{b.shell.manager({source:"premium-builder"})}catch(_){ }globalThis.dispatchEvent(new CustomEvent("militopo:premium-builder-resumed",{detail:{...state.draft,eventId}}))},120);
+      return;
+    }
+    if(!b?.event?.createLegacy){notify("El creador todavía no está listo. Cierra y vuelve a abrir MILITOPO.");return}
     const created=await b.event.createLegacy();if(created!==true)return;
     await new Promise(r=>setTimeout(r,170));applyLegacyBasics();applySelectedPlan();
     try{b.event.saveRules()}catch(error){console.warn("[MILITOPO Premium Builder] reglas",error)}
@@ -257,10 +299,11 @@ function onClick(e){
   if(t.matches("[data-mpb-use-work-center]")){useWorkCenter();return}
   if(t.matches("[data-mpb-create]")){createRace();return}
 }
-function open(opts={}){if(!canManage())return false;ensure();state.draft=opts.fresh?freshDraft():readDraft();if(opts.fresh){clearDraft();saveDraft()}state.step=Math.max(0,Math.min(steps.length-1,Number(opts.step)||0));state.root.classList.add("is-open");state.root.setAttribute("aria-hidden","false");document.body.classList.add("militopo-premium-builder-open");state.opened=true;render();return true}
+function open(opts={}){if(!canManage())return false;ensure();const ctx=bridge()?.shell?.current?.()||{};state.mode=opts.resumeCurrent?"resume":"create";state.eventId=state.mode==="resume"?String(opts.eventId||ctx.eventId||"").trim():"";if(state.mode==="resume"&&!state.eventId){notify("Carga una carrera antes de continuar la preparación.");return false}state.draft=state.mode==="resume"?hydrateExisting(state.eventId):(opts.fresh?freshDraft():readDraft());if(opts.fresh&&state.mode==="create"){clearDraft();saveDraft()}const requested=Number(opts.step);state.step=Number.isFinite(requested)?Math.max(0,Math.min(steps.length-1,requested)):(state.mode==="resume"?suggestedResumeStep():0);state.root.classList.add("is-open");state.root.setAttribute("aria-hidden","false");document.body.classList.add("militopo-premium-builder-open");state.opened=true;render();return true}
+function resumeCurrent(){return open({resumeCurrent:true})}
 function close(){destroyPlanMap();if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-builder-open");state.opened=false}
 
-premium.register("event-builder",Object.freeze({open,close,isOpen:()=>state.opened,getDraft:()=>Object.freeze({...state.draft})}),{version:"p2a1",purpose:"guided-event-creation-plan-first"});
+premium.register("event-builder",Object.freeze({open,resumeCurrent,close,isOpen:()=>state.opened,getDraft:()=>Object.freeze({...state.draft})}),{version:"p2a2",purpose:"guided-event-creation-and-resume"});
 globalThis.addEventListener("militopo:v2-auth-ready",e=>{state.auth=e.detail||globalThis.MILITOPO_V2_AUTH||null;if(!canManage())close()});
 globalThis.addEventListener("militopo:v2-orientation-import",e=>{
   const d=e.detail||{};state.importState={message:d.message||d.stage||"Procesando plano…",state:d.state||"progress"};updateImportStatus();
