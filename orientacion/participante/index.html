@@ -239,6 +239,17 @@
     @media(max-width:520px){.profile-card-r9b{grid-template-columns:78px minmax(0,1fr)!important;gap:16px!important;padding:14px!important}.profile-card-r9b .profile-avatar-stack{width:78px;min-width:78px}.profile-card-r9b .profile-avatar-trigger{width:74px!important;height:74px!important}.profile-identity-r9b .profile-name{font-size:.98rem}.profile-identity-r9b .meta{font-size:.58rem}.profile-role-badge{min-height:27px;padding:0 10px;font-size:.46rem}}
     @media(max-width:370px){.profile-card-r9b{grid-template-columns:70px minmax(0,1fr)!important;gap:13px!important;padding:12px!important}.profile-card-r9b .profile-avatar-stack{width:70px;min-width:70px}.profile-card-r9b .profile-avatar-trigger{width:68px!important;height:68px!important}.profile-identity-r9b .profile-name{font-size:.92rem}.profile-identity-r9b .meta{font-size:.54rem}.profile-role-badge{margin-top:7px;min-height:25px}}
 </style>
+
+  <style id="runnerR9NClassificationPhase">
+    .history-class-head-meta{display:grid;justify-items:end;gap:4px;min-width:0}
+    .history-class-phase{display:inline-flex!important;align-items:center;gap:5px;padding:4px 7px;border-radius:999px;border:1px solid rgba(224,177,70,.28);background:rgba(224,177,70,.09);color:#f4d17d!important;font-size:.36rem!important;font-weight:1000!important;letter-spacing:.07em;line-height:1!important}
+    .history-class-phase::before{content:"";width:6px;height:6px;border-radius:50%;background:#e5ae3d;box-shadow:0 0 0 3px rgba(229,174,61,.10)}
+    .history-class-phase.is-official{border-color:rgba(93,194,117,.28);background:rgba(69,153,90,.10);color:#cfead4!important}
+    .history-class-phase.is-official::before{background:#69c980;box-shadow:0 0 0 3px rgba(105,201,128,.10)}
+    .history-classification.is-provisional{border-color:rgba(224,177,70,.20)}
+    .history-classification.is-official{border-color:rgba(93,194,117,.18)}
+    @media(max-width:520px){.history-class-head{align-items:flex-start}.history-class-head-meta{max-width:48%}.history-class-head-meta>span:last-child{font-size:.40rem!important;white-space:normal;text-align:right}}
+  </style>
 </head>
 <body>
   <main class="runner-home">
@@ -413,7 +424,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r9m-overzoom-persistente-20261011"></script>
+  <script type="module" src="./runner-home-v4.js?v=v2-r9n-provisional-classification-20261011"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>

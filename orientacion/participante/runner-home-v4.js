@@ -1,5 +1,5 @@
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
-import "./runner-live-loader.js?v=v2-r9m-runner-responsive-20261011";
+import "./runner-live-loader.js?v=v2-r9n-provisional-classification-20261011";
 import "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
@@ -10,7 +10,7 @@ import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, update
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { openProfilePhotoMenu, openProfilePhotoViewer } from "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
-const VERSION="v2-r9m-overzoom-persistente-20261011";
+const VERSION="v2-r9n-provisional-classification-20261011";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
@@ -325,11 +325,13 @@ function renderHistory(reset=false){
   hydrateVisibleRanks();
 }
 
-async function getClassification(eventId){
+async function getClassification(eventId,{force=false}={}){
+  if(force)classificationCache.delete(eventId);
   if(classificationCache.has(eventId))return classificationCache.get(eventId);
   const promise=(async()=>{const call=httpsCallable(functions,"getEventClassification");const result=await call({eventId,clientVersion:VERSION});return result?.data||{};})();
   classificationCache.set(eventId,promise);try{return await promise;}catch(error){classificationCache.delete(eventId);throw error;}
 }
+function classificationIsOfficial(data={}){const status=String(data?.event?.status||'').toLowerCase(),summary=data?.summary||{},total=Math.max(0,Number(summary.total||0)),terminal=Math.max(0,Number(summary.finished||0))+Math.max(0,Number(summary.incomplete||0));return ['finished','finalized','archived'].includes(status)||(total>0&&terminal>=total)}
 
 function classificationName(row={}){const d=String(row.displayName||'').trim(),u=String(row.username||'').replace(/^@/,'').trim();return d||u&&`@${u}`||String(row.participantId||'Corredor')}
 function classificationInitials(row={}){const p=classificationName(row).replace(/^@/,'').trim().split(/\s+/).filter(Boolean);return ((p[0]?.[0]||'')+(p[1]?.[0]||'')).toUpperCase()||'M'}
@@ -352,7 +354,8 @@ function renderHistoricalClassification(data,view='general'){
   const routeIds=(data.routes||[]).map(r=>String(r.routeId||'')).filter(Boolean),active=view==='general'?'general':(routeIds.includes(view)?view:'general');
   const rows=active==='general'?(data.general||[]):((data.byRoute||{})[active]||[]),tabs=[`<button type="button" class="${active==='general'?'is-active':''}" data-history-class-view="general">GENERAL</button>`,...routeIds.map(id=>`<button type="button" class="${active===id?'is-active':''}" data-history-class-view="${esc(id)}">${esc(id)}</button>`)].join('');
   const summary=data.summary||{},scopeSummary=active==='general'?{total:Number(summary.total??rows.length),finished:Number(summary.finished||0),incomplete:Number(summary.incomplete||0),notStarted:Number(summary.notStarted||0)}:{total:rows.length,finished:rows.filter(row=>String(row.status||'')==='finished').length,incomplete:rows.filter(row=>String(row.status||'')==='incomplete').length,notStarted:rows.filter(row=>String(row.status||'')==='not_started').length},finished=scopeSummary.finished,incomplete=scopeSummary.incomplete,notStarted=scopeSummary.notStarted,total=scopeSummary.total;
-  return `<section class="history-classification" data-history-classification data-current-view="${esc(active)}"><div class="history-class-head"><div><small>CLASIFICACIÓN DE LA CARRERA</small><strong>${active==='general'?'GENERAL':`RECORRIDO ${esc(active)}`}</strong></div><span>${esc(total)} participantes · ${esc(routeIds.length)} recorridos</span></div><div class="history-class-summary"><div><strong>${esc(total)}</strong><small>TOTAL</small></div><div><strong>${esc(finished)}</strong><small>FINALIZARON</small></div><div><strong>${esc(incomplete)}</strong><small>INCOMPLETAS</small></div><div><strong>${esc(notStarted)}</strong><small>NO SALIÓ</small></div></div><div class="history-class-tabs">${tabs}</div>${active==='general'?'':classificationRouteInfo(data,active)}${classificationRowsHtml(rows)}</section>`;
+  const official=classificationIsOfficial(data),phase=official?'CLASIFICACIÓN OFICIAL':'CLASIFICACIÓN PROVISIONAL';
+  return `<section class="history-classification ${official?'is-official':'is-provisional'}" data-history-classification data-current-view="${esc(active)}"><div class="history-class-head"><div><small>${esc(phase)}</small><strong>${active==='general'?'GENERAL':`RECORRIDO ${esc(active)}`}</strong></div><div class="history-class-head-meta"><span class="history-class-phase ${official?'is-official':'is-provisional'}">${official?'OFICIAL':'EN DIRECTO'}</span><span>${esc(total)} participantes · ${esc(routeIds.length)} recorridos</span></div></div><div class="history-class-summary"><div><strong>${esc(total)}</strong><small>TOTAL</small></div><div><strong>${esc(finished)}</strong><small>FINALIZARON</small></div><div><strong>${esc(incomplete)}</strong><small>INCOMPLETAS</small></div><div><strong>${esc(notStarted)}</strong><small>NO SALIÓ</small></div></div><div class="history-class-tabs">${tabs}</div>${active==='general'?'':classificationRouteInfo(data,active)}${classificationRowsHtml(rows)}</section>`;
 }
 function bindHistoricalClassification(root,data){if(!root||!data)return;root.querySelectorAll('[data-history-class-view]').forEach(btn=>btn.addEventListener('click',()=>{const section=root.querySelector('[data-history-classification]');if(!section)return;section.outerHTML=renderHistoricalClassification(data,btn.dataset.historyClassView||'general');bindHistoricalClassification(root,data)}));root.querySelectorAll('[data-class-photo-uid]').forEach(btn=>btn.addEventListener('click',()=>{const uid=String(btn.dataset.classPhotoUid||''),photoURL=String(btn.dataset.classPhotoUrl||''),name=String(btn.dataset.classPhotoName||'Corredor');if(uid&&uid===String(currentUser?.uid||''))openProfilePhotoMenu({photoURL:profile?.photoURL||photoURL,name,canChange:true,onSave:saveRunnerPhotoBlob});else openProfilePhotoViewer({photoURL,name})}))}
 
@@ -401,7 +404,7 @@ async function openHistoryAnalysis(eventId,eventName){
   setStatus("Preparando mapa y reproductor GPS…");
   try{
     const detailCall=httpsCallable(functions,"getRunnerResultDetail");
-    const [detailRes,classRes]=await Promise.all([detailCall({eventId,clientVersion:VERSION}),getClassification(eventId).catch(()=>null)]);
+    const [detailRes,classRes]=await Promise.all([detailCall({eventId,clientVersion:VERSION}),getClassification(eventId,{force:true}).catch(()=>null)]);
     const detail=detailRes?.data||{};
     if(!Array.isArray(detail.track)||detail.track.length<2)throw new Error("Este resultado no tiene un track GPS reproducible.");
     await globalThis.MILITOPO_RUNNER_HISTORY_V2?.open?.({detail,classification:classRes,eventName:eventName||detail.event?.eventName||"Carrera"});
@@ -412,7 +415,7 @@ async function openResultDetail(eventId,eventName){
   if(!eventId||!functions)return;text(els.resultTitle,eventName||"Resultado");if(els.resultBody)els.resultBody.innerHTML='<div class="status">Cargando resultado oficial…</div>';els.resultModal?.classList.add("is-open");els.resultModal?.setAttribute("aria-hidden","false");
   try{
     const detailCall=httpsCallable(functions,"getRunnerResultDetail");
-    const [detailRes,classRes]=await Promise.all([detailCall({eventId,clientVersion:VERSION}),getClassification(eventId).catch(()=>null)]);
+    const [detailRes,classRes]=await Promise.all([detailCall({eventId,clientVersion:VERSION}),getClassification(eventId,{force:true}).catch(()=>null)]);
     const d=detailRes?.data||{},r=d.result||{},my=classRes?.my||null,state=String(r.status||"not_started").toLowerCase();
     const routeId=String(my?.routeId||r.courseId||"").trim()||"—";
     const generalRank=my?.generalRank?`${my.generalRank}º de ${my.generalRankedCount||my.generalCount||"—"}`:"SIN PUESTO";
@@ -527,7 +530,7 @@ async function loadEvents(app){
 }
 
 function schedulePostRaceRefresh(eventId){
-  const id=String(eventId||"").trim();if(id)completedEventIds.add(id);
+  const id=String(eventId||"").trim();if(id){completedEventIds.add(id);classificationCache.delete(id);}
   if(id){activeRows=activeRows.filter(row=>String(row.eventId||"")!==id);renderActiveEvents(activeRows);renderDashboard();if(currentApp)bindActiveEventRealtime(currentApp);}
   if(postRaceRefreshTimer)clearTimeout(postRaceRefreshTimer);
   let attempts=0;
@@ -555,6 +558,7 @@ els.profileHistoryBtn?.addEventListener("click",()=>{setMainTab("races");setRace
 document.querySelectorAll("[data-profile-tab]").forEach(button=>button.addEventListener("click",()=>{const tab=button.dataset.profileTab||"summary";document.querySelectorAll("[data-profile-tab]").forEach(b=>b.classList.toggle("is-active",b===button));document.querySelectorAll("[data-profile-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.profilePanel===tab));if(tab==="performance")renderPerformance();}));
 window.addEventListener("militopo:v2-race-participant",event=>{const detail=event?.detail||{},status=String(detail.status||detail.participant?.status||"").toLowerCase();if(status!=="finished")return;const eventId=String(detail.event?.eventId||detail.event?.id||"");schedulePostRaceRefresh(eventId);});
 window.addEventListener("militopo:v2-runner-race-closed",event=>{const detail=event?.detail||{},status=String(detail.status||"").toLowerCase();if(status!=="finished")return;const eventId=String(detail.event?.eventId||detail.event?.id||"");schedulePostRaceRefresh(eventId);setMainTab("home");});
+window.addEventListener("militopo:v2-runner-postrace-nav",event=>{const detail=event?.detail||{},eventId=String(detail.eventId||detail.event?.eventId||"");if(eventId)schedulePostRaceRefresh(eventId);setMainTab("races");setRaceTab("history");});
 window.addEventListener("online",()=>{updateConnectivity();if(currentApp)scheduleActiveRefresh(currentApp,120);});
 window.addEventListener("offline",updateConnectivity);
 window.addEventListener("focus",()=>{if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
