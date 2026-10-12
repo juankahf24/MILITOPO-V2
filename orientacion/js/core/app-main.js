@@ -11425,6 +11425,51 @@ window.MILITOPO_R2_BRIDGE={
         return {eventId:String(state.eventId||""),eventName:String(state.eventName||""),selectedPointId:String(selectedPointId||""),points,placed,total:points.length,controls,controlsPlaced:controls.filter(p=>p.lat!==null&&p.lon!==null).length,controlsPerRoute:Math.max(1,Number(state.controlsPerRoute)||1),participantCount:Math.max(1,Number(state.participantCount)||1),routeCount:uniqueRoutes.length,routeIds:uniqueRoutes,maxUniqueRoutes:Math.max(1,Number(state.maxUniqueRoutes)||30),locked:!!currentMilitopoCloudDesignLock()};
     },
     selectPoint(id){if(!state.points?.[id])return false;selectPoint(String(id));return true;},
+    configureControls(count){
+        if(rejectProtectedRaceMutation("cambiar el número de balizas"))return false;
+        const next=Math.max(1,Math.min(80,Math.trunc(Number(count)||1)));
+        if(Array.isArray(state.routes)&&state.routes.length&&next!==Number(state.controlCount||0)){
+            toast("No cambies el número de balizas después de crear recorridos. Edita primero los recorridos.");
+            return false;
+        }
+        state.controlCount=next;
+        const el=document.getElementById("controlCount");if(el)el.value=String(next);
+        rebuildPointsFromConfig(true);
+        if(!state.points?.[selectedPointId])selectedPointId="START";
+        try{renderPointSelectors()}catch(_){ }
+        try{renderPointsTable()}catch(_){ }
+        try{renderIofDescriptionsEditor()}catch(_){ }
+        try{renderMapMarkers()}catch(_){ }
+        saveState();
+        try{publishMilitopoCloudStructure("premium-control-count")}catch(_){ }
+        try{window.dispatchEvent(new CustomEvent("militopo:premium-controls-updated",{detail:{reason:"count",controlCount:next}}))}catch(_){ }
+        return true;
+    },
+    placePoint(id,lat,lon){
+        if(rejectProtectedRaceMutation("colocar o mover balizas"))return false;
+        id=String(id||"");const p=state.points?.[id];const a=Number(lat),o=Number(lon);
+        if(!p||!Number.isFinite(a)||!Number.isFinite(o))return false;
+        p.lat=a;p.lon=o;p.utm=latLonToUtm(a,o);p.elevation=null;selectedPointId=id;
+        militopoR2OnPointGeometryChanged(id);
+        try{renderPointsTable()}catch(_){ }
+        try{renderMapMarkers()}catch(_){ }
+        try{loadSelectedPointFields()}catch(_){ }
+        saveState();
+        try{window.dispatchEvent(new CustomEvent("militopo:premium-controls-updated",{detail:{reason:"point",pointId:id}}))}catch(_){ }
+        return true;
+    },
+    clearPoint(id){
+        if(rejectProtectedRaceMutation("eliminar una baliza"))return false;
+        id=String(id||"");const p=state.points?.[id];if(!p)return false;
+        p.utm="";p.lat=null;p.lon=null;p.elevation=null;selectedPointId=id;
+        militopoR2OnPointGeometryChanged(id);
+        try{renderPointsTable()}catch(_){ }
+        try{renderMapMarkers()}catch(_){ }
+        try{loadSelectedPointFields()}catch(_){ }
+        saveState();
+        try{window.dispatchEvent(new CustomEvent("militopo:premium-controls-updated",{detail:{reason:"clear",pointId:id}}))}catch(_){ }
+        return true;
+    },
     clearSelection(){selectedPointId="";const sel=document.getElementById("selectedPoint");if(sel)sel.value="";const utm=document.getElementById("selectedUtm");if(utm)utm.value="";try{map?.closePopup?.()}catch(_){ }return true;},
     selectNextControl(){const id=militopoR2FirstIncompleteControl();if(!id)return "";selectPoint(id);return id;},
     fitAll(){fitAllPoints();return true;},
