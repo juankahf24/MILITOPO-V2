@@ -196,7 +196,7 @@ function syncInputs(){
   if($("#mpbName",state.root))state.draft.name=String(v("mpbName")||"").trimStart();if($("#mpbDescription",state.root))state.draft.description=String(v("mpbDescription")||"");if($("#mpbParticipants",state.root))state.draft.participantCount=Math.max(1,Math.min(100,Number(v("mpbParticipants"))||1));
   if($("#mpbStart",state.root))state.draft.startAt=String(v("mpbStart")||"");if($("#mpbEnd",state.root))state.draft.endAt=String(v("mpbEnd")||"");if($("#mpbLocation",state.root))state.draft.locationName=String(v("mpbLocation")||"").trimStart();if($("#mpbLat",state.root))state.draft.lat=String(v("mpbLat")||"");if($("#mpbLon",state.root))state.draft.lon=String(v("mpbLon")||"");
   if($("#mpbRouteCount",state.root)){const min=Math.max(1,existingRouteCount());state.draft.routeCount=Math.max(min,Math.min(Math.max(1,Math.min(30,Number(state.draft.participantCount)||1)),Math.trunc(Number(v("mpbRouteCount"))||min)))}
-  if($("#mpbControlsPerRoute",state.root))state.draft.controlsPerRoute=Math.max(1,Math.min(Math.max(1,state.draft.controlCount),Math.trunc(Number(v("mpbControlsPerRoute"))||1));
+  if($("#mpbControlsPerRoute",state.root))state.draft.controlsPerRoute=Math.max(1,Math.min(Math.max(1,state.draft.controlCount),Math.trunc(Number(v("mpbControlsPerRoute"))||1)));
   saveDraft();
 }
 function validateStep(step=state.step){
@@ -242,7 +242,34 @@ function saveIofAndNext(id){const api=r2();if(!api?.setIofComplete)return;const 
 
 function loadRouteDraft(id){state.selectedRouteId=String(id||"R01");const d=routeDetails(state.selectedRouteId);state.routeDraftControls=d?.controls?[...d.controls]:[];saveDraft()}
 function toggleRouteControl(id){id=String(id||"");const idx=state.routeDraftControls.indexOf(id);if(idx>=0)state.routeDraftControls.splice(idx,1);else{const max=controlsPerRoute();if(state.routeDraftControls.length>=max){notify(`Este recorrido ya tiene ${max} balizas.`);return}state.routeDraftControls.push(id)}render();}
-function renderRouteMapContent(){if(!state.routeMap||!state.routeMarkers)return;state.routeMarkers.clearLayers();if(state.routeLine){try{state.routeLine.remove()}catch(_){ }state.routeLine=null}const snap=snapshot(),points=snap?.points||[],byId=new Map(points.map(p=>[p.id,p])),ordered=["START",...state.routeDraftControls,"FINISH"].map(id=>byId.get(id)).filter(pointPlaced),latlngs=ordered.map(p=>[Number(p.lat),Number(p.lon)]);if(latlngs.length>1)state.routeLine=L.polyline(latlngs,{weight:5,opacity:.96,color:"#d69b24",dashArray:"12 7",lineCap:"round",lineJoin:"round"}).addTo(state.routeMap);(snap?.controls||[]).filter(pointPlaced).forEach(p=>{const idx=state.routeDraftControls.indexOf(p.id),selected=idx>=0,html=`<div class="mpb-route-map-point ${selected?"is-selected":""}"><span>${selected?idx+1:"+"}</span><small>${esc(p.id)}</small></div>`;const marker=L.marker([Number(p.lat),Number(p.lon)],{icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[42,42],iconAnchor:[21,21]})}).addTo(state.routeMarkers);marker.on("click",ev=>{try{L.DomEvent.stopPropagation(ev)}catch(_){ }toggleRouteControl(p.id)})});["START","FINISH"].forEach(id=>{const p=byId.get(id);if(!pointPlaced(p))return;const html=`<div class="mpb-map-point ${id==="START"?"is-start":"is-finish"}">${id==="START"?"S":"L"}</div>`;L.marker([Number(p.lat),Number(p.lon)],{icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[32,32],iconAnchor:[16,16]),interactive:false}).addTo(state.routeMarkers)});}
+function renderRouteMapContent(){
+  if(!state.routeMap||!state.routeMarkers)return;
+  state.routeMarkers.clearLayers();
+  if(state.routeLine){try{state.routeLine.remove()}catch(_){ }state.routeLine=null}
+  const snap=snapshot(),points=snap?.points||[],byId=new Map(points.map(p=>[p.id,p]));
+  const ordered=["START",...state.routeDraftControls,"FINISH"].map(id=>byId.get(id)).filter(pointPlaced);
+  const latlngs=ordered.map(p=>[Number(p.lat),Number(p.lon)]);
+  if(latlngs.length>1){
+    state.routeLine=L.polyline(latlngs,{weight:5,opacity:.96,color:"#d69b24",dashArray:"12 7",lineCap:"round",lineJoin:"round"}).addTo(state.routeMap);
+  }
+  (snap?.controls||[]).filter(pointPlaced).forEach(p=>{
+    const idx=state.routeDraftControls.indexOf(p.id),selected=idx>=0;
+    const html=`<div class="mpb-route-map-point ${selected?"is-selected":""}"><span>${selected?idx+1:"+"}</span><small>${esc(p.id)}</small></div>`;
+    const marker=L.marker([Number(p.lat),Number(p.lon)],{
+      icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[42,42],iconAnchor:[21,21]})
+    }).addTo(state.routeMarkers);
+    marker.on("click",ev=>{try{L.DomEvent.stopPropagation(ev)}catch(_){ }toggleRouteControl(p.id)});
+  });
+  ["START","FINISH"].forEach(id=>{
+    const p=byId.get(id);if(!pointPlaced(p))return;
+    const html=`<div class="mpb-map-point ${id==="START"?"is-start":"is-finish"}">${id==="START"?"S":"L"}</div>`;
+    L.marker([Number(p.lat),Number(p.lon)],{
+      icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[32,32],iconAnchor:[16,16]}),
+      interactive:false
+    }).addTo(state.routeMarkers);
+  });
+}
+
 function initRoutesMap(){if(state.step!==6||!state.opened||!globalThis.L)return;const el=$("#mpbRouteMap",state.root);if(!el)return;let center=validWorkCenter()?[Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)]:[40.4168,-3.7038],zoom=Math.max(7,Number(state.draft.mapZoom)||13);const pts=controlOrder().filter(pointPlaced);if(pts.length){center=[Number(pts[0].lat),Number(pts[0].lon)];zoom=15}state.routeMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,bounceAtZoomLimits:false}).setView(center,zoom);state.routeBase=previewLayer();state.routeBase?.addTo?.(state.routeMap);state.routeMarkers=L.layerGroup().addTo(state.routeMap);renderRouteMapContent();if(pts.length){try{state.routeMap.fitBounds(L.latLngBounds(pts.map(p=>[Number(p.lat),Number(p.lon)])),{padding:[38,38],maxZoom:17,animate:false})}catch(_){ }}setTimeout(()=>state.routeMap?.invalidateSize?.(),80)}
 async function saveCurrentRoute(){if(state.routeBusy)return;syncInputs();const api=r2(),per=controlsPerRoute();if(state.routeDraftControls.length!==per){notify(`Selecciona exactamente ${per} balizas.`);return}if(api?.configureManualRoutes?.(routeTargetCount(),per)!==true){notify("No se pudo guardar la configuración de recorridos.");return}state.routeBusy=true;render();try{const result=await api.createManualRoute?.(state.selectedRouteId,state.routeDraftControls);if(!result?.ok){notify(result?.error||"No se pudo guardar el recorrido.");return}saveDraft();notify(`${state.selectedRouteId} guardado correctamente`);const n=Number(state.selectedRouteId.replace(/\D/g,""))||1;if(n<routeTargetCount())loadRouteDraft(routeId(n+1));else loadRouteDraft(state.selectedRouteId)}finally{state.routeBusy=false;render()}}
 
@@ -278,7 +305,7 @@ function open(opts={}){if(!canManage())return false;ensure();const ctx=bridge()?
 function resumeCurrent(){return open({resumeCurrent:true})}
 function close(){destroyMaps();if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-builder-open");state.opened=false}
 
-premium.register("event-builder",Object.freeze({open,resumeCurrent,close,isOpen:()=>state.opened,getDraft:()=>Object.freeze({...state.draft})}),{version:"p2c",purpose:"guided-event-creation-iof-routes"});
+premium.register("event-builder",Object.freeze({open,resumeCurrent,close,isOpen:()=>state.opened,getDraft:()=>Object.freeze({...state.draft})}),{version:"p2c1",purpose:"guided-event-creation-iof-routes-hotfix"});
 globalThis.addEventListener("militopo:v2-auth-ready",e=>{state.auth=e.detail||globalThis.MILITOPO_V2_AUTH||null;if(!canManage())close()});
 globalThis.addEventListener("militopo:v2-orientation-import",e=>{const d=e.detail||{};state.importState={message:d.message||d.stage||"Procesando plano…",state:d.state||"progress"};updateImportStatus();if(d.state==="success"){const c=d.map||activeCustomMap();state.draft.mapLayer="custom";state.draft.customMapId=c?.id||"";state.draft.customMapName=c?.name||d.fileName||"Plano propio";state.draft.customMapFormat=c?.format||"";if(c?.bounds&&globalThis.L){const b=L.latLngBounds(c.bounds),m=b.getCenter();setWorkCenter(m.lat,m.lng,14,true)}saveDraft();if(state.opened&&state.step===2)setTimeout(render,40)}});
 globalThis.addEventListener("militopo:v2-orientation-custom-map",e=>{if(!state.opened||state.step!==2)return;const c=e.detail?.map;if(!c)return;state.draft.customMapId=c.id||"";state.draft.customMapName=c.name||"";state.draft.customMapFormat=c.format||"";saveDraft()});

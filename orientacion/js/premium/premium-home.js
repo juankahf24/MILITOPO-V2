@@ -121,11 +121,35 @@ async function fetchRows(force=false){
   }finally{state.busy=false}
 }
 
+async function getBuilderReady(timeout=1800){
+  const first=premium.get("event-builder");
+  if(first?.open)return first;
+  const started=Date.now();
+  while(Date.now()-started<timeout){
+    await new Promise(resolve=>setTimeout(resolve,60));
+    const builder=premium.get("event-builder");
+    if(builder?.open)return builder;
+  }
+  return null;
+}
+async function openBuilder(options={}){
+  const builder=await getBuilderReady();
+  if(!builder){
+    bridge()?.toast?.("No se ha podido cargar el asistente Premium. Cierra y vuelve a abrir MILITOPO.");
+    console.error("[MILITOPO Premium Home] event-builder no disponible",premium.health?.());
+    return false;
+  }
+  if(options.resumeCurrent&&builder.resumeCurrent)return builder.resumeCurrent();
+  return builder.open(options);
+}
 async function run(action){
   const b=bridge();if(!b)return false;
+  if(action==="create"||action==="builder"){
+    const ok=await openBuilder(action==="create"?{fresh:true}:{resumeCurrent:true});
+    if(ok!==false)close();
+    return ok;
+  }
   if(action!=="map")close();
-  if(action==="create"){const builder=premium.get("event-builder");if(builder?.open)return builder.open();return await b.event.create();}
-  if(action==="builder"){const builder=premium.get("event-builder");if(builder?.resumeCurrent)return builder.resumeCurrent();if(builder?.open)return builder.open({resumeCurrent:true});return b.shell.manager();}
   if(action==="races")return b.shell.races();
   if(action==="map"){close();return b.map.home();}
   if(action==="manager")return b.shell.manager();
@@ -146,7 +170,7 @@ function open(){
 function close(){if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-home-open");state.opened=false}
 function refresh(){if(!state.root)return;renderCurrent();if(state.opened)fetchRows(true)}
 
-premium.register("organizer-home",Object.freeze({open,close,refresh,isOpen:()=>state.opened}),{version:"p2a2",purpose:"role-home-guided-resume"});
+premium.register("organizer-home",Object.freeze({open,close,refresh,isOpen:()=>state.opened}),{version:"p2c1",purpose:"role-home-guided-resume-safe-builder"});
 
 globalThis.addEventListener("militopo:v2-auth-ready",event=>{
   state.auth=event.detail||globalThis.MILITOPO_V2_AUTH||null;
