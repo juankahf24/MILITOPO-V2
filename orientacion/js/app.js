@@ -1,7 +1,7 @@
 /* MILITOPO Orientación · cargador modular seguro fase 2
    No contiene lógica de la app: carga los bloques en orden clásico para mantener compatibilidad. */
 (function(){
-  var VERSION = "v2-premium-p2c4-scroll-location-picker-20261013";
+  var VERSION = "v2-premium-p2c5-p3-itinerary-20261013";
   var files = [
     "js/config/iof-symbols-baked.js",
     "js/core/app-main.js",
