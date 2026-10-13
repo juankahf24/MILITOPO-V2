@@ -7912,6 +7912,11 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
 
         setZipStatus("warn","Añadiendo datos del evento...");
         zip.file("Otros documentos/evento_orientacion.json",JSON.stringify(eventData,null,2));
+        try{
+            const premiumMeta=JSON.parse(localStorage.getItem(`militopo_premium_event_meta_v1:${state.eventId}`)||"null");
+            const premiumDraft=JSON.parse(localStorage.getItem(`militopo_premium_builder_event_draft_v3:${state.eventId}`)||"null");
+            if(premiumMeta||premiumDraft)zip.file("Otros documentos/diseno_premium_militopo.json",JSON.stringify({eventId:state.eventId,eventName:state.eventName,meta:premiumMeta,draft:premiumDraft},null,2));
+        }catch(premiumExportError){console.warn("MILITOPO Premium · datos extra ZIP",premiumExportError)}
         zip.file("Otros documentos/recorridos.pdf",await recorridosPdfBlob());
         zip.file("Otros documentos/balizas.pdf",await balizasPdfBlob());
         zip.file("Otros documentos/registros_offline_base.json",JSON.stringify({eventId:state.eventId,participantNames:state.participantNames||{},logs:state.participantLogs},null,2));
@@ -8096,6 +8101,8 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
     }
 }
 
+
+window.generateZip=generateZip;
 
 function safeJsonClone(value,fallback){
     try{return JSON.parse(JSON.stringify(value))}catch(e){return fallback}
