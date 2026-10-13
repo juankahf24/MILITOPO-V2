@@ -235,3 +235,44 @@ body.militopo-premium-builder-open{overflow:hidden!important}
   .mpb-route-edit-actions{grid-template-columns:1fr}.mpb-route-edit-actions .is-danger{grid-column:auto}
   .mpb-itinerary-map-wrap{min-height:370px;border-radius:19px}.mpb-itinerary-metrics{grid-template-columns:1fr 1fr}.mpb-itinerary-metrics article:last-child{grid-column:1/-1}.mpb-itinerary-actions{grid-template-columns:1fr}
 }
+
+/* P2C6/P2D · ubicación sincronizada, edición estable y Preflight */
+.mpb-search-help{display:block;margin-top:-4px;color:#718078;font-size:8px;line-height:1.4;font-weight:750}
+.mpb-google-preview{display:grid;grid-template-rows:auto minmax(0,1fr);background:#eef2ee}
+.mpb-google-toolbar{position:relative;z-index:2;min-height:44px;padding:7px 9px;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #d5ddd7;background:rgba(255,255,255,.96)}
+.mpb-google-toolbar>span{font-size:7px;letter-spacing:.11em;color:#66756c;font-weight:950}
+.mpb-google-toolbar>div{display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.mpb-google-toolbar button{min-height:30px;padding:6px 9px;border:1px solid #d5ddd7;border-radius:9px;background:#f5f7f5;color:#435249;font-size:7px;font-weight:950;letter-spacing:.03em;cursor:pointer}
+.mpb-google-toolbar button.is-active{background:#173e2b;border-color:#173e2b;color:#fff}
+.mpb-google-preview iframe{width:100%;height:100%;min-height:380px;border:0;display:block;pointer-events:none;user-select:none;-webkit-user-select:none}
+.mpb-google-zoom{font-size:12px!important;line-height:1;padding-inline:10px!important}
+
+.mpb-route-edit-actions button{touch-action:manipulation}
+
+.mpb-itinerary-point.is-anchor{width:28px;height:28px;border-radius:9px;font-size:7px}
+.mpb-itinerary-point.is-manual{width:14px;height:14px;border:2px solid #fff;border-radius:50%;font-size:0;box-shadow:0 2px 7px rgba(0,0,0,.3)}
+.mpb-itinerary-point.is-manual span{display:block;width:4px;height:4px;border-radius:50%;background:#173d2b}
+
+.mpb-preflight-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 22px;border-radius:23px;color:#fff;box-shadow:0 15px 36px rgba(20,62,41,.14);margin-bottom:14px}
+.mpb-preflight-hero.is-ready{background:linear-gradient(135deg,#173e2b,#24583d)}
+.mpb-preflight-hero.is-pending{background:linear-gradient(135deg,#5d4b20,#856726)}
+.mpb-preflight-hero>div{display:grid;gap:4px}.mpb-preflight-hero span{font-size:8px;letter-spacing:.12em;color:#e2e8e4;font-weight:900}.mpb-preflight-hero strong{font-size:19px}.mpb-preflight-hero p{margin:0;color:#eef2ef;font-size:9px;line-height:1.4}.mpb-preflight-hero>b{display:grid;place-items:center;flex:0 0 58px;width:58px;height:58px;border-radius:18px;background:#fff;color:#173e2b;font-size:16px}
+.mpb-preflight-list{display:grid;gap:8px}
+.mpb-preflight-list article{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;padding:12px 13px;border:1px solid #dce4de;border-radius:15px;background:#fff;box-shadow:0 5px 17px rgba(20,45,29,.035)}
+.mpb-preflight-list article>span{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;font-size:12px;font-weight:1000}
+.mpb-preflight-list article.is-ok>span{background:#e6f3e9;color:#286642}.mpb-preflight-list article.is-pending>span{background:#fff1d5;color:#8e6418}
+.mpb-preflight-list article>div{display:grid;gap:2px;min-width:0}.mpb-preflight-list strong{font-size:10px;color:#223128}.mpb-preflight-list small{font-size:8px;color:#78857d;line-height:1.35}
+.mpb-preflight-list article>b{font-size:7px;letter-spacing:.08em;color:#37714c}.mpb-preflight-list button{min-height:34px;padding:7px 10px;border:1px solid #d6a43b;border-radius:10px;background:#fff5dc;color:#7b530e;font-size:7px;font-weight:950;cursor:pointer}
+
+@media(max-width:780px){
+  .mpb-google-toolbar{align-items:flex-start}.mpb-google-toolbar>div{max-width:62%}
+  .mpb-google-preview iframe{min-height:340px}
+  .mpb-preflight-list article{grid-template-columns:32px minmax(0,1fr)}
+  .mpb-preflight-list article>b,.mpb-preflight-list article>button{grid-column:2;justify-self:start}
+}
+@media(max-width:430px){
+  .mpb-google-toolbar>span{max-width:34%;line-height:1.25}.mpb-google-toolbar button{padding:6px 7px}
+  .mpb-preflight-hero{padding:16px}.mpb-preflight-hero>b{width:50px;height:50px;flex-basis:50px;border-radius:15px;font-size:14px}
+}
+.mpb-google-preview iframe{position:static!important;inset:auto!important;min-height:380px!important}
+.mpb-google-preview:after{display:none!important;content:none!important}
