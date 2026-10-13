@@ -185,3 +185,53 @@ body.militopo-premium-builder-open{overflow:hidden!important}
   .mpb-google-preview{min-height:300px;border-radius:19px}
   .mpb-location-map-hint{bottom:10px;font-size:7px;padding:8px 10px}
 }
+
+/* P2C5/P3 · claridad de bloqueo, edición de recorridos e itinerario real */
+.mpb-flow-next.is-locked{background:linear-gradient(145deg,#e7ece8,#d5ddd7);border-color:#c6d0c9;color:#657269;box-shadow:none}
+.mpb-flow-next.is-locked span{background:#c8d2cb;color:#405048}
+.mpb-flow-blocker{grid-column:1/-1;padding:12px 14px;border:1px solid #e3bf71;border-radius:14px;background:#fff8e8;color:#5d450d;display:grid;gap:4px}
+.mpb-flow-blocker strong{font-size:8px;letter-spacing:.11em;color:#996b10}
+.mpb-flow-blocker span{font-size:10px;line-height:1.4;font-weight:750}
+
+.mpb-route-edit-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mpb-route-edit-actions button,.mpb-itinerary-actions button{min-height:38px;border:1px solid #d5ded7;border-radius:11px;background:#f5f7f5;color:#425149;padding:7px 8px;font-size:7.5px;font-weight:950;letter-spacing:.025em;cursor:pointer}
+.mpb-route-edit-actions button:hover:not(:disabled),.mpb-itinerary-actions button:hover:not(:disabled){background:#edf3ee;border-color:#c6d5ca}
+.mpb-route-edit-actions button.is-danger{background:#fff0ed;border-color:#e4bbb4;color:#8d3f35}
+.mpb-route-edit-actions button:disabled,.mpb-itinerary-actions button:disabled{opacity:.42;cursor:not-allowed}
+.mpb-route-edit-help,.mpb-itinerary-help{display:block;margin:0;color:#6f7c74;font-size:8px;line-height:1.45;font-weight:700}
+
+.mpb-itinerary-layout{display:grid;grid-template-columns:minmax(340px,.82fr) minmax(500px,1.18fr);gap:16px;align-items:start}
+.mpb-itinerary-panel{padding:16px;display:grid;gap:12px}
+.mpb-itinerary-route-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.mpb-itinerary-route-list button{min-height:48px;border:1px solid #dce4de;border-radius:12px;background:#f8faf8;color:#526159;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;font-size:8px;font-weight:950}
+.mpb-itinerary-route-list button span{display:grid;place-items:center;width:24px;height:24px;border-radius:8px;background:#e8ede9;font-size:7px}
+.mpb-itinerary-route-list button.is-selected{background:#fff5dc;border-color:#d9a02b;color:#7b530e;box-shadow:inset 0 0 0 1px #e1b14e}
+.mpb-itinerary-route-list button.is-complete span{background:#2f7048;color:#fff}
+.mpb-itinerary-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.mpb-itinerary-metrics article{padding:11px 9px;border:1px solid #dfe6e1;border-radius:13px;background:#fff;display:grid;gap:3px}
+.mpb-itinerary-metrics small{font-size:6.5px;letter-spacing:.08em;color:#7f8b84;font-weight:950}
+.mpb-itinerary-metrics strong{font-size:12px;color:#203128}
+.mpb-itinerary-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mpb-itinerary-map-wrap{position:relative;min-height:560px;border:1px solid #cfd9d1;border-radius:24px;overflow:hidden;background:#dfe6e1;box-shadow:var(--mpb-shadow)}
+.mpb-itinerary-map{position:absolute;inset:0}
+.mpb-itinerary-point{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;border:2px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.28);font-size:8px;font-weight:1000}
+.mpb-itinerary-point.is-anchor{background:#173d2b;color:#fff}
+.mpb-itinerary-point.is-manual{background:#dda42f;color:#17251b;border-radius:50%}
+.mpb-map-badge-bottom{top:auto!important;bottom:14px!important;left:14px!important}
+
+/* Google queda como referencia visual; el punto se fija con un toque en el selector MILITOPO superior. */
+.mpb-google-preview iframe{pointer-events:none;-webkit-user-select:none;user-select:none}
+.mpb-google-preview:after{content:"GOOGLE MAPS · REFERENCIA";position:absolute;right:10px;top:10px;z-index:3;padding:7px 9px;border-radius:10px;background:rgba(255,255,255,.9);color:#4f5d55;border:1px solid rgba(32,49,40,.12);font-size:7px;font-weight:950;letter-spacing:.07em;pointer-events:none}
+
+@media(max-width:1050px){.mpb-itinerary-layout{grid-template-columns:minmax(330px,.9fr) minmax(400px,1.1fr)}}
+@media(max-width:780px){
+  .mpb-progress{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .mpb-route-edit-actions{grid-template-columns:1fr 1fr}.mpb-route-edit-actions .is-danger{grid-column:1/-1}
+  .mpb-itinerary-layout{grid-template-columns:1fr}.mpb-itinerary-map-wrap{order:-1;min-height:420px}.mpb-itinerary-route-list{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:430px){
+  .mpb-progress{grid-template-columns:repeat(3,minmax(0,1fr))!important}.mpb-progress button{min-height:43px!important}.mpb-progress-copy b{font-size:6.3px!important}
+  .mpb-flow-blocker{padding:10px 11px}.mpb-flow-blocker span{font-size:8.5px}
+  .mpb-route-edit-actions{grid-template-columns:1fr}.mpb-route-edit-actions .is-danger{grid-column:auto}
+  .mpb-itinerary-map-wrap{min-height:370px;border-radius:19px}.mpb-itinerary-metrics{grid-template-columns:1fr 1fr}.mpb-itinerary-metrics article:last-child{grid-column:1/-1}.mpb-itinerary-actions{grid-template-columns:1fr}
+}
