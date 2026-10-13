@@ -754,8 +754,8 @@
     const title=ready.ready?(status==="draft"?"DISEÑO LISTO PARA PREPARAR":"DISEÑO COMPLETO"):"PREPARACIÓN PENDIENTE";
     const subtitle=ready.ready?(status==="draft"?"La estructura básica está completa. Revisa ESTADO Y PUBLICACIÓN para pasar a PREPARADO.":"La estructura cartográfica obligatoria está completa."):`${ready.done}/${ready.total} bloques básicos completados antes de preparar la carrera.`;
     const action=ready.ready?"lifecycle":(firstPending?.key||"config");
-    const smartAction=action==="map"?"complete-map":action==="routes"?"complete-routes":action;
-    const actionLabel=ready.ready?(status==="draft"?"REVISAR ESTADO Y PUBLICACIÓN":"VER ESTADO"):(action==="routes"?"COMPLETAR RECORRIDOS":action==="map"?"COMPLETAR MAPA":"REVISAR CONFIGURACIÓN");
+    const smartAction=ready.ready?action:"builder";
+    const actionLabel=ready.ready?(status==="draft"?"REVISAR ESTADO Y PUBLICACIÓN":"VER ESTADO"):"CONTINUAR ASISTENTE";
     return `<section class="r3-readiness ${ready.ready?"is-ready":"is-pending"}" aria-label="Preparación de carrera">
       <div class="r3-readiness-head"><div><span>CONTROL DE PREPARACIÓN</span><strong>${title}</strong><small>${subtitle}</small></div><b>${ready.done}/${ready.total}</b></div>
       <div class="r3-readiness-list">${ready.items.map(item=>{const itemAction=!item.ok&&item.key==="map"?"complete-map":!item.ok&&item.key==="routes"?"complete-routes":item.key;return `<button type="button" class="r3-readiness-item ${item.ok?"is-ok":"is-warn"}" data-r3-manager-action="${itemAction}"><i>${item.ok?"✓":"!"}</i><span><strong>${item.title}</strong><small>${item.detail}</small></span><em>›</em></button>`}).join("")}</div>
@@ -833,7 +833,20 @@
   }
   function openManagerStep(step,title){state.managerModuleTitle=title;return openStep(step,title)}
   function openManagerInjected(ids,title,step=1){state.managerModuleTitle=title;return openInjected(ids,title,step)}
+  function openPremiumBuilderFromManager(step){
+    const builder=window.MILITOPO_PREMIUM?.get?.("event-builder");
+    if(builder?.open){
+      const opts={resumeCurrent:true};
+      if(Number.isFinite(Number(step)))opts.step=Number(step);
+      return builder.open(opts);
+    }
+    safeCall("toast","No se ha podido cargar el asistente Premium. Cierra y vuelve a abrir MILITOPO.");
+    console.error("[MILITOPO Manager] event-builder no disponible",window.MILITOPO_PREMIUM?.health?.());
+    return false;
+  }
   function runManagerAction(action){
+    if(action==="builder")return openPremiumBuilderFromManager();
+    if(action==="config"&&["draft","prepared"].includes(String(currentLifecycleStatus()).toLowerCase()))return openPremiumBuilderFromManager(1);
     state.managerOpen=false;
     if(action==="races"){closeWorkspace(true);setTimeout(openRaces,60);return}
     if(action==="complete-map")return openMapForMissing();
