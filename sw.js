@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-r5e4-rechazo-servidor-asignadas-20261006";
+const BUILD_ID="v2-premium-p2c-safe-sw-20261013";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -122,8 +122,8 @@ function isAppCode(url,req){
 
 self.addEventListener("install",event=>{
   /* I4: si existe una carrera activa, ni siquiera instalamos la nueva versión.
-     Si no existe, la nueva versión se activa automáticamente para que una simple
-     recarga/cierre-apertura sea suficiente y no haga falta borrar caché. */
+     Si no existe, la nueva versión se instala y queda en espera hasta que el
+     navegador pueda activarla de forma segura o el cliente lo solicite manualmente. */
   event.waitUntil((async()=>{
     const lock=await activeRaceUpdateLock();
     if(lock)throw new Error(`MILITOPO_UPDATE_DEFERRED_ACTIVE_RACE:${lock.eventId}:${lock.runId}`);
@@ -135,10 +135,8 @@ self.addEventListener("install",event=>{
        realmente consulta el fetch handler. Así un dispositivo que ya abrió MILITOPO
        online puede volver a arrancar el núcleo V2 sin descargar gstatic de nuevo. */
     await Promise.allSettled(REMOTE_ASSETS.map(u=>cacheRemote(runtime,u)));
-    /* Fuera de una carrera activa, la versión nueva pasa a ser la siguiente
-       controladora inmediatamente. La página actual no se recarga sola: basta
-       una recarga/cierre-apertura para entrar ya en la nueva versión. */
-    await self.skipWaiting();
+    /* No se usa skipWaiting() automáticamente. Esto evita sustituir al SW activo
+       durante una sesión abierta. La activación manual compatible se conserva abajo. */
   })());
 });
 
