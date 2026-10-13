@@ -11416,6 +11416,114 @@ function militopoR2OnPointGeometryChanged(pointId){
         try{window.dispatchEvent(new CustomEvent("militopo:r2-elevation-updated",{detail:{pointId:id,info}}))}catch(_){}
     }).catch(error=>console.warn("R2G · actualización de cota",error));
 }
+
+/* PREMIUM P2B/P2C · API estable para descripciones IOF y recorridos manuales.
+   El asistente Premium usa exactamente el mismo estado legacy que los PDF,
+   evitando duplicar estructuras o perder compatibilidad con eventos existentes. */
+function militopoPremiumIofModel(id){
+    ensureIofDescriptions();
+    id=String(id||"");
+    const point=state.points?.[id]||null;
+    if(!point)return null;
+    const desc=state.iofDescriptions[id]||{};
+    const fValue=effectiveIofFValue(desc);
+    const optionModel=field=>{
+        const source=field==="e"?iofEOptionsForPoint(id):(IOF_OPTIONS[field]||[]);
+        const symbolGroup=field==="e"&&iofEUsesDOptions(desc)?"d":field;
+        return source.map(([value,label])=>({
+            value:String(value||""),
+            label:iofOptionLabel(symbolGroup,value),
+            text:iofOptionTextOnly(symbolGroup,value),
+            symbol:iofSymbol(symbolGroup,value)
+        }));
+    };
+    const base=pointBaseStatus(id);
+    return {
+        id,
+        type:String(point.type||""),
+        kind:id==="START"?"SALIDA":id==="FINISH"?"LLEGADA":"BALIZA",
+        placed:base.latLonOk===true,
+        baseOk:base.ok===true,
+        missing:[...(base.missing||[])],
+        complete:isIofComplete(id),
+        description:{
+            c:String(desc.c||""),d:String(desc.d||""),e:String(desc.e||""),
+            f:String(fValue||""),g:String(desc.g||""),h:String(desc.h||""),
+            combo:String(desc.combo||""),text:String(desc.text||point.desc||"")
+        },
+        previewHtml:iofPreviewCells(id),
+        readableText:buildIofDescriptionText(id),
+        options:{c:optionModel("c"),d:optionModel("d"),e:optionModel("e"),f:optionModel("f"),g:optionModel("g"),h:optionModel("h")}
+    };
+}
+function militopoPremiumIofSummary(){
+    ensureIofDescriptions();
+    const ids=iofPointIds();
+    const complete=ids.filter(isIofComplete);
+    return {total:ids.length,complete:complete.length,pending:ids.filter(id=>!isIofComplete(id)),allComplete:ids.length>0&&complete.length===ids.length};
+}
+function militopoPremiumUpdateIof(id,field,value){
+    if(rejectProtectedRaceMutation("editar descripciones IOF"))return {ok:false,error:"Carrera bloqueada"};
+    id=String(id||"");field=String(field||"");
+    if(!state.points?.[id])return {ok:false,error:"Punto no disponible"};
+    if(!["c","d","e","f","g","h","text"].includes(field))return {ok:false,error:"Campo IOF no válido"};
+    updateIofDescription(id,field,String(value??""));
+    try{publishMilitopoCloudStructure("premium-iof-update")}catch(_){ }
+    try{window.dispatchEvent(new CustomEvent("militopo:premium-iof-updated",{detail:{pointId:id,field}}))}catch(_){ }
+    return {ok:true,model:militopoPremiumIofModel(id),summary:militopoPremiumIofSummary()};
+}
+function militopoPremiumSetIofComplete(id,complete=true){
+    if(rejectProtectedRaceMutation("editar descripciones IOF"))return {ok:false,error:"Carrera bloqueada"};
+    ensureIofDescriptions();id=String(id||"");
+    if(!state.points?.[id])return {ok:false,error:"Punto no disponible"};
+    const base=pointBaseStatus(id);
+    if(complete&&!base.ok)return {ok:false,error:`${id} pendiente: falta ${(base.missing||[]).join(", ")}`};
+    state.iofDescriptions[id]={...(state.iofDescriptions[id]||{}),complete:complete===true};
+    try{renderIofDescriptionsEditor()}catch(_){ }
+    saveState();
+    try{publishMilitopoCloudStructure(complete?"premium-iof-complete":"premium-iof-pending")}catch(_){ }
+    try{window.dispatchEvent(new CustomEvent("militopo:premium-iof-updated",{detail:{pointId:id,complete:complete===true}}))}catch(_){ }
+    return {ok:true,model:militopoPremiumIofModel(id),summary:militopoPremiumIofSummary()};
+}
+function militopoR2ConfigureManualRoutes(routeCount,controlsPerRoute){
+    if(rejectProtectedRaceMutation("configurar recorridos"))return false;
+    const available=getAvailableControls().length;
+    const nextRoutes=Math.max(1,Math.min(30,Math.max(1,Number(state.participantCount)||1),Math.trunc(Number(routeCount)||1)));
+    const nextControls=Math.max(1,Math.min(Math.max(1,available),Math.trunc(Number(controlsPerRoute)||1)));
+    state.maxUniqueRoutes=nextRoutes;
+    state.controlsPerRoute=nextControls;
+    const routesEl=document.getElementById("maxUniqueRoutes");if(routesEl)routesEl.value=String(nextRoutes);
+    const controlsEl=document.getElementById("controlsPerRoute");if(controlsEl)controlsEl.value=String(nextControls);
+    saveState();
+    try{publishMilitopoCloudStructure("premium-route-config")}catch(_){ }
+    return true;
+}
+function militopoR2DeleteManualRoute(routeId){
+    if(rejectProtectedRaceMutation("eliminar un recorrido"))return false;
+    routeId=String(routeId||"").trim().toUpperCase();
+    let designs=militopoR2ManualDesignSnapshots();
+    if(!designs.some(d=>d.routeId===routeId))return true;
+    designs=designs.filter(d=>d.routeId!==routeId);
+    if(!designs.length){
+        state.routes=[];state.metrics=[];state.uniqueRouteCount=0;state.routeWarnings=[];state.routeQualitySummary={};
+    }else{
+        const designIndex=new Map(designs.map((d,i)=>[d.routeId,i]));
+        const count=Math.max(1,Number(state.participantCount)||1);
+        state.routes=Array.from({length:count},(_,i)=>{
+            const participantId="P"+String(i+1).padStart(2,"0"),chosen=designs[i%designs.length];
+            return {participantId,routeId:chosen.routeId,routeDesignIndex:designIndex.get(chosen.routeId)||0,points:[...chosen.points]};
+        });
+        state.metrics=state.routes.map(r=>JSON.parse(JSON.stringify(designs[designIndex.get(r.routeId)]?.metrics||{})));
+        state.uniqueRouteCount=designs.length;state.routeWarnings=[];
+        designs.forEach(d=>{const m=d.metrics||{};if(Number(m.overMaxLegs||0)>0)state.routeWarnings.push(`${d.routeId}: revisa tramos superiores al objetivo de 800 m.`);if(Number(m.shortControlLegs||0)>0)state.routeWarnings.push(`${d.routeId}: contiene ${m.shortControlLegs} tramo(s) entre balizas por debajo de 200 m.`);});
+        assignBalancedDifficulties(state.metrics);state.routeQualitySummary=buildRouteQualitySummary(state.metrics);
+    }
+    try{renderRoutes()}catch(_){ }try{renderQrPreview()}catch(_){ }try{updateParticipantSelect()}catch(_){ }try{updateRouteCountInfo()}catch(_){ }
+    saveState();try{publishMilitopoCloudStructure("premium-route-delete")}catch(_){ }
+    militopoR2ClearSavedRoute();militopoR2NotifyRouteUi("","route-deleted");
+    return true;
+}
+
 window.MILITOPO_R2_BRIDGE={
     getSnapshot(){
         const points=Object.values(state.points||{}).map(p=>({id:String(p.id||""),type:String(p.type||""),desc:String(p.desc||""),lat:(p.lat!==null&&p.lat!==""&&Number.isFinite(Number(p.lat)))?Number(p.lat):null,lon:(p.lon!==null&&p.lon!==""&&Number.isFinite(Number(p.lon)))?Number(p.lon):null,utm:String(p.utm||"")}));
@@ -11424,6 +11532,12 @@ window.MILITOPO_R2_BRIDGE={
         const uniqueRoutes=[...new Set((state.routes||[]).map(r=>String(r.routeId||"")).filter(Boolean))];
         return {eventId:String(state.eventId||""),eventName:String(state.eventName||""),selectedPointId:String(selectedPointId||""),points,placed,total:points.length,controls,controlsPlaced:controls.filter(p=>p.lat!==null&&p.lon!==null).length,controlsPerRoute:Math.max(1,Number(state.controlsPerRoute)||1),participantCount:Math.max(1,Number(state.participantCount)||1),routeCount:uniqueRoutes.length,routeIds:uniqueRoutes,maxUniqueRoutes:Math.max(1,Number(state.maxUniqueRoutes)||30),locked:!!currentMilitopoCloudDesignLock()};
     },
+    getIofModel(id){return militopoPremiumIofModel(id);},
+    getIofSummary(){return militopoPremiumIofSummary();},
+    updateIof(id,field,value){return militopoPremiumUpdateIof(id,field,value);},
+    setIofComplete(id,complete=true){return militopoPremiumSetIofComplete(id,complete);},
+    configureManualRoutes(routeCount,controlsPerRoute){return militopoR2ConfigureManualRoutes(routeCount,controlsPerRoute);},
+    deleteManualRoute(routeId){return militopoR2DeleteManualRoute(routeId);},
     selectPoint(id){if(!state.points?.[id])return false;selectPoint(String(id));return true;},
     configureControls(count){
         if(rejectProtectedRaceMutation("cambiar el número de balizas"))return false;
