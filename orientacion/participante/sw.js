@@ -1,12 +1,12 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-r1r2-mode-hub-20261018";
+const CACHE_NAME="militopo-v2-participante-r4-profile-20261019";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
-  "./runner-mode-switch.css?v=militopo-r1r2-modos-20261018",
+  "./runner-mode-switch.css?v=militopo-r4-profile-20261019",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
-  "./runner-home-v4.js?v=militopo-r1r2-modos-20261018","./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=v2-r9n-provisional-classification-20261011","./runner-r9m-responsive.js?v=v2-r9m-runner-responsive-20261011",
+  "./runner-home-v4.js?v=militopo-r4-profile-20261019","./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=v2-r9n-provisional-classification-20261011","./runner-r9m-responsive.js?v=v2-r9m-runner-responsive-20261011",
   "../../js/v2/firebase-config.js","../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",

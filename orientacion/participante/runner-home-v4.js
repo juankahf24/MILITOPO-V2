@@ -6,7 +6,7 @@ import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
   onAuthStateChanged,signOut,updateProfile
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, updateDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, collection, query, where, onSnapshot, updateDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import { openProfilePhotoMenu, openProfilePhotoViewer } from "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
@@ -121,7 +121,26 @@ async function enableOrganizerModeIfAuthorized(user){
        vuelve a pasar por Auth/Firestore y sus reglas reales. */
     if(claim!=="organizer"&&claim!=="super_admin")return;
     button.hidden=false;
+    void loadOrganizerSummaryForRunner(user);
   }catch(error){console.warn("MILITOPO modo organizador: no se pudo verificar el rol",error)}
+}
+
+async function loadOrganizerSummaryForRunner(user){
+  const node=document.getElementById("rhOrganizerProfileSummary"),stats=document.getElementById("rhOrganizerSummaryStats"),statusNode=document.getElementById("rhOrganizerSummaryStatus");
+  if(!node||!stats||!statusNode||!user?.uid||!currentApp)return;
+  node.hidden=false;
+  statusNode.textContent="Consultando tus carreras organizadas…";
+  stats.replaceChildren();
+  document.getElementById("rhOrganizerSummaryGo")?.addEventListener("click",()=>document.getElementById("rhSwitchOrganizer")?.click(),{once:true});
+  try{
+    if(navigator.onLine===false)throw new Error("Sin conexión. Los datos se actualizarán al volver a estar en línea.");
+    const db=getFirestore(currentApp),rows=await getDocs(query(collection(db,"events"),where("ownerUid","==",user.uid)));
+    if(currentUser?.uid!==user.uid)return;
+    const totals={draft:0,published:0,live:0,finished:0};
+    rows.forEach(row=>{const data=row.data()||{};if(String(data.kind||"orientation")!=="orientation")return;const s=String(data.status||"draft").toLowerCase();if(s==="draft"||s==="prepared")totals.draft++;if(s==="published")totals.published++;if(s==="live")totals.live++;if(s==="finished"||s==="archived")totals.finished++;});
+    stats.innerHTML=[[totals.draft,"PREPARACIÓN"],[totals.published,"PUBLICADAS"],[totals.live,"EN DIRECTO"],[totals.finished,"FINALIZADAS"]].map(([n,label])=>`<div><strong>${n}</strong><small>${label}</small></div>`).join("");
+    statusNode.textContent="Datos de tus carreras organizadas en Firebase.";
+  }catch(error){if(currentUser?.uid!==user.uid)return;statusNode.textContent=String(error?.message||"No se pudo consultar la actividad de organización.");}
 }
 
 function statusES(s){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"ARCHIVADA",incomplete:"INCOMPLETA",not_started:"NO SALIÓ"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();}
