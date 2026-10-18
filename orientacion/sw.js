@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-premium-p2c9-confirm-location-20261018";
+const BUILD_ID="v2-premium-p2c10-map-symbols-refresh-20261018";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -16,18 +16,18 @@ const CORE_ASSETS=[
   "./css/r9o-final-polish.css?v=r9o-final-20261011",
   "./css/premium-base.css?v=premium-p0a-20261011",
   "./css/premium-home.css?v=premium-p2a1-plan-first-20261011",
-  "./css/premium-builder.css?v=premium-p2c8-location-routes-zip-20261018",
-  "./js/app.js?v=premium-p2c8-location-routes-zip-20261018",
-  "./js/ui/r1-shell.js?v=premium-p2c8-location-routes-zip-20261018",
+  "./css/premium-builder.css?v=premium-p2c10-map-symbols-refresh-20261018",
+  "./js/app.js?v=premium-p2c10-map-symbols-refresh-20261018",
+  "./js/ui/r1-shell.js?v=premium-p2c10-map-symbols-refresh-20261018",
   "./js/ui/r8-super-admin.js?v=r9l-admin-restaurado-20261011",
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=premium-p2b-controls-20261012",
-  "./js/premium/premium-builder.js?v=premium-p2c9-confirm-location-20261018",
-  "./js/premium/premium-home.js?v=premium-p2c8-location-routes-zip-20261018",
+  "./js/premium/premium-builder.js?v=premium-p2c10-map-symbols-refresh-20261018",
+  "./js/premium/premium-home.js?v=premium-p2c10-map-symbols-refresh-20261018",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
-  "./js/core/app-main.js?v=v2-premium-p2c8-location-routes-zip-20261018",
+  "./js/core/app-main.js?v=v2-premium-p2c10-map-symbols-refresh-20261018",
   "./js/pdf/pdf-professional.js?v=v2-r2k-compass-direct-img-20261003",
   "./js/results/results-v16.js?v=v2-r2k-compass-direct-img-20261003",
   "./js/results/results-classification-fix.js?v=v2-r2k-compass-direct-img-20261003",
@@ -141,18 +141,18 @@ self.addEventListener("fetch",event=>{
     const isNav=same&&req.mode==="navigate";
 
     if(same&&isAppCode(url,req)){
-      const hit=await matchIn(MILITOPO_CACHE,req);
-      if(hit)return hit;
-      if(isNav){
-        const shell=(await matchIn(MILITOPO_CACHE,new Request("./index.html")))||(await matchIn(MILITOPO_CACHE,new Request("./")));
-        if(shell)return shell;
-      }
       try{
         const r=await fetch(new Request(req,{cache:"no-store"}));
         if(r&&r.ok&&r.status!==206)await cache.put(req,r.clone());
         return r;
       }catch(_){
-        if(isNav)return new Response("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO offline</title><body style='font-family:monospace;background:#10190b;color:#f5e6c8;padding:24px'><h1>MILITOPO sin cobertura</h1><p>La shell de Orientación no está completa en este dispositivo. Conecta una vez para completar la instalación.</p></body>",{headers:{"Content-Type":"text/html;charset=utf-8"}});
+        const hit=await matchIn(MILITOPO_CACHE,req);
+        if(hit)return hit;
+        if(isNav){
+          const shell=(await matchIn(MILITOPO_CACHE,new Request("./index.html")))||(await matchIn(MILITOPO_CACHE,new Request("./")));
+          if(shell)return shell;
+          return new Response("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO offline</title><body style='font-family:monospace;background:#10190b;color:#f5e6c8;padding:24px'><h1>MILITOPO sin cobertura</h1><p>La shell de Orientación no está completa en este dispositivo. Conecta una vez para completar la instalación.</p></body>",{headers:{"Content-Type":"text/html;charset=utf-8"}});
+        }
         return new Response("",{status:503,statusText:"Offline"});
       }
     }
