@@ -344,7 +344,10 @@
     state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
     state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view","r4-live-view","r4-analysis-view");if(body)body.innerHTML=""}document.body.style.overflow="";
     document.body.classList.remove("r1-workspace-open");state.mapHome=!!returnToMap;
-    if(returnToMap){safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;setTimeout(()=>window.MILITOPO_R2_MAP_HOME?.activate?.(),35)}
+    if(returnToMap&&document.body.classList.contains("mor-organizer-shell")){
+      state.mapHome=false;
+      setTimeout(()=>window.MILITOPO_PREMIUM?.get?.("organizer-home")?.open?.(),60);
+    }else if(returnToMap){safeCall("goStep",2,{noScroll:true,silent:true});state.currentStep=2;setTimeout(()=>window.MILITOPO_R2_MAP_HOME?.activate?.(),35)}
     setTimeout(()=>{window.dispatchEvent(new Event("resize"));refreshContext()},60);
   }
   function showMapHome(){closeMore();closeWorkspace(true);window.scrollTo({top:0,behavior:"auto"});}
