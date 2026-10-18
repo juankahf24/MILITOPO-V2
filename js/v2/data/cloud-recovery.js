@@ -741,7 +741,7 @@ MILITOPO guardará primero una copia duradera del evento que tengas abierto en e
     title: reuse ? "REUTILIZAR CARRERA" : "ABRIR CARRERA",
     confirmText: reuse ? "CREAR COPIA" : "CONTINUAR"
   });
-  if (!ok) { state.openResultsAfterRecover = ""; state.reuseAfterRecover = ""; return; }
+  if (!ok) { state.openResultsAfterRecover = ""; state.reuseAfterRecover = ""; return false; }
 
   state.busy = true;
   state.list?.querySelectorAll("button").forEach(button => { button.disabled = true; });
@@ -757,10 +757,12 @@ MILITOPO guardará primero una copia duradera del evento que tengas abierto en e
     }));
     paintStatus(`☁️ Aplicando ${eventId} en el organizador…`, "warn");
     closeOverlay();
+    return true;
   } catch (error) {
     console.error("[MILITOPO C3] recover", error);
     paintStatus(`⚠️ ${error?.message || "No se pudo recuperar el evento."} El evento local sigue intacto.`, "warn");
     state.list?.querySelectorAll("button").forEach(button => { button.disabled = false; });
+    return false;
   } finally {
     state.busy = false;
   }
@@ -809,6 +811,12 @@ function onApplied(event) {
 }
 
 globalThis.MILITOPO_V2_ORGANIZER_CENTER = Object.freeze({
+  recoverDirect: async (eventId) => {
+    if (!canManage()) return false;
+    if (!state.events.some(row => row.eventId === String(eventId))) await loadEventList();
+    if (!state.events.some(row => row.eventId === String(eventId))) throw new Error("La carrera no está disponible para tu cuenta.");
+    return recoverEvent(String(eventId));
+  },
   open: (options = {}) => openCloudPicker(true, options),
   refresh: () => openCloudPicker(false, { returnToAdmin:state.adminReturn }),
   close: closeOverlay
