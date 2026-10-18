@@ -8087,12 +8087,12 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         setTimeout(hideZipProgress,1500);
         setZipStatus("ok",`ZIP generado correctamente. QR participantes: ${participantQrCount}. QR balizas: ${controlQrCount}.${skippedMaterialCount?` Reservas/descartados incluidos: ${skippedMaterialCount}.`:""}`);
         saveState();
-        toast("ZIP generado");return {ok:true,filename};
+        if(!globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__)toast("ZIP generado");return {ok:true,filename};
     }catch(err){
         console.error("Error generando ZIP:",err);
         updateZipProgress(1,1,"Error generando ZIP");
         setZipStatus("err",`Error generando ZIP: ${err&&err.message?err.message:err}`);
-        toast("Error generando ZIP");return {ok:false,error:String(err?.message||err)};
+        if(!globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__)toast("Error generando ZIP");return {ok:false,error:String(err?.message||err)};
     }finally{
         if(previousButton){
             previousButton.disabled=false;
