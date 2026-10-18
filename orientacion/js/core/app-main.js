@@ -7881,12 +7881,12 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
 
         if(!state.routes || !state.routes.length){
             setZipStatus("warn","Genera primero los recorridos.");
-            return toast("Genera primero los recorridos");
+            toast("Genera primero los recorridos");return {ok:false,error:"Genera primero los recorridos"};
         }
 
         if(typeof JSZip==="undefined"){
             setZipStatus("err","No se pudo cargar JSZip. Recarga la página y vuelve a intentarlo.");
-            return toast("JSZip no cargado");
+            toast("JSZip no cargado");return {ok:false,error:"JSZip no cargado"};
         }
 
         if(previousButton){
@@ -7897,7 +7897,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         const materialRoutes=state.routes||[];
         if(!materialRoutes.length){
             setZipStatus("warn","No hay recorridos para generar.");
-            return toast("No hay recorridos");
+            toast("No hay recorridos");return {ok:false,error:"No hay recorridos"};
         }
         const skippedMaterialCount=typeof skippedRoutesList==="function"?skippedRoutesList().length:0;
 
@@ -8087,12 +8087,12 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         setTimeout(hideZipProgress,1500);
         setZipStatus("ok",`ZIP generado correctamente. QR participantes: ${participantQrCount}. QR balizas: ${controlQrCount}.${skippedMaterialCount?` Reservas/descartados incluidos: ${skippedMaterialCount}.`:""}`);
         saveState();
-        toast("ZIP generado");
+        toast("ZIP generado");return {ok:true,filename};
     }catch(err){
         console.error("Error generando ZIP:",err);
         updateZipProgress(1,1,"Error generando ZIP");
         setZipStatus("err",`Error generando ZIP: ${err&&err.message?err.message:err}`);
-        toast("Error generando ZIP");
+        toast("Error generando ZIP");return {ok:false,error:String(err?.message||err)};
     }finally{
         if(previousButton){
             previousButton.disabled=false;
