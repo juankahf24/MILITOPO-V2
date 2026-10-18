@@ -11,7 +11,7 @@ const $=(sel,root=document)=>root.querySelector(sel);
 
 function esc(value){return String(value??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
 function role(){return String(state.auth?.role||globalThis.MILITOPO_V2_AUTH?.role||"").toLowerCase()}
-function canManage(){return Boolean(state.auth?.uid&&MANAGER_ROLES.has(role()))}
+function canManage(){return Boolean(state.auth?.uid&&state.auth?.emailVerified&&MANAGER_ROLES.has(role()))}
 function bridge(){return premium.get("legacy-bridge")}
 function current(){return bridge()?.shell?.current?.()||Object.freeze({})}
 function statusLabel(status){return STATUS_LABELS[String(status||"draft").toLowerCase()]||"BORRADOR"}
@@ -41,22 +41,23 @@ function ensure(){
   const root=document.createElement("section");
   root.className="mpp-home";root.id="militopoPremiumHome";root.setAttribute("aria-label","Inicio MILITOPO");
   root.innerHTML=`<div class="mpp-home-scroll"><div class="mpp-home-inner">
-    <div class="mpp-home-hero">
-      <article class="mpp-home-lead">
-        <div><div class="mpp-eyebrow">MILITOPO · CENTRO DE CARRERAS</div><h1>Organiza sin perderte.</h1><p>Crea, prepara y opera una carrera desde un único punto. MILITOPO te muestra lo importante y deja el detalle para cuando lo necesitas.</p></div>
-        <div class="mpp-home-actions" data-mpp-actions></div>
-      </article>
+    <header class="mpp-r2-header"><div class="mpp-r2-heading"><span>MILITOPO · ORGANIZADOR</span><h1>Centro de carreras</h1><small>Crea, publica y dirige desde un solo lugar.</small></div>
+      <div class="mpp-r2-header-tools"><button type="button" data-mpp-action="profile">MI PERFIL</button><button type="button" class="is-gold" data-mpp-action="mode-choice">CAMBIAR MODO ↗</button></div></header>
+    <div class="mpp-home-hero mpp-home-hero-r2">
       <article class="mpp-home-current" data-mpp-current></article>
+      <article class="mpp-home-lead"><div><div class="mpp-eyebrow">LO SIGUIENTE PARA TU CARRERA</div><h2>Todo bajo control.</h2><p>El siguiente paso cambia según el estado de tu carrera. Sin menús duplicados ni configuraciones innecesarias.</p></div><div class="mpp-home-actions" data-mpp-actions></div></article>
     </div>
     <section class="mpp-home-section">
-      <div class="mpp-section-title"><h2>TUS CARRERAS</h2><span data-mpp-sync>Preparando resumen…</span></div>
+      <div class="mpp-section-title"><h2>Mis carreras</h2><span data-mpp-sync>Preparando resumen…</span></div>
       <div class="mpp-stats" data-mpp-stats></div>
     </section>
     <section class="mpp-home-section">
-      <div class="mpp-section-title"><h2>ACCESOS RÁPIDOS</h2><span>Solo lo que necesitas ahora</span></div>
+      <div class="mpp-section-title"><h2>Centro de operaciones</h2><span>Herramientas según tu carrera</span></div>
       <div class="mpp-quick" data-mpp-quick></div>
     </section>
-    <div class="mpp-home-foot"><span><b>PREMIUM P1</b> · Home contextual</span><span>Mapa, carrera y herramientas siguen disponibles en la barra superior.</span></div>
+    <section class="mpp-r2-account"><div><span>UN PERFIL · DOS EXPERIENCIAS</span><strong>Tu actividad de corredor y organizador pertenece a la misma cuenta.</strong><small>Consulta tus resultados deportivos desde CORRER. Gestiona tus eventos desde aquí.</small></div><button type="button" data-mpp-action="runner-profile">VER MI RENDIMIENTO →</button></section>
+    <details class="mpp-r2-advanced"><summary>Herramientas avanzadas de gestión</summary><div><button type="button" data-mpp-action="manager">GESTIÓN CLÁSICA</button><button type="button" data-mpp-action="map">MAPA DE TRABAJO</button><button type="button" data-mpp-action="analysis">ANÁLISIS TÉCNICO</button></div><p>Estos módulos permanecen accesibles mientras se integran en el nuevo centro. No se eliminan datos ni funciones.</p></details>
+    <div class="mpp-home-foot"><span><b>R2 · CENTRO DE CARRERAS</b></span><span>Autorización y estados conservados.</span></div>
   </div></div>`;
   root.addEventListener("click",onClick);
   document.body.appendChild(root);state.root=root;return root;
@@ -78,10 +79,11 @@ function renderCurrent(){
 
   const quick=$("[data-mpp-quick]",state.root),admin=role()==="super_admin";
   quick.innerHTML=`
-    <button type="button" data-mpp-action="manager"><strong>GESTIONAR CARRERA</strong><small>Preparación, estado y operación</small></button>
-    <button type="button" data-mpp-action="participants"><strong>PARTICIPANTES</strong><small>Invitaciones, censo y asignaciones</small></button>
-    <button type="button" data-mpp-action="history"><strong>HISTÓRICO</strong><small>Carreras cerradas y resultados</small></button>
-    <button type="button" data-mpp-action="${admin?"admin":"analysis"}"><strong>${admin?"ADMINISTRACIÓN":"ANÁLISIS"}</strong><small>${admin?"Usuarios, roles y supervisión":"Reproductor y post-carrera"}</small></button>`;
+    <button type="button" data-mpp-action="races"><span class="mpp-r2-quick-icon">▤</span><strong>MIS CARRERAS</strong><small>Crea, carga y continúa</small></button>
+    <button type="button" data-mpp-action="participants"><span class="mpp-r2-quick-icon">♙</span><strong>PARTICIPANTES</strong><small>Invitaciones y asignaciones</small></button>
+    <button type="button" data-mpp-action="live"><span class="mpp-r2-quick-icon">◉</span><strong>LIVE</strong><small>Seguimiento operativo</small></button>
+    <button type="button" data-mpp-action="results"><span class="mpp-r2-quick-icon">▥</span><strong>RESULTADOS</strong><small>Clasificación e histórico</small></button>`;
+
 }
 
 function renderStats(rows=state.lastRows,loading=false){
@@ -143,7 +145,12 @@ async function openBuilder(options={}){
   return builder.open(options);
 }
 async function run(action){
+  if(action==="mode-choice"){close();return globalThis.MILITOPO_ORIENTATION_MODES?.open?.()||false}
+  if(action==="runner-profile"){
+    const url=new URL("./participante/",location.href);url.searchParams.set("militopo_tab","profile");location.assign(url.href);return true;
+  }
   const b=bridge();if(!b)return false;
+  if(action==="profile")return b.shell.profile();
   if(action==="create"||action==="builder"){
     const ok=await openBuilder(action==="create"?{fresh:true}:{resumeCurrent:true});
     if(ok!==false)close();
@@ -174,11 +181,12 @@ premium.register("organizer-home",Object.freeze({open,close,refresh,isOpen:()=>s
 
 globalThis.addEventListener("militopo:v2-auth-ready",event=>{
   state.auth=event.detail||globalThis.MILITOPO_V2_AUTH||null;
-  if(canManage()&&!state.autoOpened){state.autoOpened=true;setTimeout(open,360)}
-  else if(!canManage())close();
+  if(!canManage())close();
+  /* R1: la elección inicial de modo decide cuándo abrir el Centro.
+     No abrir Home automáticamente por encima del selector. */
 });
 ["militopo:v2-cloud-event-applied","militopo:v2-event-status","militopo:v2-event-status-changed","militopo:r5-reuse-complete"].forEach(name=>globalThis.addEventListener(name,()=>setTimeout(refresh,120)));
 globalThis.addEventListener("online",()=>{if(state.opened)fetchRows(true)});
 globalThis.addEventListener("offline",()=>{if(state.opened)renderStats(state.lastRows,false)});
 
-if(globalThis.MILITOPO_V2_AUTH){state.auth=globalThis.MILITOPO_V2_AUTH;if(canManage()&&!state.autoOpened){state.autoOpened=true;setTimeout(open,520)}}
+if(globalThis.MILITOPO_V2_AUTH)state.auth=globalThis.MILITOPO_V2_AUTH;
