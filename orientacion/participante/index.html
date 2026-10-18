@@ -251,12 +251,14 @@
     @media(max-width:520px){.history-class-head{align-items:flex-start}.history-class-head-meta{max-width:48%}.history-class-head-meta>span:last-child{font-size:.40rem!important;white-space:normal;text-align:right}}
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=r9o-final-20261011">
+  <link rel="stylesheet" href="./runner-mode-switch.css?v=militopo-r1r2-modos-20261018">
 </head>
 <body>
   <main class="runner-home">
     <header class="runner-head">
       <div class="runner-logo"><img src="../../icons/militopo-512.png?v=r6a1-runner-brand-20261006" alt="MILITOPO"></div>
       <div class="brand"><h1>MILITOPO</h1></div>
+      <button type="button" class="mor-runner-return" id="rhSwitchOrganizer" hidden aria-label="Cambiar al modo organizador">ORGANIZAR ↗</button>
       <div class="runner-account">
         <strong class="runner-user" id="rhHeaderUser">Cargando…</strong>
         <span class="runner-handle" id="rhHeaderHandle"></span>
@@ -425,7 +427,7 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=v2-r9n-provisional-classification-20261011"></script>
+  <script type="module" src="./runner-home-v4.js?v=militopo-r1r2-modos-20261018"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
 </body>
 </html>

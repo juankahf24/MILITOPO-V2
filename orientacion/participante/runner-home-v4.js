@@ -109,6 +109,19 @@ async function loadProfile(app,user){
   if(els.detailsBtn)els.detailsBtn.disabled=false;if(els.logoutBtn)els.logoutBtn.disabled=false;
   if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> CORREDOR`;
   publishRunnerAuth();
+  await enableOrganizerModeIfAuthorized(user);
+}
+
+async function enableOrganizerModeIfAuthorized(user){
+  const button=document.getElementById("rhSwitchOrganizer");if(!button)return;
+  button.hidden=true;
+  try{
+    const claim=String((await user.getIdTokenResult())?.claims?.role||"runner");
+    /* Un botón de navegación no concede privilegios. La entrada Organizer
+       vuelve a pasar por Auth/Firestore y sus reglas reales. */
+    if(claim!=="organizer"&&claim!=="super_admin")return;
+    button.hidden=false;
+  }catch(error){console.warn("MILITOPO modo organizador: no se pudo verificar el rol",error)}
 }
 
 function statusES(s){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"ARCHIVADA",incomplete:"INCOMPLETA",not_started:"NO SALIÓ"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();}
@@ -540,6 +553,17 @@ function schedulePostRaceRefresh(eventId){
 
 async function boot(){try{const app=await initFirebase();currentApp=app;updateConnectivity();const user=await waitForUser();if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");currentUser=user;if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");await loadProfile(app,user);startInvitationRealtime(app);await loadEvents(app);}catch(error){console.error("[MILITOPO runner boot]",error);text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}}
 
+document.getElementById("rhSwitchOrganizer")?.addEventListener("click",()=>{
+  /* Bloquear cambio si hay una carrera realmente en marcha: nunca cortar GPS por navegar. */
+  if(document.querySelector("#m2RaceV2.m2race-is-racing,[data-militopo-runner-active='true']")){
+    setStatus("Finaliza tu carrera antes de cambiar a ORGANIZAR, para no interrumpir el GPS.","err");return;
+  }
+  location.assign("../?militopo_mode=organizer");
+});
+try{const params=new URLSearchParams(location.search);if(params.get("militopo_tab")==="profile"){
+  params.delete("militopo_tab");history.replaceState(history.state,"",location.pathname+(params.toString()?`?${params}`:"")+location.hash);
+  setMainTab("profile");
+}}catch(_){ }
 els.photoBtn?.addEventListener("click",openRunnerPhotoMenu);
 els.detailsBtn?.addEventListener("click",()=>{els.details?.classList.toggle("show");if(els.detailsBtn)els.detailsBtn.textContent=els.details?.classList.contains("show")?"OCULTAR DATOS":"VER DATOS DE CUENTA";});
 els.logoutBtn?.addEventListener("click",async()=>{stopInvitationRealtime();stopActiveEventRealtime();try{globalThis.MILITOPO_V2_AUTH=null;}catch(_){}try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
