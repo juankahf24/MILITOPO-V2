@@ -168,10 +168,20 @@ function pointLabel(p){if(!p)return "PUNTO";return p.id==="START"?"SALIDA":p.id=
 function pointIcon(p){return p?.id==="START"?"△":p?.id==="FINISH"?"◎":"○"}
 function mapMarkerType(id){return id==="START"?"start":id==="FINISH"?"finish":"control"}
 function mapMarkerLabel(id){if(id==="START"||id==="FINISH")return "";return String(id||"").replace(/^B/,"")}
+// SVG markers use an identical square viewBox and Leaflet anchor on every map.
+// Keeping text inside SVG avoids legacy CSS squeezing numbers into vertical columns.
 function mapMarkerHtml(id,{selected=false,order=null,variant="default"}={}){
-  const type=mapMarkerType(id),label=mapMarkerLabel(id),classes=["mpb-map-symbol",`is-${type}`,selected?"is-selected":"",variant==="route"?"is-route":"",variant==="itinerary"?"is-itinerary":""].filter(Boolean).join(" ");
-  return `<div class="${classes}">${type==="control"?`<span>${esc(label)}</span>`:""}${Number.isFinite(order)?`<b class="mpb-map-order">${order}</b>`:""}</div>`;
+  const type=mapMarkerType(id),label=esc(mapMarkerLabel(id));
+  const focus=selected?'<circle cx="16" cy="16" r="14.1" fill="none" stroke="#ffffff" stroke-width="1.8"/>':"";
+  const shape=type==="start"
+    ?'<path d="M16 5.8 L5.7 25.2 L26.3 25.2 Z" fill="#ffffff" stroke="#248854" stroke-width="2.6" stroke-linejoin="round"/>'
+    :type==="finish"
+      ?'<circle cx="16" cy="16" r="11" fill="#ffffff" stroke="#c94c48" stroke-width="2.5"/><circle cx="16" cy="16" r="7.2" fill="none" stroke="#c94c48" stroke-width="2.1"/>'
+      :`<circle cx="16" cy="16" r="11" fill="${selected?"#fff4d8":"#fffcf5"}" stroke="${selected?"#b47a0f":"#d3a028"}" stroke-width="2.5"/><text x="16" y="19.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="${label.length>=3?"8":"9.5"}" font-weight="800" fill="#17271e">${label}</text>`;
+  const number=Number.isFinite(order)&&type==="control"?`<circle cx="26.2" cy="5.8" r="5.2" fill="#173d2b" stroke="#ffffff" stroke-width="1"/><text x="26.2" y="8.2" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="6.4" font-weight="800" fill="#ffffff">${order}</text>`:"";
+  return `<svg class="mpb-pin-svg" viewBox="0 0 32 32" width="28" height="28" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(type==="start"?"Salida":type==="finish"?"Llegada":`Baliza ${label}`)}">${focus}${shape}${number}</svg>`;
 }
+function mapMarkerIcon(html){return L.divIcon({html,className:"mpb-geometry-icon",iconSize:[28,28],iconAnchor:[14,14]})}
 function optionHtml(options,current){return (options||[]).map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(current||"")?"selected":""}>${esc(o.label||o.text||"—")}</option>`).join("")}
 function iofEditorHtml(selected){
   if(!selected)return "";
@@ -285,7 +295,7 @@ function createIgnPreview(kind){const aerial=kind==="pnoa",maxZoom=25,nativeMax=
 function previewLayer(){if(state.draft.mapLayer==="mapant")return createMapantPreview();if(state.draft.mapLayer==="ign")return createIgnPreview("ign");if(state.draft.mapLayer==="pnoa")return createIgnPreview("pnoa");const custom=activeCustomMap();if(state.draft.mapLayer==="custom"&&custom?.url&&custom?.bounds)return L.imageOverlay(custom.url,custom.bounds,{opacity:1,interactive:false});return createMapantPreview()}
 function setWorkCenter(lat,lon,zoom,confirmed=true){const a=Number(lat),o=Number(lon);if(!Number.isFinite(a)||!Number.isFinite(o))return;state.draft.mapCenterLat=a.toFixed(6);state.draft.mapCenterLon=o.toFixed(6);state.draft.mapZoom=Math.max(4,Math.min(25,Number(zoom)||13));state.draft.mapAreaConfirmed=Boolean(confirmed);saveDraft()}
 function initPlanMap(){if(state.step!==2||!state.opened||!globalThis.L)return;const el=$("#mpbPlanMap",state.root);if(!el)return;destroyMaps();let center=[40.4168,-3.7038],zoom=12;const custom=activeCustomMap();if(validWorkCenter()){center=[Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)];zoom=Number(state.draft.mapZoom)||13}else if(state.draft.mapLayer==="custom"&&custom?.bounds){const b=L.latLngBounds(custom.bounds);center=[b.getCenter().lat,b.getCenter().lng];zoom=14;setWorkCenter(center[0],center[1],zoom,true)}state.planMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,bounceAtZoomLimits:false}).setView(center,zoom);state.planBase=previewLayer();state.planBase?.addTo?.(state.planMap);if(state.draft.mapLayer==="custom"&&custom?.bounds){try{state.planMap.fitBounds(custom.bounds,{padding:[18,18],maxZoom:19,animate:false});const c=state.planMap.getCenter();setWorkCenter(c.lat,c.lng,state.planMap.getZoom(),true)}catch(_){}}if(validWorkCenter())state.planMarker=L.circleMarker([Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)],{radius:7,weight:3,color:"#fff",fillColor:"#f59e0b",fillOpacity:1}).addTo(state.planMap);state.planMap.on("click",e=>{setWorkCenter(e.latlng.lat,e.latlng.lng,state.planMap.getZoom(),true);if(state.planMarker)state.planMarker.setLatLng(e.latlng);else state.planMarker=L.circleMarker(e.latlng,{radius:7,weight:3,color:"#fff",fillColor:"#f59e0b",fillOpacity:1}).addTo(state.planMap);const line=$(".mpb-map-actions span",state.root);if(line)line.textContent=`ZONA FIJADA · ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`});state.planMap.on("zoomend",()=>{if(validWorkCenter()){state.draft.mapZoom=state.planMap.getZoom();saveDraft()}});setTimeout(()=>state.planMap?.invalidateSize?.(),80)}
-function renderControlMarkers(){if(!state.controlMap||!state.controlMarkers)return;state.controlMarkers.clearLayers();const list=controlOrder();list.forEach(p=>{if(!pointPlaced(p))return;const selected=p.id===state.selectedControlId;const html=mapMarkerHtml(p.id,{selected});const marker=L.marker([Number(p.lat),Number(p.lon)],{icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[28,28],iconAnchor:[14,14]})}).addTo(state.controlMarkers);marker.on("click",ev=>{try{L.DomEvent.stopPropagation(ev)}catch(_){ }state.selectedControlId=p.id;refreshControlsUi()})})}
+function renderControlMarkers(){if(!state.controlMap||!state.controlMarkers)return;state.controlMarkers.clearLayers();const list=controlOrder();list.forEach(p=>{if(!pointPlaced(p))return;const selected=p.id===state.selectedControlId;const html=mapMarkerHtml(p.id,{selected});const marker=L.marker([Number(p.lat),Number(p.lon)],{icon:mapMarkerIcon(html)}).addTo(state.controlMarkers);marker.on("click",ev=>{try{L.DomEvent.stopPropagation(ev)}catch(_){ }state.selectedControlId=p.id;refreshControlsUi()})})}
 function fitControls(){const pts=controlOrder().filter(pointPlaced);if(!state.controlMap)return;if(pts.length){const bounds=L.latLngBounds(pts.map(p=>[Number(p.lat),Number(p.lon)]));state.controlMap.fitBounds(bounds,{padding:[34,34],maxZoom:18,animate:true})}else if(validWorkCenter())state.controlMap.setView([Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)],Math.max(13,Number(state.draft.mapZoom)||13))}
 async function ensureSelectedMapReady(){if(state.draft.mapLayer!=="custom"||activeCustomMap()||!state.draft.customMapId)return true;try{if(typeof globalThis.activateOrientationCustomMap==="function")await globalThis.activateOrientationCustomMap(state.draft.customMapId);return Boolean(activeCustomMap())}catch(error){console.warn("[MILITOPO Premium Builder] restaurar plano propio",error);return false}}
 function updateGooglePreview(){const frame=$("[data-mpb-google-frame]",state.root);if(frame)frame.src=mapsEmbedUrl()}
@@ -299,10 +309,12 @@ function showCenterNotice(title,message,{kind="success",busy=false,autoClose=250
   const host=document.body||state.root;if(!host)return;
   host.querySelector(".mpb-center-notice")?.remove();
   host.querySelectorAll(".mpb-toast").forEach(el=>el.remove());
-  const node=document.createElement("div");node.className=`mpb-center-notice is-${kind}`;
+  const node=document.createElement("div");node.className=`mpb-center-notice is-${kind}${busy?" is-busy":""}`;
   node.setAttribute("role","status");node.setAttribute("aria-live","polite");
-  const iconHtml=icon==="militopo"?'<img src="./assets/r1/militopo-compass-r2k.png" alt="MILITOPO" class="mpb-center-notice-logo">':`<span class="mpb-center-notice-icon">${busy?"◌":kind==="success"?"✓":"!"}</span>`;
-  node.innerHTML=`<div class="mpb-center-notice-card">${iconHtml}<strong>${esc(title)}</strong><p>${esc(message)}</p>${busy?'<div class="mpb-center-spinner" aria-hidden="true"></div>':""}</div>`;
+  const logo=icon==="militopo"
+    ?`<div class="mpb-center-brand"><img src="../icons/militopo-512.png" width="80" height="80" alt="Topo MILITOPO"><span class="mpb-center-brand-state">${busy?"···":kind==="error"?"!":"✓"}</span></div>`
+    :`<span class="mpb-center-notice-icon">${busy?"◌":kind==="success"?"✓":"!"}</span>`;
+  node.innerHTML=`<div class="mpb-center-notice-card"><div class="mpb-center-kicker">MILITOPO · ORGANIZACIÓN</div>${logo}<strong>${esc(title)}</strong><p>${esc(message)}</p>${busy?'<div class="mpb-center-progress" aria-label="Generando archivo"><div></div></div>':""}</div>`;
   host.appendChild(node);
   if(autoClose>0)setTimeout(()=>{if(node.isConnected)node.remove()},autoClose);
 }
@@ -356,7 +368,7 @@ function renderRouteMapContent(){
     const idx=state.routeDraftControls.indexOf(p.id),selected=idx>=0;
     const html=mapMarkerHtml(p.id,{selected,order:selected?idx+1:null,variant:"route"});
     const marker=L.marker([Number(p.lat),Number(p.lon)],{
-      icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[28,28],iconAnchor:[14,14]})
+      icon:mapMarkerIcon(html)
     }).addTo(state.routeMarkers);
     marker.on("click",ev=>{try{L.DomEvent.stopPropagation(ev)}catch(_){ }toggleRouteControl(p.id)});
   });
@@ -364,7 +376,7 @@ function renderRouteMapContent(){
     const p=byId.get(id);if(!pointPlaced(p))return;
     const html=mapMarkerHtml(id,{variant:"route"});
     L.marker([Number(p.lat),Number(p.lon)],{
-      icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[28,28],iconAnchor:[14,14]}),
+      icon:mapMarkerIcon(html),
       interactive:false
     }).addTo(state.routeMarkers);
   });
@@ -374,7 +386,7 @@ function initRoutesMap(){if(state.step!==6||!state.opened||!globalThis.L)return;
 async function saveCurrentRoute(){if(state.routeBusy)return;syncInputs();const api=r2(),per=controlsPerRoute();if(state.routeDraftControls.length!==per){notify(`Selecciona exactamente ${per} balizas.`);return}if(api?.configureManualRoutes?.(routeTargetCount(),per)!==true){notify("No se pudo guardar la configuración de recorridos.");return}state.routeBusy=true;renderKeepScroll();try{const result=await api.createManualRoute?.(state.selectedRouteId,state.routeDraftControls);if(!result?.ok){notify(result?.error||"No se pudo guardar el recorrido.");return}saveDraft();showCenterNotice("RECORRIDO GUARDADO",`${state.selectedRouteId} se ha guardado correctamente con ${per} balizas.`,{icon:"militopo"});const n=Number(state.selectedRouteId.replace(/\D/g,""))||1;if(n<routeTargetCount())loadRouteDraft(routeId(n+1));else loadRouteDraft(state.selectedRouteId)}finally{state.routeBusy=false;renderKeepScroll()}}
 
 function nearestItinerarySegment(latlng){if(!state.itineraryMap||state.itineraryDraftPoints.length<2)return 0;const p=state.itineraryMap.latLngToLayerPoint(latlng);let best=0,bestD=Infinity;for(let i=0;i<state.itineraryDraftPoints.length-1;i++){const a=state.itineraryMap.latLngToLayerPoint([state.itineraryDraftPoints[i].lat,state.itineraryDraftPoints[i].lon]),b=state.itineraryMap.latLngToLayerPoint([state.itineraryDraftPoints[i+1].lat,state.itineraryDraftPoints[i+1].lon]),dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1))),x=a.x+t*dx,y=a.y+t*dy,d=(p.x-x)**2+(p.y-y)**2;if(d<bestD){bestD=d;best=i}}return best}
-function renderItineraryMapContent(){if(!state.itineraryMap)return;if(state.itineraryLayer){try{state.itineraryLayer.remove()}catch(_){ }state.itineraryLayer=null}if(state.itineraryMarkers){try{state.itineraryMarkers.remove()}catch(_){ }}state.itineraryMarkers=L.layerGroup().addTo(state.itineraryMap);const pts=state.itineraryDraftPoints;if(pts.length>1)state.itineraryLayer=L.polyline(pts.map(p=>[p.lat,p.lon]),{weight:6,opacity:.95,color:"#d99f29",lineCap:"round",lineJoin:"round"}).addTo(state.itineraryMap);pts.forEach((p,i)=>{const manual=!p.anchorId,html=manual?`<div class="mpb-itinerary-point is-manual"><span>•</span></div>`:mapMarkerHtml(p.anchorId,{variant:"itinerary"}),marker=L.marker([p.lat,p.lon],{draggable:manual,icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:manual?[10,10]:[24,24],iconAnchor:manual?[5,5]:[12,12]})}).addTo(state.itineraryMarkers);if(manual)marker.on("dragend",e=>{const ll=e.target.getLatLng();state.itineraryDraftPoints[i]={lat:ll.lat,lon:ll.lng,anchorId:null};state.itineraryDirty=true;renderItineraryMapContent();refreshItineraryMetrics()})})}
+function renderItineraryMapContent(){if(!state.itineraryMap)return;if(state.itineraryLayer){try{state.itineraryLayer.remove()}catch(_){ }state.itineraryLayer=null}if(state.itineraryMarkers){try{state.itineraryMarkers.remove()}catch(_){ }}state.itineraryMarkers=L.layerGroup().addTo(state.itineraryMap);const pts=state.itineraryDraftPoints;if(pts.length>1)state.itineraryLayer=L.polyline(pts.map(p=>[p.lat,p.lon]),{weight:6,opacity:.95,color:"#d99f29",lineCap:"round",lineJoin:"round"}).addTo(state.itineraryMap);pts.forEach((p,i)=>{const manual=!p.anchorId,html=manual?`<div class="mpb-itinerary-point is-manual"><span>•</span></div>`:mapMarkerHtml(p.anchorId,{variant:"itinerary"}),marker=L.marker([p.lat,p.lon],{draggable:manual,icon:manual?L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[10,10],iconAnchor:[5,5]}):mapMarkerIcon(html)}).addTo(state.itineraryMarkers);if(manual)marker.on("dragend",e=>{const ll=e.target.getLatLng();state.itineraryDraftPoints[i]={lat:ll.lat,lon:ll.lng,anchorId:null};state.itineraryDirty=true;renderItineraryMapContent();refreshItineraryMetrics()})})}
 function refreshItineraryMetrics(){const metrics=$(".mpb-itinerary-metrics",state.root);if(!metrics)return;const sum=itinerarySummary();metrics.innerHTML=`<article><small>DISTANCIA DIRECTA</small><strong>${formatKm(sum.direct)}</strong></article><article><small>ITINERARIO ESTIMADO</small><strong>${formatKm(sum.real)}</strong></article><article><small>DIFERENCIA</small><strong>${sum.direct?`${sum.diff>=0?"+":""}${sum.diff.toFixed(0)} %`:"—"}</strong></article>`}
 function initItineraryMap(){if(state.step!==7||!state.opened||!globalThis.L)return;const el=$("#mpbItineraryMap",state.root);if(!el)return;if(!state.itineraryDraftPoints.length)loadItineraryDraft(state.selectedRouteId);let center=validCoords()?[Number(state.draft.lat),Number(state.draft.lon)]:validWorkCenter()?[Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)]:[40.4168,-3.7038];state.itineraryMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,bounceAtZoomLimits:false}).setView(center,15);state.itineraryBase=previewLayer();state.itineraryBase?.addTo?.(state.itineraryMap);renderItineraryMapContent();if(state.itineraryDraftPoints.length>1){try{state.itineraryMap.fitBounds(L.latLngBounds(state.itineraryDraftPoints.map(p=>[p.lat,p.lon])),{padding:[36,36],maxZoom:17,animate:false})}catch(_){ }}state.itineraryMap.on("click",e=>{const i=nearestItinerarySegment(e.latlng);state.itineraryDraftPoints.splice(i+1,0,{lat:e.latlng.lat,lon:e.latlng.lng,anchorId:null});state.itineraryDirty=true;renderItineraryMapContent();refreshItineraryMetrics()});setTimeout(()=>state.itineraryMap?.invalidateSize?.(),80)}
 function undoItineraryVertex(){for(let i=state.itineraryDraftPoints.length-1;i>=0;i--){if(!state.itineraryDraftPoints[i].anchorId){state.itineraryDraftPoints.splice(i,1);state.itineraryDirty=true;renderKeepScroll();notify("Último vértice eliminado");return}}}
@@ -415,14 +427,17 @@ async function downloadOrganizerPackage(){
       await refresh();if(lifecycleStatus()==="draft")throw new Error("La carrera todavía no ha podido quedar preparada");
     }
     updateCenterNotice("GENERANDO ARCHIVO","Comprimiendo el material. La descarga comenzará cuando termine…",{busy:true,autoClose:0,icon:"militopo"});
-    const prevSuppress=globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__;globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=true;
-    const outcome=await fn();
-    globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=prevSuppress;
+    const prevSuppress=globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__;
+    let outcome;
+    try{
+      globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=true;
+      outcome=await fn();
+    }finally{globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=prevSuppress;}
     if(!outcome?.ok)throw new Error(outcome?.error||"El exportador no ha confirmado la descarga");
-    updateCenterNotice("ZIP LISTO",`${outcome.filename||"El paquete"} se ha enviado a la descarga del navegador. Comprueba Descargas o Archivos.`,{autoClose:4500});
+    updateCenterNotice("ZIP LISTO",`${outcome.filename||"El paquete"} se ha enviado a la descarga del navegador. Comprueba Descargas o Archivos.`,{autoClose:4500,icon:"militopo"});
   }catch(error){
     console.error("[MILITOPO Premium Builder] ZIP",error);
-    updateCenterNotice("ERROR AL GENERAR ZIP",String(error?.message||error),{kind:"error",autoClose:6500});
+    updateCenterNotice("ERROR AL GENERAR ZIP",String(error?.message||error),{kind:"error",autoClose:6500,icon:"militopo"});
   }finally{state.packageBusy=false;renderKeepScroll()}
 }
 async function publishRace(){if(state.publishing)return;if(!preflightReady()){notify("Completa el Preflight antes de publicar.");return}if(!navigator.onLine){notify("Necesitas conexión para publicar la carrera.");return}const eventId=String(state.eventId||bridge()?.shell?.current?.().eventId||"").trim();if(!eventId){notify("No hay una carrera cargada para publicar.");return}const ok=globalThis.MILITOPO_CONFIRM?await globalThis.MILITOPO_CONFIRM("MILITOPO marcará PREPARADO internamente y publicará la carrera en una sola operación. Al finalizar se habilitarán las invitaciones.",{title:"PUBLICAR CARRERA",confirmText:"PUBLICAR"}):true;if(!ok)return;state.publishing=true;renderKeepScroll();try{applyLegacyBasics();r2()?.configureManualRoutes?.(routeTargetCount(),controlsPerRoute());try{bridge()?.event?.saveRules?.()}catch(_){}await syncMetadata(eventId);const refresh=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_REFRESH,advance=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;if(typeof refresh!=="function"||typeof advance!=="function")throw new Error("Ciclo de vida no disponible");await new Promise(r=>setTimeout(r,900));let status=lifecycleStatus();for(let attempt=0;attempt<6&&["draft","prepared"].includes(status);attempt++){await refresh();status=lifecycleStatus();if(!["draft","prepared"].includes(status))break;await advance();await new Promise(r=>setTimeout(r,700));await refresh();status=lifecycleStatus()}if(status!=="published")throw new Error(`No se completó la publicación · estado ${lifecycleLabel(status)}`);notify("Carrera PUBLICADA · invitaciones habilitadas");renderKeepScroll()}catch(error){console.error("[MILITOPO Premium Builder] publicar",error);notify(`No se pudo publicar: ${error?.message||error}`)}finally{state.publishing=false;renderKeepScroll()}}
