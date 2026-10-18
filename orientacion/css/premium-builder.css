@@ -294,3 +294,47 @@ body.militopo-premium-builder-open{overflow:hidden!important}
 .mpb-preflight-action-card>div{display:grid;gap:3px}.mpb-preflight-action-card small{font-size:7px;letter-spacing:.12em;color:#7b8980;font-weight:950}.mpb-preflight-action-card strong{font-size:12px;color:#203128}.mpb-preflight-action-card p{margin:0;color:#718078;font-size:8px;line-height:1.4}.mpb-preflight-action-card>button{min-height:44px;padding:9px 13px;border:1px solid #245f42;border-radius:12px;background:#1d6040;color:#fff;font-size:8px;font-weight:1000;letter-spacing:.05em;cursor:pointer}.mpb-preflight-action-card>button:disabled{opacity:.42;cursor:not-allowed}.mpb-preflight-action-card.is-publish{border-color:#d5b25d;background:linear-gradient(145deg,#fffdf7,#fff7e7)}.mpb-preflight-action-card.is-publish>button{background:#173f2b;border-color:#173f2b}
 @media(max-width:780px){.mpb-google-only{min-height:460px}.mpb-google-only iframe{height:460px}.mpb-preflight-actions{grid-template-columns:1fr}.mpb-preflight-action-card{grid-template-columns:1fr}.mpb-preflight-action-card>button{width:100%}}
 @media(max-width:430px){.mpb-google-only{min-height:410px;border-radius:19px}.mpb-google-only iframe{height:410px}.mpb-google-note{top:10px;left:10px;max-width:calc(100% - 20px)}.mpb-location-results>button{grid-template-columns:30px minmax(0,1fr);min-height:60px}.mpb-location-results b{grid-column:2}.mpb-iof-head>b{min-width:108px;min-height:42px;font-size:9px!important;padding:8px 9px!important}.mpb-preflight-action-card{padding:13px}.mpb-preflight-action-card strong{font-size:11px}}
+
+/* P2C8 · Anchura contenida: solo los dos carruseles de controles admiten scroll horizontal. */
+.mpb,.mpb-shell,.mpb-stage,.mpb-body,.mpb-step,.mpb-card,.mpb-map-layout,.mpb-location-layout,.mpb-route-layout,.mpb-controls-layout,.mpb-itinerary-layout{min-width:0;max-width:100%;box-sizing:border-box}
+.mpb-shell,.mpb-stage,.mpb-body{overflow-x:hidden!important}
+.mpb-body{width:100%;overscroll-behavior-x:none}
+.mpb-step *{max-width:100%;box-sizing:border-box}
+.mpb-step input,.mpb-step select,.mpb-step textarea{min-width:0;max-width:100%}
+.mpb-step p,.mpb-step small,.mpb-step strong,.mpb-step span{overflow-wrap:anywhere}
+.mpb-route-order{overflow-x:hidden!important;flex-wrap:wrap;max-width:100%;gap:6px}
+.mpb-route-order .is-waiting{background:#eef2ef;color:#737e77;border-style:dashed}
+.mpb-route-order .is-connected{background:#173e2b;color:#fff;border-color:#173e2b}
+.mpb-control-strip,.mpb-route-control-grid{max-width:100%;min-width:0;overflow-x:auto!important;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.mpb-route-control-grid{display:flex!important;flex-wrap:nowrap!important;padding-bottom:8px}
+.mpb-route-control-grid button{flex:0 0 55px;min-width:55px;max-width:55px}
+.mpb-itinerary-route-list,.mpb-route-list,.mpb-progress{overflow-x:hidden!important;max-width:100%}
+.mpb-google-note{display:none!important}
+.mpb-location-precision-action{display:grid;gap:8px;min-width:0;padding:12px 14px;background:#fff;border:1px solid #dfe7e0;border-radius:16px}
+.mpb-location-precision-action .mpb-btn{width:100%;max-width:none}
+.mpb-location-precision-action p{font-size:11px;line-height:1.45;color:#53685b;margin:0}
+.mpb-precision-overlay{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));background:rgba(8,22,15,.88);backdrop-filter:blur(5px)}
+.mpb-precision-dialog{width:min(960px,100%);max-width:100%;height:min(90dvh,780px);display:grid;grid-template-rows:auto minmax(180px,1fr) auto auto;min-height:0;overflow:hidden;background:#f8faf8;border-radius:20px;border:1px solid rgba(255,255,255,.5);box-shadow:0 25px 70px rgba(0,0,0,.5)}
+.mpb-precision-dialog header{padding:13px 16px;display:flex;align-items:start;justify-content:space-between;gap:12px}
+.mpb-precision-dialog header>div{min-width:0}.mpb-precision-dialog header small{display:block;color:#956519;font-size:10px;font-weight:950;letter-spacing:.11em}.mpb-precision-dialog header strong{font-size:18px;color:#172b1d}.mpb-precision-dialog header p{margin:4px 0 0;color:#627269;font-size:11px;line-height:1.35}
+.mpb-precision-dialog header button{flex:0 0 37px;width:37px;height:37px;border:1px solid #d9e2d9;border-radius:12px;background:#fff;font-size:23px;color:#24402c;cursor:pointer}
+.mpb-precision-map{min-height:0;position:relative;background:#dbe0da;touch-action:pan-x pan-y}
+.mpb-precision-dialog footer{display:grid;grid-template-columns:1fr 1.3fr;gap:9px;padding:12px}
+.mpb-precision-dialog footer button{min-width:0;min-height:48px}
+.mpb-precision-credit{display:block;padding:0 12px 11px;color:#536357;font-size:10px;text-align:center}
+.mpb-precision-pin-wrapper{background:transparent;border:0}
+.mpb-precision-pin{position:relative;display:grid;place-items:center;width:30px;height:30px;border:3px solid #fff;border-radius:50% 50% 50% 3px;transform:rotate(-45deg);background:#cb423c;color:#fff;font-size:13px;box-shadow:0 3px 12px rgba(0,0,0,.35)}
+.mpb-center-notice{position:fixed;z-index:150;inset:0;display:grid;place-items:center;pointer-events:none;padding:20px;background:rgba(7,18,12,.25)}
+.mpb-center-notice-card{max-width:min(370px,100%);width:100%;padding:25px 22px;display:grid;justify-items:center;gap:10px;background:#fff;color:#203427;border:1px solid #d5e3d9;border-radius:22px;text-align:center;box-shadow:0 22px 58px rgba(0,0,0,.28)}
+.mpb-center-notice-icon{width:54px;height:54px;display:grid;place-items:center;border-radius:50%;background:#e7f4ea;color:#20653c;font-size:30px;font-weight:950}
+.mpb-center-notice.is-error .mpb-center-notice-icon{background:#fff1e7;color:#ae3f2d}
+.mpb-center-notice strong{font-size:19px;line-height:1.15}.mpb-center-notice p{font-size:12px;color:#536b5b;line-height:1.5;margin:0;overflow-wrap:anywhere}
+.mpb-center-spinner{width:28px;height:28px;border-radius:50%;border:3px solid #dce8e0;border-top-color:#246443;animation:mpb-spin .7s linear infinite}
+@keyframes mpb-spin{to{transform:rotate(360deg)}}
+@media(max-width:780px){.mpb-shell,.mpb-stage{width:100%;min-width:0}.mpb-precision-dialog{height:min(85dvh,740px)}.mpb-precision-dialog header strong{font-size:15px}.mpb-precision-dialog footer{grid-template-columns:1fr 1fr}.mpb-precision-dialog footer button{padding:8px;font-size:11px}.mpb-route-control-grid button{flex-basis:50px;min-width:50px;max-width:50px}}
+@media(max-width:420px){.mpb-precision-overlay{padding:8px}.mpb-precision-dialog{height:88dvh}.mpb-center-notice-card{padding:20px}}
+/* Ajustes finales de desbordamiento en paneles internos */
+.mpb-controls-panel,.mpb-route-panel,.mpb-itinerary-panel,.mpb-form-card,.mpb-location-search,.mpb-map-choice{min-width:0;max-width:100%;overflow-x:hidden!important}
+.mpb-route-list,.mpb-itinerary-route-list{min-width:0;grid-auto-rows:auto}
+.mpb-route-list>* ,.mpb-itinerary-route-list>*{min-width:0;max-width:100%}
+.mpb-route-edit-actions,.mpb-itinerary-actions,.mpb-location-actions,.mpb-preflight-actions,.mpb-search-row{min-width:0;max-width:100%}
