@@ -166,18 +166,25 @@ function renderLocation(){const embed=mapsEmbedUrl();return `<section class="mpb
 
 function pointLabel(p){if(!p)return "PUNTO";return p.id==="START"?"SALIDA":p.id==="FINISH"?"LLEGADA":`BALIZA ${String(p.id).replace(/^B/,"")}`}
 function pointIcon(p){return p?.id==="START"?"△":p?.id==="FINISH"?"◎":"○"}
+function mapMarkerType(id){return id==="START"?"start":id==="FINISH"?"finish":"control"}
+function mapMarkerLabel(id){if(id==="START"||id==="FINISH")return "";return String(id||"").replace(/^B/,"")}
+function mapMarkerHtml(id,{selected=false,order=null,variant="default"}={}){
+  const type=mapMarkerType(id),label=mapMarkerLabel(id),classes=["mpb-map-symbol",`is-${type}`,selected?"is-selected":"",variant==="route"?"is-route":"",variant==="itinerary"?"is-itinerary":""].filter(Boolean).join(" ");
+  return `<div class="${classes}">${type==="control"?`<span>${esc(label)}</span>`:""}${Number.isFinite(order)?`<b class="mpb-map-order">${order}</b>`:""}</div>`;
+}
 function optionHtml(options,current){return (options||[]).map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(current||"")?"selected":""}>${esc(o.label||o.text||"—")}</option>`).join("")}
 function iofEditorHtml(selected){
   if(!selected)return "";
   const model=r2()?.getIofModel?.(selected.id);if(!model)return `<div class="mpb-iof-card"><p>El editor IOF se está preparando…</p></div>`;
-  const fixed=selected.id==="START"||selected.id==="FINISH";
+  const special=selected.id==="START"||selected.id==="FINISH";
   const status=model.complete?"is-complete":model.placed?"is-pending":"is-blocked";
   return `<section class="mpb-iof-card ${status}"><div class="mpb-iof-head"><div><span>DESCRIPCIÓN IOF</span><strong>${esc(pointLabel(selected))}</strong></div><b>${model.complete?"COMPLETA":model.placed?"PENDIENTE":"COLOCA EL PUNTO"}</b></div>
     <div class="mpb-iof-preview" aria-label="Vista previa IOF">${model.previewHtml||""}</div>
-    ${fixed?`<div class="mpb-iof-fixed"><span>${selected.id==="START"?"△":"◎"}</span><div><strong>${selected.id==="START"?"SALIDA":"LLEGADA"}</strong><small>Representación especial conservada para la tabla IOF y los PDF.</small></div></div>`:`<div class="mpb-iof-fields">
+    ${special?`<div class="mpb-iof-fixed"><span>${selected.id==="START"?"△":"◎"}</span><div><strong>${selected.id==="START"?"SALIDA":"LLEGADA"}</strong><small>También puedes completar C, D, E, F, G y H para conservar la misma edición en tabla IOF y PDF.</small></div></div>`:""}
+    <div class="mpb-iof-fields">
       ${[["c","C · SIMILAR"],["d","D · ELEMENTO"],["e","E · ASPECTO"],["f","F · DIMENSIÓN"],["g","G · SITUACIÓN"],["h","H · INFO"]].map(([key,label])=>`<label><span>${label}</span><select data-mpb-iof-field="${key}" data-mpb-iof-point="${esc(selected.id)}" ${model.placed?"":"disabled"}>${optionHtml(model.options?.[key],model.description?.[key])}</select></label>`).join("")}
       <label class="mpb-iof-text"><span>TEXTO / NOTA <em>OPCIONAL</em></span><input type="text" data-mpb-iof-field="text" data-mpb-iof-point="${esc(selected.id)}" value="${esc(model.description?.text||"")}" maxlength="120" ${model.placed?"":"disabled"} placeholder="Observación auxiliar"></label>
-    </div>`}
+    </div>
     <div class="mpb-iof-actions">${model.complete?`<button type="button" class="mpb-btn mpb-btn-ghost" data-mpb-iof-pending="${esc(selected.id)}">EDITAR / MARCAR PENDIENTE</button>`:""}<button type="button" class="mpb-btn mpb-btn-primary" data-mpb-iof-save-next="${esc(selected.id)}" ${model.placed?"":"disabled"}>${model.complete?"SIGUIENTE PUNTO":"GUARDAR Y SIGUIENTE"} <span>→</span></button></div>
     ${model.readableText?`<p class="mpb-iof-readable">${esc(model.readableText)}</p>`:""}
   </section>`;
@@ -278,7 +285,7 @@ function createIgnPreview(kind){const aerial=kind==="pnoa",maxZoom=25,nativeMax=
 function previewLayer(){if(state.draft.mapLayer==="mapant")return createMapantPreview();if(state.draft.mapLayer==="ign")return createIgnPreview("ign");if(state.draft.mapLayer==="pnoa")return createIgnPreview("pnoa");const custom=activeCustomMap();if(state.draft.mapLayer==="custom"&&custom?.url&&custom?.bounds)return L.imageOverlay(custom.url,custom.bounds,{opacity:1,interactive:false});return createMapantPreview()}
 function setWorkCenter(lat,lon,zoom,confirmed=true){const a=Number(lat),o=Number(lon);if(!Number.isFinite(a)||!Number.isFinite(o))return;state.draft.mapCenterLat=a.toFixed(6);state.draft.mapCenterLon=o.toFixed(6);state.draft.mapZoom=Math.max(4,Math.min(25,Number(zoom)||13));state.draft.mapAreaConfirmed=Boolean(confirmed);saveDraft()}
 function initPlanMap(){if(state.step!==2||!state.opened||!globalThis.L)return;const el=$("#mpbPlanMap",state.root);if(!el)return;destroyMaps();let center=[40.4168,-3.7038],zoom=12;const custom=activeCustomMap();if(validWorkCenter()){center=[Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)];zoom=Number(state.draft.mapZoom)||13}else if(state.draft.mapLayer==="custom"&&custom?.bounds){const b=L.latLngBounds(custom.bounds);center=[b.getCenter().lat,b.getCenter().lng];zoom=14;setWorkCenter(center[0],center[1],zoom,true)}state.planMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,bounceAtZoomLimits:false}).setView(center,zoom);state.planBase=previewLayer();state.planBase?.addTo?.(state.planMap);if(state.draft.mapLayer==="custom"&&custom?.bounds){try{state.planMap.fitBounds(custom.bounds,{padding:[18,18],maxZoom:19,animate:false});const c=state.planMap.getCenter();setWorkCenter(c.lat,c.lng,state.planMap.getZoom(),true)}catch(_){}}if(validWorkCenter())state.planMarker=L.circleMarker([Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)],{radius:7,weight:3,color:"#fff",fillColor:"#f59e0b",fillOpacity:1}).addTo(state.planMap);state.planMap.on("click",e=>{setWorkCenter(e.latlng.lat,e.latlng.lng,state.planMap.getZoom(),true);if(state.planMarker)state.planMarker.setLatLng(e.latlng);else state.planMarker=L.circleMarker(e.latlng,{radius:7,weight:3,color:"#fff",fillColor:"#f59e0b",fillOpacity:1}).addTo(state.planMap);const line=$(".mpb-map-actions span",state.root);if(line)line.textContent=`ZONA FIJADA · ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`});state.planMap.on("zoomend",()=>{if(validWorkCenter()){state.draft.mapZoom=state.planMap.getZoom();saveDraft()}});setTimeout(()=>state.planMap?.invalidateSize?.(),80)}
-function renderControlMarkers(){if(!state.controlMap||!state.controlMarkers)return;state.controlMarkers.clearLayers();const list=controlOrder();list.forEach(p=>{if(!pointPlaced(p))return;const selected=p.id===state.selectedControlId;const html=`<div class="mpb-map-point ${p.id==="START"?"is-start":p.id==="FINISH"?"is-finish":"is-control"} ${selected?"is-selected":""}">${p.id==="START"?"S":p.id==="FINISH"?"L":esc(p.id.replace(/^B/,""))}</div>`;const marker=L.marker([Number(p.lat),Number(p.lon)],{icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[32,32],iconAnchor:[16,16]})}).addTo(state.controlMarkers);marker.on("click",ev=>{try{L.DomEvent.stopPropagation(ev)}catch(_){ }state.selectedControlId=p.id;refreshControlsUi()})})}
+function renderControlMarkers(){if(!state.controlMap||!state.controlMarkers)return;state.controlMarkers.clearLayers();const list=controlOrder();list.forEach(p=>{if(!pointPlaced(p))return;const selected=p.id===state.selectedControlId;const html=mapMarkerHtml(p.id,{selected});const marker=L.marker([Number(p.lat),Number(p.lon)],{icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[28,28],iconAnchor:[14,14]})}).addTo(state.controlMarkers);marker.on("click",ev=>{try{L.DomEvent.stopPropagation(ev)}catch(_){ }state.selectedControlId=p.id;refreshControlsUi()})})}
 function fitControls(){const pts=controlOrder().filter(pointPlaced);if(!state.controlMap)return;if(pts.length){const bounds=L.latLngBounds(pts.map(p=>[Number(p.lat),Number(p.lon)]));state.controlMap.fitBounds(bounds,{padding:[34,34],maxZoom:18,animate:true})}else if(validWorkCenter())state.controlMap.setView([Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)],Math.max(13,Number(state.draft.mapZoom)||13))}
 async function ensureSelectedMapReady(){if(state.draft.mapLayer!=="custom"||activeCustomMap()||!state.draft.customMapId)return true;try{if(typeof globalThis.activateOrientationCustomMap==="function")await globalThis.activateOrientationCustomMap(state.draft.customMapId);return Boolean(activeCustomMap())}catch(error){console.warn("[MILITOPO Premium Builder] restaurar plano propio",error);return false}}
 function updateGooglePreview(){const frame=$("[data-mpb-google-frame]",state.root);if(frame)frame.src=mapsEmbedUrl()}
@@ -288,13 +295,15 @@ function closePrecisionPicker(){
   state.precisionMap=null;state.precisionMarker=null;state.precisionPoint=null;
   state.root?.querySelector(".mpb-precision-overlay")?.remove();
 }
-function showCenterNotice(title,message,{kind="success",busy=false,autoClose=2500}={}){
-  if(!state.root)return;
-  state.root.querySelector(".mpb-center-notice")?.remove();
+function showCenterNotice(title,message,{kind="success",busy=false,autoClose=2500,icon="auto"}={}){
+  const host=document.body||state.root;if(!host)return;
+  host.querySelector(".mpb-center-notice")?.remove();
+  host.querySelectorAll(".mpb-toast").forEach(el=>el.remove());
   const node=document.createElement("div");node.className=`mpb-center-notice is-${kind}`;
   node.setAttribute("role","status");node.setAttribute("aria-live","polite");
-  node.innerHTML=`<div class="mpb-center-notice-card"><span class="mpb-center-notice-icon">${busy?"◌":kind==="success"?"✓":"!"}</span><strong>${esc(title)}</strong><p>${esc(message)}</p>${busy?'<div class="mpb-center-spinner" aria-hidden="true"></div>':""}</div>`;
-  state.root.appendChild(node);
+  const iconHtml=icon==="militopo"?'<img src="./assets/r1/militopo-compass-r2k.png" alt="MILITOPO" class="mpb-center-notice-logo">':`<span class="mpb-center-notice-icon">${busy?"◌":kind==="success"?"✓":"!"}</span>`;
+  node.innerHTML=`<div class="mpb-center-notice-card">${iconHtml}<strong>${esc(title)}</strong><p>${esc(message)}</p>${busy?'<div class="mpb-center-spinner" aria-hidden="true"></div>':""}</div>`;
+  host.appendChild(node);
   if(autoClose>0)setTimeout(()=>{if(node.isConnected)node.remove()},autoClose);
 }
 function updateCenterNotice(title,message,options={}){showCenterNotice(title,message,options)}
@@ -345,27 +354,27 @@ function renderRouteMapContent(){
   }
   (snap?.controls||[]).filter(pointPlaced).forEach(p=>{
     const idx=state.routeDraftControls.indexOf(p.id),selected=idx>=0;
-    const html=`<div class="mpb-route-map-point ${selected?"is-selected":""}"><span>${selected?idx+1:"+"}</span><small>${esc(p.id)}</small></div>`;
+    const html=mapMarkerHtml(p.id,{selected,order:selected?idx+1:null,variant:"route"});
     const marker=L.marker([Number(p.lat),Number(p.lon)],{
-      icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[42,42],iconAnchor:[21,21]})
+      icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[28,28],iconAnchor:[14,14]})
     }).addTo(state.routeMarkers);
     marker.on("click",ev=>{try{L.DomEvent.stopPropagation(ev)}catch(_){ }toggleRouteControl(p.id)});
   });
   ["START","FINISH"].forEach(id=>{
     const p=byId.get(id);if(!pointPlaced(p))return;
-    const html=`<div class="mpb-map-point ${id==="START"?"is-start":"is-finish"}">${id==="START"?"S":"L"}</div>`;
+    const html=mapMarkerHtml(id,{variant:"route"});
     L.marker([Number(p.lat),Number(p.lon)],{
-      icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[32,32],iconAnchor:[16,16]}),
+      icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[28,28],iconAnchor:[14,14]}),
       interactive:false
     }).addTo(state.routeMarkers);
   });
 }
 
-function initRoutesMap(){if(state.step!==6||!state.opened||!globalThis.L)return;const el=$("#mpbRouteMap",state.root);if(!el)return;let center=validWorkCenter()?[Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)]:[40.4168,-3.7038],zoom=Math.max(7,Number(state.draft.mapZoom)||13);const pts=controlOrder().filter(pointPlaced);if(pts.length){center=[Number(pts[0].lat),Number(pts[0].lon)];zoom=15}state.routeMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,bounceAtZoomLimits:false}).setView(center,zoom);state.routeBase=previewLayer();state.routeBase?.addTo?.(state.routeMap);state.routeMarkers=L.layerGroup().addTo(state.routeMap);renderRouteMapContent();if(pts.length){try{state.routeMap.fitBounds(L.latLngBounds(pts.map(p=>[Number(p.lat),Number(p.lon)])),{padding:[38,38],maxZoom:17,animate:false})}catch(_){ }}setTimeout(()=>state.routeMap?.invalidateSize?.(),80)}
-async function saveCurrentRoute(){if(state.routeBusy)return;syncInputs();const api=r2(),per=controlsPerRoute();if(state.routeDraftControls.length!==per){notify(`Selecciona exactamente ${per} balizas.`);return}if(api?.configureManualRoutes?.(routeTargetCount(),per)!==true){notify("No se pudo guardar la configuración de recorridos.");return}state.routeBusy=true;renderKeepScroll();try{const result=await api.createManualRoute?.(state.selectedRouteId,state.routeDraftControls);if(!result?.ok){notify(result?.error||"No se pudo guardar el recorrido.");return}saveDraft();showCenterNotice("RECORRIDO GUARDADO",`${state.selectedRouteId} se ha guardado correctamente con ${per} balizas y conexión a LLEGADA.`);const n=Number(state.selectedRouteId.replace(/\D/g,""))||1;if(n<routeTargetCount())loadRouteDraft(routeId(n+1));else loadRouteDraft(state.selectedRouteId)}finally{state.routeBusy=false;renderKeepScroll()}}
+function initRoutesMap(){if(state.step!==6||!state.opened||!globalThis.L)return;const el=$("#mpbRouteMap",state.root);if(!el)return;let center=validCoords()?[Number(state.draft.lat),Number(state.draft.lon)]:validWorkCenter()?[Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)]:[40.4168,-3.7038],zoom=validCoords()?16:Math.max(7,Number(state.draft.mapZoom)||13);const pts=controlOrder().filter(pointPlaced);state.routeMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,bounceAtZoomLimits:false}).setView(center,zoom);state.routeBase=previewLayer();state.routeBase?.addTo?.(state.routeMap);state.routeMarkers=L.layerGroup().addTo(state.routeMap);renderRouteMapContent();if(pts.length){try{state.routeMap.fitBounds(L.latLngBounds(pts.map(p=>[Number(p.lat),Number(p.lon)])),{padding:[38,38],maxZoom:17,animate:false})}catch(_){ }}setTimeout(()=>state.routeMap?.invalidateSize?.(),80)}
+async function saveCurrentRoute(){if(state.routeBusy)return;syncInputs();const api=r2(),per=controlsPerRoute();if(state.routeDraftControls.length!==per){notify(`Selecciona exactamente ${per} balizas.`);return}if(api?.configureManualRoutes?.(routeTargetCount(),per)!==true){notify("No se pudo guardar la configuración de recorridos.");return}state.routeBusy=true;renderKeepScroll();try{const result=await api.createManualRoute?.(state.selectedRouteId,state.routeDraftControls);if(!result?.ok){notify(result?.error||"No se pudo guardar el recorrido.");return}saveDraft();showCenterNotice("RECORRIDO GUARDADO",`${state.selectedRouteId} se ha guardado correctamente con ${per} balizas.`,{icon:"militopo"});const n=Number(state.selectedRouteId.replace(/\D/g,""))||1;if(n<routeTargetCount())loadRouteDraft(routeId(n+1));else loadRouteDraft(state.selectedRouteId)}finally{state.routeBusy=false;renderKeepScroll()}}
 
 function nearestItinerarySegment(latlng){if(!state.itineraryMap||state.itineraryDraftPoints.length<2)return 0;const p=state.itineraryMap.latLngToLayerPoint(latlng);let best=0,bestD=Infinity;for(let i=0;i<state.itineraryDraftPoints.length-1;i++){const a=state.itineraryMap.latLngToLayerPoint([state.itineraryDraftPoints[i].lat,state.itineraryDraftPoints[i].lon]),b=state.itineraryMap.latLngToLayerPoint([state.itineraryDraftPoints[i+1].lat,state.itineraryDraftPoints[i+1].lon]),dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1))),x=a.x+t*dx,y=a.y+t*dy,d=(p.x-x)**2+(p.y-y)**2;if(d<bestD){bestD=d;best=i}}return best}
-function renderItineraryMapContent(){if(!state.itineraryMap)return;if(state.itineraryLayer){try{state.itineraryLayer.remove()}catch(_){ }state.itineraryLayer=null}if(state.itineraryMarkers){try{state.itineraryMarkers.remove()}catch(_){ }}state.itineraryMarkers=L.layerGroup().addTo(state.itineraryMap);const pts=state.itineraryDraftPoints;if(pts.length>1)state.itineraryLayer=L.polyline(pts.map(p=>[p.lat,p.lon]),{weight:6,opacity:.95,color:"#d99f29",lineCap:"round",lineJoin:"round"}).addTo(state.itineraryMap);pts.forEach((p,i)=>{const manual=!p.anchorId,html=`<div class="mpb-itinerary-point ${manual?"is-manual":"is-anchor"}"><span>${manual?"•":esc(p.anchorId==="START"?"S":p.anchorId==="FINISH"?"L":p.anchorId)}</span></div>`,marker=L.marker([p.lat,p.lon],{draggable:manual,icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:manual?[16,16]:[28,28],iconAnchor:manual?[8,8]:[14,14]})}).addTo(state.itineraryMarkers);if(manual)marker.on("dragend",e=>{const ll=e.target.getLatLng();state.itineraryDraftPoints[i]={lat:ll.lat,lon:ll.lng,anchorId:null};state.itineraryDirty=true;renderItineraryMapContent();refreshItineraryMetrics()})})}
+function renderItineraryMapContent(){if(!state.itineraryMap)return;if(state.itineraryLayer){try{state.itineraryLayer.remove()}catch(_){ }state.itineraryLayer=null}if(state.itineraryMarkers){try{state.itineraryMarkers.remove()}catch(_){ }}state.itineraryMarkers=L.layerGroup().addTo(state.itineraryMap);const pts=state.itineraryDraftPoints;if(pts.length>1)state.itineraryLayer=L.polyline(pts.map(p=>[p.lat,p.lon]),{weight:6,opacity:.95,color:"#d99f29",lineCap:"round",lineJoin:"round"}).addTo(state.itineraryMap);pts.forEach((p,i)=>{const manual=!p.anchorId,html=manual?`<div class="mpb-itinerary-point is-manual"><span>•</span></div>`:mapMarkerHtml(p.anchorId,{variant:"itinerary"}),marker=L.marker([p.lat,p.lon],{draggable:manual,icon:L.divIcon({html,className:"mpb-map-point-wrap",iconSize:manual?[10,10]:[24,24],iconAnchor:manual?[5,5]:[12,12]})}).addTo(state.itineraryMarkers);if(manual)marker.on("dragend",e=>{const ll=e.target.getLatLng();state.itineraryDraftPoints[i]={lat:ll.lat,lon:ll.lng,anchorId:null};state.itineraryDirty=true;renderItineraryMapContent();refreshItineraryMetrics()})})}
 function refreshItineraryMetrics(){const metrics=$(".mpb-itinerary-metrics",state.root);if(!metrics)return;const sum=itinerarySummary();metrics.innerHTML=`<article><small>DISTANCIA DIRECTA</small><strong>${formatKm(sum.direct)}</strong></article><article><small>ITINERARIO ESTIMADO</small><strong>${formatKm(sum.real)}</strong></article><article><small>DIFERENCIA</small><strong>${sum.direct?`${sum.diff>=0?"+":""}${sum.diff.toFixed(0)} %`:"—"}</strong></article>`}
 function initItineraryMap(){if(state.step!==7||!state.opened||!globalThis.L)return;const el=$("#mpbItineraryMap",state.root);if(!el)return;if(!state.itineraryDraftPoints.length)loadItineraryDraft(state.selectedRouteId);let center=validCoords()?[Number(state.draft.lat),Number(state.draft.lon)]:validWorkCenter()?[Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)]:[40.4168,-3.7038];state.itineraryMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,bounceAtZoomLimits:false}).setView(center,15);state.itineraryBase=previewLayer();state.itineraryBase?.addTo?.(state.itineraryMap);renderItineraryMapContent();if(state.itineraryDraftPoints.length>1){try{state.itineraryMap.fitBounds(L.latLngBounds(state.itineraryDraftPoints.map(p=>[p.lat,p.lon])),{padding:[36,36],maxZoom:17,animate:false})}catch(_){ }}state.itineraryMap.on("click",e=>{const i=nearestItinerarySegment(e.latlng);state.itineraryDraftPoints.splice(i+1,0,{lat:e.latlng.lat,lon:e.latlng.lng,anchorId:null});state.itineraryDirty=true;renderItineraryMapContent();refreshItineraryMetrics()});setTimeout(()=>state.itineraryMap?.invalidateSize?.(),80)}
 function undoItineraryVertex(){for(let i=state.itineraryDraftPoints.length-1;i>=0;i--){if(!state.itineraryDraftPoints[i].anchorId){state.itineraryDraftPoints.splice(i,1);state.itineraryDirty=true;renderKeepScroll();notify("Último vértice eliminado");return}}}
@@ -389,7 +398,7 @@ async function downloadOrganizerPackage(){
   if(typeof fn!=="function"){showCenterNotice("GENERADOR NO DISPONIBLE","No está cargado el exportador del ZIP.",{kind:"error"});return}
   const eventId=String(state.eventId||bridge()?.shell?.current?.().eventId||"").trim();
   state.packageBusy=true;
-  showCenterNotice("PREPARANDO ZIP","Comprobando carrera y reuniendo planos, QR, IOF y recorridos…",{busy:true,autoClose:0});
+  showCenterNotice("PREPARANDO ZIP","Comprobando carrera y reuniendo planos, QR, IOF y recorridos…",{busy:true,autoClose:0,icon:"militopo"});
   renderKeepScroll();
   try{
     applyLegacyBasics();r2()?.configureManualRoutes?.(routeTargetCount(),controlsPerRoute());
@@ -405,8 +414,10 @@ async function downloadOrganizerPackage(){
       }
       await refresh();if(lifecycleStatus()==="draft")throw new Error("La carrera todavía no ha podido quedar preparada");
     }
-    updateCenterNotice("GENERANDO ARCHIVO","Comprimiendo el material. La descarga comenzará cuando termine…",{busy:true,autoClose:0});
+    updateCenterNotice("GENERANDO ARCHIVO","Comprimiendo el material. La descarga comenzará cuando termine…",{busy:true,autoClose:0,icon:"militopo"});
+    const prevSuppress=globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__;globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=true;
     const outcome=await fn();
+    globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=prevSuppress;
     if(!outcome?.ok)throw new Error(outcome?.error||"El exportador no ha confirmado la descarga");
     updateCenterNotice("ZIP LISTO",`${outcome.filename||"El paquete"} se ha enviado a la descarga del navegador. Comprueba Descargas o Archivos.`,{autoClose:4500});
   }catch(error){
