@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="v2-militopo-r3-fullscreen-20261018";
+const BUILD_ID="v2-militopo-r4-profile-20261019";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -15,7 +15,7 @@ const CORE_ASSETS=[
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./css/r9o-final-polish.css?v=r9o-final-20261011",
   "./css/premium-base.css?v=premium-p0a-20261011",
-  "./css/premium-home.css?v=militopo-r3-fullscreen-20261018",
+  "./css/premium-home.css?v=militopo-r4-profile-20261019",
   "./css/orientation-modes.css?v=militopo-r3-fullscreen-20261018",
   "./css/premium-builder.css?v=premium-p2c11-svg-topo-notices-20261018",
   "./js/app.js?v=premium-p2c11-svg-topo-notices-20261018",
@@ -25,7 +25,8 @@ const CORE_ASSETS=[
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=premium-p2b-controls-20261012",
   "./js/premium/premium-builder.js?v=militopo-r3-fullscreen-20261018",
-  "./js/premium/premium-home.js?v=militopo-r3-fullscreen-20261018",
+  "./js/premium/premium-home.js?v=militopo-r4-profile-20261019",
+  "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
   "./js/premium/orientation-modes.js?v=militopo-r3-fullscreen-20261018",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
