@@ -342,7 +342,7 @@
   }
   function closeWorkspace(returnToMap=true){
     state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
-    state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view","r4-live-view","r4-analysis-view");if(body)body.innerHTML=""}document.body.style.overflow="";
+    state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view","r4-live-view","r4-analysis-view");if(body){body.innerHTML="";delete body.dataset.r5AnalysisReady;body.classList.remove("r5-comparative-analysis-view")}}document.body.style.overflow="";
     document.body.classList.remove("r1-workspace-open","r5-premium-tool-open");state.premiumModuleKind=null;if(state.workspace)delete state.workspace.dataset.premiumTool;state.mapHome=!!returnToMap;
     if(returnToMap){document.body.classList.remove("r5-premium-tool-pending");state.premiumLaunchId=(state.premiumLaunchId||0)+1}
     if(returnToMap&&document.body.classList.contains("mor-organizer-shell")){
@@ -504,7 +504,7 @@
   }
   function openPremiumModule(kind){
     if(!document.body.classList.contains("mor-organizer-shell"))return false;
-    if(!["participants","live","results"].includes(kind))return false;
+    if(!["participants","live","results","analysis"].includes(kind))return false;
     state.managerModuleTitle=null;
     /* openInjected/hostNodes desmontan la ventana anterior. Esperamos al montaje
        real antes de aplicar el contenedor Premium para evitar estados intermedios. */
@@ -512,6 +512,7 @@
     document.body.classList.add("r5-premium-tool-pending");
     if(kind==="participants")openParticipantsModule(false);
     else if(kind==="live")openLiveModule(false);
+    else if(kind==="analysis")openStep(7,"ANÁLISIS COMPARATIVO");
     else openResultsModule(false);
     const attach=()=>{
       if(state.premiumLaunchId!==launchId)return;
@@ -530,7 +531,7 @@
     if(state.premiumModuleKind!==kind||!state.workspace?.classList.contains("is-open"))return;
     const body=$("#r1WorkspaceBody",state.workspace),title=$("#r1WorkspaceTitle",state.workspace);
     if(!body)return;
-    const cfg={participants:["PARTICIPANTES","Invita, asigna y comprueba quién participa."],live:["LIVE · SEGUIMIENTO","Sigue la carrera y consulta el mapa en directo."],results:["RESULTADOS","Consulta clasificaciones y resultados de la carrera."]}[kind];
+    const cfg={participants:["PARTICIPANTES","Invita, asigna y comprueba quién participa."],live:["LIVE · SEGUIMIENTO","Sigue la carrera y consulta el mapa en directo."],results:["RESULTADOS","Consulta clasificaciones y resultados de la carrera."],analysis:["ANÁLISIS COMPARATIVO","Compara hasta cinco corredores, reproduce sus tracks y estudia parciales, desvíos y tiempos."]}[kind];
     if(title)title.textContent=cfg[0];
     state.workspace.dataset.premiumTool=kind;
     let hero=body.querySelector(".r5-premium-tool-hero");
@@ -539,6 +540,14 @@
     if(kind==="participants"){
       const tab=body.dataset.r5Tab||"invitations";body.dataset.r5Tab=tab;
       hero.querySelectorAll("[data-r5-p-tab]").forEach(button=>{button.classList.toggle("is-active",button.dataset.r5PTab===tab);button.setAttribute("aria-pressed",String(button.dataset.r5PTab===tab))});
+    }
+    if(kind==="analysis"&&body.dataset.r5AnalysisReady!=="yes"){
+      const step=$("#step7",body);
+      if(!step)return;
+      body.dataset.r5AnalysisReady="yes";
+      body.classList.add("r5-comparative-analysis-view");
+      try{window.renderRaceAnalysis?.();window.openRaceAnalysisTab?.("tracks")}catch(error){console.warn("[MILITOPO R5] análisis comparativo",error)}
+      setTimeout(()=>{try{window.dispatchEvent(new Event("resize"))}catch(_){}},130);
     }
   }
   document.addEventListener("click",e=>{
