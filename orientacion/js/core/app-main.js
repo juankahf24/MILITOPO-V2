@@ -11539,6 +11539,48 @@ window.MILITOPO_R2_BRIDGE={
         const uniqueRoutes=[...new Set((state.routes||[]).map(r=>String(r.routeId||"")).filter(Boolean))];
         return {eventId:String(state.eventId||""),eventName:String(state.eventName||""),selectedPointId:String(selectedPointId||""),points,placed,total:points.length,controls,controlsPlaced:controls.filter(p=>p.lat!==null&&p.lon!==null).length,controlsPerRoute:Math.max(1,Number(state.controlsPerRoute)||1),participantCount:Math.max(1,Number(state.participantCount)||1),routeCount:uniqueRoutes.length,routeIds:uniqueRoutes,maxUniqueRoutes:Math.max(1,Number(state.maxUniqueRoutes)||30),locked:!!currentMilitopoCloudDesignLock()};
     },
+    // Premium reuses the legacy UTM / ATAK parser and the same persistent state.points.
+    coordinatesFromUtm(text){
+        const parsed=parseUtmStrict(text);if(!parsed)return null;
+        const converted=utmToLatLon(parsed.normalized);
+        return converted&&Number.isFinite(converted.lat)&&Number.isFinite(converted.lon)?{lat:converted.lat,lon:converted.lon,utm:parsed.normalized}:null;
+    },
+    coordinatesToUtm(lat,lon){
+        const a=Number(lat),o=Number(lon);
+        if(!Number.isFinite(a)||a< -90||a>90||!Number.isFinite(o)||o< -180||o>180)return "";
+        return latLonToUtm(a,o);
+    },
+    previewAtakGpx(text){
+        const raw=String(text||"");
+        const candidates=parseAtakGpxWaypoints(raw);
+        const matches=[],skipped=[],seen=new Set();
+        for(const wp of candidates){
+            const id=normalizeImportPointId(wp.id||wp.name||wp.callsign||wp.title||wp.desc||wp.remarks);
+            if(!id||!state.points?.[id]){skipped.push({id:id||"SIN ID",reason:"No coincide con SALIDA, LLEGADA ni balizas configuradas"});continue}
+            if(seen.has(id)){skipped.push({id,reason:"Duplicado en el archivo"});continue}
+            if(!Number.isFinite(wp.lat)||wp.lat< -90||wp.lat>90||!Number.isFinite(wp.lon)||wp.lon< -180||wp.lon>180){skipped.push({id,reason:"Coordenadas no válidas"});continue}
+            seen.add(id);matches.push({id,lat:wp.lat,lon:wp.lon,utm:latLonToUtm(wp.lat,wp.lon)||""});
+        }
+        return {ok:matches.length>0,total:candidates.length,matches,skipped,error:candidates.length?"":"No se encontraron waypoints GPX ATAK (<wpt>)."};
+    },
+    applyAtakPreview(preview){
+        if(rejectProtectedRaceMutation("importar puntos ATAK"))return {ok:false,error:"La carrera no permite editar los controles"};
+        const matches=Array.isArray(preview?.matches)?preview.matches:[];
+        if(!matches.length)return {ok:false,error:"No hay puntos válidos para importar"};
+        if(matches.some(w=>!state.points?.[w.id]||!Number.isFinite(Number(w.lat))||!Number.isFinite(Number(w.lon))||Number(w.lat)< -90||Number(w.lat)>90||Number(w.lon)< -180||Number(w.lon)>180))return {ok:false,error:"Puntos ATAK no válidos"};
+        const previous={};
+        try{
+            for(const w of matches){const p=state.points[w.id];previous[w.id]={...p};p.lat=Number(w.lat);p.lon=Number(w.lon);p.utm=latLonToUtm(p.lat,p.lon);p.elevation=null;}
+            for(const w of matches)militopoR2OnPointGeometryChanged(w.id);
+            try{renderPointSelectors()}catch(_){ }
+            try{renderPointsTable()}catch(_){ }
+            try{renderMapMarkers()}catch(_){ }
+            try{renderIofDescriptionsEditor()}catch(_){ }
+            saveState();try{publishMilitopoCloudStructure("premium-atak-import")}catch(_){ }
+            try{window.dispatchEvent(new CustomEvent("militopo:premium-controls-updated",{detail:{reason:"atak",count:matches.length}}))}catch(_){ }
+            return {ok:true,imported:matches.length};
+        }catch(error){for(const [id,p] of Object.entries(previous))state.points[id]=p;saveState();return {ok:false,error:String(error?.message||error)};}
+    },
     getIofModel(id){return militopoPremiumIofModel(id);},
     getIofSummary(){return militopoPremiumIofSummary();},
     updateIof(id,field,value){return militopoPremiumUpdateIof(id,field,value);},
