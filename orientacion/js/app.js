@@ -1,7 +1,7 @@
 /* MILITOPO Orientación · cargador modular seguro fase 2
    No contiene lógica de la app: carga los bloques en orden clásico para mantener compatibilidad. */
 (function(){
-  var VERSION = "v2-premium-p2c10-map-symbols-refresh-20261018";
+  var VERSION = "militopo-r5b-utm-atak-20261019";
   var files = [
     "js/config/iof-symbols-baked.js",
     "js/core/app-main.js",
