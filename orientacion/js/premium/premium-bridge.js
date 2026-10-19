@@ -26,6 +26,7 @@
       races: function(){ return shellCall("races",[],false); },
       manager: function(event){ return shellCall("manager",[event||{}],false); },
       participants: function(){ return shellCall("participants",[],false); },
+      premiumModule: function(kind){ return shellCall("premiumModule",[kind],false); },
       live: function(){ return shellCall("live",[],false); },
       results: function(){ return shellCall("results",[],false); },
       analysis: function(){ return shellCall("analysis",[],false); },
