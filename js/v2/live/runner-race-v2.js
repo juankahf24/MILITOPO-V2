@@ -402,7 +402,9 @@
     const snap=trackApi()?.snapshot?.()||{};
     const pending=Number(detail.pending ?? snap.pending ?? 0);
     const sent=Number(detail.sent ?? snap.sent ?? 0);
-    if(status==="offline"){pill.textContent=`OFFLINE · ${pending}`;pill.classList.add("warn");text.textContent=`Sin cobertura. ${pending} punto${pending===1?"":"s"} guardado${pending===1?"":"s"} en el dispositivo.`;}
+    if(status==="storage_error"||snap.storageFailed){pill.textContent="ERROR GPS";pill.classList.add("warn");text.textContent="No se ha podido proteger un punto GPS. No cierres la PWA; comprueba el almacenamiento del dispositivo.";}
+    else if(snap.hasStorageGap){pill.textContent="GPS PARCIAL";pill.classList.add("warn");text.textContent=`El GPS tuvo ${Number(snap.storageFailures||0)} fallo(s) de almacenamiento. Hay ${pending} punto(s) pendiente(s); el track puede contener lagunas.`;}
+    else if(status==="offline"){pill.textContent=`OFFLINE · ${pending}`;pill.classList.add("warn");text.textContent=`Sin cobertura. ${pending} punto${pending===1?"":"s"} guardado${pending===1?"":"s"} en el dispositivo.`;}
     else if(status==="syncing"||status==="queued"){pill.textContent=pending?`${pending} PEND.`:"SINCRONIZANDO";pill.classList.add(pending?"warn":"ok");text.textContent=pending?`Track protegido localmente · ${pending} pendiente${pending===1?"":"s"} de subir.`:`Sincronizando track con Live V2…`;}
     else if(status==="error"){pill.textContent=`LOCAL · ${pending}`;pill.classList.add("warn");text.textContent="El track sigue guardado en el dispositivo y se reintentará automáticamente.";}
     else if(status==="synced"||status==="online"){pill.textContent="AL DÍA";pill.classList.add("ok");text.textContent=`Track sincronizado · ${sent} punto${sent===1?"":"s"} enviado${sent===1?"":"s"}.`;}
@@ -620,6 +622,10 @@
     if(!fix){el("m2raceControlStatus").className="m2race-control-status warn";el("m2raceControlStatus").textContent="No se puede iniciar sin una posición GPS válida.";syncStartGate();return;}
     state.localArrivalAt=0;state.autoFinishing=false;busy("Preparando salida","GPS validado · registrando tu salida oficial…");
     try{
+      // P0.1: antes de cambiar el estado OFICIAL en el servidor, confirmar que
+      // el teléfono puede escribir y recuperar la cola GPS local.
+      const storageReady=await trackApi()?.start?.(gpsContext());
+      if(storageReady!==true)throw new Error("No se puede iniciar: almacenamiento GPS local no disponible. La salida oficial NO se ha solicitado.");
       const svc=await services();const startResult=await svc.callable("runnerStartRace",{eventId:state.event.eventId,clientVersion:VERSION});const startData=startResult?.data||{};
       state.participant={...(state.participant||{}),status:"racing",startedAt:Number(startData.startedAt||state.participant?.startedAt||Date.now())};controlsApi()?.setRaceStatus?.("racing");
       const gpsStarted=await api.start(gpsContext(),fix);if(!gpsStarted)throw new Error("La salida se registró, pero el GPS no pudo mantenerse activo. Revisa el permiso de ubicación.");
@@ -657,7 +663,9 @@
       state.participant={...(state.participant||{}),status:"finished",finishedAt:Number(data.finishedAt||state.localArrivalAt||Date.now()),manualFinish:false,manualFinishIncomplete:false};
       render();
       el("m2raceBusyTitle").textContent="Carrera finalizada ✓";
-      el("m2raceBusyText").textContent="Balizas, llegada, track y resultado sincronizados correctamente.";
+      el("m2raceBusyText").textContent=trackApi()?.snapshot?.().hasStorageGap
+        ? "Llegada y resultado sincronizados. Atención: el track GPS tuvo fallos de almacenamiento y puede estar incompleto."
+        : "Balizas, llegada, track y resultado sincronizados correctamente.";
       await new Promise(r=>setTimeout(r,650));
       unbusy();state.autoFinishing=false;
       await showFinishSummary({incomplete:false});
@@ -681,14 +689,28 @@
     try{
       try{await api?.flush?.();}catch(_){}
       const pendingPasses=api?.pendingPasses?.()||[];
-      try{await gpsApi()?.stop?.("runner_manual_finish");}catch(_){}
+      await gpsApi()?.stop?.("runner_manual_finish");
+      // El cierre manual también crea resultados: no consolidar un track parcial
+      // por un fallo de red. Las muestras permanecen en IndexedDB para reintento.
+      let trackSnap=trackApi()?.snapshot?.()||{};
+      if(Number(trackSnap.pending||0)>0 && navigator.onLine!==false){
+        await trackApi()?.flush?.({force:true});
+        trackSnap=trackApi()?.snapshot?.()||{};
+      }
+      if(Number(trackSnap.pending||0)>0 || trackSnap.storageFailed){
+        throw new Error(`Track sin sincronizar: ${Number(trackSnap.pending||0)} punto(s) pendientes. La carrera NO se ha finalizado oficialmente.`);
+      }
       const svc=await services();
       const result=await svc.callable("runnerFinishRace",{eventId:state.event.eventId,clientVersion:VERSION,manualFinish:true,pendingPasses});
       const data=result?.data||{};
       state.participant={...(state.participant||{}),status:"finished",finishedAt:Number(data.finishedAt||Date.now()),manualFinish:true,manualFinishIncomplete:Boolean(data.manualFinishIncomplete)};
       render();
       el("m2raceBusyTitle").textContent=data.manualFinishIncomplete?"Carrera terminada · INCOMPLETA":"Carrera terminada";
-      el("m2raceBusyText").textContent=data.manualFinishIncomplete?"Se ha cerrado cuando lo has solicitado. El resultado queda INCOMPLETO porque faltaban balizas o LLEGADA.":"Resultado y recorrido sincronizados correctamente.";
+      el("m2raceBusyText").textContent=data.manualFinishIncomplete
+        ? "Se ha cerrado cuando lo has solicitado. El resultado queda INCOMPLETO porque faltaban balizas o LLEGADA."
+        : trackApi()?.snapshot?.().hasStorageGap
+          ? "Resultado sincronizado, pero el track GPS puede ser parcial por errores de almacenamiento."
+          : "Resultado y recorrido sincronizados correctamente.";
       await new Promise(r=>setTimeout(r,650));unbusy();await showFinishSummary({incomplete:Boolean(data.manualFinishIncomplete)});return;
     }catch(error){
       el("m2raceBusyTitle").textContent="No se pudo terminar";

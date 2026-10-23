@@ -3,7 +3,7 @@
    El track se guarda localmente y se sincroniza al recuperar conexión. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-k3b-gps-resume-20261001";
+const VERSION = "v2-p01-gps-track-guard-20261023";
 const MIN_WRITE_MS = 4000;
 const FORCE_WRITE_MS = 12000;
 const MIN_MOVE_M = 3;
@@ -97,7 +97,14 @@ async function writeFix(fix, force = false) {
   if (!force && elapsed < MIN_WRITE_MS) return;
   if (!force && elapsed < FORCE_WRITE_MS && moved < MIN_MOVE_M) return;
 
-  trackApi()?.record?.(fix);
+  // Nunca informar de GPS protegido si IndexedDB no confirmó su escritura.
+  const stored = await trackApi()?.record?.(fix);
+  if (stored !== true) {
+    const message = "No se pudo guardar el punto GPS en el dispositivo. No cierres la PWA y comprueba el almacenamiento.";
+    state.lastError = message;
+    emit("storage_error", { message, fix: { ...fix } });
+    return;
+  }
   state.lastSent = { ...fix };
   if (navigator.onLine === false) {
     state.lastError = "";
@@ -152,7 +159,12 @@ async function start(context, seedFix = null) {
   stopWatchOnly();
   state.context = { ...context };
   state.active = true;
-  await trackApi()?.start?.(state.context);
+  const trackReady = await trackApi()?.start?.(state.context);
+  if (trackReady !== true) {
+    state.active = false;
+    emit("storage_error", { message: "No se puede proteger el recorrido GPS en el dispositivo. Comprueba el almacenamiento antes de continuar." });
+    return false;
+  }
   state.lastSent = null;
   const first = seedFix || state.seedFix;
   if (first) await writeFix(first, true);
