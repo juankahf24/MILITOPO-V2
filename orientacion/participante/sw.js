@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-p01-durable-gps-20261023";
+const CACHE_NAME="militopo-v2-participante-p02-atomic-gps-20261023";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
@@ -12,7 +12,7 @@ const APP_SHELL=[
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",
   "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
   "../../js/v2/maps/race-plan-history.js?v=v2-r7e-runner-coherence-20261008",
-  "../../js/v2/live/runner-track-v2.js?v=v2-p01-durable-track-20261023",
+  "../../js/v2/live/runner-track-v2.js?v=v2-p02-atomic-track-seq-20261023",
   "../../js/v2/live/runner-gps-v2.js?v=v2-p01-gps-track-guard-20261023",
   "../../js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
   "../../js/v2/live/runner-controls-v2.js?v=v2-r6f-progress-discard-state-20261007",
