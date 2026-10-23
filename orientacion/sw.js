@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="militopo-r5b-utm-atak-20261019";
+const BUILD_ID="militopo-p03-track-revisions-20261023";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -59,7 +59,7 @@ const CORE_ASSETS=[
   "../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/organizer-monitor.js?v=v2-r4d-results-center-20261004",
   "../js/v2/live/organizer-live-map.js?v=v2-r9m-overzoom-persistente-20261011",
-  "../js/v2/data/event-results.js?v=v2-r4d-results-center-20261004"
+  "../js/v2/data/event-results.js?v=v2-p03-track-revisions-20261023"
 ];
 
 const FIREBASE_SDK_ASSETS=[
