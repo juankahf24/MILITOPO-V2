@@ -68,11 +68,12 @@ async function loadOrganizerPlaybackResult(input = {}) {
   if (!input.force && organizerPlaybackCache.has(cacheKey)) return organizerPlaybackCache.get(cacheKey);
   const { firestore } = await services();
   const resultRef = doc(firestore, "events", eventId, "results", runnerUid);
-  const [resultSnap, chunksSnap] = await Promise.all([
-    getDoc(resultRef),
-    getDocs(collection(resultRef, "trackChunks"))
-  ]);
+  const resultSnap = await getDoc(resultRef);
   if (!resultSnap.exists()) throw new Error("No existe el resultado persistente de este corredor.");
+  const revision = String(resultSnap.data()?.activeTrackRevision || "");
+  const chunksSnap = await getDocs(revision
+    ? collection(resultRef, "trackRevisions", revision, "chunks")
+    : collection(resultRef, "trackChunks"));
   const chunks = chunksSnap.docs.map(row => ({ index: Math.max(0, Number(row.data()?.index || 0)), points: Array.isArray(row.data()?.points) ? row.data().points : [] })).sort((a,b) => a.index - b.index);
   const track = [];
   for (const chunk of chunks) for (const raw of chunk.points) { const point = safePlaybackPoint(raw); if (point) track.push(point); }
@@ -384,6 +385,8 @@ async function bindResults(force = false) {
   try {
     const { firestore } = await services();
     state.unsubscribe = onSnapshot(collection(firestore, "events", eventId, "results"), snap => {
+      // Una revisión GPS recién publicada invalida el reproductor cacheado.
+      for (const changed of snap.docChanges()) organizerPlaybackCache.delete(`${eventId}:${changed.doc.id}`);
       state.rows = snap.docs.map(d => ({ id:d.id, ...(d.data() || {}) }));
       state.error = "";
       publishOrganizerResults();
