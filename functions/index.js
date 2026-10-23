@@ -3,6 +3,8 @@
 const { setGlobalOptions } = require("firebase-functions/v2");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
+const { onValueWritten } = require("firebase-functions/v2/database");
+const { createReconciler } = require("./p03-track-reconcile");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -16,6 +18,7 @@ setGlobalOptions({ region: "europe-west1", maxInstances: 3, timeoutSeconds: 60, 
 const db = getFirestore();
 const auth = getAuth();
 const rtdb = getDatabase();
+const gpsReconciler = createReconciler({ db, rtdb, FieldValue });
 const VALID_ROLES = new Set(["runner", "organizer", "super_admin"]);
 const LIVE_STATES = new Set(["prepared", "published", "live", "finished"]);
 
@@ -1289,6 +1292,12 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     durationMs,
     startedAt: startedAtMs ? new Date(startedAtMs) : null,
     finishedAt: finishedAtMs ? new Date(finishedAtMs) : null,
+    // Una persistencia oficial nueva vuelve a usar los chunks legacy.
+    // La siguiente reconciliación P0.3 publicará una revisión íntegra después.
+    activeTrackRevision: null,
+    trackFingerprintSha256: null,
+    trackReconciledAt: null,
+    trackReconcileLease: null,
     trackPointCount: points.length,
     trackChunkCount: Math.ceil(points.length / RESULT_TRACK_CHUNK_SIZE),
     trackDistanceM: trackDistanceMeters(points),
@@ -2259,8 +2268,12 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
       throw new HttpsError("permission-denied", "Este resultado no pertenece a tu cuenta.");
     }
 
+    const activeRevision = String(result.activeTrackRevision || "");
+    const trackCollection = activeRevision
+      ? resultSnap.ref.collection("trackRevisions").doc(activeRevision).collection("chunks")
+      : resultSnap.ref.collection("trackChunks");
     const [chunksSnap, checkpointsSnap, coursesSnap] = await Promise.all([
-      resultSnap.ref.collection("trackChunks").get(),
+      trackCollection.get(),
       eventRef.collection("checkpoints").get(),
       eventRef.collection("courses").get()
     ]);
@@ -2788,3 +2801,41 @@ exports.mirrorInvitationSignal = onDocumentWritten("invitations/{invitationId}",
   if (Object.keys(updates).length) await rtdb.ref().update(updates);
 });
 
+
+
+// P0.3 — Envío GPS tardío: un aviso RTDB pequeño se escribe en la MISMA
+// operación confirmada que el último lote de puntos. El trigger no recibe
+// un track entero en su payload, solo el aviso. No recalcula tiempos oficiales.
+exports.reconcileLateGpsOnSyncV2 = onValueWritten({
+  ref: "/v2/live/{ownerUid}/{eventId}/runs/{runId}/trackSync/{uid}",
+  region: "europe-west1", retry: true, timeoutSeconds: 300,
+  memory: "512MiB", maxInstances: 3
+}, async event => {
+  if (!event.data?.after?.exists()) return;
+  const { ownerUid, eventId, runId, uid } = event.params;
+  const result = await gpsReconciler.reconcile({ ownerUid, eventId, runId, uid });
+  console.log("[MILITOPO P0.3] sync", { eventId, uid, state: result.state });
+});
+
+// Red de seguridad ante un aviso recibido DURANTE la consolidación. Al
+// terminar el evento, repasar resultados ya guardados y tracks disponibles.
+exports.reconcileGpsOnEventFinishedV2 = onDocumentWritten({
+  document: "events/{eventId}", retry: true, timeoutSeconds: 540,
+  memory: "512MiB", maxInstances: 3
+}, async event => {
+  const before = event.data?.before?.exists ? (event.data.before.data() || {}) : {};
+  const after = event.data?.after?.exists ? (event.data.after.data() || {}) : null;
+  if (!after || String(before.status || "").toLowerCase() === "finished" ||
+      String(after.status || "").toLowerCase() !== "finished") return;
+  const eventId = event.params.eventId;
+  const ownerUid = String(after.ownerUid || "");
+  const runId = String(after.liveRunId || "");
+  if (!ownerUid || !runId) return;
+  const eventRef = db.collection("events").doc(eventId);
+  const snaps = await eventRef.collection("results").get();
+  // Secuencial y reintentable, sin lanzar un pico de operaciones a Firebase.
+  for (const result of snaps.docs) {
+    if (String(result.data()?.runId || "") !== runId) continue;
+    await gpsReconciler.reconcile({ ownerUid, eventId, runId, uid: result.id });
+  }
+});
