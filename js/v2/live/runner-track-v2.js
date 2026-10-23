@@ -1,13 +1,13 @@
-/* MILITOPO V2 · P0.1 · Track GPS duradero y sincronización idempotente.
+/* MILITOPO V2 · P0.2 · Track GPS duradero con secuencia atómica entre pestañas.
    - IndexedDB es la fuente de verdad de puntos PENDIENTES, sin poda silenciosa.
    - Migra la cola legacy de localStorage de forma reversible: solo elimina el
      original DESPUÉS de confirmar la transacción de IndexedDB.
-   - Secuencia persistente por participación, incluso con cola vacía.
+   - Secuencia persistente y atómica por participación, incluso entre pestañas.
    - Un ACK de RTDB precede SIEMPRE al borrado local. Reintentos usan idénticas claves.
    - No borra carreras antiguas ni cachés. Fallos de almacenamiento son visibles. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-p01-durable-track-20261023";
+const VERSION = "v2-p02-atomic-track-seq-20261023";
 const DB_NAME = "militopo_v2_runner_tracks";
 const DB_VERSION = 1;
 const FLUSH_BATCH = 24;
@@ -151,13 +151,42 @@ async function initRun(context) {
     hasStorageGap: Boolean(session?.hasStorageGap), storageFailures: Number(session?.storageFailures || 0)
   };
 }
-async function storePoint(runKey, point) {
+async function storePoint(runKey, fix) {
   const db = await openDb();
+  // Una transacción readwrite bloquea el almacén sessions frente a otras pestañas.
+  // Leer, reservar secuencia y guardar punto en UNA MISMA transacción evita que
+  // Safari y la PWA generen números repetidos para el mismo evento/run/usuario.
   const tx = db.transaction(["points", "sessions"], "readwrite");
-  const stores = { points: tx.objectStore("points"), sessions: tx.objectStore("sessions") };
-  stores.points.put({ ...point, runKey, id: `${runKey}|${pointId(point)}` });
-  stores.sessions.put({ runKey, lastSeq: point.seq, hasStorageGap: state.hasStorageGap, storageFailures: state.storageFailures });
-  await transactionDone(tx);
+  const done = transactionDone(tx);
+  const points = tx.objectStore("points");
+  const sessions = tx.objectStore("sessions");
+  try {
+    const previous = await requestResult(sessions.get(runKey));
+    const priorSeq = Number(previous?.lastSeq || 0);
+    if (!Number.isSafeInteger(priorSeq) || priorSeq < 0) {
+      throw new Error("Contador GPS persistente no válido; se conserva la cola existente.");
+    }
+    if (priorSeq >= Number.MAX_SAFE_INTEGER) {
+      throw new Error("El contador GPS alcanzó su límite seguro.");
+    }
+    const seq = Math.max(priorSeq + 1, Date.now());
+    if (!Number.isSafeInteger(seq)) throw new Error("No se pudo reservar una secuencia GPS segura.");
+    const point = { ...fix, seq };
+    points.put({ ...point, runKey, id: `${runKey}|${pointId(point)}` });
+    sessions.put({
+      runKey, lastSeq: seq,
+      hasStorageGap: Boolean(previous?.hasStorageGap || state.hasStorageGap),
+      storageFailures: Math.max(Number(previous?.storageFailures || 0), state.storageFailures)
+    });
+    await done;
+    return point;
+  } catch (error) {
+    // Si aún está activa, abortar evita confirmar solo una de las dos escrituras.
+    try { tx.abort(); } catch (_) {}
+    // Evitar una promesa rechazada sin observador cuando se aborta la transacción.
+    await done.catch(() => {});
+    throw error;
+  }
 }
 async function deleteAcknowledged(runKey, points) {
   const db = await openDb();
@@ -243,13 +272,13 @@ function record(fix) {
   if (!p) { failStorage(new Error("Posición GPS inválida; no se ha guardado.")); return Promise.resolve(false); }
   const work = async () => {
     if (runKey !== state.key) return false;
-    p.seq = Math.max(state.lastSeq + 1, Date.now());
-    await storePoint(runKey, p);
-    state.lastSeq = p.seq;
-    state.queue.push(p);
+    const point = await storePoint(runKey, p);
+    // Nunca considerar guardado un punto hasta que IndexedDB confirme la transacción.
+    state.lastSeq = point.seq;
+    state.queue.push(point);
     state.storageFailed = false;
     state.lastError = "";
-    emit(navigator.onLine === false ? "offline" : "queued", { point: { ...p } });
+    emit(navigator.onLine === false ? "offline" : "queued", { point: { ...point } });
     if (navigator.onLine !== false && state.queue.length >= 6) flush().catch(() => {});
     return true;
   };
