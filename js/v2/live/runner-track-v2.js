@@ -1,4 +1,4 @@
-/* MILITOPO V2 · P0.2 · Track GPS duradero con secuencia atómica entre pestañas.
+/* MILITOPO V2 · P0.3 · Track GPS duradero con secuencia atómica entre pestañas.
    - IndexedDB es la fuente de verdad de puntos PENDIENTES, sin poda silenciosa.
    - Migra la cola legacy de localStorage de forma reversible: solo elimina el
      original DESPUÉS de confirmar la transacción de IndexedDB.
@@ -7,7 +7,7 @@
    - No borra carreras antiguas ni cachés. Fallos de almacenamiento son visibles. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-p02-atomic-track-seq-20261023";
+const VERSION = "v2-p03-gps-reconciliation-20261023";
 const DB_NAME = "militopo_v2_runner_tracks";
 const DB_VERSION = 1;
 const FLUSH_BATCH = 24;
@@ -224,7 +224,24 @@ async function flush({ force = false } = {}) {
       if (!batch.length) break;
       const payload = {};
       for (const p of batch) payload[`${base}/${pointId(p)}`] = p;
-      await withTimeout(update(ref(database), payload), ACK_TIMEOUT_MS);
+      // El marcador y el ULTIMO lote GPS se escriben de forma atómica.
+      // Si su ruta no está desplegada aún en RTDB, salvamos el track primero:
+      // un error de permisos del nuevo marcador jamás bloquea el GPS.
+      const finalBatch = state.queue.length === batch.length;
+      if (finalBatch) {
+        payload[`v2/live/${context.ownerUid}/${context.eventId}/runs/${context.runId}/trackSync/${context.uid}`] = {
+          lastSeq: batch[batch.length - 1].seq, updatedAt: Date.now()
+        };
+      }
+      try {
+        await withTimeout(update(ref(database), payload), ACK_TIMEOUT_MS);
+      } catch (error) {
+        const message = String(error?.code || "") + " " + String(error?.message || "");
+        if (!finalBatch || !/permission[-_ ]denied/i.test(message)) throw error;
+        delete payload[`v2/live/${context.ownerUid}/${context.eventId}/runs/${context.runId}/trackSync/${context.uid}`];
+        await withTimeout(update(ref(database), payload), ACK_TIMEOUT_MS);
+        emit("reconcile_warning", { message: "GPS enviado, pero el aviso de reconciliación no está autorizado en Firebase." });
+      }
       // P0: si se cierra la app tras el ACK pero antes del borrado, se reenvían
       // los mismos IDs, nunca se crean puntos duplicados.
       await deleteAcknowledged(runKey, batch);
