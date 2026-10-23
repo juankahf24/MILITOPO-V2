@@ -271,6 +271,12 @@ service cloud.firestore {
           allow read: if signedIn() && (request.auth.uid == uid || managesEvent(eventId));
           allow write: if false;
         }
+        // P0.3: versiones inmutables del track, activadas mediante un puntero
+        // de resultado en una sola operación. Lectura con mismos permisos.
+        match /trackRevisions/{revisionId}/chunks/{chunkId} {
+          allow read: if signedIn() && (request.auth.uid == uid || managesEvent(eventId));
+          allow write: if false;
+        }
       }
 
       match /audit/{logId} {
