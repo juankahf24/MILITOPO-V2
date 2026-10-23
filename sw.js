@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-premium-p2c-safe-sw-20261013";
+const BUILD_ID="v2-p01-durable-gps-20261023";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -14,19 +14,25 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
    de forma deliberada. Así, incluso si el corredor cierra completamente la PWA,
    la siguiente apertura conserva la versión que inició la carrera. */
 const UPDATE_GUARD_CACHE="militopo-v2-update-guard";
-const UPDATE_GUARD_URL=new URL("./__militopo_active_race_lock__",self.registration.scope).href;
+const UPDATE_GUARD_URLS=[
+  new URL("./__militopo_active_race_lock__",self.registration.scope).href,
+  // Las pantallas de corredor usan un scope propio y guardan allí su lock.
+  new URL("./orientacion/participante/__militopo_active_race_lock__",self.registration.scope).href
+];
 const UPDATE_GUARD_MAX_AGE_MS=36*60*60*1000;
 async function activeRaceUpdateLock(){
   try{
     const cache=await caches.open(UPDATE_GUARD_CACHE);
-    const res=await cache.match(UPDATE_GUARD_URL);
-    if(!res)return null;
-    const data=await res.json();
-    const status=String(data?.status||"").toLowerCase();
-    const updatedAt=Number(data?.updatedAt||0);
-    const fresh=updatedAt>0&&(Date.now()-updatedAt)<=UPDATE_GUARD_MAX_AGE_MS;
-    if(fresh&&["racing","started"].includes(status)&&data?.eventId&&data?.runId)return data;
-    await cache.delete(UPDATE_GUARD_URL);
+    for(const url of UPDATE_GUARD_URLS){
+      const res=await cache.match(url);
+      if(!res)continue;
+      const data=await res.json();
+      const status=String(data?.status||"").toLowerCase();
+      const updatedAt=Number(data?.updatedAt||0);
+      const fresh=updatedAt>0&&(Date.now()-updatedAt)<=UPDATE_GUARD_MAX_AGE_MS;
+      if(fresh&&["racing","started"].includes(status)&&data?.eventId&&data?.runId)return data;
+      if(!fresh)await cache.delete(url);
+    }
   }catch(_){}
   return null;
 }
@@ -53,11 +59,11 @@ const APP_SHELL=[
   "./js/v2/data/invitation-inbox.js?v=v2-r5e4-rechazo-servidor-20261006",
   "./js/v2/maps/race-plan-history.js?v=v2-h4-1-runner-map-parity-20260925",
   "./js/v2/live/runner-dashboard.js?v=v2-i6g-runner-smaller-slow-pulse-20261001",
-  "./js/v2/live/runner-track-v2.js?v=v2-g3-recovery-wakelock-20260924",
-  "./js/v2/live/runner-gps-v2.js?v=v2-k3b-gps-resume-20261001",
+  "./js/v2/live/runner-track-v2.js?v=v2-p01-durable-track-20261023",
+  "./js/v2/live/runner-gps-v2.js?v=v2-p01-gps-track-guard-20261023",
   "./js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
   "./js/v2/live/runner-controls-v2.js?v=v2-k3a-discard-race-guard-20261001",
-  "./js/v2/live/runner-race-v2.js?v=v2-k3a-discard-race-guard-20261001"
+  "./js/v2/live/runner-race-v2.js?v=v2-p01-race-track-warning-20261023"
 ];
 
 /* Librerías externas útiles offline. Son opcionales durante install: si un CDN falla,
