@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="militopo-p03-track-revisions-20261023";
+const BUILD_ID="militopo-p11-cache-alignment-20261023";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -16,7 +16,7 @@ const CORE_ASSETS=[
   "./css/r9o-final-polish.css?v=r9o-final-20261011",
   "./css/premium-base.css?v=premium-p0a-20261011",
   "./css/premium-home.css?v=militopo-r5a-analisis-comparativo-20261019",
-  "./css/orientation-modes.css?v=militopo-r5b-utm-atak-20261019",
+  "./css/orientation-modes.css?v=militopo-r3-fullscreen-20261018",
   "./css/premium-builder.css?v=militopo-r5b-utm-atak-20261019",
   "./js/app.js?v=militopo-r5b-utm-atak-20261019",
   "./js/ui/r1-shell.js?v=militopo-r5a-analisis-comparativo-20261019",
@@ -27,7 +27,7 @@ const CORE_ASSETS=[
   "./js/premium/premium-builder.js?v=militopo-r5b-utm-atak-20261019",
   "./js/premium/premium-home.js?v=militopo-r5a-analisis-comparativo-20261019",
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
-  "./js/premium/orientation-modes.js?v=militopo-r5b-utm-atak-20261019",
+  "./js/premium/orientation-modes.js?v=militopo-r3-fullscreen-20261018",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
   "./js/core/app-main.js?v=militopo-r5b-utm-atak-20261019",
@@ -53,7 +53,7 @@ const CORE_ASSETS=[
   "../js/v2/data/participants-admin.js?v=v2-r5a1-confirmaciones-20261005",
   "../js/v2/data/events.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/orientation-structure.js?v=v2-r2h-live-rules-20261003",
-  "../js/v2/data/cloud-recovery.js?v=militopo-r5b-utm-atak-20261019",
+  "../js/v2/data/cloud-recovery.js?v=militopo-r3-fullscreen-20261018",
   "../js/v2/data/event-lifecycle.js?v=v2-r6e-live-direct-20261007",
   "../js/v2/data/event-edit-lock.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/live/realtime-foundation.js?v=v2-f3b-runtimefix-20260924",
@@ -121,8 +121,7 @@ self.addEventListener("activate",event=>event.waitUntil((async()=>{
   const keys=await caches.keys();
   await Promise.all(keys.filter(k=>{
     const oldMain=(k.startsWith(CACHE_PREFIX)||k.startsWith(RUNTIME_PREFIX))&&k!==MILITOPO_CACHE&&k!==RUNTIME_CACHE;
-    const oldSnapshot=k.startsWith("militopo-v2-page-snapshot-");
-    return oldMain||oldSnapshot;
+    return oldMain;
   }).map(k=>caches.delete(k)));
   await self.clients.claim();
 })()));
