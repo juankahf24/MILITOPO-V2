@@ -1,16 +1,24 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-p03-gps-reconciliation-20261023";
+const CACHE_NAME="militopo-v2-participante-p11-cache-alignment-20261023";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
   "./runner-mode-switch.css?v=militopo-r4-profile-20261019",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
   "./runner-home-v4.js?v=militopo-r4-profile-20261019","./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=v2-r9n-provisional-classification-20261011","./runner-r9m-responsive.js?v=v2-r9m-runner-responsive-20261011",
-  "../../js/v2/firebase-config.js","../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
+  "../../js/v2/firebase-config.js","../../js/v2/firebase-config.js?v=v2-f3a-runner-homefix2-20260923",
+  "../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",
+  "../../js/v2/ui/confirm-dialog.js?v=v2-r6a-carrera-activa-20261006",
   "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
+  // Dependencias exactas de runner.html para iniciar y reanudar offline.
+  "../../js/v2/auth/auth-ui.css?v=v2-r8l-profile-photo-square-20261009",
+  "../../js/v2/auth/auth-ui.js?v=v2-r8l-profile-photo-square-20261009",
+  "../../js/v2/data/invitation-inbox.js?v=v2-f3a-runner-homefix2-20260923",
+  "../../js/v2/live/runner-session-v2.js?v=v2-f3a-runner-homefix2-20260923",
+  "../js/live/live-phase2.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/maps/race-plan-history.js?v=v2-r7e-runner-coherence-20261008",
   "../../js/v2/live/runner-track-v2.js?v=v2-p03-gps-reconciliation-20261023",
   "../../js/v2/live/runner-gps-v2.js?v=v2-p01-gps-track-guard-20261023",
