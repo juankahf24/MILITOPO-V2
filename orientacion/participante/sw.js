@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-p11-cache-alignment-20261023";
+const CACHE_NAME="militopo-v2-participante-p12-stable-code-20261023";
 const APP_SHELL=[
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
@@ -48,5 +48,78 @@ self.addEventListener("install",event=>{event.waitUntil((async()=>{
   // Si falla un archivo local, conserva el SW anterior en vez de instalar una PWA parcial.
   await Promise.all(APP_SHELL.map(url=>cache.add(new Request(url,{cache:"reload"}))));
 })());});
-self.addEventListener("activate",event=>{event.waitUntil((async()=>{const names=await caches.keys();await Promise.all(names.filter(name=>name.startsWith("militopo-v2-participante-")&&name!==CACHE_NAME).map(name=>caches.delete(name)));await self.clients.claim();})());});
-self.addEventListener("fetch",event=>{const req=event.request;if(req.method!=="GET")return;const url=new URL(req.url);if(url.origin!==self.location.origin)return;const isNav=req.mode==="navigate",isCode=/\.(?:js|html|css)$/i.test(url.pathname)||isNav;event.respondWith((async()=>{const cache=await caches.open(CACHE_NAME);if(isCode){try{const response=await fetch(new Request(req,{cache:"no-store"}));if(response&&response.ok)cache.put(req,response.clone()).catch(()=>{});return response;}catch(_){return (await caches.match(req,{ignoreSearch:true}))||(isNav?await caches.match("./index.html"):null)||new Response("",{status:503,statusText:"Offline"});}}const hit=await caches.match(req);if(hit)return hit;try{const response=await fetch(req);if(response&&response.ok)cache.put(req,response.clone()).catch(()=>{});return response;}catch(_){return new Response("",{status:503,statusText:"Offline"});}})());});
+self.addEventListener("activate",event=>{event.waitUntil((async()=>{
+  const names=await caches.keys();
+  /* El runner guarda rescates offline en militopo-v2-participante-page-...
+     Eso NO es una versión del SW y nunca debe eliminarse en una actualización. */
+  await Promise.all(names.filter(name=>
+    name.startsWith("militopo-v2-participante-")&&
+    !name.startsWith("militopo-v2-participante-page-")&&
+    name!==CACHE_NAME
+  ).map(name=>caches.delete(name)));
+  await self.clients.claim();
+})());});
+/* P1.2 · El código y la shell de una carrera pertenecen a una misma versión.
+   Cache-first SOLO en la caché de ESTE SW: jamás usar CacheStorage.match()
+   global ni ignorar ?v= para scripts/CSS. Evita mezclar versiones mientras
+   una carrera mantiene bloqueada la actualización del Service Worker. */
+const PARTICIPANT_URL=new URL("./",self.registration.scope);
+const OFFLINE_PAGES=new Set([
+  PARTICIPANT_URL.pathname,
+  new URL("./index.html",PARTICIPANT_URL).pathname,
+  new URL("./runner.html",PARTICIPANT_URL).pathname
+]);
+function isParticipantCode(req,url){
+  return req.mode==="navigate"||/\.(?:js|css|html?)$/i.test(url.pathname);
+}
+async function getCurrentBuild(cache,req,url){
+  /* Un ?event=... o ?c=... no altera la shell HTML. Se consulta su ruta
+     conocida, sin la query, manteniendo intacta la URL real del navegador. */
+  if(req.mode==="navigate"&&OFFLINE_PAGES.has(url.pathname)){
+    const pathname=new URL(url.href);
+    pathname.search="";pathname.hash="";
+    return (await cache.match(req))||(await cache.match(pathname.href));
+  }
+  return cache.match(req,{ignoreSearch:false});
+}
+function offlineResponse(){
+  return new Response("<!doctype html><html lang=es><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO sin conexión</title><body style='background:#0e1912;color:#f4edd9;font:16px system-ui;padding:24px'><h1>Sin conexión</h1><p>No se ha podido recuperar esta página de MILITOPO sin Internet. Conserva los datos de la carrera y vuelve a intentarlo cuando haya conexión.</p></body></html>",{
+    status:503,headers:{"Content-Type":"text/html;charset=utf-8"}
+  });
+}
+self.addEventListener("fetch",event=>{
+  const req=event.request;
+  if(req.method!=="GET")return;
+  const url=new URL(req.url);
+  if(url.origin!==self.location.origin)return;
+  event.respondWith((async()=>{
+    const cache=await caches.open(CACHE_NAME);
+    if(isParticipantCode(req,url)){
+      const current=await getCurrentBuild(cache,req,url);
+      if(current)return current;
+      try{
+        const response=await fetch(new Request(req,{cache:"no-store"}));
+        if(response&&response.ok&&response.status!==206){
+          // No guardamos URLs de navegación con parámetros de evento/participante.
+          if(req.mode!=="navigate"||!url.search){
+            event.waitUntil(cache.put(req,response.clone()).catch(()=>{}));
+          }
+        }
+        return response;
+      }catch(_){
+        return req.mode==="navigate"?offlineResponse():new Response("",{status:503,statusText:"Offline"});
+      }
+    }
+    /* Imágenes y otros recursos: también limitados a ESTA caché.
+       No recuperar assets obsoletos de SW raíz, antiguo o de organizador. */
+    const hit=await cache.match(req);
+    if(hit)return hit;
+    try{
+      const response=await fetch(req);
+      if(response&&response.ok&&response.status!==206){
+        event.waitUntil(cache.put(req,response.clone()).catch(()=>{}));
+      }
+      return response;
+    }catch(_){return new Response("",{status:503,statusText:"Offline"});}
+  })());
+});
