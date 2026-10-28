@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-p17-startup-map-retry-20261028";
+const CACHE_NAME="militopo-v2-participante-p18-offline-dependencies-20261028";
 const APP_SHELL=[
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
@@ -47,10 +47,28 @@ const FIREBASE_SDK_ASSETS=[
   "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js",
   "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js"
 ];
-const FIREBASE_SDK_URLS=new Set(FIREBASE_SDK_ASSETS);
-function usableFirebaseSdk(response){
-  return response&&response.status===200&&response.type!=="opaque"&&
-    /^(?:text|application)\/(?:x-)?(?:javascript|ecmascript)\b/i.test(response.headers.get("Content-Type")||"");
+/* P1.8: librerías estáticas del historial, planos y QR; no incluye teselas,
+   carreras ni documentos de usuarios. Se mantienen las versiones ya utilizadas. */
+const OFFLINE_UI_ASSETS=[
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+  "https://cdn.jsdelivr.net/npm/proj4@2.11.0/dist/proj4.js",
+  "https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.min.js",
+  "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js",
+  "https://unpkg.com/leaflet@1.9.4/dist/images/layers.png",
+  "https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png",
+  "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png"
+];
+const VERSIONED_ASSETS=[...FIREBASE_SDK_ASSETS,...OFFLINE_UI_ASSETS];
+const VERSIONED_ASSET_URLS=new Set(VERSIONED_ASSETS);
+function usableVersionedAsset(response,url){
+  if(!response||response.status!==200||response.type==="opaque")return false;
+  const mime=(response.headers.get("Content-Type")||"").split(";")[0].trim().toLowerCase();
+  if(url.pathname.endsWith(".css"))return mime==="text/css";
+  if(url.pathname.endsWith(".png"))return mime==="image/png";
+  return /^(?:text|application)\/(?:x-)?(?:javascript|ecmascript)$/.test(mime);
 }
 // No instalar actualizaciones nuevas durante una carrera activa, incluso con
 // la PWA cerrada: runner-resilience-v2 guarda un lock en Cache Storage.
@@ -73,10 +91,10 @@ self.addEventListener("install",event=>{event.waitUntil((async()=>{
   const cache=await caches.open(CACHE_NAME);
   // Si falla un archivo local, conserva el SW anterior en vez de instalar una PWA parcial.
   await Promise.all(APP_SHELL.map(url=>cache.add(new Request(url,{cache:"reload"}))));
-  // Si falla el CDN o la respuesta no es JS utilizable, queda el SW anterior.
-  await Promise.all(FIREBASE_SDK_ASSETS.map(async url=>{
+  // Si falla una dependencia o su tipo no es válido, queda el SW anterior.
+  await Promise.all(VERSIONED_ASSETS.map(async url=>{
     const response=await fetch(new Request(url,{mode:"cors",credentials:"omit",cache:"reload",redirect:"error"}));
-    if(!usableFirebaseSdk(response))throw new Error("MILITOPO_SDK_PRECACHE_FAILED:"+url);
+    if(!usableVersionedAsset(response,new URL(url)))throw new Error("MILITOPO_DEPENDENCY_PRECACHE_FAILED:"+url);
     await cache.put(url,response);
   }));
 })());});
@@ -123,16 +141,16 @@ self.addEventListener("fetch",event=>{
   const req=event.request;
   if(req.method!=="GET")return;
   const url=new URL(req.url);
-  const firebaseSdk=FIREBASE_SDK_URLS.has(url.href);
-  if(url.origin!==self.location.origin&&!firebaseSdk)return;
+  const versionedAsset=VERSIONED_ASSET_URLS.has(url.href);
+  if(url.origin!==self.location.origin&&!versionedAsset)return;
   event.respondWith((async()=>{
     const cache=await caches.open(CACHE_NAME);
-    if(isParticipantCode(req,url)){
+    if(isParticipantCode(req,url)||versionedAsset){
       const current=await getCurrentBuild(cache,req,url);
       if(current)return current;
       try{
-        const response=await fetch(new Request(req,firebaseSdk?{cache:"no-store",mode:"cors",credentials:"omit",redirect:"error"}:{cache:"no-store"}));
-        if(response&&response.ok&&response.status!==206&&(!firebaseSdk||usableFirebaseSdk(response))){
+        const response=await fetch(new Request(req,versionedAsset?{cache:"no-store",mode:"cors",credentials:"omit",redirect:"error"}:{cache:"no-store"}));
+        if(response&&response.ok&&response.status!==206&&(!versionedAsset||usableVersionedAsset(response,url))){
           // No guardamos URLs de navegación con parámetros de evento/participante.
           if(req.mode!=="navigate"||!url.search){
             event.waitUntil(cache.put(req,response.clone()).catch(()=>{}));
