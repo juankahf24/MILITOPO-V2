@@ -17,10 +17,13 @@
     serverCompletedCount:0,queue:[],passes:[],journal:[],lastFix:null,lastAutoAt:0,
     finishValidated:false,serverFinishValidated:false,finishPass:null,serverAttemptIds:new Set(),
     flushing:false,flushAgain:false,retryTimer:0,storageKey:"",scanner:null,scannerFrame:0,qrLoading:null,
-    localHydrated:false,lastSyncError:"",syncFailureCount:0
+    epoch:0,runConflict:false,localHydrated:false,lastSyncError:"",syncFailureCount:0
   };
 
   async function services(){if(!state.services)state.services=await globalThis.MILITOPO_V2.firebase();return state.services;}
+  function token(){return {epoch:state.epoch,context:{...(state.context||{})}};}
+  function current(t){const auth=globalThis.MILITOPO_V2_AUTH;return t.epoch===state.epoch&&["uid","ownerUid","eventId","runId"].every(k=>t.context[k]===state.context?.[k])&&(!auth||(auth.uid===t.context.uid&&auth.role==="runner"));}
+  function checkRun(data,t){if((data?.runId&&String(data.runId)!==t.context.runId)||(data?.eventId&&String(data.eventId)!==t.context.eventId)){const e=new Error("La sesión activa ha cambiado. Conservamos las balizas de tu participación original.");e.details={reason:"RUN_CHANGED"};throw e;}}
   const canonical=value=>{const u=String(value||"").trim().toUpperCase();if(["S","SALIDA","START"].includes(u))return "START";if(["L","META","LLEGADA","FINISH"].includes(u))return "FINISH";return u;};
   function haversine(a,b){if(!a||!b)return Infinity;const R=6371000,rad=Math.PI/180,p1=Number(a.lat)*rad,p2=Number(b.lat)*rad,dp=(Number(b.lat)-Number(a.lat))*rad,dl=(Number(b.lng)-Number(a.lng))*rad,h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return 2*R*Math.atan2(Math.sqrt(h),Math.sqrt(Math.max(0,1-h)));}
   function controlList(){return Array.isArray(state.plan?.controls)?state.plan.controls:[];}
@@ -38,7 +41,7 @@
     return {expected,completed,discarded,pendingControls,penaltyAccumulatedMs,penaltyPreviewMs:penaltyAccumulatedMs};
   }
   function progressPasses(){return (state.passes||[]).map(row=>({order:Number(row?.order||0),checkpointId:String(row?.checkpointId||""),source:String(row?.source||""),discarded:Boolean(row?.discarded||String(row?.source||"").toLowerCase()==="discard")}));}
-  function emit(status,detail={}){const next=nextTarget(),stats=courseStats();window.dispatchEvent(new CustomEvent("militopo:v2-control-status",{detail:{status,version:VERSION,raceStatus:state.raceStatus,completedCount:state.completedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyAccumulatedMs:stats.penaltyAccumulatedMs,penaltyPreviewMs:stats.penaltyPreviewMs,progressPasses:progressPasses(),nextControl:next?{...next}:null,finishValidated:state.finishValidated,finishPass:state.finishPass?{...state.finishPass}:null,lastFix:state.lastFix?{...state.lastFix}:null,pending:state.queue.length,...detail}}));}
+  function emit(status,detail={}){const next=nextTarget(),stats=courseStats();window.dispatchEvent(new CustomEvent("militopo:v2-control-status",{detail:{status,version:VERSION,context:state.context?{...state.context}:null,raceStatus:state.raceStatus,completedCount:state.completedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyAccumulatedMs:stats.penaltyAccumulatedMs,penaltyPreviewMs:stats.penaltyPreviewMs,progressPasses:progressPasses(),nextControl:next?{...next}:null,finishValidated:state.finishValidated,finishPass:state.finishPass?{...state.finishPass}:null,lastFix:state.lastFix?{...state.lastFix}:null,pending:state.queue.length,...detail}}));}
   function safeLoad(){if(!state.storageKey)return null;try{const raw=localStorage.getItem(state.storageKey);const x=raw?JSON.parse(raw):null;return x&&typeof x==="object"?x:null;}catch(_){return null;}}
   function journalAdd(item){
     if(!item||typeof item!=="object")return;
@@ -72,7 +75,7 @@
   }
   function persist(){if(!state.storageKey)return;try{localStorage.setItem(state.storageKey,JSON.stringify({v:3,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,queue:state.queue.slice(-200),passes:state.passes.slice(-200),journal:state.journal.slice(-240),finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass,savedAt:Date.now()}));}catch(_){}}
   function clearRetry(){if(state.retryTimer){clearTimeout(state.retryTimer);state.retryTimer=0;}}
-  function scheduleRetry(ms=1200){clearRetry();if(navigator.onLine===false||!state.queue.length)return;state.retryTimer=setTimeout(()=>{state.retryTimer=0;flush().catch(()=>{});},ms);}
+  function scheduleRetry(ms=1200){clearRetry();if(state.runConflict||navigator.onLine===false||!state.queue.length)return;state.retryTimer=setTimeout(()=>{state.retryTimer=0;flush().catch(()=>{});},ms);}
 
   function progressFromServer(progress){
     const server = progress && typeof progress === "object" ? progress : {};
@@ -161,7 +164,7 @@
   }
 
   async function configure({context,plan,progress,status}={}){
-    closeScanner({silent:true});clearRetry();
+    state.epoch+=1;state.runConflict=false;closeScanner({silent:true});clearRetry();
     state.context=context?{...context}:null;
     state.plan=plan&&typeof plan==="object"?JSON.parse(JSON.stringify(plan)):null;
     state.raceStatus=String(status||"ready").toLowerCase();
@@ -179,19 +182,26 @@
 
   async function refreshFromServer(){
     if(!state.context?.eventId)return false;
-    try{const svc=await services();const result=await svc.callable("runnerJoinLive",{eventId:state.context.eventId,clientVersion:VERSION});const data=result?.data||{};if(data.controlPlan)state.plan=data.controlPlan;progressFromServer(data.controlProgress||null);reconcile();emit("reconciled");return true;}catch(_){return false;}
+    const t=token();
+    try{
+      const svc=await services();if(!current(t))return false;
+      const result=await svc.callable("runnerJoinLive",{eventId:t.context.eventId,expectedRunId:t.context.runId,clientVersion:VERSION});
+      if(!current(t))return false;const data=result?.data||{};checkRun(data,t);
+      if(data.controlPlan)state.plan=data.controlPlan;progressFromServer(data.controlProgress||null);reconcile();emit("reconciled");return true;
+    }catch(error){if(current(t)&&error?.details?.reason==="RUN_CHANGED")state.runConflict=true;return false;}
   }
 
   async function flush(){
+    const t=token();if(!current(t)||state.runConflict)return false;
     rebuildPendingQueue();
     if(navigator.onLine===false||!state.context?.eventId){emit("offline",{message:"Validación guardada en el dispositivo. Se sincronizará al recuperar cobertura."});return state.queue.length===0;}
     if(state.flushing){state.flushAgain=true;return false;}
     if(!state.queue.length){state.lastSyncError="";state.syncFailureCount=0;return true;}
     clearRetry();state.flushing=true;emit("syncing",{pending:state.queue.length});
     try{
-      const svc=await services();
+      const svc=await services();if(!current(t))return false;
       let guard=0;
-      while(state.queue.length&&navigator.onLine!==false&&guard<5){
+      while(current(t)&&state.queue.length&&navigator.onLine!==false&&guard<5){
         guard+=1;
         // Antes de enviar, reconstruimos desde TODO el historial local. Así una baliza
         // no puede desaparecer de la cola mientras el servidor todavía la espera.
@@ -202,8 +212,8 @@
         const before=state.queue.length;
         if(!batch.length)break;
         try{
-          const result=await svc.callable("runnerSyncControlPasses",{eventId:state.context.eventId,clientVersion:VERSION,passes:batch});
-          const data=result?.data||{};
+          const result=await svc.callable("runnerSyncControlPasses",{eventId:t.context.eventId,expectedRunId:t.context.runId,clientVersion:VERSION,passes:batch});
+          if(!current(t))return false;const data=result?.data||{};checkRun(data,t);
           const finishWasServerValidated=state.serverFinishValidated;
           progressFromServer(data.progress||null);
           reconcile();
@@ -223,16 +233,18 @@
           }
           if(state.queue.length>=before&&state.queue.length){
             // El servidor no avanzó: refrescamos una vez su progreso real antes de reintentar.
-            await refreshFromServer();
+            await refreshFromServer();if(!current(t))return false;
             rebuildPendingQueue();
             if(state.queue.length>=before)break;
           }
         }catch(error){
+          if(!current(t))return false;
           const msg=String(error?.message||error||"");
           state.lastSyncError=msg;state.syncFailureCount+=1;
+          if(error?.details?.reason==="RUN_CHANGED"){state.runConflict=true;emit("sync_error",{message:msg,pending:state.queue.length});break;}
           // Si el servidor dice que espera una baliza anterior, releemos su estado y
           // reconstruimos la cola completa desde passes locales (B1+B2+...).
-          await refreshFromServer();
+          await refreshFromServer();if(!current(t))return false;
           rebuildPendingQueue();
           if(state.queue.length&&guard<3){
             const first=String(state.queue[0]?.checkpointId||"");
@@ -246,8 +258,9 @@
       }
       return state.queue.length===0;
     }finally{
-      state.flushing=false;persist();
+      if(t.epoch===state.epoch){state.flushing=false;if(current(t)){persist();
       if((state.flushAgain||state.queue.length)&&navigator.onLine!==false){state.flushAgain=false;scheduleRetry(state.queue.length?Math.min(5000,1200+state.syncFailureCount*700):250);}
+      }}
     }
   }
 
@@ -348,12 +361,13 @@
     }
     return requireArrival ? (state.serverFinishValidated&&state.queue.length===0) : state.queue.length===0;
   }
-  function snapshot(){const stats=courseStats();return {configured:Boolean(state.context&&state.plan),raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyAccumulatedMs:stats.penaltyAccumulatedMs,penaltyPreviewMs:stats.penaltyPreviewMs,progressPasses:progressPasses(),nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,journalCount:state.journal.length,syncing:state.flushing,lastSyncError:state.lastSyncError,syncFailureCount:state.syncFailureCount,lastFix:state.lastFix?{...state.lastFix}:null};}
+  function snapshot(){const stats=courseStats();return {configured:Boolean(state.context&&state.plan),runConflict:state.runConflict,raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyAccumulatedMs:stats.penaltyAccumulatedMs,penaltyPreviewMs:stats.penaltyPreviewMs,progressPasses:progressPasses(),nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,journalCount:state.journal.length,syncing:state.flushing,lastSyncError:state.lastSyncError,syncFailureCount:state.syncFailureCount,lastFix:state.lastFix?{...state.lastFix}:null};}
   function pendingPasses(){return syncPayload().map(item=>({...item}));}
   function stop(){closeScanner({silent:true});clearRetry();persist();state.raceStatus="finished";emit("stopped");}
 
   window.addEventListener("militopo:v2-gps-fix",event=>{const fix=event.detail?.fix;if(fix)handleFix(fix);});
   window.addEventListener("online",()=>{state.flushAgain=true;flush().catch(()=>{});});
+  window.addEventListener("militopo:v2-auth-signed-out",()=>{persist();state.epoch+=1;clearRetry();state.flushing=false;state.context=null;closeScanner({silent:true});});
   window.addEventListener("pagehide",persist);
 
   globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,flushAndWait,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,discardNextControl,snapshot,pendingPasses,stop,version:VERSION});
