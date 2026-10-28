@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-p11-cache-alignment-20261023";
+const BUILD_ID="v2-p14-transitive-precache-20261028";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -39,6 +39,11 @@ async function activeRaceUpdateLock(){
 
 /* Rutas EXACTAS que carga index.html o sus imports directos. No mezclar queries de otras fases. */
 const APP_SHELL=[
+  // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
+  "./js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
+  "./js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
+  "./js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
+
   "./",
   "./index.html",
   "./styles.css?v=v2-a1-backend-20260919",
