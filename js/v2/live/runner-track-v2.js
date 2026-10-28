@@ -7,7 +7,7 @@
    - No borra carreras antiguas ni cachés. Fallos de almacenamiento son visibles. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-p03-gps-reconciliation-20261023";
+const VERSION = "v2-f13-pending-recovery-20261028";
 const DB_NAME = "militopo_v2_runner_tracks";
 const DB_VERSION = 1;
 const FLUSH_BATCH = 24;
@@ -18,7 +18,8 @@ const state = {
   services: null, context: null, key: "", queue: [], active: false,
   flushing: false, timer: null, sent: 0, lastError: "", lastSeq: 0,
   storageFailed: false, storageFailures: 0, hasStorageGap: false,
-  recordChain: Promise.resolve(), dbPromise: null
+  recordChain: Promise.resolve(), dbPromise: null,
+  recovering: false, recoveryTimer: null, recoveryEpoch: 0
 };
 
 async function services() {
@@ -41,6 +42,31 @@ function legacyKey(context = state.context) {
 function storageKey(context = state.context) {
   const oldKey = legacyKey(context);
   return oldKey && context?.ownerUid ? `${oldKey}_${context.ownerUid}` : "";
+}
+// Identidad explícita: las claves antiguas contienen separadores ambiguos.
+// Nunca deducir propietario/evento/participación dividiendo una clave.
+function cleanContext(value) {
+  const out = {};
+  for (const name of ["ownerUid", "eventId", "runId", "uid"]) {
+    const v = value?.[name];
+    if (typeof v !== "string" || !v || /[.#$\[\]\/\u0000-\u001f\u007f]/.test(v)) return null;
+    out[name] = v;
+  }
+  return out;
+}
+async function rememberContext(context) {
+  const clean = cleanContext(context);
+  if (!clean) throw new Error("Identidad de carrera no válida; se conserva la cola GPS.");
+  const db = await openDb(), runKey = storageKey(clean);
+  const tx = db.transaction("sessions", "readwrite"), done = transactionDone(tx);
+  try {
+    const store = tx.objectStore("sessions"), previous = await requestResult(store.get(runKey));
+    store.put({ ...previous, runKey, context: clean });
+    await done;
+  } catch (error) {
+    try { tx.abort(); } catch (_) {}
+    await done.catch(() => {}); throw error;
+  }
 }
 function pointId(point) {
   return `p_${String(point.at)}_${String(point.seq).padStart(5, "0")}`;
@@ -136,7 +162,7 @@ async function initRun(context) {
       const previous = await requestResult(session.get(runKey));
       const high = Math.max(Number(previous?.lastSeq || 0), ...oldPoints.map(p => p.seq));
       for (const p of oldPoints) points.put({ ...p, runKey, id: `${runKey}|${pointId(p)}` });
-      session.put({ runKey, lastSeq: high, hasStorageGap: Boolean(previous?.hasStorageGap), storageFailures: Number(previous?.storageFailures || 0) });
+      session.put({ ...previous, runKey, lastSeq: high, hasStorageGap: Boolean(previous?.hasStorageGap), storageFailures: Number(previous?.storageFailures || 0) });
       await transactionDone(tx);
     }
     // Si removeItem falla, se reimportará idempotentemente la siguiente vez.
@@ -174,7 +200,7 @@ async function storePoint(runKey, fix) {
     const point = { ...fix, seq };
     points.put({ ...point, runKey, id: `${runKey}|${pointId(point)}` });
     sessions.put({
-      runKey, lastSeq: seq,
+      ...previous, runKey, lastSeq: seq,
       hasStorageGap: Boolean(previous?.hasStorageGap || state.hasStorageGap),
       storageFailures: Math.max(Number(previous?.storageFailures || 0), state.storageFailures)
     });
@@ -202,6 +228,95 @@ function withTimeout(promise, ms) {
     new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Firebase no ha confirmado el envío a tiempo; los puntos continúan pendientes.")), ms); })
   ]).finally(() => clearTimeout(timer));
 }
+// Único transporte para la carrera actual y las colas anteriores.
+async function sendBatch(context, batch, finalBatch, warning, allowed = () => true) {
+  const { database } = await services(), base = trackBasePath(context), payload = {};
+  for (const p of batch) payload[`${base}/${pointId(p)}`] = p;
+  const marker = `v2/live/${context.ownerUid}/${context.eventId}/runs/${context.runId}/trackSync/${context.uid}`;
+  if (finalBatch) payload[marker] = { lastSeq: batch[batch.length - 1].seq, updatedAt: Date.now() };
+  if (!allowed()) throw new Error("Recuperación GPS aplazada: cambió la sesión o hay una carrera activa.");
+  try {
+    await withTimeout(update(ref(database), payload), ACK_TIMEOUT_MS);
+  } catch (error) {
+    const message = String(error?.code || "") + " " + String(error?.message || "");
+    if (!finalBatch || !/permission[-_ ]denied/i.test(message)) throw error;
+    delete payload[marker];
+    if (!allowed()) throw error;
+    await withTimeout(update(ref(database), payload), ACK_TIMEOUT_MS);
+    warning?.("GPS enviado, pero el aviso de reconciliación no está autorizado en Firebase.");
+  }
+}
+function recoveryStatus(status, detail = {}) {
+  globalThis.dispatchEvent(new CustomEvent("militopo:v2-track-recovery", { detail: { status, ...detail } }));
+}
+// No inicia el GPS ni cambia la participación visible. Solo recupera colas con
+// identidad conocida y sesión Firebase coincidente. Prioridad a la carrera actual.
+async function recoverPending() {
+  const user = globalThis.MILITOPO_V2_AUTH;
+  if (state.recovering || state.active || state.flushing || navigator.onLine === false ||
+      user?.role !== "runner" || !user.uid) return false;
+  const epoch = state.recoveryEpoch;
+  state.recovering = true;
+  let complete = true;
+  try {
+    const { auth } = await services();
+    const allowed = () => epoch === state.recoveryEpoch && !state.active && !state.flushing &&
+      navigator.onLine !== false && auth?.currentUser?.uid === user.uid &&
+      globalThis.MILITOPO_V2_AUTH?.uid === user.uid && globalThis.MILITOPO_V2_AUTH?.role === "runner";
+    if (!allowed()) return false;
+    // Un respaldo antiguo aporta identidad exacta, aunque haya caducado la
+    // reapertura automática. No migra ni elimina localStorage durante este barrido.
+    let saved;
+    try { saved = JSON.parse(localStorage.getItem("militopo_v2_active_race_v3") || "null"); } catch (_) {}
+    const known = cleanContext({ ownerUid: saved?.event?.ownerUid, eventId: saved?.event?.eventId,
+      runId: saved?.runId, uid: saved?.auth?.uid });
+    if (known?.uid === user.uid && allowed()) await rememberContext(known);
+    const db = await openDb(), tx = db.transaction("sessions", "readonly");
+    const sessions = await requestResult(tx.objectStore("sessions").getAll());
+    await transactionDone(tx);
+    // Máximo 20 lotes por pasada: evitar monopolizar red/CPU con un historial largo.
+    let budget = 20;
+    for (const session of sessions) {
+      const context = cleanContext(session.context);
+      if (!context || context.uid !== user.uid || storageKey(context) !== session.runKey || session.runKey === state.key) continue;
+      if (!allowed()) return false;
+      let queue = await listPending(db, session.runKey);
+      try {
+        while (queue.length && budget > 0) {
+          if (!allowed() || session.runKey === state.key) return false;
+          const batch = queue.slice(0, FLUSH_BATCH);
+          if (batch.some(p => !cleanPendingPoint(p))) throw new Error("Cola GPS ilegible; se conserva sin modificar.");
+          budget -= 1;
+          recoveryStatus("syncing", { runId: context.runId, pending: queue.length });
+          await sendBatch(context, batch, queue.length === batch.length,
+            message => recoveryStatus("reconcile_warning", { message }), allowed);
+          // ACK antes del borrado, incluso si cambió la cuenta mientras se enviaba.
+          await deleteAcknowledged(session.runKey, batch);
+          queue = queue.slice(batch.length);
+        }
+        if (queue.length) complete = false;
+        recoveryStatus(queue.length ? "pending" : "synced", { runId: context.runId, pending: queue.length });
+      } catch (error) {
+        complete = false;
+        recoveryStatus("error", { runId: context.runId, pending: queue.length, message: String(error?.message || error) });
+      }
+    }
+    return complete;
+  } catch (error) {
+    recoveryStatus("error", { message: String(error?.message || error) });
+    return false;
+  } finally { state.recovering = false; }
+}
+function scheduleRecovery() {
+  if (state.recoveryTimer) clearTimeout(state.recoveryTimer);
+  if (globalThis.MILITOPO_V2_AUTH?.role !== "runner" || navigator.onLine === false) return;
+  state.recoveryTimer = setTimeout(async () => {
+    state.recoveryTimer = null;
+    await recoverPending();
+    // Reintento espaciado; no interfiere con la cola activa ni depende de recargar.
+    scheduleRecovery();
+  }, 30000);
+}
 async function flush({ force = false } = {}) {
   // Si hay un punto guardándose, no enviar antes de confirmar su durabilidad.
   await state.recordChain;
@@ -217,31 +332,12 @@ async function flush({ force = false } = {}) {
   state.flushing = true;
   emit("syncing");
   try {
-    const { database } = await services();
     do {
       if (navigator.onLine === false || state.key !== runKey) break;
       const batch = state.queue.slice(0, FLUSH_BATCH);
       if (!batch.length) break;
-      const payload = {};
-      for (const p of batch) payload[`${base}/${pointId(p)}`] = p;
-      // El marcador y el ULTIMO lote GPS se escriben de forma atómica.
-      // Si su ruta no está desplegada aún en RTDB, salvamos el track primero:
-      // un error de permisos del nuevo marcador jamás bloquea el GPS.
-      const finalBatch = state.queue.length === batch.length;
-      if (finalBatch) {
-        payload[`v2/live/${context.ownerUid}/${context.eventId}/runs/${context.runId}/trackSync/${context.uid}`] = {
-          lastSeq: batch[batch.length - 1].seq, updatedAt: Date.now()
-        };
-      }
-      try {
-        await withTimeout(update(ref(database), payload), ACK_TIMEOUT_MS);
-      } catch (error) {
-        const message = String(error?.code || "") + " " + String(error?.message || "");
-        if (!finalBatch || !/permission[-_ ]denied/i.test(message)) throw error;
-        delete payload[`v2/live/${context.ownerUid}/${context.eventId}/runs/${context.runId}/trackSync/${context.uid}`];
-        await withTimeout(update(ref(database), payload), ACK_TIMEOUT_MS);
-        emit("reconcile_warning", { message: "GPS enviado, pero el aviso de reconciliación no está autorizado en Firebase." });
-      }
+      await sendBatch(context, batch, state.queue.length === batch.length,
+        message => emit("reconcile_warning", { message }));
       // P0: si se cierra la app tras el ACK pero antes del borrado, se reenvían
       // los mismos IDs, nunca se crean puntos duplicados.
       await deleteAcknowledged(runKey, batch);
@@ -265,7 +361,9 @@ async function start(context) {
   await state.recordChain;
   state.active = false;
   try {
+    if (!cleanContext(context)) throw new Error("Identidad de carrera no válida.");
     const initial = await initRun(context);
+    await rememberContext(context);
     state.context = { ...context };
     state.key = storageKey(context);
     state.queue = initial.queue;
@@ -320,10 +418,16 @@ function snapshot() {
     hasStorageGap: state.hasStorageGap
   };
 }
-window.addEventListener("online", () => { emit("online"); flush({ force: true }).catch(() => {}); });
+window.addEventListener("online", () => { emit("online"); flush({ force: true }).finally(scheduleRecovery).catch(() => {}); });
 window.addEventListener("offline", () => emit("offline", { message: "Sin conexión. Guardando el track en el dispositivo." }));
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") flush().catch(() => {});
+  if (document.visibilityState === "visible") flush().finally(scheduleRecovery).catch(() => {});
 });
+window.addEventListener("militopo:v2-auth-ready", scheduleRecovery);
+window.addEventListener("militopo:v2-auth-signed-out", () => {
+  state.recoveryEpoch += 1;
+  clearTimeout(state.recoveryTimer); state.recoveryTimer = null;
+});
+scheduleRecovery();
 // IndexedDB confirma las escrituras DURANTE la carrera. No borrar al salir.
-window.MILITOPO_RUNNER_TRACK_V2 = Object.freeze({ start, record, flush, stop, snapshot });
+window.MILITOPO_RUNNER_TRACK_V2 = Object.freeze({ start, record, flush, stop, snapshot, recoverPending });
