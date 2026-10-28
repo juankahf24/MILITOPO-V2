@@ -47,11 +47,30 @@
   }
   function loadScript(src,test){
     if(test())return Promise.resolve();
-    return new Promise((resolve,reject)=>{const existing=[...document.scripts].find(s=>s.src===src);if(existing){const wait=()=>test()?resolve():setTimeout(wait,80);wait();return;}const s=document.createElement("script");s.src=src;s.async=true;s.onload=()=>test()?resolve():reject(new Error("La librería GeoTIFF no quedó disponible"));s.onerror=()=>reject(new Error("No se pudo cargar la librería GeoTIFF"));document.head.appendChild(s);});
+    return new Promise((resolve,reject)=>{
+      const url=new URL(src,location.href).href;
+      const existing=[...document.scripts].find(s=>s.src===url);
+      const script=existing||document.createElement("script");
+      let done=false,timer=0,poll=0;
+      const finish=error=>{
+        if(done)return;done=true;clearTimeout(timer);clearInterval(poll);
+        script.removeEventListener("load",loaded);script.removeEventListener("error",failed);
+        // Solo retirar scripts creados por este lector, nunca los de otra pantalla.
+        if(error){if(!existing)script.remove();reject(error);}else resolve();
+      };
+      const loaded=()=>finish(test()?null:new Error("La librería GeoTIFF no quedó disponible"));
+      const failed=()=>finish(new Error("No se pudo cargar la librería GeoTIFF"));
+      script.addEventListener("load",loaded);script.addEventListener("error",failed);
+      timer=setTimeout(()=>finish(new Error("La librería GeoTIFF tardó demasiado en responder")),12000);
+      if(existing)poll=setInterval(()=>{if(test())finish();},80);
+      else{script.src=url;script.async=true;document.head.appendChild(script);}
+    });
   }
   async function ensureGeoTiff(){
     if(globalThis.GeoTIFF)return globalThis.GeoTIFF;
-    if(!geotiffPromise)geotiffPromise=loadScript("https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.min.js",()=>!!globalThis.GeoTIFF).then(()=>globalThis.GeoTIFF);
+    if(!geotiffPromise)geotiffPromise=loadScript("https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.min.js",()=>!!globalThis.GeoTIFF)
+      .then(()=>globalThis.GeoTIFF)
+      .catch(error=>{geotiffPromise=null;throw error;});
     return geotiffPromise;
   }
   function epsgOf(image){const g=image.getGeoKeys?image.getGeoKeys():{};return Number(g.ProjectedCSTypeGeoKey||g.GeographicTypeGeoKey||0)||null;}
