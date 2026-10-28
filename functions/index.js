@@ -1409,7 +1409,7 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
 
 
 // F3B · Transiciones de carrera del corredor desde backend.
-async function resolveRunnerLiveContext(identity, eventId) {
+async function resolveRunnerLiveContext(identity, eventId, expectedRunId = undefined) {
   const uid = String(identity.uid || "").trim();
   const eventRef = db.collection("events").doc(eventId);
   const eventSnap = await eventRef.get();
@@ -1437,6 +1437,15 @@ async function resolveRunnerLiveContext(identity, eventId) {
   if (!runId || String(active.status || "") !== "active") {
     throw new HttpsError("failed-precondition", "No existe una sesión Live V2 activa.");
   }
+  // Compatible con clientes anteriores; los nuevos fijan la participación esperada.
+  if (expectedRunId !== undefined) {
+    if (typeof expectedRunId !== "string" || !expectedRunId.trim() || expectedRunId.length > 180) {
+      throw new HttpsError("invalid-argument", "Identificador de participación no válido.");
+    }
+    if (expectedRunId !== runId) {
+      throw new HttpsError("failed-precondition", "La sesión activa ha cambiado. Los datos locales siguen asociados a tu participación original.", { reason: "RUN_CHANGED" });
+    }
+  }
   const participantRef = baseRef.child(`runs/${runId}/participants/${uid}`);
   const participantSnap = await participantRef.get();
   if (!participantSnap.exists) throw new HttpsError("permission-denied", "No estás incluido en esta sesión Live V2.");
@@ -1446,7 +1455,7 @@ async function resolveRunnerLiveContext(identity, eventId) {
 exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
-  const ctx = await resolveRunnerLiveContext(identity, eventId);
+  const ctx = await resolveRunnerLiveContext(identity, eventId, request.data?.expectedRunId);
   const current = String(ctx.participant.status || "not_started").toLowerCase();
   const status = ["racing", "started", "finished"].includes(current) ? (current === "started" ? "racing" : current) : "ready";
   const profileSnap = await db.collection("users").doc(ctx.uid).get();
@@ -1475,7 +1484,7 @@ exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
 exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
-  const ctx = await resolveRunnerLiveContext(identity, eventId);
+  const ctx = await resolveRunnerLiveContext(identity, eventId, request.data?.expectedRunId);
   const current = String(ctx.participant.status || "not_started").toLowerCase();
   if (!ctx.member?.participantId || !ctx.member?.routeId) throw new HttpsError("failed-precondition", "No puedes iniciar sin un recorrido asignado.");
   if (current === "finished") throw new HttpsError("failed-precondition", "Este recorrido ya está finalizado.");
@@ -1506,8 +1515,8 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
 
 
 
-async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, existingCtx = null) {
-  const ctx = existingCtx || await resolveRunnerLiveContext(identity, eventId);
+async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, existingCtx = null, expectedRunId = undefined) {
+  const ctx = existingCtx || await resolveRunnerLiveContext(identity, eventId, expectedRunId);
   const current = String(ctx.participant.status || "").toLowerCase();
   if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes estar EN CARRERA para validar balizas.");
 
@@ -1714,13 +1723,13 @@ exports.runnerSyncControlPasses = onCall({ enforceAppCheck: false }, async reque
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
   const passes = Array.isArray(request.data?.passes) ? request.data.passes : [];
-  return syncRunnerControlPassBatchInternal(identity, eventId, passes);
+  return syncRunnerControlPassBatchInternal(identity, eventId, passes, null, request.data?.expectedRunId);
 });
 
 exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
-  const ctx = await resolveRunnerLiveContext(identity, eventId);
+  const ctx = await resolveRunnerLiveContext(identity, eventId, request.data?.expectedRunId);
   const current = String(ctx.participant.status || "").toLowerCase();
   if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes estar EN CARRERA para validar balizas.");
 
@@ -1919,7 +1928,7 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
 exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
-  const ctx = await resolveRunnerLiveContext(identity, eventId);
+  const ctx = await resolveRunnerLiveContext(identity, eventId, request.data?.expectedRunId);
   const current = String(ctx.participant.status || "").toLowerCase();
   if (current === "finished") {
     // Idempotente: si RTDB ya marcaba llegada pero Firestore falló o no existía aún,
