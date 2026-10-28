@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="militopo-p13-orientacion-stable-code-20261023";
+const BUILD_ID="militopo-p14-orientacion-transitive-precache-20261028";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -7,6 +7,11 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
 
 /* Rutas EXACTAS cargadas por orientacion/index.html y js/app.js. */
 const CORE_ASSETS=[
+  // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
+  "../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
+  "../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
+  "../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-lines-20261009",
+
   "./",
   "./index.html",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
