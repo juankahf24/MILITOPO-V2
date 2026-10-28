@@ -1,7 +1,13 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-p12-stable-code-20261023";
+const CACHE_NAME="militopo-v2-participante-p14-transitive-precache-20261028";
 const APP_SHELL=[
+  // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
+  "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
+  "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
+  "../../js/v2/bootstrap.js?v=v2-f3a-runner-sessionfix-20260923",
+  "../../js/v2/auth/roles.js",
+
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
   "./runner-mode-switch.css?v=militopo-r4-profile-20261019",
