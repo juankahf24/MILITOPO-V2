@@ -1,7 +1,8 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-p15-firebase-offline-20261028";
+const CACHE_NAME="militopo-v2-participante-p16-account-recovery-20261028";
 const APP_SHELL=[
+  "./runner-home-v4.js?v=militopo-p16-account-recovery-20261028",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
   "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
