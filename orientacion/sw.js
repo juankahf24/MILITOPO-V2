@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="militopo-p11-cache-alignment-20261023";
+const BUILD_ID="militopo-p13-orientacion-stable-code-20261023";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -29,11 +29,11 @@ const CORE_ASSETS=[
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
   "./js/premium/orientation-modes.js?v=militopo-r3-fullscreen-20261018",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
-  "./js/config/iof-symbols-baked.js?v=v2-r2k-compass-direct-img-20261003",
+  "./js/config/iof-symbols-baked.js?v=militopo-r5b-utm-atak-20261019",
   "./js/core/app-main.js?v=militopo-r5b-utm-atak-20261019",
-  "./js/pdf/pdf-professional.js?v=v2-r2k-compass-direct-img-20261003",
-  "./js/results/results-v16.js?v=v2-r2k-compass-direct-img-20261003",
-  "./js/results/results-classification-fix.js?v=v2-r2k-compass-direct-img-20261003",
+  "./js/pdf/pdf-professional.js?v=militopo-r5b-utm-atak-20261019",
+  "./js/results/results-v16.js?v=militopo-r5b-utm-atak-20261019",
+  "./js/results/results-classification-fix.js?v=militopo-r5b-utm-atak-20261019",
   "./js/config/plan-assets.js?v=v77-reset-seguro-wakelock-20260919",
   "./js/vendor/qr.js?v=modular-fase2",
   "./maps/index.json",
@@ -142,18 +142,30 @@ self.addEventListener("fetch",event=>{
     const cache=await caches.open(cacheName);
     const isNav=same&&req.mode==="navigate";
 
+    /* P1.3: código de la versión activa INMUTABLE (cache-first).
+       Nunca sobreescribir JS/CSS/HTML ya precargados con respuestas nuevas.
+       Consultar solo ESTA caché y respetar exactamente los parámetros ?v=. */
     if(same&&isAppCode(url,req)){
-      try{
-        const r=await fetch(new Request(req,{cache:"no-store"}));
-        if(r&&r.ok&&r.status!==206)await cache.put(req,r.clone());
-        return r;
-      }catch(_){
-        const hit=await matchIn(MILITOPO_CACHE,req);
-        if(hit)return hit;
-        if(isNav){
+      const hit=await matchIn(MILITOPO_CACHE,req);
+      if(hit)return hit;
+      /* Las URL de entrada pueden añadir ?event=... u otros parámetros;
+         esos parámetros no identifican un build diferente de la shell HTML.
+         Evitar guardarlos como copias personales en Cache Storage. */
+      if(isNav){
+        const shellRoot=new URL("./",self.registration.scope).pathname;
+        const shellIndex=new URL("./index.html",self.registration.scope).pathname;
+        if(url.pathname===shellRoot||url.pathname===shellIndex){
           const shell=(await matchIn(MILITOPO_CACHE,new Request("./index.html")))||(await matchIn(MILITOPO_CACHE,new Request("./")));
           if(shell)return shell;
-          return new Response("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO offline</title><body style='font-family:monospace;background:#10190b;color:#f5e6c8;padding:24px'><h1>MILITOPO sin cobertura</h1><p>La shell de Orientación no está completa en este dispositivo. Conecta una vez para completar la instalación.</p></body>",{headers:{"Content-Type":"text/html;charset=utf-8"}});
+        }
+      }
+      try{
+        const r=await fetch(new Request(req,{cache:"no-store"}));
+        if(r&&r.ok&&r.status!==206&&(!isNav||!url.search))await cache.put(req,r.clone());
+        return r;
+      }catch(_){
+        if(isNav){
+          return new Response("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO offline</title><body style='font-family:monospace;background:#10190b;color:#f5e6c8;padding:24px'><h1>MILITOPO sin cobertura</h1><p>La shell de Orientación no está completa en este dispositivo. Conecta una vez para completar la instalación.</p></body>",{status:503,headers:{"Content-Type":"text/html;charset=utf-8"}});
         }
         return new Response("",{status:503,statusText:"Offline"});
       }
