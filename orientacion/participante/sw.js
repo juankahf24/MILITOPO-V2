@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-p14-transitive-precache-20261028";
+const CACHE_NAME="militopo-v2-participante-p15-firebase-offline-20261028";
 const APP_SHELL=[
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
@@ -32,6 +32,23 @@ const APP_SHELL=[
   "../../js/v2/live/runner-controls-v2.js?v=v2-r6f-progress-discard-state-20261007",
   "../../js/v2/live/runner-race-v2.js?v=v2-p01-race-track-warning-20261023"
 ];
+/* P1.5: dependencias ESM exactas del corredor. La instalación solo termina
+   si también está disponible este grafo del SDK; nunca cachear APIs ni datos.
+   Las siete entradas auditadas importan únicamente firebase-app.js entre sí. */
+const FIREBASE_SDK_ASSETS=[
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js",
+  "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js"
+];
+const FIREBASE_SDK_URLS=new Set(FIREBASE_SDK_ASSETS);
+function usableFirebaseSdk(response){
+  return response&&response.status===200&&response.type!=="opaque"&&
+    /^(?:text|application)\/(?:x-)?(?:javascript|ecmascript)\b/i.test(response.headers.get("Content-Type")||"");
+}
 // No instalar actualizaciones nuevas durante una carrera activa, incluso con
 // la PWA cerrada: runner-resilience-v2 guarda un lock en Cache Storage.
 const UPDATE_GUARD_CACHE="militopo-v2-update-guard";
@@ -53,6 +70,12 @@ self.addEventListener("install",event=>{event.waitUntil((async()=>{
   const cache=await caches.open(CACHE_NAME);
   // Si falla un archivo local, conserva el SW anterior en vez de instalar una PWA parcial.
   await Promise.all(APP_SHELL.map(url=>cache.add(new Request(url,{cache:"reload"}))));
+  // Si falla el CDN o la respuesta no es JS utilizable, queda el SW anterior.
+  await Promise.all(FIREBASE_SDK_ASSETS.map(async url=>{
+    const response=await fetch(new Request(url,{mode:"cors",credentials:"omit",cache:"reload",redirect:"error"}));
+    if(!usableFirebaseSdk(response))throw new Error("MILITOPO_SDK_PRECACHE_FAILED:"+url);
+    await cache.put(url,response);
+  }));
 })());});
 self.addEventListener("activate",event=>{event.waitUntil((async()=>{
   const names=await caches.keys();
@@ -97,15 +120,16 @@ self.addEventListener("fetch",event=>{
   const req=event.request;
   if(req.method!=="GET")return;
   const url=new URL(req.url);
-  if(url.origin!==self.location.origin)return;
+  const firebaseSdk=FIREBASE_SDK_URLS.has(url.href);
+  if(url.origin!==self.location.origin&&!firebaseSdk)return;
   event.respondWith((async()=>{
     const cache=await caches.open(CACHE_NAME);
     if(isParticipantCode(req,url)){
       const current=await getCurrentBuild(cache,req,url);
       if(current)return current;
       try{
-        const response=await fetch(new Request(req,{cache:"no-store"}));
-        if(response&&response.ok&&response.status!==206){
+        const response=await fetch(new Request(req,firebaseSdk?{cache:"no-store",mode:"cors",credentials:"omit",redirect:"error"}:{cache:"no-store"}));
+        if(response&&response.ok&&response.status!==206&&(!firebaseSdk||usableFirebaseSdk(response))){
           // No guardamos URLs de navegación con parámetros de evento/participante.
           if(req.mode!=="navigate"||!url.search){
             event.waitUntil(cache.put(req,response.clone()).catch(()=>{}));
