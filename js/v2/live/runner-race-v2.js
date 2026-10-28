@@ -405,7 +405,7 @@
     if(status==="storage_error"||snap.storageFailed){pill.textContent="ERROR GPS";pill.classList.add("warn");text.textContent="No se ha podido proteger un punto GPS. No cierres la PWA; comprueba el almacenamiento del dispositivo.";}
     else if(snap.hasStorageGap){pill.textContent="GPS PARCIAL";pill.classList.add("warn");text.textContent=`El GPS tuvo ${Number(snap.storageFailures||0)} fallo(s) de almacenamiento. Hay ${pending} punto(s) pendiente(s); el track puede contener lagunas.`;}
     else if(status==="offline"){pill.textContent=`OFFLINE · ${pending}`;pill.classList.add("warn");text.textContent=`Sin cobertura. ${pending} punto${pending===1?"":"s"} guardado${pending===1?"":"s"} en el dispositivo.`;}
-    else if(status==="syncing"||status==="queued"){pill.textContent=pending?`${pending} PEND.`:"SINCRONIZANDO";pill.classList.add(pending?"warn":"ok");text.textContent=pending?`Track protegido localmente · ${pending} pendiente${pending===1?"":"s"} de subir.`:`Sincronizando track con Live V2…`;}
+    else if(status==="syncing"||status==="queued"||((status==="online"||status==="synced")&&pending>0)){pill.textContent=pending?`${pending} PEND.`:"SINCRONIZANDO";pill.classList.add(pending?"warn":"ok");text.textContent=pending?`Track protegido localmente · ${pending} pendiente${pending===1?"":"s"} de subir.`:`Sincronizando track con Live V2…`;}
     else if(status==="error"){pill.textContent=`LOCAL · ${pending}`;pill.classList.add("warn");text.textContent="El track sigue guardado en el dispositivo y se reintentará automáticamente.";}
     else if(status==="synced"||status==="online"){pill.textContent="AL DÍA";pill.classList.add("ok");text.textContent=`Track sincronizado · ${sent} punto${sent===1?"":"s"} enviado${sent===1?"":"s"}.`;}
     else if(status==="stopped"){pill.textContent=pending?`${pending} PEND.`:"GUARDADO";pill.classList.add(pending?"warn":"ok");text.textContent=pending?"Quedan puntos pendientes; se enviarán al recuperar conexión.":"Track guardado y sincronizado.";}
@@ -684,9 +684,10 @@
   async function finishRace(){
     if(state.busy)return;
     el("m2raceConfirm").classList.remove("open");
-    const api=controlsApi();
+    const api=controlsApi(),finishContext=gpsContext(),gpsWasActive=Boolean(gpsApi()?.snapshot?.().active);
     busy("Terminando carrera","Consolidando balizas, track y resultado…");
     try{
+      if(navigator.onLine===false)throw new Error("Sin conexión. La carrera sigue activa; vuelve a intentar terminar cuando recuperes cobertura.");
       try{await api?.flush?.();}catch(_){}
       const pendingPasses=api?.pendingPasses?.()||[];
       await gpsApi()?.stop?.("runner_manual_finish");
@@ -715,6 +716,13 @@
     }catch(error){
       el("m2raceBusyTitle").textContent="No se pudo terminar";
       el("m2raceBusyText").textContent=String(error?.message||error);
+      // El servidor no confirmó el cierre: no dejar una carrera activa sin GPS.
+      if(gpsWasActive&&!gpsApi()?.snapshot?.().active&&!state.localArrivalAt&&
+         ["racing","started"].includes(String(state.participant?.status||"").toLowerCase())&&
+         JSON.stringify(gpsContext())===JSON.stringify(finishContext)){
+        let resumed=false;try{resumed=await gpsApi()?.resumeIfGranted?.(finishContext);}catch(_){}
+        if(!resumed)updateGpsUi("error",{message:"La carrera sigue activa, pero no se pudo recuperar el GPS. Pulsa REINTENTAR GPS."});
+      }
       await new Promise(r=>setTimeout(r,1600));
     }finally{unbusy();}
   }

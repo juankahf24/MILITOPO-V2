@@ -35,7 +35,8 @@
     try{
       const raw=localStorage.getItem(KEY);if(!raw)return null;
       const data=JSON.parse(raw);if(!data?.event?.eventId||!data?.auth?.uid||!data?.runId)return null;
-      if(Date.now()-Number(data.savedAt||0)>MAX_AGE_MS){localStorage.removeItem(KEY);return null;}
+      // Fuera del plazo no se reabre automáticamente, pero se conserva el respaldo.
+      if(Date.now()-Number(data.savedAt||0)>MAX_AGE_MS)return null;
       return data;
     }catch(_){return null;}
   }
@@ -65,7 +66,7 @@
     if(checkUpdate)requestSwUpdate();
   }
   function write(ctx){state.context=ctx;try{localStorage.setItem(KEY,JSON.stringify(ctx));}catch(_){}writeUpdateGuard(ctx);}
-  function clear(){state.context=null;try{localStorage.removeItem(KEY);}catch(_){}clearUpdateGuard(true);}
+  function clear(){clearTimeout(state.restoreTimer);state.restoreTimer=null;state.restoring=false;state.context=null;try{localStorage.removeItem(KEY);}catch(_){}clearUpdateGuard(true);}
   function saveFrom(detail,status=state.status||""){
     const event=cleanEvent(detail?.event),auth=cleanAuth(detail?.auth),runId=String(detail?.runId||"");
     if(!event?.eventId||!auth?.uid||!runId)return;
@@ -95,16 +96,21 @@
   function restore(auth){
     if(state.restoring||raceVisible()||!auth?.uid||auth.role!=="runner")return;
     const saved=read();if(!saved||saved.auth.uid!==auth.uid)return;
+    const liveAuth=currentAuth();
+    if(liveAuth&&(liveAuth.role!=="runner"||String(liveAuth.uid||"")!==String(auth.uid)))return;
     const status=String(saved.status||"").toLowerCase();
     if(["finished","archived"].includes(status)){clear();return;}
     state.context=saved;state.status=status;state.restoring=true;
     emit(navigator.onLine===false?"restoring_offline":"restoring",{eventId:saved.event.eventId});
     clearTimeout(state.restoreTimer);
     state.restoreTimer=setTimeout(()=>{
-      state.restoring=false;
+      state.restoring=false;state.restoreTimer=null;
+      const latest=read(),liveAuth=currentAuth();
+      if(raceVisible()||!latest||latest.auth.uid!==saved.auth.uid||latest.runId!==saved.runId||latest.event.eventId!==saved.event.eventId)return;
+      if(liveAuth&&(liveAuth.role!=="runner"||String(liveAuth.uid||"")!==String(saved.auth.uid)))return;
       try{globalThis.dispatchEvent(new CustomEvent("militopo:v2-open-runner-race",{detail:{
-        event:{...saved.event},auth:{...auth},runId:saved.runId,recovered:true,
-        recoverySnapshot:{participant:clone(saved.participant),controlPlan:clone(saved.controlPlan),localArrivalAt:Number(saved.localArrivalAt||0),status:saved.status,savedAt:saved.savedAt}
+        event:{...latest.event},auth:{...auth},runId:latest.runId,recovered:true,
+        recoverySnapshot:{participant:clone(latest.participant),controlPlan:clone(latest.controlPlan),localArrivalAt:Number(latest.localArrivalAt||0),status:latest.status,savedAt:latest.savedAt}
       }}));}catch(_){}
     },500);
   }
@@ -152,6 +158,7 @@
         if(raceVisible())return;
         const liveAuth=currentAuth();
         const savedAuth=state.context?.auth||null;
+        if(liveAuth&&(liveAuth.role!=="runner"||String(liveAuth.uid||"")!==String(savedAuth?.uid||"")))return;
         const auth=(liveAuth?.role==="runner"&&String(liveAuth.uid||"")===String(savedAuth?.uid||""))?liveAuth:savedAuth;
         if(auth?.role==="runner"&&auth?.uid) restore(auth);
       },850);
