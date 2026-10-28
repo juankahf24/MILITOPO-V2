@@ -561,6 +561,9 @@ async function loadEvents(app){
     if(accountClosing||auth?.currentUser?.uid!==uid||requestSequence!==eventsRequestSequence)return false;
     const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
     historyRows=Array.isArray(historyResult?.data?.results)?historyResult.data.results:[];
+    // Identificar colas antiguas con el historial de esta cuenta ya consultado.
+    // Un fallo local de recuperación no debe bloquear ni vaciar el historial.
+    try{globalThis.MILITOPO_RUNNER_TRACK_V2?.registerHistory?.(historyRows,uid)?.catch?.(()=>{});}catch(_){}
     const historical=historyEventIdSet();
     for(const eventId of historical)completedEventIds.delete(eventId);
     activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase())&&!historical.has(String(ev?.eventId||""))&&!completedEventIds.has(String(ev?.eventId||"")));
