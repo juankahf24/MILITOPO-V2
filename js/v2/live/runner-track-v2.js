@@ -7,7 +7,7 @@
    - No borra carreras antiguas ni cachés. Fallos de almacenamiento son visibles. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-f13-pending-recovery-20261028";
+const VERSION = "v2-f14-history-recovery-20261029";
 const DB_NAME = "militopo_v2_runner_tracks";
 const DB_VERSION = 1;
 const FLUSH_BATCH = 24;
@@ -19,7 +19,7 @@ const state = {
   flushing: false, timer: null, sent: 0, lastError: "", lastSeq: 0,
   storageFailed: false, storageFailures: 0, hasStorageGap: false,
   recordChain: Promise.resolve(), dbPromise: null,
-  recovering: false, recoveryTimer: null, recoveryEpoch: 0
+  recovering: false, registeringHistory: false, recoveryTimer: null, recoveryEpoch: 0
 };
 
 async function services() {
@@ -54,6 +54,9 @@ function cleanContext(value) {
   }
   return out;
 }
+function sameContext(a, b) {
+  return ["ownerUid", "eventId", "runId", "uid"].every(name => a?.[name] === b?.[name]);
+}
 async function rememberContext(context) {
   const clean = cleanContext(context);
   if (!clean) throw new Error("Identidad de carrera no válida; se conserva la cola GPS.");
@@ -61,6 +64,9 @@ async function rememberContext(context) {
   const tx = db.transaction("sessions", "readwrite"), done = transactionDone(tx);
   try {
     const store = tx.objectStore("sessions"), previous = await requestResult(store.get(runKey));
+    if (previous?.context && !sameContext(previous.context, clean)) {
+      throw new Error("La identidad guardada no coincide con la participación; se conserva la cola GPS.");
+    }
     store.put({ ...previous, runKey, context: clean });
     await done;
   } catch (error) {
@@ -253,7 +259,7 @@ function recoveryStatus(status, detail = {}) {
 // identidad conocida y sesión Firebase coincidente. Prioridad a la carrera actual.
 async function recoverPending() {
   const user = globalThis.MILITOPO_V2_AUTH;
-  if (state.recovering || state.active || state.flushing || navigator.onLine === false ||
+  if (state.recovering || state.registeringHistory || state.active || state.flushing || navigator.onLine === false ||
       user?.role !== "runner" || !user.uid) return false;
   const epoch = state.recoveryEpoch;
   state.recovering = true;
@@ -306,6 +312,57 @@ async function recoverPending() {
     recoveryStatus("error", { message: String(error?.message || error) });
     return false;
   } finally { state.recovering = false; }
+}
+// El historial ya descargado contiene propietario, evento y run exactos.
+// Solo enlazar claves locales idénticas; no dividir claves ni inferir run/owner.
+async function registerHistory(rows, uid) {
+  if (!Array.isArray(rows) || !uid || state.registeringHistory || state.recovering || state.active || state.flushing) return false;
+  const epoch = state.recoveryEpoch;
+  const allowed = () => epoch === state.recoveryEpoch && !state.active && !state.flushing &&
+    globalThis.MILITOPO_V2_AUTH?.uid === uid && globalThis.MILITOPO_V2_AUTH?.role === "runner" &&
+    state.services?.auth?.currentUser?.uid === uid;
+  state.registeringHistory = true;
+  try {
+    await services();
+    if (!allowed()) return false;
+    const contexts = new Map(), ambiguous = new Set(), legacyContexts = new Map(), legacyAmbiguous = new Set();
+    for (const row of rows) {
+      const context = cleanContext({ uid, ownerUid: row?.ownerUid, eventId: row?.eventId, runId: row?.runId });
+      if (!context || (row?.runnerUid && row.runnerUid !== uid)) continue;
+      const key = storageKey(context), oldKey = legacyKey(context);
+      if (contexts.has(key) && !sameContext(contexts.get(key), context)) ambiguous.add(key);
+      else contexts.set(key, context);
+      if (legacyContexts.has(oldKey) && !sameContext(legacyContexts.get(oldKey), context)) legacyAmbiguous.add(oldKey);
+      else legacyContexts.set(oldKey, context);
+    }
+    const db = await openDb(), tx = db.transaction("sessions", "readonly");
+    const sessions = await requestResult(tx.objectStore("sessions").getAll());
+    await transactionDone(tx);
+    const existing = new Map(sessions.map(row => [row.runKey, row]));
+    let registered = 0;
+    for (const [key, context] of contexts) {
+      if (!allowed()) return false;
+      if (ambiguous.has(key) || key === state.key) continue;
+      const session = existing.get(key);
+      // Una identidad existente nunca se reasigna a partir del historial.
+      if (session?.context && !sameContext(session.context, context)) continue;
+      const oldKey = legacyKey(context);
+      const hasLegacy = !legacyAmbiguous.has(oldKey) && localStorage.getItem(oldKey) !== null;
+      if (!session && !hasLegacy) continue;
+      try {
+        // Reutilizar la migración ya probada: original intacto si hay error o aborto.
+        if (hasLegacy) await initRun(context);
+        if (!allowed()) return false;
+        if (!session?.context || hasLegacy) { await rememberContext(context); registered += 1; }
+      } catch (error) {
+        recoveryStatus("error", { runId: context.runId, message: String(error?.message || error) });
+      }
+    }
+    return registered;
+  } catch (error) {
+    recoveryStatus("error", { message: String(error?.message || error) });
+    return false;
+  } finally { state.registeringHistory = false; scheduleRecovery(); }
 }
 function scheduleRecovery() {
   if (state.recoveryTimer) clearTimeout(state.recoveryTimer);
@@ -430,4 +487,4 @@ window.addEventListener("militopo:v2-auth-signed-out", () => {
 });
 scheduleRecovery();
 // IndexedDB confirma las escrituras DURANTE la carrera. No borrar al salir.
-window.MILITOPO_RUNNER_TRACK_V2 = Object.freeze({ start, record, flush, stop, snapshot, recoverPending });
+window.MILITOPO_RUNNER_TRACK_V2 = Object.freeze({ start, record, flush, stop, snapshot, recoverPending, registerHistory });
