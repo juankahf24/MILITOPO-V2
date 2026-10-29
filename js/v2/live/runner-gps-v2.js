@@ -3,13 +3,15 @@
    El track se guarda localmente y se sincroniza al recuperar conexión. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-p01-gps-track-guard-20261023";
+const VERSION = "v2-f16-gps-lifecycle-20261029";
 const MIN_WRITE_MS = 4000;
 const FORCE_WRITE_MS = 12000;
 const MIN_MOVE_M = 3;
 const RESUME_STALE_MS = 18000;
 
 const state = {
+  epoch: 0,
+  trackChain: Promise.resolve(),
   services: null,
   context: null,
   watchId: null,
@@ -22,6 +24,18 @@ const state = {
 };
 
 function trackApi() { return globalThis.MILITOPO_RUNNER_TRACK_V2 || null; }
+
+// Cada inicio/parada invalida callbacks anteriores, incluso si clearWatch llega tarde.
+function allowed(context = state.context) {
+  const auth = globalThis.MILITOPO_V2_AUTH;
+  return !auth || (auth.uid === context?.uid && auth.role === "runner");
+}
+function current(epoch) { return epoch === state.epoch && (!state.context || allowed()); }
+function trackOperation(fn) {
+  const result = state.trackChain.then(fn);
+  state.trackChain = result.catch(() => {});
+  return result;
+}
 
 async function services() {
   if (!state.services) state.services = await globalThis.MILITOPO_V2.firebase();
@@ -65,11 +79,12 @@ function contextPath() {
   return `v2/live/${c.ownerUid}/${c.eventId}/runs/${c.runId}/participants/${c.uid}/gps`;
 }
 
-async function publishFix(fix) {
+async function publishFix(fix, epoch = state.epoch) {
   const path = contextPath();
-  if (!path || !fix || navigator.onLine === false) return false;
+  if (!current(epoch) || !state.active || !path || !fix || navigator.onLine === false) return false;
   try {
     const { database } = await services();
+    if (!current(epoch) || !state.active) return false;
     await update(ref(database, path), {
       active: true,
       lat: fix.lat,
@@ -77,20 +92,23 @@ async function publishFix(fix) {
       accuracy: Math.round(fix.accuracy * 10) / 10,
       updatedAt: fix.updatedAt
     });
+    if (!current(epoch) || !state.active) return false;
     state.lastError = "";
     emit("active", { fix: { ...fix } });
     return true;
   } catch (error) {
+    if (!current(epoch) || !state.active) return false;
     state.lastError = String(error?.message || error);
     emit(navigator.onLine === false ? "offline_active" : "error", { message: state.lastError, fix: { ...fix } });
     return false;
   }
 }
 
-async function writeFix(fix, force = false) {
-  if (!fix || !state.active) return;
+async function writeFix(fix, force = false, epoch = state.epoch) {
+  if (!current(epoch) || !fix || !state.active) return;
   state.lastFixAt = Date.now();
   try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-gps-fix", { detail: { fix: { ...fix }, version: VERSION } })); } catch (_) {}
+  if (!current(epoch) || !state.active) return;
   const now = Date.now();
   const elapsed = state.lastSent ? now - state.lastSent.updatedAt : Infinity;
   const moved = state.lastSent ? distanceM(state.lastSent, fix) : Infinity;
@@ -99,6 +117,7 @@ async function writeFix(fix, force = false) {
 
   // Nunca informar de GPS protegido si IndexedDB no confirmó su escritura.
   const stored = await trackApi()?.record?.(fix);
+  if (!current(epoch) || !state.active) return;
   if (stored !== true) {
     const message = "No se pudo guardar el punto GPS en el dispositivo. No cierres la PWA y comprueba el almacenamiento.";
     state.lastError = message;
@@ -111,7 +130,7 @@ async function writeFix(fix, force = false) {
     emit("offline_active", { fix: { ...fix }, message: "GPS activo sin cobertura. La posición y el track se guardan en el dispositivo." });
     return;
   }
-  await publishFix(fix);
+  await publishFix(fix, epoch);
 }
 
 function geolocationError(error) {
@@ -127,7 +146,10 @@ function geolocationError(error) {
   emit("error", { message });
 }
 
-function prepare() {
+function prepare(epoch = state.epoch, context = null) {
+  const authUid = globalThis.MILITOPO_V2_AUTH?.uid;
+  const valid = () => epoch === state.epoch && (!context || allowed(context)) &&
+    (!authUid || globalThis.MILITOPO_V2_AUTH?.uid === authUid);
   if (!navigator.geolocation) {
     const message = "Este dispositivo no ofrece geolocalización web.";
     emit("unsupported", { message });
@@ -137,12 +159,14 @@ function prepare() {
   return new Promise(resolve => {
     navigator.geolocation.getCurrentPosition(
       position => {
+        if (!valid()) { resolve(null); return; }
         const fix = toFix(position);
         state.seedFix = fix;
         emit("ready", { fix: { ...fix } });
         resolve(fix);
       },
       error => {
+        if (!valid()) { resolve(null); return; }
         geolocationError(error);
         resolve(null);
       },
@@ -156,10 +180,16 @@ async function start(context, seedFix = null) {
     emit("unsupported", { message: "GPS no disponible." });
     return false;
   }
+  if (!allowed(context)) return false;
+  const epoch = ++state.epoch;
   stopWatchOnly();
+  state.resumeBusy = false;
+  state.lastFixAt = 0;
+  state.lastError = "";
   state.context = { ...context };
   state.active = true;
-  const trackReady = await trackApi()?.start?.(state.context);
+  const trackReady = await trackOperation(() => current(epoch) ? trackApi()?.start?.(context) : false);
+  if (!current(epoch)) return false;
   if (trackReady !== true) {
     state.active = false;
     emit("storage_error", { message: "No se puede proteger el recorrido GPS en el dispositivo. Comprueba el almacenamiento antes de continuar." });
@@ -167,7 +197,9 @@ async function start(context, seedFix = null) {
   }
   state.lastSent = null;
   const first = seedFix || state.seedFix;
-  if (first) await writeFix(first, true);
+  state.seedFix = null;
+  if (first) await writeFix(first, true, epoch);
+  if (!current(epoch) || !state.active) return false;
 
   installWatch();
   emit("watching", { fix: first ? { ...first } : null });
@@ -177,9 +209,10 @@ async function start(context, seedFix = null) {
 function installWatch() {
   if (!navigator.geolocation || !state.active) return false;
   stopWatchOnly();
+  const epoch = state.epoch;
   state.watchId = navigator.geolocation.watchPosition(
-    position => writeFix(toFix(position)).catch(() => {}),
-    geolocationError,
+    position => writeFix(toFix(position), false, epoch).catch(() => {}),
+    error => { if (current(epoch) && state.active) geolocationError(error); },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
   );
   return true;
@@ -189,6 +222,7 @@ async function resumeAfterSuspend(reason = "visible") {
   if (!state.active || !state.context || !navigator.geolocation || document.visibilityState === "hidden" || state.resumeBusy) return false;
   const stale = !state.lastFixAt || (Date.now() - state.lastFixAt) >= RESUME_STALE_MS;
   if (!stale && state.watchId != null) return true;
+  const epoch = state.epoch;
   state.resumeBusy = true;
   try {
     emit("requesting", { message: "Reanudando GPS tras volver a MILITOPO…", reason });
@@ -197,17 +231,18 @@ async function resumeAfterSuspend(reason = "visible") {
       navigator.geolocation.getCurrentPosition(
         position => {
           const fix = toFix(position);
-          if (fix) writeFix(fix, true).catch(() => {});
+          if (fix) writeFix(fix, true, epoch).catch(() => {});
           resolve();
         },
         () => resolve(),
         { enableHighAccuracy: true, timeout: 9000, maximumAge: 2500 }
       );
     });
+    if (!current(epoch) || !state.active) return false;
     emit("watching", { fix: state.lastSent ? { ...state.lastSent } : null, resumed: true, reason });
     return true;
   } finally {
-    state.resumeBusy = false;
+    if (epoch === state.epoch) state.resumeBusy = false;
   }
 }
 
@@ -219,33 +254,40 @@ function stopWatchOnly() {
 }
 
 async function stop(reason = "manual") {
+  const epoch = ++state.epoch;
   stopWatchOnly();
   const path = contextPath();
   const wasActive = state.active;
+  const lastSent = state.lastSent ? { ...state.lastSent } : null;
   state.active = false;
   state.resumeBusy = false;
-  if (path && wasActive && state.lastSent) {
+  state.seedFix = null;
+  // Encolar antes de esperar a la red: una parada antigua nunca detiene un inicio nuevo.
+  const stopped = trackOperation(() => trackApi()?.stop?.({ flushPending: reason !== "signed_out" }));
+  if (path && wasActive && lastSent && reason !== "signed_out") {
     try {
       const { database } = await services();
-      await update(ref(database, path), {
+      if (current(epoch)) await update(ref(database, path), {
         active: false,
-        lat: state.lastSent.lat,
-        lng: state.lastSent.lng,
-        accuracy: Math.round(state.lastSent.accuracy * 10) / 10,
+        lat: lastSent.lat,
+        lng: lastSent.lng,
+        accuracy: Math.round(lastSent.accuracy * 10) / 10,
         updatedAt: Date.now()
       });
     } catch (_) {}
   }
-  await trackApi()?.stop?.({ flushPending: true });
-  emit("stopped", { reason, fix: state.lastSent ? { ...state.lastSent } : null });
+  await stopped;
+  if (epoch === state.epoch) emit("stopped", { reason, fix: lastSent });
 }
 
 async function resumeIfGranted(context) {
-  if (!navigator.geolocation) return false;
+  if (!navigator.geolocation || !allowed(context)) return false;
+  const epoch = state.epoch;
   try {
     if (navigator.permissions?.query) {
       try {
         const permission = await navigator.permissions.query({ name: "geolocation" });
+        if (epoch !== state.epoch || !allowed(context)) return false;
         if (permission.state === "denied") {
           emit("error", { message: "El permiso de ubicación está desactivado para MILITOPO." });
           return false;
@@ -254,8 +296,9 @@ async function resumeIfGranted(context) {
     }
     // En Safari/iPhone Permissions API puede no estar disponible aunque el permiso GPS sí lo esté.
     // Se intenta recuperar una posición directamente; si el sistema ya concedió permiso no muestra un diálogo nuevo.
-    const fix = await prepare();
-    if (!fix) return false;
+    if (epoch !== state.epoch || !allowed(context)) return false;
+    const fix = await prepare(epoch, context);
+    if (!fix || epoch !== state.epoch || !allowed(context)) return false;
     return start(context, fix);
   } catch (_) {
     return false;
@@ -282,6 +325,10 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pageshow", () => {
   setTimeout(() => resumeAfterSuspend("pageshow").catch(() => {}), 220);
+});
+
+window.addEventListener("militopo:v2-auth-signed-out", () => {
+  stop("signed_out").catch(() => {});
 });
 
 globalThis.MILITOPO_RUNNER_GPS_V2 = Object.freeze({
