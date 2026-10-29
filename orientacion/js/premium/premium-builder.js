@@ -248,12 +248,27 @@ function preflightItems(){const s=snapshot(),io=iofSummary(),routeCount=routeTar
   {label:"Recorridos",ok:routeDone===routeCount&&routeCount>0,detail:`${routeDone}/${routeCount} guardados`,step:6},
   {label:"Itinerarios reales",ok:itDone===routeCount&&routeCount>0,detail:`${itDone}/${routeCount} guardados`,step:7}
 ]}
+function publicationAvailability(ready=preflightReady(),editable=["draft","prepared"].includes(lifecycleStatus())){
+  if(state.publishing)return "Publicación en curso. Espera a que termine.";
+  if(!navigator.onLine)return "Sin conexión. Recupera Internet para publicar.";
+  if(!editable)return "El estado actual no permite publicar esta carrera.";
+  if(!ready)return "Completa los requisitos pendientes antes de publicar.";
+  return "Disponible para publicar tras tu confirmación.";
+}
+function refreshPublicationAvailability(){
+  if(!state.opened)return;
+  const button=state.root?.querySelector("[data-mpb-publish]");if(!button)return;
+  const ready=preflightReady(),editable=["draft","prepared"].includes(lifecycleStatus());
+  button.disabled=!ready||!editable||state.publishing||!navigator.onLine;
+  button.setAttribute("aria-disabled",String(button.disabled));
+  const note=state.root.querySelector("#mpbPublishAvailability");if(note)note.textContent=publicationAvailability(ready,editable);
+}
 function renderReview(){const items=preflightItems(),done=items.filter(x=>x.ok).length,pct=Math.round(done/items.length*100),all=done===items.length,status=lifecycleStatus(),published=status==="published",canPublish=["draft","prepared"].includes(status);return `<section class="mpb-step mpb-step-preflight">${stepHead(9,"Revisión final y publicación","MILITOPO comprueba el diseño completo. Desde aquí puedes descargar el paquete final y publicar sin pasar por un estado intermedio visible.","PREFLIGHT")}
   <div class="mpb-preflight-hero ${all?"is-ready":"is-pending"}"><div><span>PREPARACIÓN DE LA CARRERA</span><strong>${pct}% ${all?"LISTA":"COMPLETA"}</strong><p>${all?"El diseño está completo. Puedes descargar el ZIP y publicar la carrera.":`${items.length-done} requisitos pendientes antes de publicar.`}</p></div><b>${pct}%</b></div>
   <div class="mpb-preflight-list">${items.map(x=>`<article class="${x.ok?"is-ok":"is-pending"}"><span>${x.ok?"✓":"!"}</span><div><strong>${esc(x.label)}</strong><small>${esc(x.detail)}</small></div>${x.ok?`<b>COMPLETO</b>`:`<button type="button" data-mpb-jump="${x.step}">CORREGIR →</button>`}</article>`).join("")}</div>
   <div class="mpb-preflight-actions">
     <article class="mpb-preflight-action-card"><div><small>PAQUETE DEL ORGANIZADOR</small><strong>ZIP COMPLETO DE LA CARRERA</strong><p>Planos PDF, QR, descripciones IOF, GPX, datos del evento y diseño Premium.</p></div><button type="button" data-mpb-download-package ${all&&!state.packageBusy?"":"disabled"}>${state.packageBusy?"GENERANDO ZIP…":"DESCARGAR ZIP"}</button></article>
-    <article class="mpb-preflight-action-card is-publish"><div><small>ESTADO · ${esc(lifecycleLabel(status))}</small><strong>${published?"CARRERA PUBLICADA":"PUBLICAR CARRERA"}</strong><p>${published?"Las invitaciones ya están habilitadas.":"MILITOPO gestiona PREPARADO internamente; tú solo confirmas PUBLICAR una vez."}</p></div>${published?`<button type="button" data-mpb-open-participants>INVITAR PARTICIPANTES →</button>`:`<button type="button" data-mpb-publish ${all&&canPublish&&!state.publishing?"":"disabled"}>${state.publishing?"PUBLICANDO…":"PUBLICAR CARRERA"}</button>`}</article>
+    <article class="mpb-preflight-action-card is-publish"><div><small>ESTADO · ${esc(lifecycleLabel(status))}</small><strong>${published?"CARRERA PUBLICADA":"PUBLICAR CARRERA"}</strong><p>${published?"Las invitaciones ya están habilitadas.":"MILITOPO gestiona PREPARADO internamente; tú solo confirmas PUBLICAR una vez."}</p></div>${published?`<button type="button" data-mpb-open-participants>INVITAR PARTICIPANTES →</button>`:`<button type="button" data-mpb-publish aria-disabled="${!all||!canPublish||state.publishing||!navigator.onLine}" aria-describedby="mpbPublishAvailability" ${all&&canPublish&&!state.publishing&&navigator.onLine?"":"disabled"}>${state.publishing?"PUBLICANDO…":"PUBLICAR CARRERA"}</button><p id="mpbPublishAvailability" role="status" aria-live="polite">${esc(publicationAvailability(all,canPublish))}</p>`}</article>
   </div>
   ${!all?`<div class="mpb-insight"><span>PUBLICACIÓN BLOQUEADA</span><strong>Completa primero los requisitos pendientes</strong><p>Los botones de ZIP y publicación se habilitan al alcanzar el 100 %.</p></div>`:""}
 </section>`}
@@ -526,3 +541,5 @@ globalThis.addEventListener("militopo:premium-controls-updated",()=>{if(state.op
 globalThis.addEventListener("militopo:premium-iof-updated",()=>{if(state.opened&&state.step===5)setTimeout(refreshControlsUi,20)});
 globalThis.addEventListener("militopo:r2-route-updated",()=>{if(state.opened&&state.step===6)setTimeout(renderKeepScroll,20)});
 globalThis.addEventListener("online",()=>{const id=String(bridge()?.shell?.current?.().eventId||"");if(id&&state.draft)syncMetadata(id)});
+
+["online","offline"].forEach(type=>globalThis.addEventListener(type,refreshPublicationAvailability));
