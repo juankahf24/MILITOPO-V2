@@ -115,6 +115,10 @@ function injectStyle() {
     .m2-life-actions{display:grid;grid-template-columns:auto minmax(180px,1fr);gap:8px;margin-top:12px}.m2-life-live-link{grid-column:1/-1;background:linear-gradient(180deg,#a94331,#7f2e23)!important;color:#fff5ee!important;border-color:#c95b45!important;box-shadow:0 8px 20px rgba(116,37,25,.20);position:relative}.m2-life-live-link::before{content:"●";margin-right:7px;color:#ffb19e}.m2-life-live-link:not([hidden]){animation:m2LifeLiveLinkPulse 1.6s ease-in-out infinite}@keyframes m2LifeLiveLinkPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
     .m2-life button{min-height:46px;border-radius:13px;border:1px solid rgba(20,31,21,.16);padding:9px 12px;font:900 10px/1.15 system-ui,-apple-system,sans-serif;cursor:pointer;background:#e5e9de;color:#202b21}
     .m2-life button[disabled]{opacity:.46;cursor:not-allowed}.m2-life .m2-life-primary{background:#1f2b20;color:#f7f4e7;border-color:#1f2b20}.m2-life .m2-life-primary[data-next="live"]{background:#8c3d2e;border-color:#8c3d2e}.m2-life .m2-life-primary[data-next="finished"]{background:#495e6c;border-color:#495e6c}
+    .m2-life #m2LifecycleAction:disabled,.m2-life #m2LifecycleRefresh:disabled{opacity:1!important;background:#e5e7e2!important;color:#555e56!important;border:2px dashed #8a9389!important;box-shadow:none!important;cursor:not-allowed}
+    .m2-life #m2LifecycleAction:disabled::before,.m2-life #m2LifecycleRefresh:disabled::before,.m2-life-availability[data-blocked="true"]::before{content:"";display:inline-block;width:16px;height:16px;margin-right:7px;vertical-align:-3px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23555e56' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='10' width='16' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3M12 14v3'/%3E%3C/svg%3E") center/contain no-repeat}
+    .m2-life-availability{grid-column:1/-1;margin:0!important;padding:10px 12px;border-radius:10px;background:#e0eddf;color:#244d2b!important;font:750 12px/1.4 system-ui!important;overflow-wrap:anywhere}
+    .m2-life-availability[data-blocked="true"]{background:#fff0d1;color:#614617!important;border:1px solid #cfb274}
     .m2-life-overlay[hidden]{display:none!important}
     .m2-life-overlay{position:fixed;inset:0;z-index:2147482500;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,3,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
     .m2-life-progress-card{width:min(92vw,430px);border:1px solid rgba(245,204,121,.52);border-radius:22px;padding:22px 20px;background:rgba(8,20,10,.97);box-shadow:0 18px 60px rgba(0,0,0,.35);text-align:center;color:#f6f3e8}
@@ -271,6 +275,7 @@ function ensurePanel() {
           <div class="m2-life-actions">
             <button id="m2LifecycleRefresh" type="button">↻ ACTUALIZAR</button>
             <button id="m2LifecycleAction" type="button" class="m2-life-primary" disabled>NO DISPONIBLE</button>
+            <p id="m2LifecycleAvailability" class="m2-life-availability" role="status" aria-live="polite" aria-atomic="true"></p>
             <button id="m2LifecycleGoLive" type="button" class="m2-life-live-link" hidden>IR A LIVE · CARRERA EN DIRECTO</button>
           </div>
         </div>
@@ -337,7 +342,31 @@ function readinessText(data, status) {
   if (status === "finished") return "Evento finalizado. Archívalo cuando ya no necesites modificar su gestión.";
   return "Evento archivado. Se conserva en Firestore; no se borra físicamente.";
 }
+function paintAvailability() {
+  if (!state.panel || !state.action) return;
+  const blocked = state.action.disabled;
+  let reason = "Disponible: puedes continuar con esta acción.";
+  if (state.busy) reason = "Operación en curso. Espera a que termine.";
+  else if (!navigator.onLine) reason = "Sin conexión. Recupera Internet para actualizar o cambiar el estado.";
+  else if (!canManage()) reason = "Necesitas una cuenta de organizador verificada para continuar.";
+  else if (!currentEventId() || !state.event) reason = "Carga una carrera y actualiza su estado para continuar.";
+  else if (!META[validStatus(state.event.status)]?.next) reason = "Carrera archivada. No hay más cambios de estado disponibles.";
+  else if (blocked) reason = "Estructura incompleta: sincroniza al menos 3 puntos y 1 recorrido válido.";
+  state.action.setAttribute("aria-disabled", String(blocked));
+  state.action.setAttribute("aria-describedby", "m2LifecycleAvailability");
+  state.action.title = reason;
+  const note = state.panel.querySelector("#m2LifecycleAvailability");
+  if (note) { note.textContent = (blocked ? "Bloqueado: " : "") + reason; note.dataset.blocked = String(blocked); }
+  state.refresh.disabled = state.busy || !navigator.onLine;
+  state.refresh.textContent = state.refresh.disabled ? "ACTUALIZAR" : "↻ ACTUALIZAR";
+  state.refresh.setAttribute("aria-disabled", String(state.refresh.disabled));
+  state.refresh.title = state.busy ? "Espera a que termine la operación." : !navigator.onLine ? "Sin conexión: no se puede consultar el estado." : "Consultar el estado de la carrera.";
+}
 function paint(message = "") {
+  paintContent(message);
+  paintAvailability();
+}
+function paintContent(message = "") {
   ensurePanel();
   if (!state.panel) return;
   const eventId = currentEventId();
