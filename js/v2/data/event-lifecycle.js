@@ -477,11 +477,12 @@ async function confirmTransition(from, to) {
   if (to === "archived") return globalThis.MILITOPO_CONFIRM("Vas a ARCHIVAR el evento.\n\nNo se borrará, pero quedará cerrado en el ciclo V2. ¿Continuar?",{title:"ARCHIVAR CARRERA",confirmText:"ARCHIVAR",danger:true});
   return true;
 }
-async function advance() {
+async function advance(options = null) {
   if (state.busy) return;
   // Bloquear antes de la primera espera, también durante lectura y confirmación.
   state.busy = true;
   const token = lifecycleToken();
+  const publicationOnly = options?.publicationOnly === true;
   let processing = false, ok = false, finalMessage = "";
   paint();
   try {
@@ -490,6 +491,10 @@ async function advance() {
     const from = validStatus(state.event?.status);
     const to = META[from]?.next;
     if (!to) return;
+    if (publicationOnly && (String(options.eventId || "") !== eventId || options.expectedFrom !== from || !["draft", "prepared"].includes(from))) {
+      finalMessage = "El estado o la carrera ha cambiado. Revisa la publicación antes de continuar.";
+      return;
+    }
     if (["draft", "prepared"].includes(from) && !structureReady(state.event)) {
       finalMessage = readinessText(state.event, from);
       return;
