@@ -25,6 +25,8 @@ const state = {
   eventId: "",
   event: null,
   busy: false,
+  contextEpoch: 0,
+  refreshSequence: 0,
   panel: null,
   status: null,
   detail: null,
@@ -50,6 +52,18 @@ function validStatus(value) {
 }
 function currentEventId() {
   return String(state.eventId || document.getElementById("eventId")?.value || "").trim();
+}
+
+function lifecycleToken() {
+  return { eventId: currentEventId(), uid: state.auth?.uid, role: roleOf(), epoch: state.contextEpoch };
+}
+function currentContext(token) {
+  return token.epoch === state.contextEpoch && token.eventId === currentEventId() &&
+    token.uid === state.auth?.uid && token.role === roleOf() && canManage();
+}
+function structureReady(data) {
+  const points = Number(data?.checkpointSyncedCount), courses = Number(data?.courseSyncedCount);
+  return Number.isSafeInteger(points) && points >= 3 && Number.isSafeInteger(courses) && courses >= 1;
 }
 
 function publishLifecycleState(eventId, status, exists = true) {
@@ -310,10 +324,11 @@ function nextHint(status) {
   return "La carrera está cerrada. Los datos permanecen conservados.";
 }
 function readinessText(data, status) {
-  if (status === "draft") {
+  if (status === "draft" || status === "prepared") {
     const points = Number(data?.checkpointSyncedCount || 0);
     const courses = Number(data?.courseSyncedCount || 0);
-    if (points < 3 || courses < 1) return `Para marcar como PREPARADO faltan datos en Firestore: ${points} puntos · ${courses} recorridos.`;
+    if (!structureReady(data)) return `Antes de ${status === "prepared" ? "PUBLICAR" : "marcar como PREPARADO"}, revisa la estructura sincronizada: ${points} puntos · ${courses} recorridos. Se necesitan al menos 3 puntos y 1 recorrido con recuentos válidos.`;
+    if (status === "prepared") return "El evento está preparado. Publicarlo lo deja listo para la fase de participantes y salida.";
     return `Estructura preparada: ${points} puntos · ${courses} recorridos. Ya puedes cerrar la preparación.`;
   }
   if (status === "prepared") return "El evento está preparado. Publicarlo lo deja listo para la fase de participantes y salida.";
@@ -377,7 +392,7 @@ function paint(message = "") {
     state.action.dataset.next = "";
   } else {
     if (nextTitle) nextTitle.textContent = `${meta.label} → ${META[meta.next].label}`;
-    const notReady = status === "draft" && (Number(state.event.checkpointSyncedCount || 0) < 3 || Number(state.event.courseSyncedCount || 0) < 1);
+    const notReady = ["draft", "prepared"].includes(status) && !structureReady(state.event);
     state.action.disabled = state.busy || notReady || !navigator.onLine;
     state.action.textContent = state.busy ? "ACTUALIZANDO…" : meta.action;
     state.action.dataset.next = meta.next;
@@ -387,6 +402,8 @@ async function refresh(userRequested = false) {
   ensurePanel();
   const eventId = currentEventId();
   state.eventId = eventId;
+  const token = lifecycleToken(), sequence = ++state.refreshSequence;
+  const current = () => currentContext(token) && sequence === state.refreshSequence;
   if (!canManage() || !eventId) {
     state.event = null;
     publishLifecycleState(eventId, "draft", false);
@@ -399,7 +416,9 @@ async function refresh(userRequested = false) {
   }
   try {
     const { firestore } = await services();
+    if (!current()) return false;
     const snap = await getDoc(doc(firestore, "events", eventId));
+    if (!current()) return false;
     if (!snap.exists()) {
       state.event = null;
       publishLifecycleState(eventId, "draft", false);
@@ -417,6 +436,7 @@ async function refresh(userRequested = false) {
     paint(userRequested ? "Estado actualizado desde Firestore. " + readinessText(state.event, state.event.status) : "");
     return true;
   } catch (error) {
+    if (!current()) return false;
     console.error("[MILITOPO D1] refresh", error);
     paint("No se pudo leer el estado del evento. La copia local no se ha modificado.");
     return false;
@@ -430,29 +450,36 @@ async function confirmTransition(from, to) {
 }
 async function advance() {
   if (state.busy) return;
-  if (!await refresh()) return;
-  const eventId = currentEventId();
-  const from = validStatus(state.event?.status);
-  const to = META[from]?.next;
-  if (!to) return;
-  if (from === "draft" && (Number(state.event.checkpointSyncedCount || 0) < 3 || Number(state.event.courseSyncedCount || 0) < 1)) {
-    paint(readinessText(state.event, from));
-    return;
-  }
-  if (!await confirmTransition(from, to)) return;
-
+  // Bloquear antes de la primera espera, también durante lectura y confirmación.
   state.busy = true;
-  showProcessing(from, to);
-  paint(`Cambiando ${META[from].label} → ${META[to].label}…`);
-  let ok = false;
-  let finalMessage = "";
+  const token = lifecycleToken();
+  let processing = false, ok = false, finalMessage = "";
+  paint();
   try {
+    if (!await refresh() || !currentContext(token)) return;
+    const eventId = token.eventId;
+    const from = validStatus(state.event?.status);
+    const to = META[from]?.next;
+    if (!to) return;
+    if (["draft", "prepared"].includes(from) && !structureReady(state.event)) {
+      finalMessage = readinessText(state.event, from);
+      return;
+    }
+    if (!await confirmTransition(from, to) || !currentContext(token)) return;
+    if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return; }
+    processing = true;
+    showProcessing(from, to);
+    paint(`Cambiando ${META[from].label} → ${META[to].label}…`);
     const svc = await services();
+    if (!currentContext(token)) return;
+    if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return; }
     const { firestore, functions } = svc;
     if (from === "published" && to === "live") {
       const response = await httpsCallable(functions, "startLiveRun")({ eventId });
       const data = response?.data || {};
+      if (!currentContext(token)) return;
       await refresh();
+      if (!currentContext(token)) return;
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
       finalMessage = `Evento EN DIRECTO · ${Number(data.participantCount || 0)} corredor${Number(data.participantCount || 0) === 1 ? "" : "es"} autorizado${Number(data.participantCount || 0) === 1 ? "" : "s"}.`;
@@ -463,7 +490,9 @@ async function advance() {
     if (from === "live" && to === "finished") {
       const response = await httpsCallable(functions, "finishLiveRun")({ eventId });
       const data = response?.data || {};
+      if (!currentContext(token)) return;
       await refresh();
+      if (!currentContext(token)) return;
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
       finalMessage = "Evento FINALIZADO · sesión Live V2 cerrada correctamente.";
@@ -481,7 +510,9 @@ async function advance() {
     if (to === "published") payload.publishedAt = serverTimestamp();
     if (to === "archived") payload.archivedAt = serverTimestamp();
     await updateDoc(doc(firestore, "events", eventId), payload);
+    if (!currentContext(token)) return;
     await refresh();
+    if (!currentContext(token)) return;
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to } }));
     finalMessage = `Estado actualizado a ${META[to].label}.`;
     if (typeof globalThis.toast === "function") globalThis.toast(`Estado: ${META[to].label}`);
@@ -490,19 +521,24 @@ async function advance() {
     console.error("[MILITOPO F2B] transition", error);
     finalMessage = `No se pudo cambiar el estado: ${String(error?.message || error)}`;
   } finally {
-    state.busy = false;
-    paint(ok ? "" : finalMessage);
-    await finishProcessing(ok, finalMessage);
+    try {
+      if (processing) await finishProcessing(ok, currentContext(token) ? finalMessage : "La vista ha cambiado. Actualiza el estado de la carrera correspondiente.");
+    } finally {
+      state.busy = false;
+      paint(currentContext(token) && !ok ? finalMessage : "");
+    }
   }
 }
 
 function onAuthReady(event) {
+  state.contextEpoch += 1;
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
   setTimeout(() => refresh(), 120);
 }
 function onHeader(event) {
   const eventId = String(event?.detail?.header?.eventId || "").trim();
   if (eventId && eventId !== state.eventId) {
+    state.contextEpoch += 1;
     state.eventId = eventId;
     state.event = null;
   }
@@ -514,9 +550,16 @@ function init() {
   globalThis.addEventListener("militopo:v2-orientation-header", onHeader);
   globalThis.addEventListener("militopo:v2-cloud-event-applied", event => {
     if (event?.detail?.ok) {
+      state.contextEpoch += 1;
       state.eventId = String(event.detail.eventId || "");
       setTimeout(() => refresh(), 250);
     }
+  });
+  globalThis.addEventListener("militopo:v2-auth-signed-out", () => {
+    state.contextEpoch += 1;
+    state.auth = null;
+    state.event = null;
+    paint();
   });
   globalThis.addEventListener("online", () => refresh());
   globalThis.addEventListener("offline", () => paint("Sin conexión. El estado del evento se mantiene, pero no se puede avanzar hasta recuperar Internet."));
