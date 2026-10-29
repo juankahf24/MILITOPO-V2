@@ -17,7 +17,7 @@ const state={
   controlMap:null,controlBase:null,controlMarkers:null,selectedControlId:"START",controlsPhase:"placement",controlMethod:"map",atakPreview:null,atakFileName:"",
   routeMap:null,routeBase:null,routeMarkers:null,routeLine:null,selectedRouteId:"R01",routeDraftControls:[],
   itineraryMap:null,itineraryBase:null,itineraryLayer:null,itineraryMarkers:null,itineraryDraftPoints:[],itineraryDirty:false,
-  blockerMessage:"",importState:null,packageBusy:false,publishing:false
+  blockerMessage:"",importState:null,packageBusy:false,publishing:false,publicationEpoch:0,draftOwnerUid:""
 };
 const $=(s,r=document)=>r.querySelector(s);
 
@@ -261,6 +261,7 @@ function refreshPublicationAvailability(){
   const ready=preflightReady(),editable=["draft","prepared"].includes(lifecycleStatus());
   button.disabled=!ready||!editable||state.publishing||!navigator.onLine;
   button.setAttribute("aria-disabled",String(button.disabled));
+  button.textContent=state.publishing?"PUBLICANDO…":"PUBLICAR CARRERA";
   const note=state.root.querySelector("#mpbPublishAvailability");if(note)note.textContent=publicationAvailability(ready,editable);
 }
 function renderReview(){const items=preflightItems(),done=items.filter(x=>x.ok).length,pct=Math.round(done/items.length*100),all=done===items.length,status=lifecycleStatus(),published=status==="published",canPublish=["draft","prepared"].includes(status);return `<section class="mpb-step mpb-step-preflight">${stepHead(9,"Revisión final y publicación","MILITOPO comprueba el diseño completo. Desde aquí puedes descargar el paquete final y publicar sin pasar por un estado intermedio visible.","PREFLIGHT")}
@@ -461,7 +462,7 @@ function geolocateWorkArea(){if(!navigator.geolocation){notify("Este dispositivo
 function geolocate(){if(!navigator.geolocation){notify("Este dispositivo no ofrece ubicación.");return}const btn=$("[data-mpb-geolocate]",state.root);if(btn){btn.disabled=true;btn.innerHTML="⌖ <span>LOCALIZANDO…</span>"}navigator.geolocation.getCurrentPosition(pos=>{setMeetingPoint(pos.coords.latitude,pos.coords.longitude,{name:state.draft.locationName||"Mi ubicación",zoom:16});if(btn){btn.disabled=false;btn.innerHTML="⌖ <span>MI UBICACIÓN</span>"}notify(`Ubicación obtenida · precisión ±${Math.round(pos.coords.accuracy||0)} m`)},err=>{if(btn){btn.disabled=false;btn.innerHTML="⌖ <span>MI UBICACIÓN</span>"}notify(err.code===1?"Permite el acceso a ubicación para usar este botón.":"No se pudo obtener la ubicación.")},{enableHighAccuracy:true,timeout:12000,maximumAge:15000})}
 function useWorkCenter(){if(!validWorkCenter())return;setMeetingPoint(state.draft.mapCenterLat,state.draft.mapCenterLon,{name:state.draft.locationName||"Punto de encuentro de la carrera",zoom:15});notify("Centro del plano usado como punto de encuentro.")}
 
-async function syncMetadata(eventId,attempt=0){const custom=activeCustomMap(),iof=iofSummary();const meta={premiumSchemaVersion:4,raceType:state.draft.raceType,description:String(state.draft.description||"").trim(),mapSelection:{layer:state.draft.mapLayer,label:mapLabel(state.draft.mapLayer),workCenter:{lat:Number(state.draft.mapCenterLat),lon:Number(state.draft.mapCenterLon),zoom:Number(state.draft.mapZoom)||13},customMap:state.draft.mapLayer==="custom"?{id:custom?.id||state.draft.customMapId||"",name:custom?.name||state.draft.customMapName||"",format:custom?.format||state.draft.customMapFormat||""}:null},scheduledStartAt:new Date(state.draft.startAt).toISOString(),scheduledEndAt:new Date(state.draft.endAt).toISOString(),timeZone:state.draft.timeZone||"Europe/Madrid",meetingPoint:{name:String(state.draft.locationName||"").trim(),lat:validCoords()?Number(state.draft.lat):null,lon:validCoords()?Number(state.draft.lon):null,mapsUrl:mapsUrl()},premiumControlCount:Number(state.draft.controlCount)||0,premiumIofComplete:iof.allComplete,premiumRouteCount:routeTargetCount(),premiumControlsPerRoute:controlsPerRoute(),premiumItineraries:state.draft.itineraries||{},updatedAtLocal:new Date().toISOString()};try{localStorage.setItem(META_PREFIX+eventId,JSON.stringify(meta))}catch(_){ }if(!navigator.onLine)return false;try{const auth=globalThis.MILITOPO_V2_AUTH||state.auth;if(!auth?.uid)return false;const {firestore}=await globalThis.MILITOPO_V2.firebase();await setDoc(doc(firestore,"events",eventId),{...meta,ownerUid:String(auth.uid),updatedAt:serverTimestamp()},{merge:true});return true}catch(error){console.warn("[MILITOPO Premium Builder] metadata",error);if(attempt<2){await new Promise(r=>setTimeout(r,800*(attempt+1)));return syncMetadata(eventId,attempt+1)}return false}}
+async function syncMetadata(eventId,attempt=0,isCurrent=()=>true){if(!isCurrent())return false;const custom=activeCustomMap(),iof=iofSummary();const meta={premiumSchemaVersion:4,raceType:state.draft.raceType,description:String(state.draft.description||"").trim(),mapSelection:{layer:state.draft.mapLayer,label:mapLabel(state.draft.mapLayer),workCenter:{lat:Number(state.draft.mapCenterLat),lon:Number(state.draft.mapCenterLon),zoom:Number(state.draft.mapZoom)||13},customMap:state.draft.mapLayer==="custom"?{id:custom?.id||state.draft.customMapId||"",name:custom?.name||state.draft.customMapName||"",format:custom?.format||state.draft.customMapFormat||""}:null},scheduledStartAt:new Date(state.draft.startAt).toISOString(),scheduledEndAt:new Date(state.draft.endAt).toISOString(),timeZone:state.draft.timeZone||"Europe/Madrid",meetingPoint:{name:String(state.draft.locationName||"").trim(),lat:validCoords()?Number(state.draft.lat):null,lon:validCoords()?Number(state.draft.lon):null,mapsUrl:mapsUrl()},premiumControlCount:Number(state.draft.controlCount)||0,premiumIofComplete:iof.allComplete,premiumRouteCount:routeTargetCount(),premiumControlsPerRoute:controlsPerRoute(),premiumItineraries:state.draft.itineraries||{},updatedAtLocal:new Date().toISOString()};try{localStorage.setItem(META_PREFIX+eventId,JSON.stringify(meta))}catch(_){ }if(!navigator.onLine)return false;try{const auth=globalThis.MILITOPO_V2_AUTH||state.auth;if(!auth?.uid)return false;const {firestore}=await globalThis.MILITOPO_V2.firebase();if(!isCurrent()||!navigator.onLine)return false;await setDoc(doc(firestore,"events",eventId),{...meta,ownerUid:String(auth.uid),updatedAt:serverTimestamp()},{merge:true});return true}catch(error){console.warn("[MILITOPO Premium Builder] metadata",error);if(attempt<2){await new Promise(r=>setTimeout(r,800*(attempt+1)));return syncMetadata(eventId,attempt+1,isCurrent)}return false}}
 function applyLegacyBasics(){const name=document.getElementById("eventName"),count=document.getElementById("participantCount"),controls=document.getElementById("controlCount"),per=document.getElementById("controlsPerRoute"),routes=document.getElementById("maxUniqueRoutes");if(name){name.value=state.draft.name.trim();name.dispatchEvent(new Event("input",{bubbles:true}));name.dispatchEvent(new Event("change",{bubbles:true}))}if(count){count.value=String(Math.max(1,Math.min(100,Number(state.draft.participantCount)||1)));count.dispatchEvent(new Event("change",{bubbles:true}))}if(controls){controls.value=String(Math.max(1,Math.min(80,Number(state.draft.controlCount)||legacyControlCount())));controls.dispatchEvent(new Event("change",{bubbles:true}))}if(per)per.value=String(controlsPerRoute());if(routes)routes.value=String(routeTargetCount())}
 function applySelectedPlan(){try{globalThis.MILITOPO_MAP_CONTROL?.switchLayer?.(state.draft.mapLayer)}catch(e){console.warn("[MILITOPO Premium Builder] capa",e)}}
 async function downloadOrganizerPackage(){
@@ -501,7 +502,74 @@ async function downloadOrganizerPackage(){
     updateCenterNotice("ERROR AL GENERAR ZIP",String(error?.message||error),{kind:"error",autoClose:6500,icon:"militopo"});
   }finally{state.packageBusy=false;renderKeepScroll()}
 }
-async function publishRace(){if(state.publishing)return;if(!preflightReady()){notify("Completa el Preflight antes de publicar.");return}if(!navigator.onLine){notify("Necesitas conexión para publicar la carrera.");return}const eventId=String(state.eventId||bridge()?.shell?.current?.().eventId||"").trim();if(!eventId){notify("No hay una carrera cargada para publicar.");return}const ok=globalThis.MILITOPO_CONFIRM?await globalThis.MILITOPO_CONFIRM("MILITOPO marcará PREPARADO internamente y publicará la carrera en una sola operación. Al finalizar se habilitarán las invitaciones.",{title:"PUBLICAR CARRERA",confirmText:"PUBLICAR"}):true;if(!ok)return;state.publishing=true;renderKeepScroll();try{applyLegacyBasics();r2()?.configureManualRoutes?.(routeTargetCount(),controlsPerRoute());try{bridge()?.event?.saveRules?.()}catch(_){}await syncMetadata(eventId);const refresh=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_REFRESH,advance=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;if(typeof refresh!=="function"||typeof advance!=="function")throw new Error("Ciclo de vida no disponible");await new Promise(r=>setTimeout(r,900));let status=lifecycleStatus();for(let attempt=0;attempt<6&&["draft","prepared"].includes(status);attempt++){await refresh();status=lifecycleStatus();if(!["draft","prepared"].includes(status))break;await advance();await new Promise(r=>setTimeout(r,700));await refresh();status=lifecycleStatus()}if(status!=="published")throw new Error(`No se completó la publicación · estado ${lifecycleLabel(status)}`);notify("Carrera PUBLICADA · invitaciones habilitadas");renderKeepScroll()}catch(error){console.error("[MILITOPO Premium Builder] publicar",error);notify(`No se pudo publicar: ${error?.message||error}`)}finally{state.publishing=false;renderKeepScroll()}}
+function publicationToken(){
+  const auth=state.auth||globalThis.MILITOPO_V2_AUTH;
+  return {epoch:state.publicationEpoch,eventId:String(state.eventId||""),uid:String(auth?.uid||""),draft:state.draft};
+}
+function publicationIsCurrent(token){
+  const auth=state.auth||globalThis.MILITOPO_V2_AUTH;
+  return state.opened&&state.step===8&&state.publicationEpoch===token.epoch&&state.draft===token.draft&&
+    Boolean(token.eventId&&token.uid&&auth?.emailVerified&&canManage())&&String(auth?.uid||"")===token.uid&&
+    String(state.eventId||"")===token.eventId&&String(bridge()?.shell?.current?.().eventId||"")===token.eventId;
+}
+async function publishRace(){
+  if(state.publishing)return;
+  if(!preflightReady()){notify("Completa el Preflight antes de publicar.");return}
+  if(!navigator.onLine){notify("Necesitas conexión para publicar la carrera.");return}
+  const token=publicationToken(),current=()=>publicationIsCurrent(token);
+  if(!current()){notify("Carga la carrera y verifica tu sesión antes de publicar.");return}
+  if(!["draft","prepared"].includes(lifecycleStatus())){notify("El estado actual no permite publicar esta carrera.");return}
+  const refresh=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_REFRESH,advance=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;
+  if(typeof refresh!=="function"||typeof advance!=="function"){notify("Ciclo de vida no disponible.");return}
+  // Lock before confirmation; all later work stays bound to this race/account/view.
+  state.publishing=true;refreshPublicationAvailability();
+  const ensureCurrent=()=>{
+    if(!current())throw new Error("La carrera, la sesión o la vista ha cambiado. Revisa el estado antes de volver a publicar.");
+    if(!navigator.onLine)throw new Error("Sin conexión. Recupera Internet y comprueba el estado antes de reintentar.");
+  };
+  try{
+    if(typeof globalThis.MILITOPO_CONFIRM!=="function")throw new Error("La confirmación no está disponible. Vuelve a intentarlo cuando termine la carga.");
+    const ok=await globalThis.MILITOPO_CONFIRM("Se preparará y publicará esta carrera. No se iniciará el seguimiento en directo.",{title:"PUBLICAR CARRERA",confirmText:"PUBLICAR"});
+    if(!ok)return;
+    ensureCurrent();
+    if(!preflightReady())throw new Error("El diseño ha cambiado. Revisa los requisitos pendientes.");
+    if(!await refresh())throw new Error("No se pudo comprobar el estado de la carrera. No se ha continuado la publicación.");
+    ensureCurrent();
+    let status=lifecycleStatus();
+    if(status!=="published"){
+      if(!["draft","prepared"].includes(status))throw new Error(`El estado ha cambiado a ${lifecycleLabel(status)}.`);
+      applyLegacyBasics();r2()?.configureManualRoutes?.(routeTargetCount(),controlsPerRoute());
+      try{bridge()?.event?.saveRules?.()}catch(_){}
+      ensureCurrent();
+      if(!await syncMetadata(token.eventId,0,current))throw new Error("No se pudieron confirmar los datos de la carrera. Revisa la conexión antes de reintentar.");
+      ensureCurrent();
+      // At most draft -> prepared -> published. Never advance blindly or start LIVE.
+      for(let step=0;step<2;step++){
+        if(!await refresh())throw new Error("No se pudo actualizar el estado de la carrera.");
+        ensureCurrent();status=lifecycleStatus();
+        if(status==="published")break;
+        if(!["draft","prepared"].includes(status))throw new Error(`El estado ha cambiado a ${lifecycleLabel(status)}.`);
+        await advance({publicationOnly:true,eventId:token.eventId,expectedFrom:status});
+        ensureCurrent();
+        if(!await refresh())throw new Error("No se pudo confirmar el resultado. Actualiza el estado antes de reintentar.");
+        ensureCurrent();
+        const next=lifecycleStatus();
+        if(next===status)throw new Error("El estado no ha avanzado. Revisa los requisitos y vuelve a intentarlo.");
+        status=next;
+        if(status==="published")break;
+      }
+    }
+    if(status!=="published")throw new Error(`No se completó la publicación · estado ${lifecycleLabel(status)}`);
+    notify("Carrera PUBLICADA · invitaciones habilitadas");renderKeepScroll();
+  }catch(error){
+    console.error("[MILITOPO Premium Builder] publicar",error);
+    if(current())notify(`No se pudo completar la publicación: ${error?.message||error}`);
+  }finally{
+    state.publishing=false;
+    // Do not rebuild another race's form or move its scroll position.
+    refreshPublicationAvailability();
+  }
+}
 async function finishBase(){for(let i=0;i<8;i++){const err=validateStep(i);if(err){state.step=i;render();notify(err);return}}if(state.busy)return;state.busy=true;footer();try{const id=String(state.eventId||bridge()?.shell?.current?.().eventId||"").trim();if(!id){notify("No hay un borrador cargado.");return}applyLegacyBasics();r2()?.configureManualRoutes?.(routeTargetCount(),controlsPerRoute());applySelectedPlan();const ok=await syncMetadata(id);clearDraft();close();setTimeout(()=>{notify(ok?"Diseño Premium guardado correctamente.":"Diseño guardado en el dispositivo. Se sincronizará cuando vuelva la conexión.");globalThis.dispatchEvent(new CustomEvent("militopo:premium-builder-p2c-complete",{detail:{eventId:id}}))},120)}finally{state.busy=false;if(state.opened)footer()}}
 function reuse(){syncInputs();close();premium.get("organizer-home")?.showRaces?.();notify("Selecciona la carrera que quieres utilizar como referencia.")}
 async function onInput(event){
@@ -529,17 +597,31 @@ async function onClick(e){
   if(t.matches("[data-mpb-point]")){state.selectedControlId=t.dataset.mpbPoint;refreshControlsUi();return}if(t.matches("[data-mpb-control-count]")){changeControlCount(Number(t.dataset.mpbControlCount));return}if(t.matches("[data-mpb-clear-point]")){clearSelectedControl();return}if(t.matches("[data-mpb-fit-controls]")){fitControls();return}if(t.matches("[data-mpb-iof-save-next]")){saveIofAndNext(t.dataset.mpbIofSaveNext);return}if(t.matches("[data-mpb-iof-pending]")){r2()?.setIofComplete?.(t.dataset.mpbIofPending,false);refreshControlsUi();return}
   if(t.matches("[data-mpb-route]")){loadRouteDraft(t.dataset.mpbRoute);renderKeepScroll();return}if(t.matches("[data-mpb-route-control]")){toggleRouteControl(t.dataset.mpbRouteControl);return}if(t.matches("[data-mpb-route-undo]")){undoRouteControl();return}if(t.matches("[data-mpb-route-restore]")){await restoreRouteDraft();return}if(t.matches("[data-mpb-route-clear]")){await clearRouteDraft();return}if(t.matches("[data-mpb-save-route]")){await saveCurrentRoute();return}if(t.matches("[data-mpb-itinerary-route]")){loadItineraryDraft(t.dataset.mpbItineraryRoute);renderKeepScroll();return}if(t.matches("[data-mpb-itinerary-undo]")){undoItineraryVertex();return}if(t.matches("[data-mpb-itinerary-reset]")){await resetItineraryDraft();return}if(t.matches("[data-mpb-itinerary-save]")){saveItinerary();return}if(t.matches("[data-mpb-download-package]")){await downloadOrganizerPackage();return}if(t.matches("[data-mpb-publish]")){await publishRace();return}if(t.matches("[data-mpb-open-participants]")){close();setTimeout(()=>premium.get("organizer-home")?.showOperations?.(),80);return}if(t.matches("[data-mpb-finish]")){await finishBase();return}
 }
-function open(opts={}){if(!canManage())return false;ensure();const ctx=bridge()?.shell?.current?.()||{};state.mode=opts.resumeCurrent?"resume":"create";state.eventId=state.mode==="resume"?String(opts.eventId||ctx.eventId||"").trim():"";if(state.mode==="resume"&&!state.eventId){notify("Carga una carrera antes de continuar la preparación.");return false}state.draft=state.mode==="resume"?hydrateExisting(state.eventId):(opts.fresh?freshDraft():readDraft());if(validCoords()&&!String(state.draft.locationName||"").trim()){state.draft.locationName="Punto seleccionado en el mapa";saveDraft()}if(opts.fresh&&state.mode==="create"){clearDraft(DRAFT_KEY);saveDraft()}const requested=Number(opts.step);state.step=Number.isFinite(requested)?Math.max(0,Math.min(steps.length-1,requested)):(state.mode==="resume"?suggestedResumeStep():0);const s=snapshot(),firstPending=controlOrder(s).find(p=>!pointPlaced(p)||!r2()?.getIofModel?.(p.id)?.complete);state.selectedControlId=firstPending?.id||s?.selectedPointId||"START";state.controlsPhase=controlsComplete()?"iof":"placement";state.controlMethod="map";state.coordFormat="utm";state.atakPreview=null;state.atakFileName="";state.selectedRouteId=routeId(1);loadRouteDraft(state.selectedRouteId);state.blockerMessage="";if(state.step===7)loadItineraryDraft(state.selectedRouteId);state.root.classList.add("is-open");state.root.setAttribute("aria-hidden","false");document.body.classList.add("militopo-premium-builder-open");state.opened=true;render();return true}
+function open(opts={}){if(!canManage())return false;state.publicationEpoch++;state.draftOwnerUid=String((state.auth||globalThis.MILITOPO_V2_AUTH)?.uid||"");ensure();const ctx=bridge()?.shell?.current?.()||{};state.mode=opts.resumeCurrent?"resume":"create";state.eventId=state.mode==="resume"?String(opts.eventId||ctx.eventId||"").trim():"";if(state.mode==="resume"&&!state.eventId){notify("Carga una carrera antes de continuar la preparación.");return false}state.draft=state.mode==="resume"?hydrateExisting(state.eventId):(opts.fresh?freshDraft():readDraft());if(validCoords()&&!String(state.draft.locationName||"").trim()){state.draft.locationName="Punto seleccionado en el mapa";saveDraft()}if(opts.fresh&&state.mode==="create"){clearDraft(DRAFT_KEY);saveDraft()}const requested=Number(opts.step);state.step=Number.isFinite(requested)?Math.max(0,Math.min(steps.length-1,requested)):(state.mode==="resume"?suggestedResumeStep():0);const s=snapshot(),firstPending=controlOrder(s).find(p=>!pointPlaced(p)||!r2()?.getIofModel?.(p.id)?.complete);state.selectedControlId=firstPending?.id||s?.selectedPointId||"START";state.controlsPhase=controlsComplete()?"iof":"placement";state.controlMethod="map";state.coordFormat="utm";state.atakPreview=null;state.atakFileName="";state.selectedRouteId=routeId(1);loadRouteDraft(state.selectedRouteId);state.blockerMessage="";if(state.step===7)loadItineraryDraft(state.selectedRouteId);state.root.classList.add("is-open");state.root.setAttribute("aria-hidden","false");document.body.classList.add("militopo-premium-builder-open");state.opened=true;render();return true}
 function resumeCurrent(){return open({resumeCurrent:true})}
-function close(){const wasOpen=state.opened;destroyMaps();if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-builder-open");state.opened=false;if(wasOpen&&document.body.classList.contains("mor-organizer-shell")){queueMicrotask(()=>premium.get("organizer-home")?.open?.())}}
+function close(){state.publicationEpoch++;const wasOpen=state.opened;destroyMaps();if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-builder-open");state.opened=false;if(wasOpen&&document.body.classList.contains("mor-organizer-shell")){queueMicrotask(()=>premium.get("organizer-home")?.open?.())}}
 
 premium.register("event-builder",Object.freeze({open,resumeCurrent,close,isOpen:()=>state.opened,getDraft:()=>Object.freeze({...state.draft})}),{version:"r5b-control-placement-utm-atak-20261019",purpose:"guided-controls-placement-map-utm-latlon-atak-then-iof"});
-globalThis.addEventListener("militopo:v2-auth-ready",e=>{state.auth=e.detail||globalThis.MILITOPO_V2_AUTH||null;if(!canManage())close()});
+globalThis.addEventListener("militopo:v2-auth-ready",e=>{state.publicationEpoch++;state.auth=e.detail||globalThis.MILITOPO_V2_AUTH||null;if(!canManage())close()});
 globalThis.addEventListener("militopo:v2-orientation-import",e=>{const d=e.detail||{};state.importState={message:d.message||d.stage||"Procesando plano…",state:d.state||"progress"};updateImportStatus();if(d.state==="success"){const c=d.map||activeCustomMap();state.draft.mapLayer="custom";state.draft.customMapId=c?.id||"";state.draft.customMapName=c?.name||d.fileName||"Plano propio";state.draft.customMapFormat=c?.format||"";if(c?.bounds&&globalThis.L){const b=L.latLngBounds(c.bounds),m=b.getCenter();setWorkCenter(m.lat,m.lng,14,true)}saveDraft();if(state.opened&&state.step===2)setTimeout(render,40)}});
 globalThis.addEventListener("militopo:v2-orientation-custom-map",e=>{if(!state.opened||state.step!==2)return;const c=e.detail?.map;if(!c)return;state.draft.customMapId=c.id||"";state.draft.customMapName=c.name||"";state.draft.customMapFormat=c.format||"";saveDraft()});
 globalThis.addEventListener("militopo:premium-controls-updated",()=>{if(state.opened&&state.step===5)setTimeout(refreshControlsUi,20)});
 globalThis.addEventListener("militopo:premium-iof-updated",()=>{if(state.opened&&state.step===5)setTimeout(refreshControlsUi,20)});
 globalThis.addEventListener("militopo:r2-route-updated",()=>{if(state.opened&&state.step===6)setTimeout(renderKeepScroll,20)});
-globalThis.addEventListener("online",()=>{const id=String(bridge()?.shell?.current?.().eventId||"");if(id&&state.draft)syncMetadata(id)});
+async function syncCurrentDraftMetadata(){
+  const eventId=String(state.eventId||""),draft=state.draft,uid=state.draftOwnerUid,epoch=state.publicationEpoch;
+  const current=()=>{
+    const auth=state.auth||globalThis.MILITOPO_V2_AUTH,ctx=bridge()?.shell?.current?.()||{};
+    return Boolean(eventId&&draft&&uid&&auth?.emailVerified&&canManage())&&!state.publishing&&
+      state.publicationEpoch===epoch&&state.draft===draft&&String(auth?.uid||"")===uid&&
+      String(state.eventId||"")===eventId&&String(ctx.eventId||"")===eventId&&["draft","prepared"].includes(String(ctx.status||"").toLowerCase());
+  };
+  if(!current())return false;
+  return syncMetadata(eventId,0,current);
+}
+globalThis.addEventListener("online",()=>{void syncCurrentDraftMetadata()});
 
 ["online","offline"].forEach(type=>globalThis.addEventListener(type,refreshPublicationAvailability));
+
+globalThis.addEventListener("militopo:v2-auth-signed-out",()=>{state.auth=null;close()});
+globalThis.addEventListener("militopo:v2-cloud-event-applied",e=>{if(e.detail?.ok)state.publicationEpoch++});
