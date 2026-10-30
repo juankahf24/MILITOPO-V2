@@ -278,7 +278,7 @@ exports.setUserRole = onCall({ enforceAppCheck: false }, async request => {
 });
 
 
-async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = null) {
+async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = null, writeLive = true) {
   const eventRef = db.collection("events").doc(eventId);
   const eventSnap = suppliedEventSnap || await eventRef.get();
   if (!eventSnap.exists) throw new HttpsError("not-found", "El evento no existe.");
@@ -397,9 +397,9 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
   for (const uid of Object.keys(currentMembers)) {
     if (!seen.has(uid)) updates[`members/${uid}`] = null;
   }
-  await baseRef.update(updates);
+  if (writeLive) await baseRef.update(updates);
   return {
-    eventRef, eventSnap, eventData, ownerUid, status, members, baseRef,
+    eventRef, eventSnap, eventData, ownerUid, status, members, baseRef, updates,
     activeMembers: members.filter(row => row.status === "active")
   };
 }
@@ -753,13 +753,43 @@ exports.syncLiveAccess = onCall({ enforceAppCheck: false }, async request => {
   };
 });
 
+// F2.4: acknowledge the same initialized run; Firestore is the final gate.
+async function completeLiveStart(identity, eventRef, eventId, ownerUid, active, meta, recovered) {
+  const runId = String(active.runId || "");
+  if (!runId || active.status !== "active" || meta.status !== "active" ||
+      meta.runId !== runId || meta.eventId !== eventId || meta.ownerUid !== ownerUid) {
+    throw new HttpsError("failed-precondition", "La sesión existente no está activa o no coincide con la carrera. No se sustituirán sus datos.");
+  }
+  const changed = await db.runTransaction(async tx => {
+    const snap = await tx.get(eventRef);
+    if (!snap.exists) throw new HttpsError("not-found", "El evento no existe.");
+    const data = snap.data() || {};
+    assertManagerForEvent(identity, data);
+    if (String(data.ownerUid || "") !== ownerUid) throw new HttpsError("failed-precondition", "El organizador de la carrera ha cambiado.");
+    const status = String(data.status || "").toLowerCase();
+    if (status === "live" && data.liveRunId === runId) return false;
+    if (status !== "published") throw new HttpsError("failed-precondition", "El estado de la carrera ha cambiado. Actualiza antes de continuar.");
+    tx.set(eventRef, {
+      status: "live", liveRunId: runId, liveBackend: "cloud-functions-v2",
+      liveAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+    return true;
+  });
+  const participantCount = Number(meta.participantCount || 0);
+  if (changed) {
+    try { await appendAudit("LIVE_RUN_STARTED", identity.uid, null, { eventId, ownerUid, runId, participantCount, recovered }); }
+    catch (error) { console.error("[MILITOPO F2.4] Live iniciado; auditoría no registrada", error); }
+  }
+  return { ok: true, recovered: recovered || !changed, eventId, ownerUid, runId, status: "live", participantCount };
+}
+
 exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
   const eventRef = db.collection("events").doc(eventId);
-  let eventSnap = await eventRef.get();
+  const eventSnap = await eventRef.get();
   if (!eventSnap.exists) throw new HttpsError("not-found", "El evento no existe.");
-  let eventData = eventSnap.data() || {};
+  const eventData = eventSnap.data() || {};
   assertManagerForEvent(identity, eventData);
 
   const ownerUid = String(eventData.ownerUid || "").trim();
@@ -768,17 +798,21 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
   const activeSnap = await baseRef.child("activeRun").get();
   const existing = activeSnap.exists() ? (activeSnap.val() || {}) : {};
 
-  if (String(eventData.status || "").toLowerCase() === "live" && existing.runId) {
-    return { ok: true, recovered: true, eventId, ownerUid, runId: String(existing.runId), status: "live" };
-  }
-  if (String(eventData.status || "").toLowerCase() !== "published") {
+  const status = String(eventData.status || "").toLowerCase();
+  if (!["published", "live"].includes(status)) {
     throw new HttpsError("failed-precondition", "Solo se puede iniciar una carrera PUBLICADA.");
   }
-
-  const live = await syncLiveAccessForEvent(identity, eventId, eventSnap);
+  // Recover a previous RTDB commit without recreating a run or participants.
+  if (existing.runId) {
+    const metaSnap = await baseRef.child(`runs/${existing.runId}/meta`).get();
+    return completeLiveStart(identity, eventRef, eventId, ownerUid, existing, metaSnap.val() || {}, true);
+  }
+  if (status === "live") throw new HttpsError("failed-precondition", "La carrera figura en directo pero falta su sesión. No se creará otra automáticamente.");
+  // Prepare access in memory: a delayed contender must not overwrite RTDB.
+  const live = await syncLiveAccessForEvent(identity, eventId, eventSnap, false);
   const runId = newRunId();
   const now = Date.now();
-  const participants = {};
+  const participants = Object.create(null);
   for (const member of live.activeMembers) {
     if (!member.participantId || !member.routeId) {
       throw new HttpsError("failed-precondition", `El corredor ${member.displayName || member.username || member.uid} no tiene recorrido asignado.`);
@@ -806,7 +840,7 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
     };
   }
 
-  const updates = {};
+  const updates = { ...live.updates };
   updates[`runs/${runId}/meta`] = {
     runId,
     eventId,
@@ -830,17 +864,27 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
   updates["meta/status"] = "live";
   updates["meta/activeRunId"] = runId;
   updates["meta/updatedAt"] = now;
-  await baseRef.update(updates);
-
-  await eventRef.set({
-    status: "live",
-    liveRunId: runId,
-    liveBackend: "cloud-functions-v2",
-    liveAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
-  await appendAudit("LIVE_RUN_STARTED", identity.uid, null, { eventId, ownerUid, runId, participantCount: live.activeMembers.length });
-  return { ok: true, eventId, ownerUid, runId, status: "live", participantCount: live.activeMembers.length };
+  // Atomic first creation. Retry callbacks have no external side effects.
+  const result = await baseRef.transaction(current => {
+    if (current?.activeRun?.runId || Object.keys(current?.runs || {}).length) return;
+    const next = structuredClone(current || {});
+    for (const [path, value] of Object.entries(updates)) {
+      const parts = path.split("/");
+      let target = next;
+      for (const part of parts.slice(0, -1)) {
+        if (!Object.hasOwn(target, part) || !target[part] || typeof target[part] !== "object") {
+          Object.defineProperty(target, part, { value: {}, writable: true, enumerable: true, configurable: true });
+        }
+        target = target[part];
+      }
+      if (value === null) delete target[parts.at(-1)];
+      else Object.defineProperty(target, parts.at(-1), { value, writable: true, enumerable: true, configurable: true });
+    }
+    return next;
+  });
+  const active = result.snapshot.child("activeRun").val() || {};
+  const meta = active.runId ? result.snapshot.child(`runs/${active.runId}/meta`).val() || {} : {};
+  return completeLiveStart(identity, eventRef, eventId, ownerUid, active, meta, !result.committed);
 });
 
 
