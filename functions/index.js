@@ -1419,31 +1419,43 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
     throw new HttpsError("failed-precondition", "Los datos de la sesión Live no son coherentes. Revisa el estado antes de finalizar; no se han modificado los resultados.");
   }
   const now = Date.now();
+  // F2.6: retries share one persisted cutoff, including partial legacy closes.
+  const validCutoff = value => Number.isSafeInteger(value) && value > 0 && value <= 8640000000000000;
+  const initialCutoff = runMeta.status === "finished" && validCutoff(runMeta.finishedAt) ? runMeta.finishedAt : now;
+  const cutoffResult = await baseRef.child(`runs/${runId}/meta/closeCutoffAt`).transaction(current => {
+    if (current === null) return initialCutoff;
+    if (validCutoff(current)) return current;
+    return; // Preserve malformed data for inspection; do not silently replace it.
+  });
+  const cutoffAt = cutoffResult.snapshot.val();
+  if (!cutoffResult.committed || !validCutoff(cutoffAt)) {
+    throw new HttpsError("failed-precondition", "No se ha podido confirmar la hora de cierre. No se han consolidado los resultados; revisa el estado antes de reintentar.");
+  }
 
   // H1: antes de cerrar Live, consolida todos los participantes en Firestore.
   // Los que terminaron quedan FINISHED; quien seguía corriendo queda INCOMPLETE;
   // quien no salió queda NOT_STARTED. Así el histórico no depende de RTDB.
   const consolidation = await consolidateRunResults({
     eventRef, eventData, ownerUid, eventId, baseRef, runId,
-    cutoffAt: now,
+    cutoffAt,
     source: "event_finish"
   });
 
   await baseRef.update({
     [`runs/${runId}/meta/status`]: "finished",
-    [`runs/${runId}/meta/finishedAt`]: now,
+    [`runs/${runId}/meta/finishedAt`]: cutoffAt,
     [`runs/${runId}/meta/updatedAt`]: now,
     [`runs/${runId}/meta/resultsConsolidatedAt`]: now,
     [`runs/${runId}/meta/resultCount`]: consolidation.summary.total,
     "activeRun/status": "finished",
-    "activeRun/finishedAt": now,
+    "activeRun/finishedAt": cutoffAt,
     "activeRun/updatedAt": now,
     "meta/status": "finished",
     "meta/updatedAt": now
   });
   await eventRef.set({
     status: "finished",
-    finishedAt: FieldValue.serverTimestamp(),
+    finishedAt: new Date(cutoffAt),
     liveRunId: runId,
     resultsConsolidatedAt: FieldValue.serverTimestamp(),
     resultCount: consolidation.summary.total,
