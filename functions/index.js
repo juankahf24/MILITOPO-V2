@@ -1192,43 +1192,38 @@ function resultStatus(participantStatus) {
   return "not_started";
 }
 
-async function replaceResultTrackChunks(resultRef, points) {
-  const chunksRef = resultRef.collection("trackChunks");
-  const existing = await chunksRef.get();
-  const writes = [];
-  existing.forEach(docSnap => writes.push({ type: "delete", ref: docSnap.ref }));
-
-  for (let i = 0; i < points.length; i += RESULT_TRACK_CHUNK_SIZE) {
-    const chunk = points.slice(i, i + RESULT_TRACK_CHUNK_SIZE);
-    const index = Math.floor(i / RESULT_TRACK_CHUNK_SIZE);
-    writes.push({
-      type: "set",
-      ref: chunksRef.doc(`chunk_${String(index).padStart(4, "0")}`),
-      data: {
-        index,
-        pointCount: chunk.length,
-        firstSeq: chunk[0]?.seq || null,
-        lastSeq: chunk[chunk.length - 1]?.seq || null,
-        firstAtMs: chunk[0]?.at || null,
-        lastAtMs: chunk[chunk.length - 1]?.at || null,
-        points: chunk,
-        schemaVersion: RESULT_SCHEMA_VERSION,
-        updatedAt: FieldValue.serverTimestamp()
-      }
-    });
-  }
-
-  for (let offset = 0; offset < writes.length; offset += 400) {
+// F2.7: stage an immutable track; readers keep the previous revision until commit.
+async function stageResultTrackChunks(resultRef, points) {
+  const revision = `result_${randomUUID().replace(/-/g, "")}`;
+  const chunksRef = resultRef.collection("trackRevisions").doc(revision).collection("chunks");
+  for (let offset = 0; offset < points.length; offset += RESULT_TRACK_CHUNK_SIZE * 150) {
     const batch = db.batch();
-    for (const item of writes.slice(offset, offset + 400)) {
-      if (item.type === "delete") batch.delete(item.ref);
-      else batch.set(item.ref, item.data);
+    const end = Math.min(points.length, offset + RESULT_TRACK_CHUNK_SIZE * 150);
+    for (let i = offset; i < end; i += RESULT_TRACK_CHUNK_SIZE) {
+      const chunk = points.slice(i, i + RESULT_TRACK_CHUNK_SIZE);
+      const index = Math.floor(i / RESULT_TRACK_CHUNK_SIZE);
+      batch.set(chunksRef.doc(`chunk_${String(index).padStart(6, "0")}`), {
+        index, pointCount: chunk.length,
+        firstSeq: chunk[0]?.seq || null, lastSeq: chunk[chunk.length - 1]?.seq || null,
+        firstAtMs: chunk[0]?.at || null, lastAtMs: chunk[chunk.length - 1]?.at || null,
+        points: chunk, schemaVersion: RESULT_SCHEMA_VERSION,
+        updatedAt: FieldValue.serverTimestamp()
+      });
     }
     await batch.commit();
   }
+  return revision;
 }
 
+
 async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, baseRef, runId, uid, participant = null, cutoffAt = null, source = "runner_finish" }) {
+  const resultRef = eventRef.collection("results").doc(uid);
+  const existing = await resultRef.get();
+  const previous = existing.exists ? (existing.data() || {}) : {};
+  if ((previous.runId && previous.runId !== runId) ||
+      Number(previous.trackReconcileLease?.until || 0) > Date.now()) {
+    throw new HttpsError("aborted", "El resultado está cambiando. Reintenta cuando termine la sincronización; se conserva el resultado publicado.");
+  }
   const participantRef = baseRef.child(`runs/${runId}/participants/${uid}`);
   let row = participant || null;
   if (!row) {
@@ -1279,8 +1274,6 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   const penalizedControlCount = discardedControlCount + pendingControlCount;
   const penaltyMs = penalizedControlCount * CONTROL_DISCARD_PENALTY_MS;
   const officialDurationMs = durationMs == null ? null : durationMs + penaltyMs;
-  const resultRef = eventRef.collection("results").doc(uid);
-  const existing = await resultRef.get();
   const first = points[0] || null;
   const last = points[points.length - 1] || null;
 
@@ -1336,8 +1329,7 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     durationMs,
     startedAt: startedAtMs ? new Date(startedAtMs) : null,
     finishedAt: finishedAtMs ? new Date(finishedAtMs) : null,
-    // Una persistencia oficial nueva vuelve a usar los chunks legacy.
-    // La siguiente reconciliación P0.3 publicará una revisión íntegra después.
+    // Published together with the result only after all chunks are staged.
     activeTrackRevision: null,
     trackFingerprintSha256: null,
     trackReconciledAt: null,
@@ -1354,8 +1346,15 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   };
   if (!existing.exists) result.createdAt = FieldValue.serverTimestamp();
 
-  await resultRef.set(result, { merge: true });
-  await replaceResultTrackChunks(resultRef, points);
+  result.activeTrackRevision = await stageResultTrackChunks(resultRef, points);
+  await db.runTransaction(async tx => {
+    const latest = await tx.get(resultRef);
+    if (latest.exists !== existing.exists ||
+        (existing.exists && !latest.updateTime.isEqual(existing.updateTime))) {
+      throw new HttpsError("aborted", "El resultado cambió durante el guardado. Reintenta; se conserva la versión publicada.");
+    }
+    tx.set(resultRef, result, { merge: true });
+  });
   return {
     uid, status: finalStatus, trackPointCount: points.length, durationMs,
     penaltyMs, officialDurationMs, pendingControlCount, discardedControlCount, penalizedControlCount
