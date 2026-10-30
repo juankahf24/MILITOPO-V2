@@ -1407,6 +1407,17 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
   const active = activeSnap.exists() ? (activeSnap.val() || {}) : {};
   const runId = String(eventData.liveRunId || active.runId || "").trim();
   if (!runId) throw new HttpsError("failed-precondition", "No existe una sesión Live V2 activa para este evento.");
+  // F2.5: never consolidate one run while closing a different active session.
+  if (String(active.runId || "").trim() !== runId) {
+    throw new HttpsError("failed-precondition", "La sesión Live no coincide con la carrera. No se han cerrado ni sustituido sus datos.");
+  }
+  const runMetaSnap = await baseRef.child(`runs/${runId}/meta`).get();
+  const runMeta = runMetaSnap.val() || {};
+  // Allow the existing retry after RTDB closed but Firestore failed.
+  if (runMeta.runId !== runId || runMeta.eventId !== eventId || runMeta.ownerUid !== ownerUid ||
+      !["active", "finished"].includes(active.status) || runMeta.status !== active.status) {
+    throw new HttpsError("failed-precondition", "Los datos de la sesión Live no son coherentes. Revisa el estado antes de finalizar; no se han modificado los resultados.");
+  }
   const now = Date.now();
 
   // H1: antes de cerrar Live, consolida todos los participantes en Firestore.
