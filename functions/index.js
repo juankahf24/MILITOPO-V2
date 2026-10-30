@@ -1225,10 +1225,18 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     throw new HttpsError("aborted", "El resultado está cambiando. Reintenta cuando termine la sincronización; se conserva el resultado publicado.");
   }
   const participantRef = baseRef.child(`runs/${runId}/participants/${uid}`);
-  let row = participant || null;
-  if (!row) {
-    const snap = await participantRef.get();
-    row = snap.exists() ? (snap.val() || {}) : {};
+  // F2.8: callers may hold an old participant snapshot; always reread after
+  // the result version used by F2.7, and never fall back on missing live data.
+  const participantSnap = await participantRef.get();
+  if (!participantSnap.exists()) {
+    throw new HttpsError("failed-precondition", "No se encuentra la participación actual. Se conserva el resultado publicado.");
+  }
+  const row = participantSnap.val() || {};
+  const currentParticipantState = String(row.status || "not_started").toLowerCase();
+  const currentResultState = row.manualFinishIncomplete ? "incomplete" : resultStatus(currentParticipantState);
+  if ((previous.status === "finished" && currentResultState !== "finished") ||
+      (previous.liveParticipantStatus === "finished" && currentParticipantState !== "finished")) {
+    throw new HttpsError("aborted", "La participación no coincide con la llegada ya guardada. Se conserva el resultado publicado; revisa el estado antes de reintentar.");
   }
 
   const [trackSnap, memberSnap, profileSnap, checkpointsSnap, controlProgressSnap] = await Promise.all([
