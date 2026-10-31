@@ -1392,6 +1392,38 @@ async function consolidateRunResults({ eventRef, eventData, ownerUid, eventId, b
   return { rows, summary };
 }
 
+
+// F2.12: the participant snapshot from the start of consolidation may already
+// have changed by the time the last result is written. Re-check the complete
+// roster and outcome-driving participant fields BEFORE closing the run. This
+// catches arrivals/starts that raced consolidation; it is not a cross-DB lock.
+async function verifyConsolidatedParticipantStates(baseRef, runId, rows) {
+  const snap = await baseRef.child(`runs/${runId}/participants`).get();
+  const current = snap.exists() ? (snap.val() || {}) : {};
+  const published = new Map(rows.map(row => [String(row.runnerUid || ""), row]));
+  const uids = Object.keys(current);
+  if (uids.length !== rows.length || published.size !== rows.length) {
+    throw new HttpsError("aborted", "El censo de participantes cambió durante la consolidación. Se conservan los resultados; vuelve a intentar el cierre.");
+  }
+  for (const uid of uids) {
+    const row = current[uid] || {};
+    const saved = published.get(uid);
+    const liveState = String(row.status || "not_started").toLowerCase();
+    const expectedResultState = row.manualFinishIncomplete ? "incomplete" : resultStatus(liveState);
+    const startMs = Math.max(0, Number(row.startedAt || 0)) || null;
+    const finishMs = Math.max(0, Number(row.finishedAt || 0)) || null;
+    // For incomplete racers persistRunnerResult uses the fixed closing cutoff
+    // as an artificial finish. Compare the REAL live finish only for finishers.
+    if (!saved || saved.runId !== runId || saved.liveParticipantStatus !== liveState ||
+        saved.status !== expectedResultState ||
+        (Math.max(0, Number(saved.startedAtMs || 0)) || null) !== startMs ||
+        (liveState === "finished" &&
+          (Math.max(0, Number(saved.finishedAtMs || 0)) || null) !== finishMs)) {
+      throw new HttpsError("aborted", "Una salida o llegada cambió mientras se consolidaban los resultados. No se ha confirmado el cierre; reintenta para recalcularla.");
+    }
+  }
+}
+
 exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
@@ -1471,6 +1503,10 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
         (String(freshActive.status || "") === "finished" && String(freshMeta.status || "") === "active"))) {
     throw new HttpsError("aborted", "La carrera o sesión cambió durante la consolidación. No se ha confirmado el cierre; revisa el estado antes de reintentar.");
   }
+
+  // F2.12: detect new/removed participants and late starts/finishes that
+  // occurred after an individual result was persisted but before closure.
+  await verifyConsolidatedParticipantStates(baseRef, runId, consolidation.rows);
 
   // F2.11: el update multipath anterior escribía activeRun/status SIN condición.
   // Otro escritor podía cambiar activeRun tras la relectura F2.10, y el cierre
