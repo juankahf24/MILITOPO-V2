@@ -1276,7 +1276,7 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   // +15 min por cada control que haya quedado pendiente. Los descartados
   // no se cuentan de nuevo como pendientes.
   const liveCompletedForPenalty = Math.min(Math.max(0, Number(controlAnalysis.expectedCount || 0)), Math.max(0, Number(controlProgress.completedCount || 0)));
-  const pendingControlCount = finalStatus === "not_started" ? 0 : (controlProgressSnap.exists()
+  const pendingControlCount = finalStatus === "not_started" ? 0 : (controlProgressSnap.exists() && controlProgress.finalizationCreatedFromMissing !== true
     ? Math.max(0, Math.max(0, Number(controlAnalysis.expectedCount || 0)) - liveCompletedForPenalty)
     : Math.max(0, Number(controlAnalysis.missingCount || 0)));
   const penalizedControlCount = discardedControlCount + pendingControlCount;
@@ -1727,6 +1727,50 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
 
 
 
+
+// F2.14: seal the *same* RTDB node used by QR/GPS/discard transactions.
+// A pass transaction that committed before this seal is included in the final
+// snapshot; one attempted afterwards cannot change the official progress.
+async function sealRunnerControlProgress(ctx, controlPlan) {
+  const progressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
+  const now = Date.now();
+  const tx = await progressRef.transaction(current => {
+    const progress = current && typeof current === "object" ? current : {};
+    if (Number(progress.finalizationSealedAt || 0) > 0) return progress;
+    return {
+      ...progress,
+      schemaVersion: 2,
+      eventId: ctx.eventId, runId: ctx.runId, uid: ctx.uid,
+      expectedCount: progress.expectedCount ?? controlPlan?.expectedCount ?? 0,
+      completedCount: progress.completedCount ?? 0,
+      passes: progress.passes || {},
+      // A legacy manual finish may have no progress node; keep the original
+      // fallback calculation rather than inventing newly missing controls.
+      finalizationCreatedFromMissing: progress.finalizationCreatedFromMissing === true || !current,
+      finalizationSealedAt: now,
+      updatedAt: now
+    };
+  }, undefined, false);
+  if (!tx.committed) {
+    throw new HttpsError("aborted", "Los controles están cambiando durante la llegada. Se conservan; vuelve a intentarlo.");
+  }
+  return tx.snapshot.val() || {};
+}
+
+// Do not let a delayed control request change a FINISHED participant's visible
+// counters, arrival flag or timestamps. A concurrent finish reads the sealed
+// control-progress node instead of relying on this denormalized summary.
+async function updateRunningParticipantControlSummary(ctx, fields) {
+  const tx = await ctx.participantRef.transaction(current => {
+    if (!current || typeof current !== "object" ||
+        !["racing", "started"].includes(String(current.status || "").toLowerCase())) return;
+    return { ...current, ...fields };
+  }, undefined, false);
+  if (!tx.committed && String(tx.snapshot.val()?.status || "").toLowerCase() !== "finished") {
+    throw new HttpsError("aborted", "El estado del corredor cambió durante la validación. Se conservan los controles ya recibidos.");
+  }
+}
+
 async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, existingCtx = null, expectedRunId = undefined) {
   const ctx = existingCtx || await resolveRunnerLiveContext(identity, eventId, expectedRunId);
   const current = String(ctx.participant.status || "").toLowerCase();
@@ -1743,6 +1787,20 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
   const txResult = await progressRef.transaction(currentValue => {
     transactionError = "";
     const progress = currentValue && typeof currentValue === "object" ? { ...currentValue } : {};
+    // F2.14: after the finishing transaction sealed progress, only an exact
+    // retry of attempts already saved can succeed; no late QR/GPS/discard.
+    if (Number(progress.finalizationSealedAt || 0) > 0) {
+      const existing = [...Object.values(progress.passes || {}), progress.finishPass].filter(Boolean);
+      if (batch.every(row => {
+        const id = String(row?.attemptId || "");
+        return Boolean(id) && existing.some(saved =>
+          String(saved.attemptId || "") === id &&
+          canonicalControlId(saved.checkpointId) === canonicalControlId(row.checkpointId) &&
+          String(saved.source || "gps").toLowerCase() === String(row.source || "gps").toLowerCase());
+      })) return progress;
+      transactionError = "La llegada ya está cerrada. No se han borrado los controles pendientes.";
+      return;
+    }
     const passes = progress.passes && typeof progress.passes === "object" ? { ...progress.passes } : {};
     let completedCount = Math.max(0, Number(progress.completedCount || 0));
     let finishValidated = Boolean(progress.finishValidated);
@@ -1906,7 +1964,7 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
     commonUpdate.arrivalSource = String(progress.finishPass?.source || "");
     commonUpdate.nextControlId = null;
   }
-  await ctx.participantRef.update(commonUpdate);
+  await updateRunningParticipantControlSummary(ctx, commonUpdate);
 
   if (acceptedAttemptIds.length) {
     await appendAudit("RUNNER_CONTROLS_BATCH_SYNCED", identity.uid, identity.uid, {
@@ -1989,7 +2047,17 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
   const progressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
   let transactionReason = "";
   const txResult = await progressRef.transaction(currentValue => {
+    transactionReason = "";
     const progress = currentValue && typeof currentValue === "object" ? currentValue : {};
+    if (Number(progress.finalizationSealedAt || 0) > 0) {
+      const existing = [...Object.values(progress.passes || {}), progress.finishPass].filter(Boolean).some(row =>
+        String(row.attemptId || "") === attemptId &&
+        canonicalControlId(row.checkpointId) === checkpointId &&
+        String(row.source || "gps").toLowerCase() === source);
+      if (existing) return progress; // exact idempotent retry, without writing.
+      transactionReason = "sealed";
+      return;
+    }
     const passes = progress.passes && typeof progress.passes === "object" ? { ...progress.passes } : {};
     const alreadyNormal = Object.values(passes).find(row => String(row?.attemptId || "") === attemptId);
     const alreadyFinish = String(progress.finishPass?.attemptId || "") === attemptId;
@@ -2082,6 +2150,9 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
     };
   });
 
+  if (!txResult.committed && transactionReason === "sealed") {
+    throw new HttpsError("failed-precondition", "La llegada ya está cerrada. El nuevo control no se ha registrado.");
+  }
   const progressSnap = await progressRef.get();
   const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
   const passes = normalizeLiveControlPasses(progress.passes);
@@ -2115,7 +2186,7 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
     commonUpdate.arrivalSource = String(accepted?.source || source);
     commonUpdate.nextControlId = null;
   }
-  await ctx.participantRef.update(commonUpdate);
+  await updateRunningParticipantControlSummary(ctx, commonUpdate);
 
   await appendAudit(isFinish ? "RUNNER_ARRIVAL_VALIDATED" : "RUNNER_CONTROL_PASSED", identity.uid, identity.uid, {
     eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, checkpointId, order: expectedOrder, source: accepted?.source || source
@@ -2149,6 +2220,9 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     if (String(actual.status || "").toLowerCase() !== "finished") {
       throw new HttpsError("aborted", "La llegada cambió durante la operación. Se conservan los datos; vuelve a intentarlo.");
     }
+    // Also seal legacy completed participants during recovery. This preserves
+    // their existing control progress while blocking stale in-flight requests.
+    await sealRunnerControlProgress(ctx, null);
     const saved = await persistRunnerResult({
       eventRef: ctx.eventRef,
       eventData: ctx.eventData,
@@ -2200,11 +2274,19 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     catch (error) { pendingSyncWarning = String(error?.message || error || "No se pudieron consolidar algunas balizas pendientes."); }
   }
   const progressSnap = await ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`).get();
-  const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
-  if (plan?.finish && !progress.finishValidated && !manualFinish) {
+  const preliminaryProgress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
+  if (plan?.finish && !preliminaryProgress.finishValidated && !manualFinish) {
     throw new HttpsError("failed-precondition", "Debes validar la LLEGADA por GPS o QR. La carrera se cerrará automáticamente después.");
   }
 
+  // F2.14: the same progress node is now frozen before the participant is
+  // marked FINISHED. Read all finish decisions from the sealed snapshot.
+  const preSealRecovery = await ensureFinishOpen();
+  if (preSealRecovery) return preSealRecovery;
+  const progress = await sealRunnerControlProgress(ctx, plan);
+  if (plan?.finish && !progress.finishValidated && !manualFinish) {
+    throw new HttpsError("aborted", "La validación de llegada cambió al cerrarse. Los controles se conservan; vuelve a intentarlo.");
+  }
   const manualFinishIncomplete = manualFinish && (!progress.finishValidated || Math.max(0, Number(progress.completedCount || 0)) < Math.max(0, Number(plan.expectedCount || 0)));
   const now = Date.now();
   const arrivalAt = Math.max(0, Number(progress.arrivalAt || progress.finishPass?.passedAtMs || 0));
