@@ -1975,6 +1975,19 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
     });
   }
 
+  // F2.15: confirmar también los reenvíos idempotentes de la cola offline.
+  // Nunca confirmar un attemptId solo por coincidir su texto si pertenece
+  // a otra baliza o fuente. Derivar del snapshot COMMIT, no del callback de
+  // transaction que Firebase puede ejecutar más de una vez.
+  const persistedPasses = [...Object.values(progress.passes || {}), progress.finishPass].filter(Boolean);
+  const acknowledgedAttemptIds = [...new Set(batch.filter(raw => {
+    const attemptId = String(raw?.attemptId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 100);
+    return Boolean(attemptId) && persistedPasses.some(saved =>
+      String(saved.attemptId || "") === attemptId &&
+      canonicalControlId(saved.checkpointId) === canonicalControlId(raw.checkpointId) &&
+      String(saved.source || "gps").toLowerCase() === String(raw.source || "gps").toLowerCase());
+  }).map(raw => String(raw.attemptId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 100)))];
+
   return {
     ok: true,
     eventId,
@@ -1984,7 +1997,7 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
     finishValidated: Boolean(progress.finishValidated),
     arrivalAt: progress.arrivalAt || null,
     nextControlId: progress.nextControlId || null,
-    acceptedAttemptIds,
+    acceptedAttemptIds: acknowledgedAttemptIds,
     progress
   };
 }
@@ -2271,7 +2284,15 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   let pendingSyncWarning = null;
   if (pendingPasses.length) {
     try { await syncRunnerControlPassBatchInternal(identity, eventId, pendingPasses, ctx); }
-    catch (error) { pendingSyncWarning = String(error?.message || error || "No se pudieron consolidar algunas balizas pendientes."); }
+    catch (error) {
+      pendingSyncWarning = String(error?.message || error || "No se pudieron consolidar algunas balizas pendientes.");
+      // F2.15: nunca sellar los controles ni publicar una llegada automática
+      // si el servidor no pudo sincronizar el diario offline adjunto.
+      // La llegada manual explícita conserva su semántica INCOMPLETE y aviso.
+      if (!request.data?.manualFinish) {
+        throw new HttpsError("failed-precondition", "No se ha finalizado: quedan controles pendientes sin confirmar. Conecta, sincroniza y vuelve a intentarlo. " + pendingSyncWarning);
+      }
+    }
   }
   const progressSnap = await ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`).get();
   const preliminaryProgress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
