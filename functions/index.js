@@ -9,7 +9,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getDatabase } = require("firebase-admin/database");
-const { randomUUID } = require("node:crypto");
+const { randomUUID, createHash } = require("node:crypto");
 
 initializeApp();
 // Control de coste/escala: MILITOPO no necesita decenas de instancias simultáneas.
@@ -1216,6 +1216,22 @@ async function stageResultTrackChunks(resultRef, points) {
 }
 
 
+// F2.16: la verificación F2.12 comparaba estado/salida/llegada, pero no
+// los controles. Una baliza o descarte confirmado mientras se calcula el
+// resultado cambia penalizaciones sin cambiar esos tres campos. La huella
+// representa todo el nodo de progreso (también ausencia vs. existencia),
+// con orden estable de claves para no confundir relecturas equivalentes.
+function stableControlSnapshot(value) {
+  if (Array.isArray(value)) return value.map(stableControlSnapshot);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableControlSnapshot(value[key])]));
+  }
+  return value;
+}
+function controlProgressFingerprint(value) {
+  return createHash("sha256").update(JSON.stringify(stableControlSnapshot(value))).digest("hex");
+}
+
 async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, baseRef, runId, uid, participant = null, cutoffAt = null, source = "runner_finish" }) {
   const resultRef = eventRef.collection("results").doc(uid);
   const existing = await resultRef.get();
@@ -1267,7 +1283,9 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
   const durationMs = startedAtMs && finishedAtMs ? Math.max(0, finishedAtMs - startedAtMs) : null;
   const routePoints = Array.isArray(member.routePoints) ? member.routePoints.map(x => String(x || "").slice(0, 80)).filter(Boolean).slice(0, 120) : [];
   const trackControlAnalysis = analyzeControlPasses(points, routePoints, checkpoints, startedAtMs, finishedAtMs);
-  const controlProgress = controlProgressSnap.exists() ? (controlProgressSnap.val() || {}) : {};
+  const controlProgressRaw = controlProgressSnap.exists() ? controlProgressSnap.val() : null;
+  const controlProgressHash = controlProgressFingerprint(controlProgressRaw);
+  const controlProgress = controlProgressRaw && typeof controlProgressRaw === "object" ? controlProgressRaw : {};
   const controlAnalysis = mergeLiveAndTrackControlAnalysis(trackControlAnalysis, controlProgress);
   const liveControlRows = controlProgress?.passes && typeof controlProgress.passes === "object" ? Object.values(controlProgress.passes) : [];
   const discardedControls = liveControlRows.filter(row => String(row?.source || "").toLowerCase() === "discard" || row?.discarded === true).map(row => ({ checkpointId: canonicalControlId(row?.checkpointId), discardedAtMs: Math.max(0, Number(row?.passedAtMs || 0)) || null, order: Math.max(0, Number(row?.order || 0)), penaltyMs: CONTROL_DISCARD_PENALTY_MS })).filter(row => row.checkpointId);
@@ -1364,7 +1382,9 @@ async function persistRunnerResult({ eventRef, eventData, ownerUid, eventId, bas
     tx.set(resultRef, result, { merge: true });
   });
   return {
-    uid, status: finalStatus, trackPointCount: points.length, durationMs,
+    uid, runId, runnerUid: uid, status: finalStatus, liveParticipantStatus: participantState,
+    startedAtMs, finishedAtMs, controlProgressHash,
+    trackPointCount: points.length, durationMs,
     penaltyMs, officialDurationMs, pendingControlCount, discardedControlCount, penalizedControlCount
   };
 }
@@ -1398,8 +1418,12 @@ async function consolidateRunResults({ eventRef, eventData, ownerUid, eventId, b
 // roster and outcome-driving participant fields BEFORE closing the run. This
 // catches arrivals/starts that raced consolidation; it is not a cross-DB lock.
 async function verifyConsolidatedParticipantStates(baseRef, runId, rows) {
-  const snap = await baseRef.child(`runs/${runId}/participants`).get();
+  const [snap, controlsSnap] = await Promise.all([
+    baseRef.child(`runs/${runId}/participants`).get(),
+    baseRef.child(`runs/${runId}/controlProgress`).get()
+  ]);
   const current = snap.exists() ? (snap.val() || {}) : {};
+  const currentControls = controlsSnap.exists() ? (controlsSnap.val() || {}) : {};
   const published = new Map(rows.map(row => [String(row.runnerUid || ""), row]));
   const uids = Object.keys(current);
   if (uids.length !== rows.length || published.size !== rows.length) {
@@ -1420,6 +1444,13 @@ async function verifyConsolidatedParticipantStates(baseRef, runId, rows) {
         (liveState === "finished" &&
           (Math.max(0, Number(saved.finishedAtMs || 0)) || null) !== finishMs)) {
       throw new HttpsError("aborted", "Una salida o llegada cambió mientras se consolidaban los resultados. No se ha confirmado el cierre; reintenta para recalcularla.");
+    }
+    // F2.16: comprobar también el nodo que aporta QR/GPS, descartes y
+    // penalizaciones al resultado. No publicar resultados con controles
+    // diferentes a los utilizados al consolidar.
+    const liveControls = Object.prototype.hasOwnProperty.call(currentControls, uid) ? currentControls[uid] : null;
+    if (!saved.controlProgressHash || saved.controlProgressHash !== controlProgressFingerprint(liveControls)) {
+      throw new HttpsError("aborted", "Los controles del corredor cambiaron mientras se consolidaban los resultados. No se ha cerrado la carrera; sincroniza y vuelve a intentarlo.");
     }
   }
 }
