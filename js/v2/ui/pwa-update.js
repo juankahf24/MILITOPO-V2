@@ -8,7 +8,33 @@
   const swPath = scriptTag?.getAttribute("data-sw") || "./sw.js";
   const guardCache = "militopo-v2-update-guard";
   const guardPaths = ["__militopo_active_race_lock__", "orientacion/participante/__militopo_active_race_lock__"];
-  let registration = null, requested = false, notice = null;
+  let registration = null, requested = false, notice = null, versionLabel = null;
+  const localRelease = "F2.15";
+  const releaseMatch = /f215-visible-version-20261031/i;
+  function showVersion(value) {
+    if (!versionLabel) {
+      versionLabel = document.createElement("div");
+      versionLabel.id = "militopo-active-version";
+      versionLabel.setAttribute("role", "status");
+      versionLabel.setAttribute("aria-label", "Versión activa de MILITOPO");
+      Object.assign(versionLabel.style, {position:"fixed",left:"8px",bottom:"calc(5px + env(safe-area-inset-bottom, 0px))",zIndex:"9999",background:"rgba(16,30,23,.86)",color:"#e5ebdc",font:"500 10px system-ui,sans-serif",border:"1px solid rgba(190,204,180,.55)",borderRadius:"7px",padding:"4px 7px",pointerEvents:"none"});
+      document.body.appendChild(versionLabel);
+    }
+    versionLabel.textContent = value;
+  }
+  function requestActiveVersion() {
+    if (!document.body) return;
+    const controller = navigator.serviceWorker.controller;
+    if (!controller) { showVersion("MILITOPO · versión sin confirmar"); return; }
+    showVersion("MILITOPO · comprobando versión…");
+    try { controller.postMessage({type:"MILITOPO_GET_SW_VERSION"}); }
+    catch (_) { showVersion("MILITOPO · versión sin confirmar"); }
+  }
+  navigator.serviceWorker.addEventListener("message", event => {
+    if (event.data?.type !== "MILITOPO_SW_VERSION") return;
+    const buildId = String(event.data.buildId || "");
+    showVersion(releaseMatch.test(buildId) ? `MILITOPO ${localRelease} · activa` : "MILITOPO · otra versión activa");
+  });
   const root = location.pathname.includes("/MILITOPO-V2/")
     ? location.origin + location.pathname.split("/MILITOPO-V2/")[0] + "/MILITOPO-V2/"
     : new URL(swPath,location.href).href.replace(/(?:orientacion\/participante\/|orientacion\/)?sw\.js(?:\?.*)?$/,'');
@@ -61,15 +87,27 @@
     });
   }
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    requestActiveVersion();
     if (requested) location.reload();
   });
-  window.addEventListener("online", () => { registration?.update().catch(()=>{}); showIfWaiting(); });
+  window.addEventListener("online", () => { registration?.update().catch(()=>{}); showIfWaiting(); requestActiveVersion(); });
+  // Comprobar versiones al volver de otra aplicación, sin reactivar durante la carrera.
+  let lastForegroundCheck = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    requestActiveVersion();
+    if (!navigator.onLine || Date.now() - lastForegroundCheck < 60000) return;
+    lastForegroundCheck = Date.now();
+    hasActiveRace().then(active => { if (!active) registration?.update().then(showIfWaiting).catch(()=>{}); });
+  });
   window.addEventListener("load", async () => {
     try {
       const reg = await navigator.serviceWorker.register(swPath, {updateViaCache:"none"});
       watch(reg);
+      requestActiveVersion();
       await reg.update();
       await showIfWaiting();
+      requestActiveVersion();
     } catch (_) { /* La app sigue funcionando con su versión existente. */ }
   });
 })();
