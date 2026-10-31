@@ -548,7 +548,12 @@ async function downloadOrganizerPackage(){
       outcome=await fn();
     }finally{globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=prevSuppress;}
     if(!outcome?.ok)throw new Error(outcome?.error||"El exportador no ha confirmado la descarga");
-    updateCenterNotice("ZIP LISTO",`${outcome.filename||"El paquete"} se ha enviado a la descarga del navegador. Comprueba Descargas o Archivos.`,{autoClose:4500,icon:"militopo"});
+    const issues=Array.isArray(outcome.warnings)?outcome.warnings:[];
+    if(issues.length){
+      updateCenterNotice("ZIP CON AVISOS",`${outcome.filename||"El paquete"} se ha descargado, pero ${issues.length} material(es) tienen incidencias. ${issues.slice(0,2).join(" · ")}. Comprueba los archivos _ERROR.txt.`,{kind:"error",autoClose:0,icon:"militopo"});
+    }else{
+      updateCenterNotice("ZIP LISTO",`${outcome.filename||"El paquete"} se ha enviado a la descarga del navegador. Se han comprobado PDF, GPX y datos disponibles.`,{autoClose:4500,icon:"militopo"});
+    }
   }catch(error){
     console.error("[MILITOPO Premium Builder] ZIP",error);
     updateCenterNotice("ERROR AL GENERAR ZIP",String(error?.message||error),{kind:"error",autoClose:6500,icon:"militopo"});
