@@ -570,13 +570,23 @@
         event.participantLiveStatus=state.participantStatus;
 
         const pRef=api.ref(`v2/live/${event.ownerUid}/${event.eventId}/runs/${state.runId}/participants/${state.auth.uid}`);
-        await api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});
-        try{await api.onDisconnect(pRef).update({online:false,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});}catch(_){}
-        state.heartbeat=setInterval(()=>api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()}).catch(()=>{}),20000);
+        let presenceClosed=state.participantStatus==="finished";
+        if(!presenceClosed){
+          await api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});
+          try{await api.onDisconnect(pRef).update({online:false,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()});}catch(_){}
+          state.heartbeat=setInterval(()=>{
+            if(state.participantStatus==="finished"){clearInterval(state.heartbeat);state.heartbeat=null;return;}
+            api.update(pRef,{online:true,lastSeen:api.serverTimestamp(),updatedAt:api.serverTimestamp()}).catch(()=>{});
+          },20000);
+        }
         state.unsubParticipant=api.onValue(pRef,snap=>{
           const row=snap.val()||{};
           state.participantStatus=String(row.status||"ready").toLowerCase();
           event.participantLiveStatus=state.participantStatus;
+          if(state.participantStatus==="finished"){
+            if(state.heartbeat){clearInterval(state.heartbeat);state.heartbeat=null;}
+            if(!presenceClosed){presenceClosed=true;api.update(pRef,{online:false}).catch(()=>{});}
+          }
           const label=state.participantStatus==="ready"?"PREPARADO":state.participantStatus==="racing"?"EN CARRERA":state.participantStatus==="finished"?"FINALIZADO":statusES(state.participantStatus);
           setStatus(`✅ Conectado a Live V2 · ${event.eventName} · ${label}`,"ok");
           renderEvents();

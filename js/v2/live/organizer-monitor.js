@@ -223,6 +223,18 @@ function normalizedStatus(row) {
   if (raw === "started") return "racing";
   return raw;
 }
+// Presencia solo durante una sesión activa: onDisconnect/heartbeats antiguos pueden
+// dejar online=true después de la llegada. Nunca se muestra en el histórico.
+function liveSignal(row, participantStatus, runStatus, eventStatus, runId, now = Date.now()) {
+  if (!runId) return { visible: true, online: false, label: "EN ESPERA" };
+  if (["finished", "archived", "removed"].includes(participantStatus) ||
+      ["finished", "archived"].includes(runStatus) ||
+      ["finished", "archived"].includes(eventStatus)) return { visible: false, online: false, label: "" };
+  const lastSeen = Number(row.lastSeen || 0);
+  const fresh = Number.isFinite(lastSeen) && lastSeen > 0 && lastSeen <= now + 30000 && now - lastSeen <= 65000;
+  const online = row.online === true && fresh;
+  return { visible: true, online, label: online ? "● EN LÍNEA" : "○ SIN CONEXIÓN" };
+}
 function render() {
   const panel = ensurePanel();
   if (!panel) return;
@@ -277,7 +289,7 @@ function render() {
     const label = PARTICIPANT_STATUS_ES[st] || st.toUpperCase();
     const name = String(row.displayName || row.username || row.email || row.uid || "Corredor");
     const sub = row.username ? `@${String(row.username).replace(/^@/,"")}` : String(row.email || row.uid || "");
-    const online = row.online === true;
+    const signal = liveSignal(row, st, state.runStatus, state.eventStatus, state.runId);
     const gps = row.gps || {};
     const hasGps = Number.isFinite(Number(gps.lat)) && Number.isFinite(Number(gps.lng)) && Number(gps.updatedAt || 0) > 0;
     const gpsActive = gps.active === true;
@@ -302,7 +314,7 @@ function render() {
     const finalOfficial = st === "finished" && row.officialDurationMs != null && Number.isFinite(Number(row.officialDurationMs)) ? Math.max(0, Number(row.officialDurationMs)) : (rawDuration == null ? null : rawDuration + finalPenalty);
     const lastSeen = Math.max(0, Number(row.lastSeen || row.updatedAt || 0));
     return `<tr data-started-at="${startedAt}" data-finished-at="${finishedAt}" data-penalty-ms="${finalPenalty}" data-last-seen="${lastSeen}">
-      <td><strong>${esc(name)}</strong><br><span style="opacity:.62">${esc(sub)}</span><span class="m2-f2c-signal"><span class="${online ? "ok" : "off"}">${state.runId ? (online ? "● EN LÍNEA" : "○ SIN CONEXIÓN") : "EN ESPERA"}</span><span class="gps">${esc(gpsLabel)}</span></span></td>
+      <td><strong>${esc(name)}</strong><br><span style="opacity:.62">${esc(sub)}</span>${signal.visible ? `<span class="m2-f2c-signal"><span class="${signal.online ? "ok" : "off"}">${signal.label}</span><span class="gps">${esc(gpsLabel)}</span></span>` : ""}</td>
       <td><span class="m2-f2c-state ${cls}">${esc(label)}</span></td>
       <td><strong style="color:${progressDone ? "#bde99c" : "#f5d18b"}">${esc(progressLabel)}</strong></td>
       <td><strong>${pendingControls}</strong></td>
