@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="militopo-f210-close-presence-20261031";
+const BUILD_ID="militopo-f211-close-cas-update-20261031";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -14,6 +14,7 @@ const CORE_ASSETS=[
 
   "./",
   "./index.html",
+  "../js/v2/ui/pwa-update.js?v=v2-f211-safe-update-20261031",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
   "./css/styles.css?v=v2-r8e-help-center-20261009",
   "./css/r1-shell.css?v=r9l-estabilidad-cartografia-admin-20261011",
@@ -131,8 +132,28 @@ self.addEventListener("activate",event=>event.waitUntil((async()=>{
   await self.clients.claim();
 })()));
 
+
+// F2.11: la activación solo responde a una orden explícita y si ninguna carrera
+// activa conserva su bloqueo en Cache Storage. No se elimina ningún dato offline.
+async function canActivateMilitopoUpdate() {
+  try {
+    const cache = await caches.open("militopo-v2-update-guard");
+    const scope = self.registration.scope;
+    const root = scope.includes("/orientacion/") ? scope.slice(0,scope.indexOf("orientacion/")) : scope;
+    for (const path of ["__militopo_active_race_lock__", "orientacion/participante/__militopo_active_race_lock__"]) {
+      const response = await cache.match(new URL(path,root).href);
+      if (!response) continue;
+      const lock = await response.json();
+      const age = Date.now() - Number(lock?.updatedAt || 0);
+      if (age >= 0 && age <= 36*3600000 &&
+          ["racing","started"].includes(String(lock?.status || "").toLowerCase()) && lock.eventId && lock.runId) return false;
+    }
+    return true;
+  } catch (_) { return false; }
+}
 self.addEventListener("message",event=>{
   const data=event.data||{};
+  if (data.type === "MILITOPO_ACTIVATE_UPDATE") event.waitUntil(canActivateMilitopoUpdate().then(ok=>ok?self.skipWaiting():undefined));
   if(data.type==="MILITOPO_GET_SW_VERSION")event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:BUILD_ID,scope:"orientacion"});
 });
 
