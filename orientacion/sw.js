@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="militopo-f215-visible-version-20261031";
+const BUILD_ID="militopo-f216-inline-version-20261101";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -14,7 +14,7 @@ const CORE_ASSETS=[
 
   "./",
   "./index.html",
-  "../js/v2/ui/pwa-update.js?v=v2-f215-visible-version-20261031",
+  "../js/v2/ui/pwa-update.js?v=v2-f216-inline-version-20261101",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
   "./css/styles.css?v=v2-r8e-help-center-20261009",
   "./css/r1-shell.css?v=r9l-estabilidad-cartografia-admin-20261011",
