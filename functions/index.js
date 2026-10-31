@@ -1633,8 +1633,6 @@ exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
   const ctx = await resolveRunnerLiveContext(identity, eventId, request.data?.expectedRunId);
-  const current = String(ctx.participant.status || "not_started").toLowerCase();
-  const status = ["racing", "started", "finished"].includes(current) ? (current === "started" ? "racing" : current) : "ready";
   const profileSnap = await db.collection("users").doc(ctx.uid).get();
   const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
   const now = Date.now();
@@ -1644,38 +1642,74 @@ exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
     ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`).get()
   ]);
   const controlProgress = controlProgressSnap.exists() ? (controlProgressSnap.val() || {}) : null;
-  await ctx.participantRef.update({
-    uid: ctx.uid,
-    displayName: String(profile.displayName || ctx.participant.displayName || "").slice(0, 120) || null,
-    username: String(profile.usernameKey || profile.username || ctx.participant.username || "").replace(/^@/, "").slice(0, 40) || null,
-    email: String(profile.email || ctx.participant.email || identity.token.email || "").slice(0, 180) || null,
-    ...route,
-    status,
-    online: true,
-    lastSeen: now,
-    updatedAt: now
-  });
-  return { ok: true, eventId, ownerUid: ctx.ownerUid, runId: ctx.runId, status, ...route, controlPlan, controlProgress };
+  // F2.13: a delayed JOIN must not restore a stale RACING status or bring a
+  // finished participant back online. Read/decide/write the status atomically.
+  const joined = await ctx.participantRef.transaction(current => {
+    if (!current || typeof current !== "object") return;
+    const state = String(current.status || "not_started").toLowerCase();
+    if (state === "finished" || !["not_started", "ready", "racing", "started"].includes(state)) return;
+    return {
+      ...current,
+      uid: ctx.uid,
+      displayName: String(profile.displayName || current.displayName || "").slice(0, 120) || null,
+      username: String(profile.usernameKey || profile.username || current.username || "").replace(/^@/, "").slice(0, 40) || null,
+      email: String(profile.email || current.email || identity.token.email || "").slice(0, 180) || null,
+      ...route,
+      status: ["racing", "started"].includes(state) ? "racing" : "ready",
+      online: true,
+      lastSeen: now,
+      updatedAt: now
+    };
+  }, undefined, false);
+  // FINISHED is returned for the UI, without modifying its presence or times.
+  const latest = joined.snapshot.val() || {};
+  const status = String(latest.status || "not_started").toLowerCase();
+  if (!joined.committed && status !== "finished") {
+    throw new HttpsError("aborted", "La participación cambió al conectarte. Se conservan sus datos; vuelve a intentarlo.");
+  }
+  return { ok: true, eventId, ownerUid: ctx.ownerUid, runId: ctx.runId,
+    status: status === "started" ? "racing" : status, ...route, controlPlan, controlProgress };
 });
+
+// F2.13: once the organizer has fixed the closing cutoff, new starts and
+// arrivals cannot change the official roster. A previously FINISHED runner may
+// still recover an already-published result through runnerFinishRace.
+async function assertRunAcceptsNewTransitions(ctx) {
+  const cutoffSnap = await ctx.baseRef.child(`runs/${ctx.runId}/meta/closeCutoffAt`).get();
+  if (cutoffSnap.exists() && cutoffSnap.val() !== null) {
+    throw new HttpsError("failed-precondition", "El cierre de esta carrera ya ha comenzado. No se puede iniciar ni registrar una nueva llegada.");
+  }
+}
 
 exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
   const ctx = await resolveRunnerLiveContext(identity, eventId, request.data?.expectedRunId);
-  const current = String(ctx.participant.status || "not_started").toLowerCase();
   if (!ctx.member?.participantId || !ctx.member?.routeId) throw new HttpsError("failed-precondition", "No puedes iniciar sin un recorrido asignado.");
-  if (current === "finished") throw new HttpsError("failed-precondition", "Este recorrido ya está finalizado.");
-  if (["racing", "started"].includes(current)) {
-    return { ok: true, recovered: true, eventId, runId: ctx.runId, status: "racing", startedAt: ctx.participant.startedAt || null };
-  }
-  if (!["not_started", "ready"].includes(current)) throw new HttpsError("failed-precondition", "Estado de salida no válido.");
+  // Even an apparently active participation must be re-read transactionally:
+  // it might have finished between the context lookup and this request.
+  await assertRunAcceptsNewTransitions(ctx);
   const now = Date.now();
-  await ctx.participantRef.update({ status: "racing", online: true, startedAt: now, lastSeen: now, updatedAt: now });
+  let refused = "";
+  let recovered = false;
+  const started = await ctx.participantRef.transaction(current => {
+    refused = "";
+    recovered = false;
+    if (!current || typeof current !== "object") { refused = "Participación no encontrada."; return; }
+    const state = String(current.status || "not_started").toLowerCase();
+    if (state === "finished") { refused = "Este recorrido ya está finalizado."; return; }
+    if (["racing", "started"].includes(state)) { recovered = true; return current; }
+    if (!["not_started", "ready"].includes(state)) { refused = "Estado de salida no válido."; return; }
+    return { ...current, status: "racing", online: true, startedAt: now, lastSeen: now, updatedAt: now };
+  }, undefined, false);
+  if (!started.committed) throw new HttpsError("failed-precondition", refused || "La salida cambió durante el inicio. Vuelve a intentarlo.");
+  const startedAt = started.snapshot.val()?.startedAt || null;
   const controlPlan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
   const controlProgressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
-  const existingProgress = await controlProgressRef.get();
-  if (!existingProgress.exists()) {
-    await controlProgressRef.set({
+  // Never reset existing QR/GPS progress if a parallel start already created it.
+  await controlProgressRef.transaction(current => {
+    if (current !== null) return;
+    return {
       schemaVersion: 2,
       eventId, runId: ctx.runId, uid: ctx.uid,
       routeId: controlPlan.routeId, participantId: controlPlan.participantId,
@@ -1684,10 +1718,11 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
       lastControlId: null, lastControlAt: null,
       finishValidated: false, finishPass: null, arrivalAt: null,
       passes: {}, createdAt: now, updatedAt: now
-    });
-  }
+    };
+  }, undefined, false);
+  if (recovered) return { ok: true, recovered: true, eventId, runId: ctx.runId, status: "racing", startedAt };
   await appendAudit("RUNNER_STARTED", identity.uid, identity.uid, { eventId, ownerUid: ctx.ownerUid, runId: ctx.runId });
-  return { ok: true, eventId, runId: ctx.runId, status: "racing", startedAt: now };
+  return { ok: true, eventId, runId: ctx.runId, status: "racing", startedAt };
 });
 
 
@@ -2106,10 +2141,14 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
   const ctx = await resolveRunnerLiveContext(identity, eventId, request.data?.expectedRunId);
-  const current = String(ctx.participant.status || "").toLowerCase();
-  if (current === "finished") {
-    // Idempotente: si RTDB ya marcaba llegada pero Firestore falló o no existía aún,
-    // reconstruimos el resultado oficial al reintentar.
+  const recoverFinished = async () => {
+    // F2.13: another FINISH may have committed after our first read. Recovery
+    // must use the current participant, never replace the first arrival time.
+    const currentSnap = await ctx.participantRef.get();
+    const actual = currentSnap.val() || {};
+    if (String(actual.status || "").toLowerCase() !== "finished") {
+      throw new HttpsError("aborted", "La llegada cambió durante la operación. Se conservan los datos; vuelve a intentarlo.");
+    }
     const saved = await persistRunnerResult({
       eventRef: ctx.eventRef,
       eventData: ctx.eventData,
@@ -2118,15 +2157,14 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
       baseRef: ctx.baseRef,
       runId: ctx.runId,
       uid: ctx.uid,
-      participant: ctx.participant,
-      cutoffAt: ctx.participant.finishedAt || Date.now(),
+      participant: actual,
+      cutoffAt: actual.finishedAt || Date.now(),
       source: "runner_finish_recovery"
     });
-    // El resultado ya está publicado: detener la presencia de esta carrera.
     await ctx.participantRef.update({ online: false });
     return {
       ok: true, recovered: true, eventId, runId: ctx.runId, status: "finished",
-      finishedAt: ctx.participant.finishedAt || null,
+      finishedAt: actual.finishedAt || null,
       resultPersisted: true,
       trackPointCount: saved.trackPointCount,
       durationMs: saved.durationMs,
@@ -2135,8 +2173,23 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
       pendingControlCount: saved.pendingControlCount,
       discardedControlCount: saved.discardedControlCount
     };
-  }
+  };
+  const ensureFinishOpen = async () => {
+    try { await assertRunAcceptsNewTransitions(ctx); }
+    catch (error) {
+      // Cutoff blocks a NEW finish, not recovery of an existing finish.
+      if (error.code !== "failed-precondition") throw error;
+      const liveSnap = await ctx.participantRef.get();
+      if (String(liveSnap.val()?.status || "").toLowerCase() === "finished") return recoverFinished();
+      throw error;
+    }
+    return null;
+  };
+  const current = String(ctx.participant.status || "").toLowerCase();
+  if (current === "finished") return recoverFinished();
   if (!["racing", "started"].includes(current)) throw new HttpsError("failed-precondition", "Debes iniciar el recorrido antes de finalizarlo.");
+  const earlyRecovery = await ensureFinishOpen();
+  if (earlyRecovery) return earlyRecovery;
 
   const plan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
   const manualFinish = request.data?.manualFinish === true;
@@ -2157,35 +2210,39 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   const arrivalAt = Math.max(0, Number(progress.arrivalAt || progress.finishPass?.passedAtMs || 0));
   const startedAt = Math.max(0, Number(ctx.participant.startedAt || 0));
   const finishedAt = arrivalAt && (!startedAt || arrivalAt >= startedAt) && arrivalAt <= now + 60000 ? arrivalAt : now;
-  const finishedParticipant = {
-    ...ctx.participant,
-    status: "finished",
-    online: true,
-    finishedAt,
-    arrivalValidated: Boolean(progress.finishValidated),
-    arrivalValidatedAt: arrivalAt || finishedAt,
-    arrivalSource: String(progress.finishPass?.source || ctx.participant.arrivalSource || ""),
-    manualFinish,
-    manualFinishIncomplete,
-    finishReason: manualFinishIncomplete ? "runner_manual_incomplete" : (manualFinish ? "runner_manual" : "arrival_validated"),
-    pendingSyncWarning,
-    lastSeen: now,
-    updatedAt: now
-  };
-  await ctx.participantRef.update({
-    status: "finished",
-    online: true,
-    finishedAt,
-    arrivalValidated: Boolean(progress.finishValidated),
-    arrivalValidatedAt: arrivalAt || finishedAt,
-    arrivalSource: String(progress.finishPass?.source || ctx.participant.arrivalSource || ""),
-    manualFinish,
-    manualFinishIncomplete,
-    finishReason: manualFinishIncomplete ? "runner_manual_incomplete" : (manualFinish ? "runner_manual" : "arrival_validated"),
-    pendingSyncWarning,
-    lastSeen: now,
-    updatedAt: now
-  });
+  // F2.13: recheck the closing cutoff after validation/sync, then use a
+  // participant transaction. Two concurrent finishes must not rewrite the
+  // first FINISHED status, arrival time or manual-incomplete decision.
+  const lateRecovery = await ensureFinishOpen();
+  if (lateRecovery) return lateRecovery;
+  let transitionError = "";
+  const finishTx = await ctx.participantRef.transaction(latest => {
+    transitionError = "";
+    if (!latest || typeof latest !== "object") { transitionError = "Participación no encontrada."; return; }
+    const state = String(latest.status || "").toLowerCase();
+    if (state === "finished") return;
+    if (!["racing", "started"].includes(state)) { transitionError = "La participación ya no está EN CARRERA."; return; }
+    return {
+      ...latest,
+      status: "finished",
+      online: false,
+      finishedAt,
+      arrivalValidated: Boolean(progress.finishValidated),
+      arrivalValidatedAt: arrivalAt || finishedAt,
+      arrivalSource: String(progress.finishPass?.source || latest.arrivalSource || ""),
+      manualFinish,
+      manualFinishIncomplete,
+      finishReason: manualFinishIncomplete ? "runner_manual_incomplete" : (manualFinish ? "runner_manual" : "arrival_validated"),
+      pendingSyncWarning,
+      lastSeen: now,
+      updatedAt: now
+    };
+  }, undefined, false);
+  if (!finishTx.committed) {
+    if (String(finishTx.snapshot.val()?.status || "").toLowerCase() === "finished") return recoverFinished();
+    throw new HttpsError("failed-precondition", transitionError || "El estado del corredor cambió. Se conserva la participación; vuelve a intentarlo.");
+  }
+  const finishedParticipant = finishTx.snapshot.val() || {};
 
   const saved = await persistRunnerResult({
     eventRef: ctx.eventRef,
