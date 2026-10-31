@@ -1448,6 +1448,26 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
     source: "event_finish"
   });
 
+  // F2.10: el estado inicial puede quedar obsoleto mientras se consolidan los tracks.
+  // Revalidación antes del cierre RTDB (reduce la ventana, sin fingir atomicidad entre BD).
+  const [freshEventSnap, freshActiveSnap, freshMetaSnap] = await Promise.all([
+    eventRef.get(), baseRef.child("activeRun").get(), baseRef.child(`runs/${runId}/meta`).get()
+  ]);
+  const freshEvent = freshEventSnap.exists ? (freshEventSnap.data() || {}) : {};
+  const freshActive = freshActiveSnap.exists() ? (freshActiveSnap.val() || {}) : {};
+  const freshMeta = freshMetaSnap.exists() ? (freshMetaSnap.val() || {}) : {};
+  if (!freshEventSnap.exists || String(freshEvent.ownerUid || "") !== ownerUid ||
+      String(freshEvent.status || "").toLowerCase() !== "live" ||
+      (freshEvent.liveRunId && freshEvent.liveRunId !== runId) ||
+      String(freshActive.runId || "") !== runId ||
+      !["active", "finished"].includes(String(freshActive.status || "")) ||
+      String(freshMeta.runId || "") !== runId ||
+      String(freshMeta.eventId || "") !== eventId ||
+      String(freshMeta.ownerUid || "") !== ownerUid ||
+      String(freshMeta.status || "") !== String(freshActive.status || "")) {
+    throw new HttpsError("aborted", "La carrera o sesión cambió durante la consolidación. No se ha confirmado el cierre; revisa el estado antes de reintentar.");
+  }
+
   await baseRef.update({
     [`runs/${runId}/meta/status`]: "finished",
     [`runs/${runId}/meta/finishedAt`]: cutoffAt,
@@ -1460,25 +1480,40 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
     "meta/status": "finished",
     "meta/updatedAt": now
   });
-  await eventRef.set({
-    status: "finished",
-    finishedAt: new Date(cutoffAt),
-    liveRunId: runId,
-    resultsConsolidatedAt: FieldValue.serverTimestamp(),
-    resultCount: consolidation.summary.total,
-    resultFinishedCount: consolidation.summary.finished,
-    resultIncompleteCount: consolidation.summary.incomplete,
-    resultNotStartedCount: consolidation.summary.notStarted,
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
-  await appendAudit("LIVE_RUN_FINISHED", identity.uid, null, {
+  // F2.10: nunca devolver un evento archivado, sustituido o cerrado por otro
+  // escritor al estado FINISHED usando la copia tomada antes de consolidar.
+  const publication = await db.runTransaction(async tx => {
+    const latestSnap = await tx.get(eventRef);
+    if (!latestSnap.exists) throw new HttpsError("aborted", "El evento desapareció durante el cierre.");
+    const latest = latestSnap.data() || {};
+    const latestStatus = String(latest.status || "").toLowerCase();
+    if (String(latest.ownerUid || "") !== ownerUid ||
+        (latest.liveRunId && latest.liveRunId !== runId) ||
+        !["live", "finished"].includes(latestStatus)) {
+      throw new HttpsError("aborted", "El evento cambió durante el cierre. No se sobrescribe su estado; revisa los datos antes de reintentar.");
+    }
+    if (latestStatus === "finished") return { alreadyPublished: true };
+    tx.set(eventRef, {
+      status: "finished",
+      finishedAt: new Date(cutoffAt),
+      liveRunId: runId,
+      resultsConsolidatedAt: FieldValue.serverTimestamp(),
+      resultCount: consolidation.summary.total,
+      resultFinishedCount: consolidation.summary.finished,
+      resultIncompleteCount: consolidation.summary.incomplete,
+      resultNotStartedCount: consolidation.summary.notStarted,
+      updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+    return { alreadyPublished: false };
+  });
+  if (!publication.alreadyPublished) await appendAudit("LIVE_RUN_FINISHED", identity.uid, null, {
     eventId, ownerUid, runId,
     resultCount: consolidation.summary.total,
     finished: consolidation.summary.finished,
     incomplete: consolidation.summary.incomplete,
     notStarted: consolidation.summary.notStarted
   });
-  return { ok: true, eventId, ownerUid, runId, status: "finished", results: consolidation.summary };
+  return { ok: true, recovered: publication.alreadyPublished, eventId, ownerUid, runId, status: "finished", results: consolidation.summary };
 });
 
 
@@ -2019,6 +2054,8 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
       cutoffAt: ctx.participant.finishedAt || Date.now(),
       source: "runner_finish_recovery"
     });
+    // El resultado ya está publicado: detener la presencia de esta carrera.
+    await ctx.participantRef.update({ online: false });
     return {
       ok: true, recovered: true, eventId, runId: ctx.runId, status: "finished",
       finishedAt: ctx.participant.finishedAt || null,
@@ -2104,6 +2141,7 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
     pendingControlCount: saved.pendingControlCount,
     discardedControlCount: saved.discardedControlCount,
     penalizedControlCount: saved.penalizedControlCount,
+    online: false,
     updatedAt: Date.now()
   });
 
