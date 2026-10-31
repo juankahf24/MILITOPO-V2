@@ -1605,13 +1605,23 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
     }, { merge: true });
     return { alreadyPublished: false };
   });
-  if (!publication.alreadyPublished) await appendAudit("LIVE_RUN_FINISHED", identity.uid, null, {
-    eventId, ownerUid, runId,
-    resultCount: consolidation.summary.total,
-    finished: consolidation.summary.finished,
-    incomplete: consolidation.summary.incomplete,
-    notStarted: consolidation.summary.notStarted
-  });
+  // F2.17: la carrera y los resultados YA están confirmados. Si falla el log
+  // de auditoría, no devolver un error que haga creer al organizador que
+  // el cierre falló y le invite a repetir una operación ya completada.
+  // Registrar el fallo para diagnóstico; no inventar una auditoría persistida.
+  if (!publication.alreadyPublished) {
+    try {
+      await appendAudit("LIVE_RUN_FINISHED", identity.uid, null, {
+        eventId, ownerUid, runId,
+        resultCount: consolidation.summary.total,
+        finished: consolidation.summary.finished,
+        incomplete: consolidation.summary.incomplete,
+        notStarted: consolidation.summary.notStarted
+      });
+    } catch (error) {
+      console.error("[MILITOPO F2.17] Carrera finalizada; auditoría no registrada", error);
+    }
+  }
   return { ok: true, recovered: publication.alreadyPublished, eventId, ownerUid, runId, status: "finished", results: consolidation.summary };
 });
 
