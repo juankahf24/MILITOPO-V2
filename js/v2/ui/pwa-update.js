@@ -8,20 +8,71 @@
   const swPath = scriptTag?.getAttribute("data-sw") || "./sw.js";
   const guardCache = "militopo-v2-update-guard";
   const guardPaths = ["__militopo_active_race_lock__", "orientacion/participante/__militopo_active_race_lock__"];
-  let registration = null, requested = false, notice = null, versionLabel = null;
-  const localRelease = "F2.15";
-  const releaseMatch = /f215-visible-version-20261031/i;
-  function showVersion(value) {
-    if (!versionLabel) {
-      versionLabel = document.createElement("div");
-      versionLabel.id = "militopo-active-version";
-      versionLabel.setAttribute("role", "status");
-      versionLabel.setAttribute("aria-label", "Versión activa de MILITOPO");
-      Object.assign(versionLabel.style, {position:"fixed",left:"8px",bottom:"calc(5px + env(safe-area-inset-bottom, 0px))",zIndex:"9999",background:"rgba(16,30,23,.86)",color:"#e5ebdc",font:"500 10px system-ui,sans-serif",border:"1px solid rgba(190,204,180,.55)",borderRadius:"7px",padding:"4px 7px",pointerEvents:"none"});
-      document.body.appendChild(versionLabel);
-    }
-    versionLabel.textContent = value;
+  let registration = null, requested = false, notice = null, versionLabels = [];
+  let currentVersionText = "MILITOPO · versión sin confirmar";
+  const localRelease = "F2.16";
+  const releaseMatch = /f216-inline-version-20261101/i;
+  // F2.16: etiqueta temporal de depuración dentro del flujo normal del
+  // documento, nunca fixed/sticky. Cada rama tiene su propio contenedor.
+  function getVersionHosts() {
+    // La vista Premium y el gestor LIVE se abren sobre la interfaz base:
+    // cada una debe tener su propia etiqueta DENTRO de su zona desplazable.
+    return [
+      document.querySelector("body > .app, body > main.runner-home"),
+      document.querySelector("body > .container"),
+      document.getElementById("orientacionShell"),
+      document.querySelector("#militopoPremiumHome .mpp-home-inner"),
+      document.getElementById("r1WorkspaceBody")
+    ].filter(Boolean);
   }
+  function ensureVersionLabels() {
+    const hosts = getVersionHosts();
+    if (versionLabels.length === hosts.length && versionLabels.every((el, i) => el.parentElement === hosts[i])) return;
+    versionLabels.forEach(el => el.remove());
+    versionLabels = hosts.map((host, i) => {
+      const label = document.createElement("div");
+      label.id = i ? `militopo-active-version-${i + 1}` : "militopo-active-version";
+      label.setAttribute("role", "status");
+      label.setAttribute("aria-label", "Versión activa de MILITOPO (depuración)");
+      Object.assign(label.style, {
+        position:"static", display:"block", float:"none", clear:"both",
+        width:"fit-content", maxWidth:"100%", boxSizing:"border-box",
+        margin:"7px 0 11px", background:"rgba(16,30,23,.70)", color:"#cad6c6",
+        font:"500 10px system-ui,sans-serif", border:"1px solid rgba(190,204,180,.24)",
+        borderRadius:"7px", padding:"4px 8px", pointerEvents:"none"
+      });
+      // Inmediatamente después del encabezado; participa en el scroll de
+      // Organizador, Corredor y Topografía, sin tapar sus botones o mapas.
+      const header = Array.from(host.children).find(child => child.tagName === "HEADER" || child.classList.contains("header"));
+      if (header) header.insertAdjacentElement("afterend",label);
+      else host.insertBefore(label,host.firstElementChild);
+      label.textContent = currentVersionText;
+      return label;
+    });
+  }
+  function showVersion(value) {
+    currentVersionText = value;
+    ensureVersionLabels();
+    versionLabels.forEach(label => { label.textContent = value; });
+  }
+  // Organizer Premium y Workspace se crean bajo demanda. Detectar su
+  // aparición y re-render sin mantener un elemento flotante encima de ellos.
+  let observedWorkspace = null;
+  const workspaceObserver = new MutationObserver(() => ensureVersionLabels());
+  function watchWorkspace() {
+    const body = document.getElementById("r1WorkspaceBody");
+    if (body && observedWorkspace !== body) {
+      workspaceObserver.disconnect();
+      workspaceObserver.observe(body, {childList:true});
+      observedWorkspace = body;
+    }
+  }
+  const dynamicHostsObserver = new MutationObserver(() => {
+    ensureVersionLabels();
+    watchWorkspace();
+  });
+  dynamicHostsObserver.observe(document.body, {childList:true});
+  watchWorkspace();
   function requestActiveVersion() {
     if (!document.body) return;
     const controller = navigator.serviceWorker.controller;
