@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-f16-gps-lifecycle-20261029";
+const CACHE_NAME="militopo-v2-participante-f29-result-recovery-20261031";
 const APP_SHELL=[
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
@@ -33,7 +33,7 @@ const APP_SHELL=[
   "../../js/v2/live/runner-gps-v2.js?v=v2-p01-gps-track-guard-20261023",
   "../../js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
   "../../js/v2/live/runner-controls-v2.js?v=v2-r6f-progress-discard-state-20261007",
-  "../../js/v2/live/runner-race-v2.js?v=v2-p01-race-track-warning-20261023"
+  "../../js/v2/live/runner-race-v2.js?v=v2-f29-result-recovery-20261031"
 ];
 /* P1.5: dependencias ESM exactas del corredor. La instalación solo termina
    si también está disponible este grafo del SDK; nunca cachear APIs ni datos.
