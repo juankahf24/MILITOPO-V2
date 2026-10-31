@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-f210-close-presence-20261031";
+const CACHE_NAME="militopo-v2-participante-f211-close-cas-update-20261031";
 const APP_SHELL=[
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
@@ -11,6 +11,7 @@ const APP_SHELL=[
   "../../js/v2/bootstrap.js?v=v2-f3a-runner-sessionfix-20260923",
   "../../js/v2/auth/roles.js",
 
+  "../../js/v2/ui/pwa-update.js?v=v2-f211-safe-update-20261031",
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
   "./runner-mode-switch.css?v=militopo-r4-profile-20261019",
@@ -137,6 +138,30 @@ function offlineResponse(){
     status:503,headers:{"Content-Type":"text/html;charset=utf-8"}
   });
 }
+
+// F2.11: la activación solo responde a una orden explícita y si ninguna carrera
+// activa conserva su bloqueo en Cache Storage. No se elimina ningún dato offline.
+async function canActivateMilitopoUpdate() {
+  try {
+    const cache = await caches.open("militopo-v2-update-guard");
+    const scope = self.registration.scope;
+    const root = scope.includes("/orientacion/") ? scope.slice(0,scope.indexOf("orientacion/")) : scope;
+    for (const path of ["__militopo_active_race_lock__", "orientacion/participante/__militopo_active_race_lock__"]) {
+      const response = await cache.match(new URL(path,root).href);
+      if (!response) continue;
+      const lock = await response.json();
+      const age = Date.now() - Number(lock?.updatedAt || 0);
+      if (age >= 0 && age <= 36*3600000 &&
+          ["racing","started"].includes(String(lock?.status || "").toLowerCase()) && lock.eventId && lock.runId) return false;
+    }
+    return true;
+  } catch (_) { return false; }
+}
+self.addEventListener("message",event=>{
+  if (event.data?.type === "MILITOPO_ACTIVATE_UPDATE") {
+    event.waitUntil(canActivateMilitopoUpdate().then(ok=>ok?self.skipWaiting():undefined));
+  }
+});
 self.addEventListener("fetch",event=>{
   const req=event.request;
   if(req.method!=="GET")return;
