@@ -10,9 +10,9 @@
   const guardPaths = ["__militopo_active_race_lock__", "orientacion/participante/__militopo_active_race_lock__"];
   let registration = null, requested = false, notice = null, versionLabels = [];
   let currentVersionText = "MILITOPO · versión sin confirmar";
-  const localRelease = "F2.18";
-  const releaseMatch = /f218-design-validator-20261101/i;
-  // F2.18: etiqueta temporal de depuración dentro del flujo normal del
+  const localRelease = "F2.19";
+  const releaseMatch = /f219-export-audit-20261101/i;
+  // F2.19: etiqueta temporal de depuración dentro del flujo normal del
   // documento, nunca fixed/sticky. Cada rama tiene su propio contenedor.
   function getVersionHosts() {
     // La vista Premium y el gestor LIVE se abren sobre la interfaz base:
