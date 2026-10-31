@@ -53,7 +53,59 @@ function routeId(index){return `R${String(index).padStart(2,"0")}`}
 function routeTargetCount(){const participants=Math.max(1,Math.min(30,Math.trunc(Number(state.draft?.participantCount)||1)));return Math.max(1,Math.min(participants,Math.trunc(Number(state.draft?.routeCount)||1)))}
 function controlsPerRoute(){const available=snapshot()?.controls?.filter(pointPlaced).length||state.draft?.controlCount||1;return Math.max(1,Math.min(Math.max(1,available),Math.trunc(Number(state.draft?.controlsPerRoute)||1)))}
 function routeDetails(id){try{return r2()?.getRouteDetails?.(id)||null}catch(_){return null}}
-function routesComplete(){const count=routeTargetCount(),per=controlsPerRoute();for(let i=1;i<=count;i++){const d=routeDetails(routeId(i));if(!d||!Array.isArray(d.controls)||d.controls.length!==per)return false}return count>0}
+// F2.18 · Comprobaciones sobre el modelo de puntos/recorridos existente.
+// No se crea una segunda estructura de datos ni se alteran carreras guardadas.
+function pointDesignProblem(s=snapshot()){
+  if(!s||!Array.isArray(s.points)||!Array.isArray(s.controls))return "No se ha cargado la estructura de controles de esta carrera.";
+  const ids=s.points.map(p=>String(p?.id||"").trim()),unique=new Set(ids);
+  if(ids.some(id=>!id)||unique.size!==ids.length)return "Hay identificadores de puntos vacíos o duplicados. Revisa las balizas.";
+  for(const id of ["START","FINISH"]){
+    const p=s.points.find(p=>p.id===id);
+    if(!p)return `Falta ${id==="START"?"SALIDA":"LLEGADA"} en el diseño.`;
+    if(!pointPlaced(p))return `${id==="START"?"SALIDA":"LLEGADA"} no tiene coordenadas válidas.`;
+  }
+  const count=Number(state.draft?.controlCount);
+  if(!Number.isInteger(count)||count<1||s.controls.length!==count)
+    return `El diseño tiene ${s.controls.length} balizas y la configuración exige ${Number.isInteger(count)?count:"un número válido"}.`;
+  for(const p of s.controls){
+    const id=String(p?.id||"").trim();
+    if(!id||id==="START"||id==="FINISH")return "Hay una baliza con identificador reservado o vacío.";
+    if(!pointPlaced(p))return `La baliza ${id} no tiene coordenadas válidas.`;
+    if(s.points.filter(q=>q.id===id&&q.type==="BALIZA").length!==1)return `La baliza ${id} no coincide con el diseño de puntos.`;
+  }
+  return "";
+}
+function routeDesignProblem(id,s=snapshot()){
+  const d=routeDetails(id),per=controlsPerRoute();
+  if(!d||!Array.isArray(d.controls)||d.controls.length!==per)return `${id}: guarda exactamente ${per} balizas.`;
+  const controls=d.controls.map(String),unique=new Set(controls);
+  if(unique.size!==controls.length||controls.some(pid=>!pid||pid==="START"||pid==="FINISH"))return `${id}: hay balizas repetidas o referencias inválidas.`;
+  const available=new Map((s?.controls||[]).map(p=>[String(p.id),p]));
+  for(const pid of controls){if(!available.has(pid)||!pointPlaced(available.get(pid)))return `${id}: la baliza ${pid} ya no existe o no tiene coordenadas válidas.`;}
+  // getRouteDetails expone los puntos guardados de la ruta en su orden original.
+  const expected=["START",...controls,"FINISH"];
+  if(!Array.isArray(d.points)||d.points.length!==expected.length||d.points.some((p,i)=>p.id!==expected[i]||!pointPlaced(p)))
+    return `${id}: la geometría guardada no coincide con SALIDA, balizas y LLEGADA.`;
+  return "";
+}
+function itineraryDesignProblem(id,s=snapshot()){
+  const it=savedItinerary(id);
+  if(!it?.saved||!Array.isArray(it.points)||it.points.length<2)return `${id}: guarda el itinerario.`;
+  if(it.points.some(p=>!pointPlaced(p)))return `${id}: hay vértices con coordenadas inválidas.`;
+  const d=routeDetails(id),expected=["START",...(d?.controls||[]),"FINISH"];
+  const anchors=it.points.filter(p=>p.anchorId);
+  if(anchors.length!==expected.length)return `${id}: faltan anclajes del recorrido; revisa el itinerario.`;
+  const byId=new Map((s?.points||[]).map(p=>[String(p.id),p]));
+  for(let i=0;i<expected.length;i++){
+    const p=anchors[i],ref=byId.get(expected[i]);
+    if(String(p.anchorId)!==expected[i]||!pointPlaced(ref)||haversineMeters(p,ref)>2)
+      return `${id}: las balizas o sus coordenadas cambiaron; vuelve a guardar el itinerario.`;
+  }
+  if(it.points[0]!==anchors[0]||it.points[it.points.length-1]!==anchors[anchors.length-1])
+    return `${id}: el itinerario debe comenzar en SALIDA y terminar en LLEGADA.`;
+  return "";
+}
+function routesComplete(){const s=snapshot();return !pointDesignProblem(s)&&Array.from({length:routeTargetCount()},(_,i)=>routeDesignProblem(routeId(i+1),s)).every(x=>!x)}
 function lifecycleStatus(){return String(globalThis.MILITOPO_V2_EVENT_STATUS?.status||bridge()?.shell?.current?.().status||"draft").toLowerCase()}
 function lifecycleLabel(value=lifecycleStatus()){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"ARCHIVADA"})[String(value||"draft").toLowerCase()]||String(value||"").toUpperCase()}
 function preflightReady(){return preflightItems().every(x=>x.ok)}
@@ -63,7 +115,7 @@ function pathMeters(points=[]){let total=0;for(let i=1;i<points.length;i++)total
 function formatKm(m){return Number.isFinite(m)?`${(m/1000).toFixed(m>=10000?1:2)} km`:"—"}
 function routeAnchorPoints(id=state.selectedRouteId){const d=routeDetails(id),snap=snapshot(),byId=new Map((snap?.points||[]).map(p=>[p.id,p]));if(!d||!Array.isArray(d.controls))return [];return ["START",...d.controls,"FINISH"].map(pid=>{const p=byId.get(pid);return pointPlaced(p)?{lat:Number(p.lat),lon:Number(p.lon),anchorId:pid}:null}).filter(Boolean)}
 function savedItinerary(id=state.selectedRouteId){const raw=state.draft?.itineraries?.[id];return raw&&Array.isArray(raw.points)?raw:null}
-function itineraryComplete(id){const it=savedItinerary(id);return Boolean(it?.saved&&Array.isArray(it.points)&&it.points.length>=2)}
+function itineraryComplete(id){return !routeDesignProblem(id)&&!itineraryDesignProblem(id)}
 function itinerariesComplete(){for(let i=1;i<=routeTargetCount();i++)if(!itineraryComplete(routeId(i)))return false;return routeTargetCount()>0}
 function itinerarySummary(id=state.selectedRouteId){const direct=pathMeters(routeAnchorPoints(id)),draft=state.itineraryDraftPoints?.length?state.itineraryDraftPoints:routeAnchorPoints(id),real=pathMeters(draft),diff=direct>0?((real-direct)/direct*100):0;return {direct,real,diff}}
 
@@ -222,10 +274,10 @@ function renderControls(){const positionMode=state.controlsPhase!=="iof";return 
 
 function existingRouteCount(){return Number(snapshot()?.routeCount)||0}
 function ensureRouteSelection(){const count=routeTargetCount();const n=Math.max(1,Math.min(count,Number(String(state.selectedRouteId||"R01").replace(/\D/g,""))||1));state.selectedRouteId=routeId(n);const details=routeDetails(state.selectedRouteId);if(details&&Array.isArray(details.controls))state.routeDraftControls=[...details.controls];else if(!Array.isArray(state.routeDraftControls))state.routeDraftControls=[]}
-function routeListHtml(){const count=routeTargetCount(),per=controlsPerRoute();return `<div class="mpb-route-list">${Array.from({length:count},(_,i)=>{const id=routeId(i+1),d=routeDetails(id),ok=Boolean(d&&d.controls?.length===per);return `<button type="button" data-mpb-route="${id}" class="${id===state.selectedRouteId?"is-selected":""} ${ok?"is-complete":""}"><span>${ok?"✓":String(i+1).padStart(2,"0")}</span><div><strong>${id}</strong><small>${ok?`${d.controls.length} controles · completo`:"Pendiente"}</small></div></button>`}).join("")}</div>`}
+function routeListHtml(){const count=routeTargetCount(),per=controlsPerRoute();return `<div class="mpb-route-list">${Array.from({length:count},(_,i)=>{const id=routeId(i+1),d=routeDetails(id),ok=Boolean(d&&!routeDesignProblem(id));return `<button type="button" data-mpb-route="${id}" class="${id===state.selectedRouteId?"is-selected":""} ${ok?"is-complete":""}"><span>${ok?"✓":String(i+1).padStart(2,"0")}</span><div><strong>${id}</strong><small>${ok?`${d.controls.length} controles · completo`:"Pendiente"}</small></div></button>`}).join("")}</div>`}
 function routeOrderHtml(){const per=controlsPerRoute();return `<div class="mpb-route-order"><span class="is-fixed">SALIDA</span>${Array.from({length:per},(_,i)=>{const id=state.routeDraftControls[i];return id?`<button type="button" data-mpb-route-control="${esc(id)}"><b>${i+1}</b>${esc(id)}<i>×</i></button>`:`<span class="is-empty"><b>${i+1}</b>CONTROL</span>`}).join("")}<span class="is-fixed ${state.routeDraftControls.length===per?"is-connected":"is-waiting"}">${state.routeDraftControls.length===per?"✓ LLEGADA":"○ LLEGADA PENDIENTE"}</span></div>`}
 function routeControlsHtml(){const controls=(snapshot()?.controls||[]).filter(pointPlaced).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));return `<div class="mpb-route-control-grid">${controls.map(p=>{const idx=state.routeDraftControls.indexOf(p.id);return `<button type="button" data-mpb-route-control="${esc(p.id)}" class="${idx>=0?"is-selected":""}"><span>${idx>=0?idx+1:"+"}</span><strong>${esc(p.id)}</strong></button>`}).join("")}</div>`}
-function renderRoutesStep(){ensureRouteSelection();const target=routeTargetCount(),existing=existingRouteCount(),per=controlsPerRoute(),complete=Array.from({length:target},(_,i)=>routeDetails(routeId(i+1))).filter(d=>d&&d.controls?.length===per).length;return `<section class="mpb-step mpb-step-routes">${stepHead(7,"Crea los recorridos manualmente","Elige cada recorrido y añade las balizas en el orden exacto de paso. MILITOPO no genera recorridos automáticamente.","RECORRIDOS")}
+function renderRoutesStep(){ensureRouteSelection();const target=routeTargetCount(),existing=existingRouteCount(),per=controlsPerRoute(),complete=Array.from({length:target},(_,i)=>!routeDesignProblem(routeId(i+1))).filter(Boolean).length;return `<section class="mpb-step mpb-step-routes">${stepHead(7,"Crea los recorridos manualmente","Elige cada recorrido y añade las balizas en el orden exacto de paso. MILITOPO no genera recorridos automáticamente.","RECORRIDOS")}
   <div class="mpb-route-layout"><aside class="mpb-route-panel mpb-card">
     <div class="mpb-route-config"><label><span>Nº DE RECORRIDOS</span><input id="mpbRouteCount" type="number" min="1" max="${Math.max(1,Math.min(30,Number(state.draft.participantCount)||1))}" value="${target}"></label><label><span>BALIZAS / RECORRIDO</span><input id="mpbControlsPerRoute" type="number" min="1" max="${Math.max(1,state.draft.controlCount)}" value="${per}"></label></div>
     <div class="mpb-section-label"><span>RECORRIDOS</span><small>${complete}/${target} completos</small></div>${routeListHtml()}
@@ -238,15 +290,15 @@ function renderRoutesStep(){ensureRouteSelection();const target=routeTargetCount
 function itineraryRouteListHtml(){const count=routeTargetCount();return `<div class="mpb-itinerary-route-list">${Array.from({length:count},(_,i)=>{const id=routeId(i+1),done=itineraryComplete(id);return `<button type="button" data-mpb-itinerary-route="${id}" class="${id===state.selectedRouteId?"is-selected":""} ${done?"is-complete":""}"><span>${done?"✓":String(i+1).padStart(2,"0")}</span><strong>${id}</strong></button>`}).join("")}</div>`}
 function loadItineraryDraft(id){state.selectedRouteId=String(id||"R01");const saved=savedItinerary(state.selectedRouteId);state.itineraryDraftPoints=saved?.points?.map(p=>({lat:Number(p.lat),lon:Number(p.lon),anchorId:p.anchorId||null}))||routeAnchorPoints(state.selectedRouteId);state.itineraryDirty=false}
 function renderItinerary(){if(!state.itineraryDraftPoints.length)loadItineraryDraft(state.selectedRouteId);const sum=itinerarySummary(),count=routeTargetCount(),done=Array.from({length:count},(_,i)=>itineraryComplete(routeId(i+1))).filter(Boolean).length;return `<section class="mpb-step mpb-step-itinerary">${stepHead(8,"Dibuja el itinerario real","MILITOPO parte de la línea directa entre controles. Toca el mapa para añadir vértices por los caminos reales y ajusta el recorrido a lo que se puede transitar.","ITINERARIO REAL")}<div class="mpb-itinerary-layout"><aside class="mpb-itinerary-panel mpb-card"><div class="mpb-section-label"><span>RECORRIDO</span><small>${done}/${count} guardados</small></div>${itineraryRouteListHtml()}<div class="mpb-itinerary-metrics"><article><small>DISTANCIA DIRECTA</small><strong>${formatKm(sum.direct)}</strong></article><article><small>ITINERARIO ESTIMADO</small><strong>${formatKm(sum.real)}</strong></article><article><small>DIFERENCIA</small><strong>${sum.direct?`${sum.diff>=0?"+":""}${sum.diff.toFixed(0)} %`:"—"}</strong></article></div><div class="mpb-itinerary-actions"><button type="button" data-mpb-itinerary-undo ${state.itineraryDraftPoints.some(p=>!p.anchorId)?"":"disabled"}>↶ DESHACER VÉRTICE</button><button type="button" data-mpb-itinerary-reset>↺ VOLVER A LÍNEA DIRECTA</button></div><p class="mpb-itinerary-help">Toca el mapa cerca del tramo que quieras desviar. MILITOPO insertará un vértice en ese segmento. Los puntos de control permanecen fijos.</p><button type="button" class="mpb-btn mpb-btn-primary" data-mpb-itinerary-save>GUARDAR ITINERARIO ${esc(state.selectedRouteId)}</button></aside><div class="mpb-itinerary-map-wrap"><div id="mpbItineraryMap" class="mpb-itinerary-map" aria-label="Editor del itinerario real"></div><div class="mpb-map-badge mpb-map-badge-bottom"><small>${esc(state.selectedRouteId)}</small><strong>TOCA PARA AÑADIR VÉRTICES</strong></div></div></div></section>`}
-function preflightItems(){const s=snapshot(),io=iofSummary(),routeCount=routeTargetCount(),itDone=Array.from({length:routeCount},(_,i)=>itineraryComplete(routeId(i+1))).filter(Boolean).length,missingPoints=controlOrder(s).filter(p=>!pointPlaced(p)).length,routeDone=Array.from({length:routeCount},(_,i)=>routeDetails(routeId(i+1))).filter(d=>d&&d.controls?.length===controlsPerRoute()).length,a=new Date(state.draft.startAt),b=new Date(state.draft.endAt);return [
+function preflightItems(){const s=snapshot(),io=iofSummary(),routeCount=routeTargetCount(),pointError=pointDesignProblem(s),routeErrors=Array.from({length:routeCount},(_,i)=>routeDesignProblem(routeId(i+1),s)),itineraryErrors=Array.from({length:routeCount},(_,i)=>itineraryDesignProblem(routeId(i+1),s)),routeDone=routeErrors.filter(x=>!x).length,itDone=itineraryErrors.filter((x,i)=>!x&&!routeErrors[i]).length,a=new Date(state.draft.startAt),b=new Date(state.draft.endAt);return [
   {label:"Datos de carrera",ok:String(state.draft.name||"").trim().length>=3,detail:state.draft.name||"Nombre pendiente",step:1},
   {label:"Plano y zona",ok:["mapant","ign","pnoa","custom"].includes(state.draft.mapLayer)&&validWorkCenter(),detail:`${mapLabel(state.draft.mapLayer)} · zona ${validWorkCenter()?"fijada":"pendiente"}`,step:2},
   {label:"Horario",ok:!Number.isNaN(a.getTime())&&!Number.isNaN(b.getTime())&&b>a,detail:`${fmtDate(state.draft.startAt)} → ${fmtDate(state.draft.endAt)}`,step:3},
   {label:"Punto de encuentro",ok:validCoords(),detail:validCoords()?(state.draft.locationName||"Punto exacto seleccionado"):"Ubicación pendiente",step:4},
-  {label:"Controles",ok:missingPoints===0,detail:missingPoints?`${missingPoints} puntos pendientes`:`${controlOrder(s).length} puntos colocados`,step:5},
+  {label:"Controles",ok:!pointError,detail:pointError||`${controlOrder(s).length} puntos colocados y válidos`,step:5},
   {label:"Descripciones IOF",ok:io.allComplete,detail:`${io.complete}/${io.total} completas`,step:5},
-  {label:"Recorridos",ok:routeDone===routeCount&&routeCount>0,detail:`${routeDone}/${routeCount} guardados`,step:6},
-  {label:"Itinerarios reales",ok:itDone===routeCount&&routeCount>0,detail:`${itDone}/${routeCount} guardados`,step:7}
+  {label:"Recorridos",ok:!pointError&&routeDone===routeCount&&routeCount>0,detail:pointError||routeErrors.find(Boolean)||`${routeDone}/${routeCount} válidos`,step:6},
+  {label:"Itinerarios reales",ok:!pointError&&routeDone===routeCount&&itDone===routeCount&&routeCount>0,detail:pointError||routeErrors.find(Boolean)||itineraryErrors.find(Boolean)||`${itDone}/${routeCount} válidos`,step:7}
 ]}
 function publicationAvailability(ready=preflightReady(),editable=["draft","prepared"].includes(lifecycleStatus())){
   if(state.publishing)return "Publicación en curso. Espera a que termine.";
@@ -293,9 +345,9 @@ function validateStep(step=state.step){
   if(step===2){if(!["mapant","ign","pnoa","custom"].includes(state.draft.mapLayer))return "Selecciona el plano de la carrera.";if(state.draft.mapLayer==="custom"&&!activeCustomMap())return "Carga o selecciona un plano propio antes de continuar.";if(!state.draft.mapAreaConfirmed||!validWorkCenter())return "Fija la zona de trabajo tocando el mapa o usando tu ubicación."}
   if(step===3){const a=new Date(state.draft.startAt),b=new Date(state.draft.endAt);if(Number.isNaN(a.getTime())||Number.isNaN(b.getTime()))return "Indica el inicio y el final previsto.";if(b<=a)return "El final previsto debe ser posterior al inicio."}
   if(step===4&&!validCoords())return "Selecciona una ubicación: busca un lugar o pulsa AJUSTAR PUNTO EXACTO y confirma el marcador.";
-  if(step===5){const missing=controlOrder().filter(p=>!pointPlaced(p)).map(p=>pointLabel(p)),io=iofSummary(),parts=[];if(missing.length)parts.push(`colocar ${missing.slice(0,5).join(", ")}${missing.length>5?"…":""}`);if(!io.allComplete)parts.push(`IOF pendiente: ${io.pending.slice(0,5).join(", ")}${io.pending.length>5?"…":""}`);if(parts.length)return `Pendiente: ${parts.join(" · ")}.`}
-  if(step===6&&!routesComplete()){const per=controlsPerRoute(),pending=[];for(let i=1;i<=routeTargetCount();i++){const id=routeId(i),d=routeDetails(id);if(!d||d.controls?.length!==per)pending.push(id)}return `Pendiente: guardar ${pending.slice(0,6).join(", ")}${pending.length>6?"…":""}.`}
-  if(step===7&&!itinerariesComplete()){const pending=[];for(let i=1;i<=routeTargetCount();i++){const id=routeId(i);if(!itineraryComplete(id))pending.push(id)}return `Pendiente: guardar itinerario real de ${pending.slice(0,6).join(", ")}${pending.length>6?"…":""}.`}
+  if(step===5){const issue=pointDesignProblem();if(issue)return issue;const missing=controlOrder().filter(p=>!pointPlaced(p)).map(p=>pointLabel(p)),io=iofSummary(),parts=[];if(missing.length)parts.push(`colocar ${missing.slice(0,5).join(", ")}${missing.length>5?"…":""}`);if(!io.allComplete)parts.push(`IOF pendiente: ${io.pending.slice(0,5).join(", ")}${io.pending.length>5?"…":""}`);if(parts.length)return `Pendiente: ${parts.join(" · ")}.`}
+  if(step===6&&!routesComplete()){const s=snapshot(),specific=pointDesignProblem(s)||Array.from({length:routeTargetCount()},(_,i)=>routeDesignProblem(routeId(i+1),s)).find(Boolean);if(specific)return specific;const per=controlsPerRoute(),pending=[];for(let i=1;i<=routeTargetCount();i++){const id=routeId(i),d=routeDetails(id);if(!d||d.controls?.length!==per)pending.push(id)}return `Pendiente: guardar ${pending.slice(0,6).join(", ")}${pending.length>6?"…":""}.`}
+  if(step===7&&!itinerariesComplete()){const s=snapshot(),specific=pointDesignProblem(s)||Array.from({length:routeTargetCount()},(_,i)=>routeDesignProblem(routeId(i+1),s)||itineraryDesignProblem(routeId(i+1),s)).find(Boolean);if(specific)return specific;const pending=[];for(let i=1;i<=routeTargetCount();i++){const id=routeId(i);if(!itineraryComplete(id))pending.push(id)}return `Pendiente: guardar itinerario real de ${pending.slice(0,6).join(", ")}${pending.length>6?"…":""}.`}
   return "";
 }
 function notify(msg){if(bridge()?.toast?.(msg)!==true){const n=document.createElement("div");n.className="mpb-toast";n.textContent=msg;document.body.appendChild(n);setTimeout(()=>n.remove(),2800)}}
