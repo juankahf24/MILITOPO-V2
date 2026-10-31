@@ -7871,6 +7871,48 @@ async function addParticipantOfflinePwaToZip(folder,eventData){
     ].filter(Boolean).join("\n"));
     return{ok:failures.length===0,failures};
 }
+// F2.19 · Auditoría del CONTENIDO, no de una lista fija de archivos.
+// Permite añadir/quitar documentos en futuras versiones sin reescribir el validador.
+async function checkedPdfExport(blob,description){
+    if(!(blob instanceof Blob)||blob.size<32)throw new Error(`PDF vacío o inválido: ${description}`);
+    // Leer solo la cabecera: no duplicar en RAM PDFs grandes en Safari.
+    const head=new Uint8Array(await blob.slice(0,8).arrayBuffer());
+    if(head[0]!==37||head[1]!==80||head[2]!==68||head[3]!==70||head[4]!==45)
+        throw new Error(`El archivo generado no tiene cabecera PDF: ${description}`);
+    return blob;
+}
+async function auditOrganizerZipContent(zip){
+    const errors=[],warnings=[],counts={pdf:0,json:0,gpx:0};
+    for(const [name,entry] of Object.entries(zip.files||{})){
+        if(entry.dir)continue;
+        if(/(?:^|\/)(?:[^/]*_ERROR|ERROR_[^/]*)\.txt$/i.test(name)){
+            warnings.push(`${name}: el generador ha registrado una incidencia.`);
+            continue;
+        }
+        try{
+            if(/\.json$/i.test(name)){
+                JSON.parse(await entry.async("string"));counts.json++;
+            }else if(/\.gpx$/i.test(name)){
+                const xml=await entry.async("string");
+                const doc=new DOMParser().parseFromString(xml,"application/xml");
+                if(doc.querySelector("parsererror")||doc.documentElement?.localName?.toLowerCase()!=="gpx")
+                    throw new Error("XML/GPX incorrecto");
+                const positions=[...doc.getElementsByTagNameNS("*","wpt"),...doc.getElementsByTagNameNS("*","trkpt"),...doc.getElementsByTagNameNS("*","rtept")];
+                if(!positions.length)throw new Error("GPX sin puntos geográficos");
+                if(positions.some(point=>{
+                    const lat=Number(point.getAttribute("lat")),lon=Number(point.getAttribute("lon"));
+                    return !point.hasAttribute("lat")||!point.hasAttribute("lon")||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180;
+                }))throw new Error("GPX contiene coordenadas inválidas");
+                counts.gpx++;
+            }else if(/\.pdf$/i.test(name)){
+                // checkedPdfExport verifica la firma al incorporarlo, sin releer PDFs enteros.
+                counts.pdf++;
+            }
+        }catch(error){errors.push(`${name}: ${String(error?.message||error)}`)}
+    }
+    return {errors,warnings,counts};
+}
+
 async function generateZip(verificationFromButton=null){ensureZipProgressUi();updateZipProgress(0,1,'Preparando ZIP');await zipUiYield();syncPlanScaleFromUiNow();
     const previousButton=document.querySelector('button[onclick="verifyAndGenerateZip()"]');
     try{
@@ -7917,8 +7959,8 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
             const premiumDraft=JSON.parse(localStorage.getItem(`militopo_premium_builder_event_draft_v3:${state.eventId}`)||"null");
             if(premiumMeta||premiumDraft)zip.file("Otros documentos/diseno_premium_militopo.json",JSON.stringify({eventId:state.eventId,eventName:state.eventName,meta:premiumMeta,draft:premiumDraft},null,2));
         }catch(premiumExportError){console.warn("MILITOPO Premium · datos extra ZIP",premiumExportError)}
-        zip.file("Otros documentos/recorridos.pdf",await recorridosPdfBlob());
-        zip.file("Otros documentos/balizas.pdf",await balizasPdfBlob());
+        zip.file("Otros documentos/recorridos.pdf",await checkedPdfExport(await recorridosPdfBlob(),"recorridos"));
+        zip.file("Otros documentos/balizas.pdf",await checkedPdfExport(await balizasPdfBlob(),"balizas"));
         zip.file("Otros documentos/registros_offline_base.json",JSON.stringify({eventId:state.eventId,participantNames:state.participantNames||{},logs:state.participantLogs},null,2));
         if(typeof verificationReportHtml==="function"){
             zip.file("Otros documentos/VERIFICACION_EJERCICIO.html",verificationReportHtml(verification));
@@ -7933,7 +7975,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         if(typeof buildPrintScaleCalibrationPdfBlob==="function"){
             try{
                 setZipStatus("warn","Añadiendo calibración de impresión...");
-                zip.file("Otros documentos/CALIBRACION_IMPRESION_ESCALA.pdf",await buildPrintScaleCalibrationPdfBlob());
+                zip.file("Otros documentos/CALIBRACION_IMPRESION_ESCALA.pdf",await checkedPdfExport(await buildPrintScaleCalibrationPdfBlob(),"calibración de impresión"));
             }catch(calErr){
                 zip.file("Otros documentos/CALIBRACION_IMPRESION_ESCALA_ERROR.txt",`No se pudo generar la calibración: ${calErr&&calErr.message?calErr.message:calErr}`);
             }
@@ -7970,7 +8012,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         if(typeof allControlsPlanPdfBlob==="function"){
             try{
                 setZipStatus("warn","Generando plano general con todas las balizas...");
-                zip.file("Plano Completo/Plano_todas_balizas.pdf",await allControlsPlanPdfBlob());
+                zip.file("Plano Completo/Plano_todas_balizas.pdf",await checkedPdfExport(await allControlsPlanPdfBlob(),"plano de todas las balizas"));
             }catch(planErr){
                 console.warn("Plano general de balizas no generado",planErr);
                 zip.file("Plano Completo/Plano_todas_balizas_ERROR.txt",`No se pudo generar el plano general de balizas. Motivo: ${planErr&&planErr.message?planErr.message:planErr}`);
@@ -7992,7 +8034,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
                     updateZipProgress(++zipWorkDone,totalZipWork,`Generando PDF de plano ${participantQrCount+1}/${materialRoutes.length}`);
                     await zipUiYield();
                     setZipStatus("warn",`Generando PDF fiel de plano... ${participantQrCount+1}/${materialRoutes.length}`);
-                    const pdfBlob=await participantPlanPdfBlob(route);
+                    const pdfBlob=await checkedPdfExport(await participantPlanPdfBlob(route),`plano de ${route.participantId}`);
                     pdfFolder.file(`Plano_${route.participantId}_${route.routeId}.pdf`,pdfBlob);
                 }catch(pdfErr){
                     console.warn("PDF plano no generado",route,pdfErr);
@@ -8009,7 +8051,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
 
         if(typeof participantAccessWebQrPdfBlob==="function"){
             try{
-                participantsFolder.file("QR_ACCESO_WEB_PARTICIPANTE_A4.pdf",await participantAccessWebQrPdfBlob());
+                participantsFolder.file("QR_ACCESO_WEB_PARTICIPANTE_A4.pdf",await checkedPdfExport(await participantAccessWebQrPdfBlob(),"QR de acceso web"));
             }catch(accessQrErr){
                 console.warn("PDF QR acceso web participante no generado",accessQrErr);
                 participantsFolder.file("QR_ACCESO_WEB_PARTICIPANTE_ERROR.txt",`No se pudo generar el PDF de acceso web participante. Motivo: ${accessQrErr&&accessQrErr.message?accessQrErr.message:accessQrErr}`);
@@ -8054,9 +8096,15 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
             updateZipProgress(++zipWorkDone,totalZipWork,"Generando PDF de QR balizas");
             await zipUiYield();
             setZipStatus("warn","Generando PDF imprimible de salida, balizas y llegada...");
-            controlsFolder.file("IMPRIMIR_TODAS_BALIZAS_A4.pdf",await printableControlsQrPdfBlob(printableControlQrItems));
+            controlsFolder.file("IMPRIMIR_TODAS_BALIZAS_A4.pdf",await checkedPdfExport(await printableControlsQrPdfBlob(printableControlQrItems),"QR de balizas"));
         }
 
+        setZipStatus("warn","Comprobando el contenido de PDF, GPX y datos exportados...");
+        const audit=await auditOrganizerZipContent(zip);
+        if(audit.errors.length){
+            throw new Error(`ZIP no descargado: ${audit.errors.slice(0,3).join(" · ")}`);
+        }
+        if(audit.warnings.length)console.warn("MILITOPO · materiales opcionales con incidencias",audit.warnings);
         updateZipProgress(totalZipWork-1,totalZipWork,"Comprimiendo ZIP");
         setZipStatus("warn","Comprimiendo ZIP...");
         const blob=await zip.generateAsync({type:"blob"});
@@ -8085,9 +8133,14 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
 
         updateZipProgress(totalZipWork,totalZipWork,"ZIP generado correctamente");
         setTimeout(hideZipProgress,1500);
-        setZipStatus("ok",`ZIP generado correctamente. QR participantes: ${participantQrCount}. QR balizas: ${controlQrCount}.${skippedMaterialCount?` Reservas/descartados incluidos: ${skippedMaterialCount}.`:""}`);
+        const warningCount=audit.warnings.length;
+        const statusText=warningCount
+            ? `ZIP descargado con ${warningCount} incidencia(s) de material: ${audit.warnings.slice(0,2).join(" · ")}. Revisa los archivos _ERROR.txt incluidos.`
+            : `ZIP generado y contenido comprobado. PDF: ${audit.counts.pdf}. GPX: ${audit.counts.gpx}. JSON: ${audit.counts.json}. QR participantes: ${participantQrCount}. QR balizas: ${controlQrCount}.${skippedMaterialCount?` Reservas/descartados incluidos: ${skippedMaterialCount}.`:""}`;
+        setZipStatus(warningCount?"warn":"ok",statusText);
         saveState();
-        if(!globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__)toast("ZIP generado");return {ok:true,filename};
+        if(!globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__)toast(warningCount?"ZIP generado con avisos":"ZIP generado");
+        return {ok:true,filename,warnings:audit.warnings,validated:audit.counts};
     }catch(err){
         console.error("Error generando ZIP:",err);
         updateZipProgress(1,1,"Error generando ZIP");
