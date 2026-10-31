@@ -1422,7 +1422,10 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
   const runMeta = runMetaSnap.val() || {};
   // Allow the existing retry after RTDB closed but Firestore failed.
   if (runMeta.runId !== runId || runMeta.eventId !== eventId || runMeta.ownerUid !== ownerUid ||
-      !["active", "finished"].includes(active.status) || runMeta.status !== active.status) {
+      !["active", "finished"].includes(active.status) ||
+      // F2.11: si el proceso cayó tras la transacción de activeRun,
+      // permitir recuperar activeRun=finished con runMeta=active del MISMO run.
+      !(runMeta.status === active.status || (active.status === "finished" && runMeta.status === "active"))) {
     throw new HttpsError("failed-precondition", "Los datos de la sesión Live no son coherentes. Revisa el estado antes de finalizar; no se han modificado los resultados.");
   }
   const now = Date.now();
@@ -1464,22 +1467,51 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
       String(freshMeta.runId || "") !== runId ||
       String(freshMeta.eventId || "") !== eventId ||
       String(freshMeta.ownerUid || "") !== ownerUid ||
-      String(freshMeta.status || "") !== String(freshActive.status || "")) {
+      !(String(freshMeta.status || "") === String(freshActive.status || "") ||
+        (String(freshActive.status || "") === "finished" && String(freshMeta.status || "") === "active"))) {
     throw new HttpsError("aborted", "La carrera o sesión cambió durante la consolidación. No se ha confirmado el cierre; revisa el estado antes de reintentar.");
   }
 
-  await baseRef.update({
-    [`runs/${runId}/meta/status`]: "finished",
-    [`runs/${runId}/meta/finishedAt`]: cutoffAt,
-    [`runs/${runId}/meta/updatedAt`]: now,
-    [`runs/${runId}/meta/resultsConsolidatedAt`]: now,
-    [`runs/${runId}/meta/resultCount`]: consolidation.summary.total,
-    "activeRun/status": "finished",
-    "activeRun/finishedAt": cutoffAt,
-    "activeRun/updatedAt": now,
-    "meta/status": "finished",
-    "meta/updatedAt": now
-  });
+  // F2.11: el update multipath anterior escribía activeRun/status SIN condición.
+  // Otro escritor podía cambiar activeRun tras la relectura F2.10, y el cierre
+  // marcaría FINISHED una sesión diferente. Transaccionamos el NODO que protege.
+  const activeClose = await baseRef.child("activeRun").transaction(current => {
+    if (String(current?.runId || "") !== runId ||
+        !["active", "finished"].includes(String(current?.status || ""))) return;
+    const priorFinish = Number(current?.finishedAt || 0);
+    if (String(current.status) === "finished" && priorFinish && priorFinish !== cutoffAt) return;
+    return { ...current, status: "finished", finishedAt: cutoffAt, updatedAt: now };
+  }, undefined, false);
+  if (!activeClose.committed) {
+    throw new HttpsError("aborted", "La sesión activa cambió durante el cierre. No se modificó otra sesión; revisa el estado antes de reintentar.");
+  }
+
+  // Los resúmenes RTDB se actualizan sin volver a escribir activeRun.
+  // Una interrupción aquí deja un cierre parcial recuperable con el mismo cutoff.
+  const runMetaClose = await baseRef.child(`runs/${runId}/meta`).transaction(current => {
+    if (!current || current.runId !== runId || current.eventId !== eventId ||
+        current.ownerUid !== ownerUid ||
+        !["active", "finished"].includes(String(current.status || "")) ||
+        Number(current.closeCutoffAt) !== cutoffAt) return;
+    if (current.status === "finished" && Number(current.finishedAt || 0) > 0 &&
+        Number(current.finishedAt) !== cutoffAt) return;
+    return { ...current, status: "finished", finishedAt: cutoffAt, updatedAt: now,
+      resultsConsolidatedAt: now, resultCount: consolidation.summary.total };
+  }, undefined, false);
+  if (!runMetaClose.committed) {
+    throw new HttpsError("aborted", "El estado de la sesión cambió al publicar el cierre. Se conserva lo ya consolidado; revisa antes de reintentar.");
+  }
+
+  // El resumen general tiene su propia identidad de sesión, y no puede
+  // etiquetar como FINISHED el resumen de otro run si cambió entre lecturas.
+  const globalClose = await baseRef.child("meta").transaction(current => {
+    if (!current || String(current.activeRunId || "") !== runId ||
+        !["live", "finished"].includes(String(current.status || ""))) return;
+    return { ...current, status: "finished", updatedAt: now };
+  }, undefined, false);
+  if (!globalClose.committed) {
+    throw new HttpsError("aborted", "El resumen de la sesión cambió. Se conserva el cierre parcial para un reintento seguro.");
+  }
   // F2.10: nunca devolver un evento archivado, sustituido o cerrado por otro
   // escritor al estado FINISHED usando la copia tomada antes de consolidar.
   const publication = await db.runTransaction(async tx => {
