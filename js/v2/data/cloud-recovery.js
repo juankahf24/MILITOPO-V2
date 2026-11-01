@@ -9,7 +9,10 @@ import {
   getDoc,
   getDocs,
   query,
-  where
+  where,
+  runTransaction,
+  writeBatch,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
@@ -23,7 +26,6 @@ const state = {
   events: [],
   overlayMode: "events",
   openResultsAfterRecover: "",
-  reuseAfterRecover: "",
   filter: "all",
   query: "",
   adminReturn: false,
@@ -361,6 +363,15 @@ function normalizeHeader(id, data = {}) {
     maxControlReuse: Math.max(1, Math.trunc(Number(data.maxControlReuse) || 6)),
     planScale: Number(data.planScale) === 7500 ? 7500 : 10000,
     planEquidistanceM: Math.max(0.5, Number(data.planEquidistanceM) || 5),
+    // Solo configuracion de diseno, nunca invitaciones, miembros, sesiones o resultados.
+    raceType: cleanString(data.raceType || "training", 30),
+    description: cleanString(data.description || "", 500),
+    mapSelection: data.mapSelection && typeof data.mapSelection === "object" ? data.mapSelection : null,
+    premiumItineraries: data.premiumItineraries && typeof data.premiumItineraries === "object" ? data.premiumItineraries : {},
+    meetingPoint: data.meetingPoint && typeof data.meetingPoint === "object" ? data.meetingPoint : null,
+    timeZone: cleanString(data.timeZone || "Europe/Madrid", 60),
+    premiumRouteCount: Math.max(0, Math.trunc(Number(data.premiumRouteCount) || 0)),
+    premiumControlsPerRoute: Math.max(0, Math.trunc(Number(data.premiumControlsPerRoute) || 0)),
     cloudStage: cleanString(data.cloudStage, 20),
     status: cleanString(data.status || "draft", 30),
     ownerUid: cleanString(data.ownerUid, 160),
@@ -714,6 +725,97 @@ async function fetchCloudEvent(eventId) {
   return { header, checkpoints, courses };
 }
 
+// F2.24: duplicacion MATERIAL en Firestore. No recupera ni publica primero
+// el estado original en el organizador: asi la carrera FINALIZADA no se abre
+// temporalmente como si fuera la nueva. No se copian miembros ni resultados.
+async function createIndependentRaceCopy(packet) {
+  if (!navigator.onLine) throw new Error("Necesitas conexion para crear y guardar la copia en Firebase.");
+  if (!canManage()) throw new Error("Inicia sesion como organizador verificado.");
+  const {firestore} = await services();
+  const source = packet.header;
+  if (String(source.status || "").toLowerCase() === "live") throw new Error("No se puede reutilizar una carrera EN DIRECTO.");
+  if (!packet.checkpoints.some(p => p.checkpointId === "START") || !packet.checkpoints.some(p => p.checkpointId === "FINISH")) {
+    throw new Error("La carrera de origen no tiene SALIDA y LLEGADA completas.");
+  }
+  if (!packet.courses.length ||
+      Number(source.courseSyncedCount||0)>packet.courses.length ||
+      Number(source.checkpointSyncedCount||0)>packet.checkpoints.length) {
+    throw new Error("El diseño de origen no esta completamente sincronizado. Revisa sus recorridos y balizas antes de reutilizarlo.");
+  }
+  if (packet.checkpoints.length > 150 || packet.courses.length > 120) {
+    throw new Error("El diseño supera el limite de copia segura. No se ha cambiado la carrera actual.");
+  }
+  const suffix = globalThis.crypto?.randomUUID?.().replaceAll("-", "").slice(0, 16).toUpperCase()
+    || (globalThis.crypto?.getRandomValues ? Array.from(globalThis.crypto.getRandomValues(new Uint8Array(8)),n=>n.toString(16).padStart(2,"0")).join("").toUpperCase() : "");
+  if (!suffix) throw new Error("No se pudo generar un identificador seguro para la copia.");
+  const id = `ORI_${new Date().toISOString().slice(0,10).replaceAll("-","")}_${suffix}`;
+  if (id === source.eventId) throw new Error("La nueva carrera no puede tener el identificador original.");
+  const name = cleanString(`${source.eventName} · COPIA`,140);
+  const ownerUid = String(state.auth.uid);
+  const ref = doc(firestore,"events",id);
+  const checkedCount=packet.checkpoints.filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)).length;
+  // Las referencias a plano propio pueden depender de una biblioteca local:
+  // conservar metadata, nunca fingir que el raster se ha subido a Firestore.
+  const designMeta = {
+    raceType:source.raceType, description:source.description,
+    ...(source.mapSelection ? {mapSelection:source.mapSelection} : {}),
+    premiumItineraries:source.premiumItineraries || {},
+    ...(source.meetingPoint ? {meetingPoint:source.meetingPoint} : {}),
+    timeZone:source.timeZone,
+    premiumRouteCount:source.premiumRouteCount,
+    premiumControlsPerRoute:source.premiumControlsPerRoute,
+    premiumSchemaVersion:4
+  };
+  // La creacion es exclusiva. Un ID existente jamas se sobrescribe.
+  await runTransaction(firestore,async tx=>{
+    const sourceRef=doc(firestore,"events",String(source.eventId));
+    const [sourceNow,previous]=await Promise.all([tx.get(sourceRef),tx.get(ref)]);
+    if (!sourceNow.exists()) throw new Error("La carrera de origen ya no existe.");
+    const freshSource=sourceNow.data()||{};
+    if (String(freshSource.status||"").toLowerCase()==="live") throw new Error("La carrera de origen ha pasado a EN DIRECTO.");
+    if (String(freshSource.ownerUid||"")!==ownerUid && !isSuperAdmin()) throw new Error("La carrera de origen ya no pertenece a esta cuenta.");
+    if (Number(freshSource.courseSyncedCount||0)!==Number(source.courseSyncedCount||0)
+      || Number(freshSource.checkpointSyncedCount||0)!==Number(source.checkpointSyncedCount||0)) {
+      throw new Error("El diseno del origen ha cambiado. Actualiza la lista antes de reutilizarlo.");
+    }
+    if (previous.exists()) throw new Error("El identificador generado ya existe. Vuelve a intentarlo.");
+    tx.set(ref,{
+      eventId:id,eventName:name,ownerUid,kind:"orientation",status:"draft",
+      schemaVersion:1,cloudStage:"C1",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),
+      participantCount:source.participantCount,maxUniqueRoutes:source.maxUniqueRoutes,
+      controlCount:source.controlCount,controlsPerRoute:source.controlsPerRoute,
+      maxControlReuse:source.maxControlReuse,planScale:source.planScale,
+      planEquidistanceM:source.planEquidistanceM,
+      ...designMeta
+    });
+  });
+  // Las reglas de Firestore consultan el documento padre ya existente.
+  // Por ello los puntos/recorridos se guardan en una segunda escritura.
+  try {
+    const batch=writeBatch(firestore);
+    for (const point of packet.checkpoints) {
+      batch.set(doc(firestore,"events",id,"checkpoints",point.checkpointId),{
+        ...point,schemaVersion:1,createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+      });
+    }
+    for (const course of packet.courses) {
+      batch.set(doc(firestore,"events",id,"courses",course.courseId),{
+        ...course,assignedParticipantIds:[],schemaVersion:1,
+        createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+      });
+    }
+    batch.set(ref,{
+      cloudStage:"C2",checkpointSyncedCount:packet.checkpoints.length,
+      locatedCheckpointCount:checkedCount,courseSyncedCount:packet.courses.length,
+      structureUpdatedAt:serverTimestamp(),updatedAt:serverTimestamp()
+    },{merge:true});
+    await batch.commit();
+  } catch(error) {
+    throw new Error(`Se creo el borrador ${id}, pero NO se pudo copiar toda la estructura. No lo publiques. Revisa permisos y conexion: ${String(error?.message||error)}`);
+  }
+  return {eventId:id,eventName:name,designMeta};
+}
+
 async function recoverEvent(eventId, options = {}) {
   if (state.busy) return;
   const row = state.events.find(item => item.eventId === eventId);
@@ -721,7 +823,6 @@ async function recoverEvent(eventId, options = {}) {
   const openResults = options?.openResults === true;
   const reuse = options?.reuse === true;
   state.openResultsAfterRecover = openResults ? eventId : "";
-  state.reuseAfterRecover = reuse ? eventId : "";
   const message = reuse
     ? `Se creará una CARRERA NUEVA usando el diseño de “${row.eventName}”.
 
@@ -741,7 +842,7 @@ MILITOPO guardará primero una copia duradera del evento que tengas abierto en e
     title: reuse ? "REUTILIZAR CARRERA" : "ABRIR CARRERA",
     confirmText: reuse ? "CREAR COPIA" : "CONTINUAR"
   });
-  if (!ok) { state.openResultsAfterRecover = ""; state.reuseAfterRecover = ""; return false; }
+  if (!ok) { state.openResultsAfterRecover = ""; return false; }
 
   state.busy = true;
   state.list?.querySelectorAll("button").forEach(button => { button.disabled = true; });
@@ -757,15 +858,21 @@ MILITOPO guardará primero una copia duradera del evento que tengas abierto en e
     if (!packet.checkpoints.some(point => point.checkpointId === "START") || !packet.checkpoints.some(point => point.checkpointId === "FINISH")) {
       throw new Error("La copia de nube no contiene salida y llegada completas.");
     }
+    const copy = reuse ? await createIndependentRaceCopy(packet) : null;
     const requestId = `c3_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-loaded", {
-      detail: { ...packet, requestId }
+      detail: {
+        ...packet, requestId,
+        ...(copy ? {
+          header:{...packet.header,eventId:copy.eventId,eventName:copy.eventName,status:"draft",...copy.designMeta},
+          reuseAsNew:true,sourceEventId:eventId
+        } : {})
+      }
     }));
-    paintStatus(`☁️ Aplicando ${eventId} en el organizador…`, "warn");
+    paintStatus(copy ? `✅ Copia creada como BORRADOR · ${copy.eventId}` : `☁️ Aplicando ${eventId} en el organizador…`, "ok");
     closeOverlay();
     return true;
   } catch (error) {
-    state.reuseAfterRecover = "";
     state.openResultsAfterRecover = "";
     console.error("[MILITOPO C3] recover", error);
     paintStatus(`⚠️ ${error?.message || "No se pudo recuperar el evento."} El evento local sigue intacto.`, "warn");
@@ -789,21 +896,9 @@ function onApplied(event) {
   if (detail.ok) {
     const eventId = cleanString(detail.eventId, 120);
     paintStatus(`✅ Evento recuperado desde Firestore · ${eventId}`, "ok");
-    if (state.reuseAfterRecover && state.reuseAfterRecover === eventId) {
-      state.reuseAfterRecover = "";
-      setTimeout(async () => {
-        try {
-          const ok = await globalThis.reuseCurrentRaceAsNew?.();
-          if (ok === true) {
-            closeOverlay();
-            paintStatus("✅ Diseño reutilizado en una carrera nueva · BORRADOR", "ok");
-            globalThis.dispatchEvent(new CustomEvent("militopo:r5-reuse-complete"));
-          }
-        } catch (error) {
-          console.error("[MILITOPO reutilizar carrera]", error);
-          paintStatus(`⚠️ ${cleanString(error?.message || "No se pudo reutilizar la carrera.", 300)}`, "warn");
-        }
-      }, 220);
+    if (detail.reusedAsNew === true) {
+      paintStatus(`✅ Carrera nueva BORRADOR · ${eventId} · origen: ${cleanString(detail.sourceEventId,120)}`, "ok");
+      try { globalThis.dispatchEvent(new CustomEvent("militopo:r5-reuse-draft-ready", {detail})); } catch (_) {}
     }
     if (state.openResultsAfterRecover && state.openResultsAfterRecover === eventId) {
       state.openResultsAfterRecover = "";
@@ -814,18 +909,17 @@ function onApplied(event) {
       }, 180);
     }
   } else {
-    state.reuseAfterRecover = "";
     state.openResultsAfterRecover = "";
     paintStatus(`⚠️ ${cleanString(detail.error || "No se pudo aplicar el evento descargado.", 300)}`, "warn");
   }
 }
 
 globalThis.MILITOPO_V2_ORGANIZER_CENTER = Object.freeze({
-  recoverDirect: async (eventId) => {
+  recoverDirect: async (eventId, options = {}) => {
     if (!canManage()) return false;
     if (!state.events.some(row => row.eventId === String(eventId))) await loadEventList();
     if (!state.events.some(row => row.eventId === String(eventId))) throw new Error("La carrera no está disponible para tu cuenta.");
-    return recoverEvent(String(eventId));
+    return recoverEvent(String(eventId), options);
   },
   open: (options = {}) => openCloudPicker(true, options),
   refresh: () => openCloudPicker(false, { returnToAdmin:state.adminReturn }),
