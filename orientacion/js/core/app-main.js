@@ -9856,7 +9856,10 @@ async function applyMilitopoCloudRecoveredEvent(detail){
     if(!pointMap.START||!pointMap.FINISH)throw new Error("La copia de Firestore no contiene salida y llegada.");
 
     const previousEventId=String(state.eventId||"");
-    if(previousEventId&&previousEventId!==eventId&&typeof currentExerciseHasRaceEvidence==="function"&&currentExerciseHasRaceEvidence()){
+    const reuseAsNew=detail?.reuseAsNew===true;
+    // REUTILIZAR ya se confirmo al seleccionar el origen y YA creo un
+    // documento BORRADOR diferente: no pedir confirmaciones contradictorias.
+    if(!reuseAsNew&&previousEventId&&previousEventId!==eventId&&typeof currentExerciseHasRaceEvidence==="function"&&currentExerciseHasRaceEvidence()){
         const allowed=await globalThis.MILITOPO_CONFIRM("El evento abierto en este dispositivo contiene datos de carrera o resultados. Se guardará una copia duradera, pero vas a cambiar a otro evento.\n\n¿Quieres continuar?",{title:"CAMBIAR DE CARRERA",confirmText:"CAMBIAR"});
         if(!allowed){
             window.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-applied",{detail:{ok:false,eventId,error:"Recuperación cancelada: el evento local con datos de carrera no se ha sustituido."}}));
@@ -9879,7 +9882,10 @@ async function applyMilitopoCloudRecoveredEvent(detail){
     clearTimeout(__durableSaveTimer);
     hardResetStateForReusableExerciseImport();
 
-    const rebuilt=militopoCloudRecoveredRoutes(courses,header.participantCount);
+    const preparedCourses=reuseAsNew?courses.map(course=>({...course,assignedParticipantIds:[]})):courses;
+    // Ningun identificador de participante del evento original se reutiliza.
+    // P01... son plazas de diseno locales; las invitaciones reales comienzan vacias.
+    const rebuilt=militopoCloudRecoveredRoutes(preparedCourses,header.participantCount);
     state.eventId=eventId;
     state.eventName=String(header.eventName||"ENTRENAMIENTO ORIENTACIÓN");
     state.participantCount=Math.max(1,Math.trunc(Number(header.participantCount)||rebuilt.routes.length||10));
@@ -9889,6 +9895,12 @@ async function applyMilitopoCloudRecoveredEvent(detail){
     state.maxControlReuse=Math.max(1,Math.trunc(Number(header.maxControlReuse)||6));
     state.planScale=Number(header.planScale)===7500?7500:10000;
     state.planEquidistanceM=Math.max(.5,Number(header.planEquidistanceM)||5);
+    const mapSelection=header.mapSelection&&typeof header.mapSelection==="object"?header.mapSelection:null;
+    state.selectedMapLayer=["mapant","ign","pnoa","custom"].includes(String(mapSelection?.layer||""))?mapSelection.layer:"mapant";
+    state.customGeoTiffMeta=mapSelection?.customMap ? {
+        id:String(mapSelection.customMap.id||""),name:String(mapSelection.customMap.name||""),
+        format:String(mapSelection.customMap.format||"")
+    } : null;
     state.points=pointMap;
     state.routes=rebuilt.routes;
     state.metrics=rebuilt.metrics;
@@ -9912,6 +9924,40 @@ async function applyMilitopoCloudRecoveredEvent(detail){
 
     selectedPointId="START";
     selectedIofPointId="START";
+    // El asistente Premium conserva la cartografia, el itinerario, la
+    // modalidad y el lugar de encuentro en el NUEVO id. No se trasladan
+    // invitados, resultados, horarios de salida ni historicos personales.
+    if(reuseAsNew){
+        try{
+            const meta={
+                premiumSchemaVersion:4,raceType:String(header.raceType||"training"),
+                description:String(header.description||""),
+                ...(mapSelection?{mapSelection:JSON.parse(JSON.stringify(mapSelection))}:{}),
+                premiumItineraries:JSON.parse(JSON.stringify(header.premiumItineraries||{})),
+                ...(header.meetingPoint?{meetingPoint:JSON.parse(JSON.stringify(header.meetingPoint))}:{}),
+                timeZone:String(header.timeZone||"Europe/Madrid"),
+                premiumRouteCount:Math.max(1,Number(header.premiumRouteCount)||rebuilt.uniqueRouteCount||1),
+                premiumControlsPerRoute:Math.max(1,Number(header.premiumControlsPerRoute)||state.controlsPerRoute||1)
+            };
+            localStorage.setItem("militopo_premium_event_meta_v1:"+eventId,JSON.stringify(meta));
+            // Un borrador Premium anterior no se hereda: nuevos participantes
+            // y configuracion personal siempre comienzan desde la copia limpia.
+        }catch(error){console.warn("No se pudo conservar la metadata Premium local de la copia",error)}
+    }
+    // El encabezado visible se actualiza ANTES de emitir eventos o sincronizar.
+    const inputId=document.getElementById("eventId");
+    if(inputId)inputId.value=eventId;
+    const inputName=document.getElementById("eventName");
+    if(inputName)inputName.value=state.eventName;
+    const inputIof=document.getElementById("iofEventName");
+    if(inputIof)inputIof.value=state.eventName;
+    if(reuseAsNew){
+        try{
+            const detailStatus={eventId,status:"draft",exists:true,lockedDesign:false,label:"BORRADOR"};
+            window.MILITOPO_V2_EVENT_STATUS=detailStatus;
+            window.dispatchEvent(new CustomEvent("militopo:v2-event-status",{detail:detailStatus}));
+        }catch(_){ }
+    }
     __militopoCloudHeaderArmed=true;
     // F2.23: cargar una carrera de Firestore NUNCA es autorización para borrar
     // su cola offline, contexto de participante, tracks o snapshots locales.
@@ -9937,9 +9983,11 @@ async function applyMilitopoCloudRecoveredEvent(detail){
     goStep(currentAppStep,{silent:true});
     publishMilitopoCloudHeader("cloud-recovery");
     publishMilitopoCloudStructure("cloud-recovery");
-    setRestoreStatus(`✅ Evento recuperado desde Firestore · ${eventId} · ${checkpoints.length} puntos · ${rebuilt.uniqueRouteCount} recorridos únicos`,"ok");
-    toast("Evento recuperado desde Firestore");
-    window.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-applied",{detail:{ok:true,eventId,pointCount:checkpoints.length,courseCount:rebuilt.uniqueRouteCount,participantRouteCount:rebuilt.routes.length}}));
+    setRestoreStatus(reuseAsNew
+        ? `✅ BORRADOR NUEVO ${eventId} · origen ${String(detail.sourceEventId||"")} · ${checkpoints.length} puntos · ${rebuilt.uniqueRouteCount} recorridos únicos · sin resultados ni invitaciones`
+        : `✅ Evento recuperado desde Firestore · ${eventId} · ${checkpoints.length} puntos · ${rebuilt.uniqueRouteCount} recorridos únicos`,"ok");
+    toast(reuseAsNew?`Carrera nueva creada: ${eventId}`:"Evento recuperado desde Firestore");
+    window.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-applied",{detail:{ok:true,eventId,reusedAsNew:reuseAsNew,sourceEventId:String(detail.sourceEventId||""),pointCount:checkpoints.length,courseCount:rebuilt.uniqueRouteCount,participantRouteCount:rebuilt.routes.length}}));
     return true;
 }
 
@@ -10681,48 +10729,13 @@ async function resetSavedEvent(){
     });
 }
 async function reuseCurrentRaceAsNew(){
-    const lock=currentMilitopoCloudDesignLock();
-    const lockStatus=String(lock?.status||"").trim().toLowerCase();
-    if(lockStatus==="live"){
-        toast("No se puede reutilizar una carrera mientras está EN DIRECTO.");
-        return false;
-    }
     const sourceId=String(state.eventId||"").trim();
-    if(!sourceId)throw new Error("No hay una carrera cargada para reutilizar.");
-    const clone=value=>JSON.parse(JSON.stringify(value??null));
-    const template={
-        eventName:String(state.eventName||"ENTRENAMIENTO ORIENTACIÓN").trim(),
-        planScale:Number(state.planScale)===7500?7500:10000,
-        planEquidistanceM:Math.max(.5,Number(state.planEquidistanceM)||5),
-        selectedMapLayer:String(state.selectedMapLayer||"mapant"),
-        participantCount:Math.max(1,Math.trunc(Number(state.participantCount)||10)),
-        maxUniqueRoutes:Math.max(1,Math.trunc(Number(state.maxUniqueRoutes)||15)),
-        controlCount:Math.max(0,Math.trunc(Number(state.controlCount)||0)),
-        controlsPerRoute:Math.max(0,Math.trunc(Number(state.controlsPerRoute)||0)),
-        maxControlReuse:Math.max(1,Math.trunc(Number(state.maxControlReuse)||6)),
-        points:clone(state.points||{}),routes:clone(state.routes||[]),metrics:clone(state.metrics||[]),
-        elevations:clone(state.elevations||{}),iofDescriptions:clone(state.iofDescriptions||{}),routeWarnings:clone(state.routeWarnings||[])
-    };
-    const created=await prepareFreshOrganizerEvent(sourceId,{reason:"reuse-race",purgeLocalRuntime:false,preserveSourceDurable:true,toastPrefix:"Carrera reutilizada"});
-    if(created!==true)return false;
-    state.eventName=`${template.eventName} · COPIA`;
-    state.planScale=template.planScale;state.planEquidistanceM=template.planEquidistanceM;state.selectedMapLayer=template.selectedMapLayer;
-    state.participantCount=template.participantCount;state.maxUniqueRoutes=template.maxUniqueRoutes;state.controlCount=template.controlCount;
-    state.controlsPerRoute=template.controlsPerRoute;state.maxControlReuse=template.maxControlReuse;
-    state.points=template.points||{};state.routes=template.routes||[];state.metrics=template.metrics||[];state.elevations=template.elevations||{};
-    state.iofDescriptions=template.iofDescriptions||{};state.routeWarnings=template.routeWarnings||[];
-    state.participantLogs={};state.participantNames={};state.importedResults=[];state.startTimes={};state.finishTimes={};state.scanHistory=[];state.classification=[];
-    state.startFlowStatus={};state.liveRunId="";state.liveRunStartedAt="";state.liveRunStatus="";state.raceDataProtection={protected:false,runId:"",startedAt:"",lastDataAt:"",status:""};
-    __militopoCloudHeaderArmed=false;
-    syncConfigToUi();
-    try{syncPlanScaleSettingUi()}catch(_){}
-    renderPointSelectors();renderPointsTable();renderIofDescriptionsEditor();try{validateIofDescriptions()}catch(_){}
-    updateParticipantSelect();updateRouteCountInfo();try{renderRoutes()}catch(_){};try{renderMapMarkers();if(map)fitAllPoints()}catch(_){}
-    try{updateOrganizerParticipantSelects()}catch(_){};try{renderImportedResults()}catch(_){}
-    saveState();goStep(1,{silent:true});publishMilitopoCloudHeader("reuse-race");publishMilitopoCloudStructure("reuse-race");
-    setRestoreStatus(`✅ Carrera reutilizada como BORRADOR nuevo · ${state.eventId} · sin participantes ni resultados`,"ok");
-    toast("Carrera reutilizada como borrador nuevo");
-    return true;
+    if(!sourceId)throw new Error("Carga primero una carrera para reutilizarla.");
+    const center=globalThis.MILITOPO_V2_ORGANIZER_CENTER;
+    if(typeof center?.recoverDirect!=="function")throw new Error("El selector de carreras no esta listo.");
+    // Una sola implementacion de copia: nunca abrir el origen y luego cambiar
+    // su eventId, ni confiar en el estado antiguo de un panel Premium.
+    return center.recoverDirect(sourceId,{reuse:true});
 }
 window.createNewRace=createNewRace;
 window.reuseCurrentRaceAsNew=reuseCurrentRaceAsNew;
