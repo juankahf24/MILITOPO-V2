@@ -6553,28 +6553,32 @@ async function printableControlsQrPdfBlob(items){
 }
 
 
-async function participantAccessWebQrPdfBlob(){
+async function participantAccessWebQrPdfBlob(printableItems=null){
     const jsPDF=await ensureJsPdf();
     const eventName=participantPrintEventName();
     const eventCode=String(state.eventId||"").trim()||"—";
-    const routes=(state.routes||[]).filter(r=>r&&!isRouteSkipped(r));
+    // F2.21: imprimir EXACTAMENTE los QR auditados durante esta exportación.
+    // La invocación sin lista conserva la compatibilidad de otros consumidores.
+    const items=Array.isArray(printableItems)
+        ? printableItems
+        : (state.routes||[]).filter(r=>r&&!isRouteSkipped(r)).map(route=>({route}));
     const pdf=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
     const pageW=210,pageH=297,margin=8,gap=6;
     const cardW=(pageW-margin*2-gap)/2;
     const cardH=(pageH-margin*2-gap)/2;
     const generatedAt=new Date().toLocaleString("es-ES");
 
-    for(let i=0;i<routes.length;i++){
+    for(let i=0;i<items.length;i++){
         if(i>0 && i%4===0)pdf.addPage("a4","portrait");
         const pos=i%4;
         const col=pos%2,row=Math.floor(pos/2);
         const x=margin+col*(cardW+gap);
         const y=margin+row*(cardH+gap);
-        const route=routes[i];
+        const item=items[i];
+        const route=item.route;
         const pid=String(route.participantId||"").toUpperCase();
         const rid=String(route.routeId||"").toUpperCase();
-        const url=participantWebUrl(route.participantId);
-        const qrDataUrl=await qrDataUrlForPrint(url,1200);
+        const qrDataUrl=item.qrDataUrl||await qrDataUrlForPrint(participantWebUrl(route.participantId),1200);
 
         pdf.setFillColor(255,255,255);
         pdf.rect(x,y,cardW,cardH,"F");
@@ -6617,7 +6621,7 @@ async function participantAccessWebQrPdfBlob(){
         });
     }
 
-    if(!routes.length){
+    if(!items.length){
         pdf.setFont("helvetica","bold");
         pdf.setFontSize(14);
         pdf.text("No hay recorridos activos para generar QR web participante.",105,145,{align:"center",maxWidth:180});
@@ -7969,6 +7973,75 @@ function auditPrintedControlQrAgainstGpx(qrItems,gpxXml,eventId){
     return {errors,checked:qrById.size};
 }
 
+// F2.21 · Verificar el QR de acceso que realmente se imprime en PDF contra
+// la asignación del JSON exportado. No exige nombres de archivo ni diseño PDF.
+function auditParticipantQrAssignmentsAgainstEvent(qrItems,eventData,assignedRoutes){
+    const errors=[];
+    const expected=new Map();
+    const printed=new Map();
+    const pidOf=route=>String(route?.participantId||"").trim();
+    const idsOf=route=>Array.isArray(route?.points)?route.points.map(x=>String(x)):[];
+    const sameIds=(a,b)=>a.length===b.length&&a.every((id,i)=>id===b[i]);
+    const validCoord=v=>v!==null&&v!==undefined&&String(v).trim()!==""&&Number.isFinite(Number(v));
+    for(const route of assignedRoutes||[]){
+        const pid=pidOf(route);
+        if(!pid||expected.has(pid)){errors.push(`Asignación duplicada o sin participante: ${pid||"sin ID"}.`);continue;}
+        expected.set(pid,route);
+        const eventRoute=(eventData?.routes||[]).find(r=>pidOf(r)===pid);
+        if(!eventRoute||String(eventRoute.routeId||"")!==String(route.routeId||"")||
+            !sameIds(idsOf(eventRoute),idsOf(route))){
+            errors.push(`${pid}: el recorrido no coincide con el JSON del evento.`);
+        }
+    }
+    for(const item of qrItems||[]){
+        const pid=pidOf(item?.route);
+        if(!pid||printed.has(pid)){errors.push(`QR de participante duplicado o sin identificador: ${pid||"sin ID"}.`);continue;}
+        printed.set(pid,item);
+        const route=expected.get(pid);
+        if(!route){errors.push(`${pid}: QR sin recorrido activo asignado.`);continue;}
+        try{
+            const url=new URL(String(item.payload||""));
+            if(!/^https?:$/.test(url.protocol)||url.searchParams.get("modo")!=="participante"||url.searchParams.get("p")!==pid){
+                throw new Error("el enlace no abre el participante esperado");
+            }
+            const packed=url.searchParams.get("c");
+            if(!packed)throw new Error("el QR no contiene el recorrido integrado");
+            const compact=JSON.parse(base64UrlDecodeUtf8(packed));
+            const payload=(compact?.v===1||compact?.v===2)?expandCompactParticipantWebData(compact):compact;
+            if(!payload||String(payload.eventId||"")!==String(eventData.eventId||"")||
+                String(payload.webParticipantId||"")!==pid||
+                !Array.isArray(payload.routes)||payload.routes.length!==1){
+                throw new Error("evento o participante equivocado dentro del QR");
+            }
+            const embedded=payload.routes[0];
+            if(pidOf(embedded)!==pid||String(embedded.routeId||"")!==String(route.routeId||"")||
+                !sameIds(idsOf(embedded),idsOf(route))){
+                throw new Error("recorrido u orden de balizas diferente del asignado");
+            }
+            const ids=[...new Set(["START",...idsOf(route),"FINISH"])];
+            const actual=Object.keys(payload.points||{});
+            if(actual.length!==ids.length||ids.some(id=>!actual.includes(id))){
+                throw new Error("faltan o sobran balizas en el QR");
+            }
+            for(const id of ids){
+                const original=eventData.points?.[id];
+                const encoded=payload.points?.[id];
+                if(!original||!encoded||!validCoord(original.lat)||!validCoord(original.lon)||
+                    !validCoord(encoded.lat)||!validCoord(encoded.lon)||
+                    Math.abs(Number(original.lat)-Number(encoded.lat))>0.00000051||
+                    Math.abs(Number(original.lon)-Number(encoded.lon))>0.00000051){
+                    throw new Error(`coordenadas de ${id} diferentes o no válidas`);
+                }
+            }
+            if(!String(item.qrDataUrl||"").startsWith("data:image/")){
+                throw new Error("imagen del QR no generada");
+            }
+        }catch(error){errors.push(`${pid}: QR de acceso incompatible: ${String(error?.message||error)}.`);}
+    }
+    for(const pid of expected.keys())if(!printed.has(pid))errors.push(`${pid}: falta su QR de acceso.`);
+    return {errors,checked:printed.size};
+}
+
 async function generateZip(verificationFromButton=null){ensureZipProgressUi();updateZipProgress(0,1,'Preparando ZIP');await zipUiYield();syncPlanScaleFromUiNow();
     const previousButton=document.querySelector('button[onclick="verifyAndGenerateZip()"]');
     try{
@@ -7993,6 +8066,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         }
 
         const materialRoutes=state.routes||[];
+        const activeMaterialRoutes=materialRoutes.filter(route=>!isRouteSkipped(route));
         if(!materialRoutes.length){
             setZipStatus("warn","No hay recorridos para generar.");
             toast("No hay recorridos");return {ok:false,error:"No hay recorridos"};
@@ -8100,7 +8174,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
                 }
             }
 
-            if(typeof addPrintableParticipantQrItem==="function"){
+            if(!isRouteSkipped(route)&&typeof addPrintableParticipantQrItem==="function"){
                 printableParticipantQrItems.push(await addPrintableParticipantQrItem(route,payload));
             }
             participantQrCount++;
@@ -8109,7 +8183,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
 
         if(typeof participantAccessWebQrPdfBlob==="function"){
             try{
-                participantsFolder.file("QR_ACCESO_WEB_PARTICIPANTE_A4.pdf",await checkedPdfExport(await participantAccessWebQrPdfBlob(),"QR de acceso web"));
+                participantsFolder.file("QR_ACCESO_WEB_PARTICIPANTE_A4.pdf",await checkedPdfExport(await participantAccessWebQrPdfBlob(printableParticipantQrItems),"QR de acceso web"));
             }catch(accessQrErr){
                 console.warn("PDF QR acceso web participante no generado",accessQrErr);
                 participantsFolder.file("QR_ACCESO_WEB_PARTICIPANTE_ERROR.txt",`No se pudo generar el PDF de acceso web participante. Motivo: ${accessQrErr&&accessQrErr.message?accessQrErr.message:accessQrErr}`);
@@ -8160,7 +8234,8 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         setZipStatus("warn","Comprobando el contenido y la coherencia de QR y GPX...");
         const audit=await auditOrganizerZipContent(zip);
         const pointAudit=auditPrintedControlQrAgainstGpx(printableControlQrItems,generatedControlGpx,state.eventId);
-        audit.errors.push(...pointAudit.errors);
+        const participantAudit=auditParticipantQrAssignmentsAgainstEvent(printableParticipantQrItems,eventData,activeMaterialRoutes);
+        audit.errors.push(...pointAudit.errors,...participantAudit.errors);
         if(audit.errors.length){
             throw new Error(`ZIP no descargado: ${audit.errors.slice(0,3).join(" · ")}`);
         }
@@ -8196,7 +8271,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         const warningCount=audit.warnings.length;
         const statusText=warningCount
             ? `ZIP descargado con ${warningCount} incidencia(s) de material: ${audit.warnings.slice(0,2).join(" · ")}. Revisa los archivos _ERROR.txt incluidos.`
-            : `ZIP generado y contenido comprobado. PDF: ${audit.counts.pdf}. GPX: ${audit.counts.gpx}. JSON: ${audit.counts.json}. QR participantes: ${participantQrCount}. QR balizas: ${controlQrCount}. Balizas cotejadas QR/GPX: ${pointAudit.checked}.${skippedMaterialCount?` Reservas/descartados incluidos: ${skippedMaterialCount}.`:""}`;
+            : `ZIP generado y contenido comprobado. PDF: ${audit.counts.pdf}. GPX: ${audit.counts.gpx}. JSON: ${audit.counts.json}. QR participantes verificados: ${participantAudit.checked}. QR balizas: ${controlQrCount}. Balizas cotejadas QR/GPX: ${pointAudit.checked}.${skippedMaterialCount?` Reservas/descartados incluidos: ${skippedMaterialCount}.`:""}`;
         setZipStatus(warningCount?"warn":"ok",statusText);
         saveState();
         if(!globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__)toast(warningCount?"ZIP generado con avisos":"ZIP generado");
