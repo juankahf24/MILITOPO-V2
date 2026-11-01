@@ -112,8 +112,8 @@ function injectStyle() {
     .m2-h2-message{margin:9px 0 11px;font-size:.68rem;line-height:1.4;color:#adb8ac}.m2-h2-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:10px 0 12px}.m2-h2-metric{min-width:0;padding:10px 5px;border-radius:12px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);text-align:center}.m2-h2-metric strong{display:block;font:950 1.08rem/1 system-ui}.m2-h2-metric span{display:block;margin-top:4px;font:850 .49rem/1.08 system-ui;letter-spacing:.045em;color:#99a499}
     .m2-h2-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0 10px;flex-wrap:wrap}.m2-h2-source{font-size:.61rem;color:#89958a}.m2-h2-refresh{min-height:36px;padding:6px 12px;border-radius:10px;border:1px solid rgba(216,180,94,.28);background:rgba(216,180,94,.09);color:#f5e6b7;font:900 .62rem/1 system-ui;cursor:pointer}.m2-h2-refresh:disabled{opacity:.45;cursor:not-allowed}
     .m2-r4-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}.m2-r4-tab{min-height:42px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.16);color:#d7ddd3;font:900 .67rem/1 system-ui;letter-spacing:.045em;cursor:pointer}.m2-r4-tab.active{background:#d8b45e;color:#211708;border-color:#f1d88e}.m2-r4-view[hidden]{display:none!important}
-    .m2-h2-table-wrap,.m2-h5-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-width:100%}.m2-h2-table{width:100%;border-collapse:collapse;min-width:1180px;background:rgba(0,0,0,.08)}.m2-h2-table th,.m2-h2-table td,.m2-h5-table th,.m2-h5-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.055);font-size:.61rem;text-align:left;white-space:nowrap}.m2-h2-table th,.m2-h5-table th{font-size:.52rem;color:#d9c792;letter-spacing:.04em;position:sticky;top:0;background:#172219;z-index:2}.m2-h2-table td:first-child,.m2-h5-table td:nth-child(2){white-space:normal;min-width:170px}.m2-h2-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.13);font-size:.53rem;font-weight:900}.m2-h2-state.finished{color:#dcffd0;border-color:rgba(126,220,150,.35);background:rgba(82,145,66,.15)}.m2-h2-state.incomplete{color:#ffe4a8;border-color:rgba(245,204,121,.34);background:rgba(160,114,43,.14)}.m2-h2-state.not_started{color:#d2d8dc;opacity:.72}.m2-h2-empty{padding:18px!important;text-align:center!important;font-size:.70rem!important;color:#9ba69d}.m2-h2-num{font-variant-numeric:tabular-nums}.m2-h2-official{font-weight:950;color:#f4e2ad}.m2-h2-penalty{font-weight:900;color:#ffc98b}
-    .m2-h5{margin:0}.m2-h5-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px}.m2-h5-title{font:950 .78rem/1 system-ui;letter-spacing:.07em;color:#f3dfa8}.m2-h5-note{margin:7px 0 9px;font-size:.65rem;line-height:1.4;color:#9da79e}.m2-h5-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.m2-h5-tab{min-height:35px;padding:6px 10px;border-radius:999px;border:1px solid rgba(240,193,106,.28);background:rgba(240,193,106,.06);color:#f1ede0;font:900 .61rem/1 system-ui;cursor:pointer}.m2-h5-tab.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2-h5-table{width:100%;border-collapse:collapse;min-width:900px}.m2-h5-rank{font-weight:950;color:#f6e2a6}.m2-h5-gap{font-variant-numeric:tabular-nums}.m2-h5-own{background:rgba(240,193,106,.08)}
+    .m2-h2-table-wrap,.m2-h5-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid rgba(255,255,255,.08);border-radius:13px;max-width:100%}.m2-h2-table{width:100%;border-collapse:collapse;min-width:1470px;background:rgba(0,0,0,.08)}.m2-h2-table th,.m2-h2-table td,.m2-h5-table th,.m2-h5-table td{padding:8px 7px;border-bottom:1px solid rgba(255,255,255,.055);font-size:.61rem;text-align:left;white-space:nowrap}.m2-h2-table th,.m2-h5-table th{font-size:.52rem;color:#d9c792;letter-spacing:.04em;position:sticky;top:0;background:#172219;z-index:2}.m2-h2-table td:first-child,.m2-h5-table td:nth-child(2){white-space:normal;min-width:170px}.m2-h2-state{display:inline-flex;padding:4px 7px;border-radius:999px;border:1px solid rgba(255,255,255,.13);font-size:.53rem;font-weight:900}.m2-h2-state.finished{color:#dcffd0;border-color:rgba(126,220,150,.35);background:rgba(82,145,66,.15)}.m2-h2-state.incomplete{color:#ffe4a8;border-color:rgba(245,204,121,.34);background:rgba(160,114,43,.14)}.m2-h2-state.not_started{color:#d2d8dc;opacity:.72}.m2-h2-empty{padding:18px!important;text-align:center!important;font-size:.70rem!important;color:#9ba69d}.m2-h2-num{font-variant-numeric:tabular-nums}.m2-h2-official{font-weight:950;color:#f4e2ad}.m2-h2-penalty{font-weight:900;color:#ffc98b}.m2-h2-detail{display:block;margin-top:3px;font-size:.54rem;line-height:1.3;font-weight:500;color:#aebca9;white-space:normal}.m2-h2-warning{color:#ffc490}.m2-h2-counter{font-variant-numeric:tabular-nums;font-weight:850}
+    .m2-h5{margin:0}.m2-h5-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:5px}.m2-h5-title{font:950 .78rem/1 system-ui;letter-spacing:.07em;color:#f3dfa8}.m2-h5-note{margin:7px 0 9px;font-size:.65rem;line-height:1.4;color:#9da79e}.m2-h5-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.m2-h5-tab{min-height:35px;padding:6px 10px;border-radius:999px;border:1px solid rgba(240,193,106,.28);background:rgba(240,193,106,.06);color:#f1ede0;font:900 .61rem/1 system-ui;cursor:pointer}.m2-h5-tab.active{background:#d8b45e;color:#201608;border-color:#f2d58f}.m2-h5-table{width:100%;border-collapse:collapse;min-width:1090px}.m2-h5-rank{font-weight:950;color:#f6e2a6}.m2-h5-gap{font-variant-numeric:tabular-nums}.m2-h5-own{background:rgba(240,193,106,.08)}
     @media(max-width:600px){.m2-h2{padding:10px}.m2-h2-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.m2-h2-heading .m2-h2-title{font-size:1.02rem}.m2-r4-tab{min-height:40px;font-size:.61rem}}
   `;
   document.head.appendChild(style);
@@ -142,10 +142,10 @@ function ensurePanel() {
       <button type="button" class="m2-r4-tab" data-r4-results-view="classification">CLASIFICACIÓN</button>
     </div>
     <section id="m2R4ResultsView" class="m2-r4-view">
-      <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>RECORRIDO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO REAL</th><th>PENALIZACIÓN</th><th>TIEMPO OFICIAL</th><th>BALIZAS</th><th>DISTANCIA</th><th>TRACK GPS</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="11" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
+      <div class="m2-h2-table-wrap"><table class="m2-h2-table"><thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>RECORRIDO</th><th>SALIDA</th><th>LLEGADA</th><th>TIEMPO REAL</th><th>DESCARTADAS</th><th>PENDIENTES</th><th>PENALIZACIÓN</th><th>TIEMPO OFICIAL</th><th>BALIZAS</th><th>VALIDACIÓN</th><th>DISTANCIA</th><th>TRACK GPS</th></tr></thead><tbody id="m2H2Body"><tr><td colspan="14" class="m2-h2-empty">Sin resultados cargados.</td></tr></tbody></table></div>
     </section>
     <section id="m2R4ClassView" class="m2-r4-view" hidden>
-      <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">CLASIFICACIÓN</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes. POR RECORRIDO compara únicamente corredores con el mismo recorrido.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>PARTICIPANTE</th><th>PLAZA</th><th>RECORRIDO</th><th>DISTANCIA</th><th>TIEMPO OFICIAL</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="8" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>
+      <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">CLASIFICACIÓN</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes. POR RECORRIDO compara únicamente corredores con el mismo recorrido.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>PARTICIPANTE</th><th>PLAZA</th><th>RECORRIDO</th><th>DISTANCIA</th><th>PENALIZACIÓN</th><th>DESC./PEND.</th><th>TIEMPO OFICIAL</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="10" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>
     </section>`;
   if (mapPanel?.parentNode) mapPanel.insertAdjacentElement("afterend", panel);
   else if (monitor?.parentNode) monitor.insertAdjacentElement("afterend", panel);
@@ -180,15 +180,57 @@ function renderMainView() {
   if (classification) classification.hidden = view !== "classification";
   state.panel.querySelectorAll("[data-r4-results-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.r4ResultsView === view));
 }
-function penaltyMs(row = {}) {
+// F2.22: null/undefined/"" significan DATO AUSENTE, nunca 00:00:00.
+function nonnegativeMetric(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+function storedPenalty(row = {}) {
   const candidates = [row.penaltyMs, row.controlPenaltyMs, row.totalPenaltyMs, row.discardPenaltyMs, row.discardPenaltyTotalMs];
-  for (const value of candidates) { const n = Number(value); if (Number.isFinite(n) && n >= 0) return n; }
-  return 0;
+  for (const value of candidates) {
+    const number = nonnegativeMetric(value);
+    if (number !== null) return number;
+  }
+  return null;
+}
+function penaltyMs(row = {}) {
+  // Históricos sin desglose: 0 solo como cálculo provisional, no como dato publicado.
+  return storedPenalty(row) ?? 0;
 }
 function officialDurationMs(row = {}) {
-  for (const value of [row.officialDurationMs, row.adjustedDurationMs, row.officialTimeMs]) { const n = Number(value); if (Number.isFinite(n) && n >= 0) return n; }
-  const real = Number(row.durationMs);
-  return Number.isFinite(real) && real >= 0 ? real + penaltyMs(row) : NaN;
+  for (const value of [row.officialDurationMs, row.adjustedDurationMs, row.officialTimeMs]) {
+    const number = nonnegativeMetric(value);
+    if (number !== null) return number;
+  }
+  const real = nonnegativeMetric(row.durationMs);
+  return real === null ? null : real + penaltyMs(row);
+}
+function countOrDash(value) {
+  const n = nonnegativeMetric(value);
+  return n === null ? "—" : String(Math.trunc(n));
+}
+function penaltyEvidence(row = {}) {
+  const penalty = nonnegativeMetric(row.penaltyMs);
+  const discarded = nonnegativeMetric(row.discardedControlCount);
+  const pending = nonnegativeMetric(row.pendingControlCount ?? row.controlMissingCount);
+  const perControl = nonnegativeMetric(row.penaltyPerControlMs ?? row.penaltyPerDiscardMs);
+  if (penalty === null || discarded === null || pending === null || perControl === null) return "";
+  if (Math.abs((discarded + pending) * perControl - penalty) > 1) {
+    return '<span class="m2-h2-detail m2-h2-warning">⚠ Revisar desglose almacenado</span>';
+  }
+  return `<span class="m2-h2-detail">${esc(countOrDash(discarded))} descartadas + ${esc(countOrDash(pending))} pendientes</span>`;
+}
+function sourceBreakdown(row = {}) {
+  const gps = nonnegativeMetric(row.controlGpsLiveCount);
+  const qr = nonnegativeMetric(row.controlQrCount);
+  const recovered = nonnegativeMetric(row.controlTrackRecoveryCount);
+  if (gps === null && qr === null && recovered === null) return "—";
+  const bits = [];
+  if (gps !== null) bits.push(`GPS ${Math.trunc(gps)}`);
+  if (qr !== null) bits.push(`QR ${Math.trunc(qr)}`);
+  if (recovered !== null && recovered > 0) bits.push(`GPS recuperado ${Math.trunc(recovered)}`);
+  return bits.join(" · ");
 }
 function formatDateTime(value) {
   const ms = Number(value || 0);
@@ -197,8 +239,8 @@ function formatDateTime(value) {
   catch (_) { return new Date(ms).toLocaleString(); }
 }
 function formatDuration(value) {
-  const ms = Number(value);
-  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const ms = nonnegativeMetric(value);
+  if (ms === null) return "—";
   const total = Math.floor(ms / 1000);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
@@ -206,8 +248,8 @@ function formatDuration(value) {
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
 }
 function formatDistance(value) {
-  const m = Number(value);
-  if (!Number.isFinite(m) || m < 0) return "—";
+  const m = nonnegativeMetric(value);
+  if (m === null) return "—";
   if (m < 1000) return `${Math.round(m)} m`;
   return `${(m / 1000).toFixed(2)} km`;
 }
@@ -243,19 +285,19 @@ function renderClassification() {
   tabs.innerHTML = `<button class="m2-h5-tab ${state.classView === "general" ? "active" : ""}" type="button" data-h5-view="general">GENERAL</button>` + routes.map(route => `<button class="m2-h5-tab ${state.classView === route.routeId ? "active" : ""}" type="button" data-h5-view="${esc(route.routeId)}">${esc(route.routeId)} · ${esc(route.participantCount)} corredores</button>`).join("");
 
   if (state.classError) note.textContent = `⚠️ ${state.classError}`;
-  else if (state.classView === "general") note.textContent = "GENERAL asigna puesto a todo corredor que tomó la salida: FINALIZADOS primero e INCOMPLETOS después. Dentro de cada estado se ordena por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.";
+  else if (state.classView === "general") note.textContent = "GENERAL asigna puesto cuando existe tiempo oficial verificable: FINALIZADOS primero e INCOMPLETOS después. Dentro de cada estado se ordena por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.";
   else {
     const route = routes.find(row => row.routeId === state.classView) || {};
     const distance = Number.isFinite(Number(route.routeDistanceKm)) ? `${Number(route.routeDistanceKm).toFixed(2)} km` : "distancia —";
-    note.textContent = `${state.classView}: ${route.participantCount || 0} participantes · ${distance} · FINALIZADOS primero e INCOMPLETOS después, ordenados por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.`;
+    note.textContent = `${state.classView}: ${route.participantCount || 0} participantes · ${distance} · FINALIZADOS primero e INCOMPLETOS después, con puesto solo si existe tiempo oficial. NO SALIÓ queda sin puesto.`;
   }
 
-  if (state.classLoading) { body.innerHTML = '<tr><td colspan="8" class="m2-h2-empty">Calculando clasificación…</td></tr>'; return; }
+  if (state.classLoading) { body.innerHTML = '<tr><td colspan="10" class="m2-h2-empty">Calculando clasificación…</td></tr>'; return; }
   const rows = classRows();
-  if (!rows.length) { body.innerHTML = `<tr><td colspan="8" class="m2-h2-empty">${state.classError ? "No se pudo cargar la clasificación." : "Todavía no hay participantes clasificables."}</td></tr>`; return; }
+  if (!rows.length) { body.innerHTML = `<tr><td colspan="10" class="m2-h2-empty">${state.classError ? "No se pudo cargar la clasificación." : "Todavía no hay participantes clasificables."}</td></tr>`; return; }
   body.innerHTML = rows.map(row => {
     const status = ["finished","incomplete","not_started"].includes(String(row.status)) ? String(row.status) : "not_started";
-    return `<tr class="${row.runnerUid === state.auth?.uid ? "m2-h5-own" : ""}"><td class="m2-h5-rank">${row.rank ?? "—"}</td><td><strong>${esc(runnerName(row))}</strong></td><td>${esc(row.participantId || "—")}</td><td>${esc(row.routeId || "—")}</td><td>${row.routeDistanceKm == null ? "—" : `${esc(Number(row.routeDistanceKm).toFixed(2))} km`}</td><td><strong>${esc(formatDuration(row.officialDurationMs ?? row.durationMs))}</strong></td><td class="m2-h5-gap">${esc(formatGap(row.gapToLeaderMs))}</td><td><span class="m2-h2-state ${esc(status)}">${esc(RESULT_ES[status])}</span></td></tr>`;
+    return `<tr class="${row.runnerUid === state.auth?.uid ? "m2-h5-own" : ""}"><td class="m2-h5-rank">${row.rank ?? "—"}</td><td><strong>${esc(runnerName(row))}</strong></td><td>${esc(row.participantId || "—")}</td><td>${esc(row.routeId || "—")}</td><td>${row.routeDistanceKm == null ? "—" : `${esc(Number(row.routeDistanceKm).toFixed(2))} km`}</td><td class="m2-h2-penalty">${status === "not_started" || storedPenalty(row) === null ? "—" : `+${esc(formatDuration(penaltyMs(row)))}`}</td><td>${status === "not_started" ? "—" : `${esc(countOrDash(row.discardedControlCount))} / ${esc(countOrDash(row.pendingControlCount))}`}</td><td><strong>${esc(formatDuration(officialDurationMs(row)))}</strong></td><td class="m2-h5-gap">${esc(formatGap(row.gapToLeaderMs))}</td><td><span class="m2-h2-state ${esc(status)}">${esc(RESULT_ES[status])}</span></td></tr>`;
   }).join("");
 }
 async function loadClassification(force = false) {
@@ -339,7 +381,7 @@ function render() {
 
   if (!body) return;
   if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="11" class="m2-h2-empty">${state.error ? "No se pudieron leer los resultados." : "Sin resultados guardados para esta carrera."}</td></tr>`;
+    body.innerHTML = `<tr><td colspan="14" class="m2-h2-empty">${state.error ? "No se pudieron leer los resultados." : "Sin resultados guardados para esta carrera."}</td></tr>`;
     return;
   }
   body.innerHTML = rows.map(row => {
@@ -354,9 +396,12 @@ function render() {
       <td class="m2-h2-num">${esc(formatDateTime(row.startedAtMs))}</td>
       <td class="m2-h2-num">${esc(formatDateTime(row.finishedAtMs))}</td>
       <td class="m2-h2-num">${esc(formatDuration(row.durationMs))}</td>
-      <td class="m2-h2-num m2-h2-penalty">${penalty > 0 ? `+${esc(formatDuration(penalty))}` : "—"}</td>
+      <td class="m2-h2-num m2-h2-counter">${status === "not_started" ? "—" : esc(countOrDash(row.discardedControlCount))}</td>
+      <td class="m2-h2-num m2-h2-counter">${status === "not_started" ? "—" : esc(countOrDash(row.pendingControlCount ?? row.controlMissingCount))}</td>
+      <td class="m2-h2-num m2-h2-penalty">${status === "not_started" || storedPenalty(row) === null ? "—" : `+${esc(formatDuration(penalty))}${penaltyEvidence(row)}`}</td>
       <td class="m2-h2-num m2-h2-official">${esc(formatDuration(official))}</td>
-      <td class="m2-h2-num">${Number(row.controlExpectedCount||0)>0?`${esc(Number(row.controlDetectedCount ?? row.controlCompletedCount ?? 0))} / ${esc(Number(row.controlExpectedCount||0))}`:"—"}</td>
+      <td class="m2-h2-num">${nonnegativeMetric(row.controlExpectedCount) > 0 ? `${esc(countOrDash(row.controlDetectedCount ?? row.controlCompletedCount))} / ${esc(countOrDash(row.controlExpectedCount))}` : "—"}</td>
+      <td class="m2-h2-num">${esc(sourceBreakdown(row))}</td>
       <td class="m2-h2-num">${esc(formatDistance(row.trackDistanceM))}</td>
       <td class="m2-h2-num">${esc(Number(row.trackPointCount || 0))} puntos · ${esc(Number(row.trackChunkCount || 0))} bloques</td>
     </tr>`;
