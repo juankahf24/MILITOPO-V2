@@ -7913,6 +7913,62 @@ async function auditOrganizerZipContent(zip){
     return {errors,warnings,counts};
 }
 
+// F2.20 · Coherencia semántica de las balizas realmente impresas y exportadas.
+// No depende de nombres de archivos ni del diseño de los PDF/ZIP: se valida
+// la identidad del control, su evento y sus coordenadas en el GPX generado.
+function auditPrintedControlQrAgainstGpx(qrItems,gpxXml,eventId){
+    const errors=[];
+    // Si falla la generación GPX, el exportador F2.19 ya adjunta _ERROR.txt
+    // y muestra ZIP CON AVISOS. No cambiar ese contrato para material opcional.
+    if(gpxXml===null||gpxXml===undefined)return {errors,checked:0};
+    const expectedEvent=String(eventId||"").trim().toUpperCase();
+    const qrById=new Map();
+    for(const item of qrItems||[]){
+        const point=item?.point||{};
+        const id=String(point.id||"").trim().toUpperCase();
+        if(!id){errors.push("Una hoja QR carece de identificador de punto.");continue}
+        if(qrById.has(id)){errors.push(`QR duplicado: ${id}.`);continue}
+        const parsed=parseOrientationQr(item.payload);
+        if(!parsed.ok||parsed.type!=="CONTROL"||parsed.eventId!==expectedEvent||parsed.id!==id||
+           String(item.payload||"").trim().toUpperCase()!==controlPayload(point.id).toUpperCase()){
+            errors.push(`El QR de ${id} no corresponde al control y evento exportados.`);
+        }
+        const coordinate=value=>value===null||value===undefined||String(value).trim()===""?NaN:Number(value);
+        const lat=coordinate(point.lat),lon=coordinate(point.lon);
+        if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180){
+            errors.push(`Coordenadas no válidas para el QR ${id}.`);
+        }
+        qrById.set(id,{lat,lon});
+    }
+    const doc=new DOMParser().parseFromString(gpxXml,"application/xml");
+    if(doc.querySelector("parsererror")||doc.documentElement?.localName?.toLowerCase()!=="gpx"){
+        errors.push("No se pueden cotejar los QR con un GPX mal formado.");
+        return {errors,checked:0};
+    }
+    const gpxById=new Map();
+    for(const waypoint of doc.getElementsByTagNameNS("*","wpt")){
+        const id=String(waypoint.getElementsByTagNameNS("*","name")[0]?.textContent||"").trim().toUpperCase();
+        if(!id){errors.push("Waypoint GPX sin identificador de punto.");continue}
+        if(gpxById.has(id)){errors.push(`Punto GPX duplicado: ${id}.`);continue}
+        const lat=Number(waypoint.getAttribute("lat"));
+        const lon=Number(waypoint.getAttribute("lon"));
+        gpxById.set(id,{lat,lon});
+    }
+    for(const [id,coords] of qrById){
+        const gpx=gpxById.get(id);
+        if(!gpx){errors.push(`El QR ${id} no tiene un punto equivalente en el GPX.`);continue}
+        // El GPX exporta 8 decimales: admitir solo el redondeo de escritura.
+        if(!Number.isFinite(gpx.lat)||!Number.isFinite(gpx.lon)||
+           Math.abs(coords.lat-gpx.lat)>0.00000002||Math.abs(coords.lon-gpx.lon)>0.00000002){
+            errors.push(`El QR ${id} y el GPX usan coordenadas distintas.`);
+        }
+    }
+    for(const id of gpxById.keys()){
+        if(!qrById.has(id))errors.push(`El punto GPX ${id} no tiene su hoja QR.`);
+    }
+    return {errors,checked:qrById.size};
+}
+
 async function generateZip(verificationFromButton=null){ensureZipProgressUi();updateZipProgress(0,1,'Preparando ZIP');await zipUiYield();syncPlanScaleFromUiNow();
     const previousButton=document.querySelector('button[onclick="verifyAndGenerateZip()"]');
     try{
@@ -7999,10 +8055,12 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         });
         zip.file("Otros documentos/Descripciones_IOF_general.csv",descRows.map(r=>r.map(csvEscape).join(";")).join("\n"));
 
+        let generatedControlGpx=null;
         if(typeof buildAllExercisePointsGpx==="function"){
             try{
                 setZipStatus("warn","Añadiendo GPX ATAK con todos los puntos...");
-                zip.file("Puntos_ejercicio_ATAK.gpx",buildAllExercisePointsGpx());
+                generatedControlGpx=buildAllExercisePointsGpx();
+                zip.file("Puntos_ejercicio_ATAK.gpx",generatedControlGpx);
             }catch(gpxErr){
                 console.warn("GPX ATAK no generado",gpxErr);
                 zip.file("Puntos_ejercicio_ATAK_ERROR.txt",`No se pudo generar el GPX ATAK. Motivo: ${gpxErr&&gpxErr.message?gpxErr.message:gpxErr}`);
@@ -8099,8 +8157,10 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
             controlsFolder.file("IMPRIMIR_TODAS_BALIZAS_A4.pdf",await checkedPdfExport(await printableControlsQrPdfBlob(printableControlQrItems),"QR de balizas"));
         }
 
-        setZipStatus("warn","Comprobando el contenido de PDF, GPX y datos exportados...");
+        setZipStatus("warn","Comprobando el contenido y la coherencia de QR y GPX...");
         const audit=await auditOrganizerZipContent(zip);
+        const pointAudit=auditPrintedControlQrAgainstGpx(printableControlQrItems,generatedControlGpx,state.eventId);
+        audit.errors.push(...pointAudit.errors);
         if(audit.errors.length){
             throw new Error(`ZIP no descargado: ${audit.errors.slice(0,3).join(" · ")}`);
         }
@@ -8136,7 +8196,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         const warningCount=audit.warnings.length;
         const statusText=warningCount
             ? `ZIP descargado con ${warningCount} incidencia(s) de material: ${audit.warnings.slice(0,2).join(" · ")}. Revisa los archivos _ERROR.txt incluidos.`
-            : `ZIP generado y contenido comprobado. PDF: ${audit.counts.pdf}. GPX: ${audit.counts.gpx}. JSON: ${audit.counts.json}. QR participantes: ${participantQrCount}. QR balizas: ${controlQrCount}.${skippedMaterialCount?` Reservas/descartados incluidos: ${skippedMaterialCount}.`:""}`;
+            : `ZIP generado y contenido comprobado. PDF: ${audit.counts.pdf}. GPX: ${audit.counts.gpx}. JSON: ${audit.counts.json}. QR participantes: ${participantQrCount}. QR balizas: ${controlQrCount}. Balizas cotejadas QR/GPX: ${pointAudit.checked}.${skippedMaterialCount?` Reservas/descartados incluidos: ${skippedMaterialCount}.`:""}`;
         setZipStatus(warningCount?"warn":"ok",statusText);
         saveState();
         if(!globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__)toast(warningCount?"ZIP generado con avisos":"ZIP generado");
