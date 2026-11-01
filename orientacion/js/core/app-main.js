@@ -10737,6 +10737,12 @@ async function reuseCurrentRaceAsNew(){
     // su eventId, ni confiar en el estado antiguo de un panel Premium.
     return center.recoverDirect(sourceId,{reuse:true});
 }
+// F2.25 · Sincronizar la cabecera del constructor Premium sin invocar el paso
+// histórico confirmStep1 (que navega y puede actualizar configuraciones).
+window.MILITOPO_BUILDER_SAVE_BASICS=function(){
+    if(rejectProtectedRaceMutation("guardar cambios de una carrera cerrada"))return false;
+    return saveState();
+};
 window.createNewRace=createNewRace;
 window.reuseCurrentRaceAsNew=reuseCurrentRaceAsNew;
 window.resetSavedEvent=resetSavedEvent;let step5ResultQrCameraStream=null;
