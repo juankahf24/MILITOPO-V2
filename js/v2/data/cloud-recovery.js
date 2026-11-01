@@ -748,6 +748,12 @@ MILITOPO guardará primero una copia duradera del evento que tengas abierto en e
   paintStatus(`☁️ Descargando ${row.eventId}…`, "warn");
   try {
     const packet = await fetchCloudEvent(eventId);
+    // F2.23: el estado de la lista puede estar desactualizado. Una carrera
+    // que acaba de entrar EN DIRECTO no puede reutilizarse aunque su botón
+    // estuviera habilitado cuando se abrió el selector.
+    if (reuse && String(packet.header.status || "").toLowerCase() === "live") {
+      throw new Error("La carrera ha pasado a EN DIRECTO. Actualiza la lista antes de reutilizarla.");
+    }
     if (!packet.checkpoints.some(point => point.checkpointId === "START") || !packet.checkpoints.some(point => point.checkpointId === "FINISH")) {
       throw new Error("La copia de nube no contiene salida y llegada completas.");
     }
@@ -759,6 +765,8 @@ MILITOPO guardará primero una copia duradera del evento que tengas abierto en e
     closeOverlay();
     return true;
   } catch (error) {
+    state.reuseAfterRecover = "";
+    state.openResultsAfterRecover = "";
     console.error("[MILITOPO C3] recover", error);
     paintStatus(`⚠️ ${error?.message || "No se pudo recuperar el evento."} El evento local sigue intacto.`, "warn");
     state.list?.querySelectorAll("button").forEach(button => { button.disabled = false; });
@@ -806,6 +814,8 @@ function onApplied(event) {
       }, 180);
     }
   } else {
+    state.reuseAfterRecover = "";
+    state.openResultsAfterRecover = "";
     paintStatus(`⚠️ ${cleanString(detail.error || "No se pudo aplicar el evento descargado.", 300)}`, "warn");
   }
 }
