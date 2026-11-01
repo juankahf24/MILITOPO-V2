@@ -15,6 +15,6 @@
     base = current.split("/").slice(0, -1).join("/") + "/";
   }
   for (var i = 0; i < files.length; i++) {
-    document.write('<script src="' + base + files[i].replace(/^js\//, "") + '?v=' + (files[i] === "js/core/app-main.js" ? "militopo-f221-participant-qr-routes-20261101" : VERSION) + '"><\/script>');
+    document.write('<script src="' + base + files[i].replace(/^js\//, "") + '?v=' + (files[i] === "js/core/app-main.js" ? "militopo-f222-transparent-results-20261101" : VERSION) + '"><\/script>');
   }
 })();
