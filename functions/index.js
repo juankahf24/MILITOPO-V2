@@ -2898,8 +2898,15 @@ function h5RunnerLabel(row = {}) {
   return String(row.participantId || "Corredor");
 }
 function h5Duration(row = {}) {
-  const value = Number(row.officialDurationMs ?? row.durationMs);
-  return Number.isFinite(value) && value >= 0 ? value : null;
+  // F2.22: un resultado sin cronometraje no equivale a 00:00:00.
+  if (row.officialDurationMs != null && String(row.officialDurationMs).trim() !== "") {
+    const official = Number(row.officialDurationMs);
+    return Number.isFinite(official) && official >= 0 ? official : null;
+  }
+  if (row.durationMs == null || String(row.durationMs).trim() === "") return null;
+  const real = Number(row.durationMs);
+  const penalty = row.penaltyMs == null ? 0 : Number(row.penaltyMs);
+  return Number.isFinite(real) && real >= 0 && Number.isFinite(penalty) && penalty >= 0 ? real + penalty : null;
 }
 function h5RankRows(rows) {
   const statusOrder = { finished: 0, incomplete: 1, not_started: 2 };
@@ -2925,7 +2932,8 @@ function h5RankRows(rows) {
     const status = h5ResultStatus(row.status);
     const duration = h5Duration(row);
     let rank = null;
-    if (status !== "not_started") {
+    // Sin tiempo oficial verificable no se asigna puesto ficticio.
+    if (status !== "not_started" && duration !== null) {
       rankedOrdinal += 1;
       if (duration != null && previousDuration !== null && duration === previousDuration && status === previousStatus) rank = previousRank;
       else rank = rankedOrdinal;
@@ -3024,7 +3032,7 @@ async function buildEventClassification(eventRef, eventData) {
       photoURL: String(profile.photoURL || result.photoURL || member.photoURL || "").slice(0, 1800) || null,
       status: hasResult ? h5ResultStatus(result.status) : "not_started",
       durationMs: hasResult && result.durationMs != null ? Math.max(0, Number(result.durationMs || 0)) : null,
-      officialDurationMs: hasResult && (result.officialDurationMs != null || result.durationMs != null) ? Math.max(0, Number(result.officialDurationMs ?? result.durationMs ?? 0)) : null,
+      officialDurationMs: hasResult ? h5Duration(result) : null,
       penaltyMs: hasResult ? Math.max(0, Number(result.penaltyMs || 0)) : 0,
       discardedControlCount: hasResult ? Math.max(0, Number(result.discardedControlCount || 0)) : 0,
       discardedControls: hasResult && Array.isArray(result.discardedControls) ? result.discardedControls : [],
