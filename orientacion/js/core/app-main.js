@@ -9913,7 +9913,10 @@ async function applyMilitopoCloudRecoveredEvent(detail){
     selectedPointId="START";
     selectedIofPointId="START";
     __militopoCloudHeaderArmed=true;
-    try{clearAllReusableExerciseRuntimeStorage(eventId)}catch(_){}
+    // F2.23: cargar una carrera de Firestore NUNCA es autorización para borrar
+    // su cola offline, contexto de participante, tracks o snapshots locales.
+    // Esos datos siguen ligados al eventId/runId y las defensas F1 mantienen
+    // su aislamiento. La limpieza explícita queda en la operación de reinicio.
 
     syncConfigToUi();
     try{syncPlanScaleSettingUi()}catch(_){}
@@ -10550,10 +10553,24 @@ async function prepareFreshOrganizerEvent(previousEventId, options={}){
     const purgeLocalRuntime=options.purgeLocalRuntime!==false;
     const toastPrefix=String(options.toastPrefix||"Evento nuevo creado");
 
+    // F2.23: REUTILIZAR no significa BORRAR la copia durable de origen.
+    // Antes de abrir otro BORRADOR, exigimos una copia persistida del diseño
+    // original. Ante error no se toca el estado ni sus colas/tracks.
+    const preserveSourceDurable=options.preserveSourceDurable===true;
+    if(preserveSourceDurable){
+        if(!saveState())throw new Error("No se pudo guardar la carrera de origen antes de reutilizarla.");
+        const snapshot={savedAt:new Date().toISOString(),currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:cloneStateForCompactSave(),compact:true};
+        try{
+            const persisted=await withOrganizerTimeout(persistDurableOrganizerState(snapshot),2200,"Copia duradera de origen");
+            if(persisted!==true)throw new Error("No se confirmó la copia duradera de origen.");
+        }catch(error){throw new Error("No se pudo proteger la carrera original: "+String(error?.message||error));}
+    }
     __militopoOrganizerStateEpoch++;
     clearTimeout(__autoSaveTimer);
     clearTimeout(__durableSaveTimer);
-    try{await withOrganizerTimeout(deleteDurableOrganizerState(oldEventId),2200,"Borrado duradero")}catch(error){console.warn("No se pudo borrar la copia duradera",error)}
+    if(!preserveSourceDurable){
+        try{await withOrganizerTimeout(deleteDurableOrganizerState(oldEventId),2200,"Borrado duradero")}catch(error){console.warn("No se pudo borrar la copia duradera",error)}
+    }
     if(purgeLocalRuntime){
         try{await window.MILITOPO_LIVE_PURGE_LOCAL_EVENT?.(oldEventId)}catch(error){console.warn("No se pudo purgar el seguimiento local del evento",error)}
     }
@@ -10686,7 +10703,7 @@ async function reuseCurrentRaceAsNew(){
         points:clone(state.points||{}),routes:clone(state.routes||[]),metrics:clone(state.metrics||[]),
         elevations:clone(state.elevations||{}),iofDescriptions:clone(state.iofDescriptions||{}),routeWarnings:clone(state.routeWarnings||[])
     };
-    const created=await prepareFreshOrganizerEvent(sourceId,{reason:"reuse-race",purgeLocalRuntime:false,toastPrefix:"Carrera reutilizada"});
+    const created=await prepareFreshOrganizerEvent(sourceId,{reason:"reuse-race",purgeLocalRuntime:false,preserveSourceDurable:true,toastPrefix:"Carrera reutilizada"});
     if(created!==true)return false;
     state.eventName=`${template.eventName} · COPIA`;
     state.planScale=template.planScale;state.planEquidistanceM=template.planEquidistanceM;state.selectedMapLayer=template.selectedMapLayer;
