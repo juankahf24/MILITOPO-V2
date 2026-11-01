@@ -167,11 +167,30 @@ async function run(action){if(!canManage())return false;
   return false;
 }
 function onClick(e){const op=e.target.closest("[data-mpp-operation]");if(op){if(op.disabled)return;state.operationKind=op.dataset.mppOperation;setScreen("operation");return}const reuse=e.target.closest("[data-mpp-reuse]");if(reuse&&!reuse.disabled){loadRace(reuse.dataset.mppReuse,{reuse:true});return}const load=e.target.closest("[data-mpp-load]");if(load){loadRace(load.dataset.mppLoad);return}const button=e.target.closest("[data-mpp-action]");if(button&&!button.disabled)run(button.dataset.mppAction)}
-function onInput(e){if(e.target.matches("[data-mpp-filter]")){state.filter=e.target.value;render(true)}else if(e.target.matches("[data-mpp-search]")){const pos=e.target.selectionStart;state.search=e.target.value;render(true);const input=$('[data-mpp-search]',state.root);if(input){input.focus();input.setSelectionRange(pos,pos)}}}
+function onInput(e){
+  if(e.target.matches("[data-mpp-filter]")){state.filter=e.target.value;render(true);return;}
+  if(e.target.matches("[data-mpp-search]")){
+    // Nunca reconstruir el input al teclear: iOS Safari perdería teclado y foco.
+    state.search=e.target.value;
+    const currentList=$(".mpp-r3-race-list",state.root);
+    if(!currentList)return;
+    const sandbox=document.createElement("template");sandbox.innerHTML=racesHtml();
+    const newList=sandbox.content.querySelector(".mpp-r3-race-list");
+    if(newList)currentList.replaceChildren(...Array.from(newList.childNodes));
+  }
+}
 function open(screen){if(!canManage())return false;ensure();document.body.classList.add("mor-organizer-shell");globalThis.MILITOPO_V2_ORGANIZER_CENTER?.close?.();if(screen)state.screen=screen;render();state.root.classList.add("is-open");state.root.setAttribute("aria-hidden","false");document.body.classList.add("militopo-premium-home-open");state.opened=true;fetchRows(false);if(state.screen==="profile")void loadProfile();return true}
 function close(){if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-home-open");state.opened=false}
 function refresh(){if(state.opened)render(true)}
-premium.register("organizer-home",Object.freeze({open,close,refresh,isOpen:()=>state.opened,showRaces:()=>open("races"),showOperations:(kind)=>{if(kind){state.operationKind=kind;return open("operation")}return open("operations")},showOperation:(kind)=>{state.operationKind=kind||"publish";return open("operation")}}),{version:"r5",purpose:"r5-guided-operations-workspaces-and-official-engines"});
+function onDraftSaved({eventId,eventName}={}){
+  const id=String(eventId||"").trim(),name=String(eventName||"").trim();
+  if(!id)return;
+  const row=state.rows.find(item=>item.eventId===id);
+  if(row&&name)row.eventName=name;
+  state.lastFetch=0; // la próxima apertura consultará el nombre confirmado en Firebase.
+  if(state.opened){render(true);void fetchRows(true);}
+}
+premium.register("organizer-home",Object.freeze({open,close,refresh,onDraftSaved,isOpen:()=>state.opened,showRaces:()=>open("races"),showOperations:(kind)=>{if(kind){state.operationKind=kind;return open("operation")}return open("operations")},showOperation:(kind)=>{state.operationKind=kind||"publish";return open("operation")}}),{version:"r5",purpose:"r5-guided-operations-workspaces-and-official-engines"});
 addEventListener("militopo:v2-auth-ready",e=>{const priorUid=String(state.auth?.uid||"");state.auth=e.detail||globalThis.MILITOPO_V2_AUTH||null;if(priorUid!==String(state.auth?.uid||"")){state.profileRequest++;state.profile={uid:"",busy:false,loadedAt:0,user:null,history:null,profileError:"",historyError:""};state.rows=[];state.rowsLoaded=false;state.rowsError="";state.lastFetch=0}if(!canManage())close()});
 addEventListener("militopo:v2-cloud-event-applied",e=>{const id=String(e.detail?.eventId||"");if(!e.detail?.ok){if(state.pendingRecoveryId)message("No se pudo recuperar la carrera; la anterior permanece guardada.");state.pendingRecoveryId="";return}
   const previousSelection=state.pendingRecoveryId;
