@@ -166,3 +166,12 @@ body.r5-premium-tool-open #r1Workspace[data-premium-tool="analysis"] .table-wrap
 .mpp-management button:disabled{opacity:1!important;background:#eef0ed;color:#59645c;border:1px dashed #929d94;cursor:not-allowed;box-shadow:none}
 @media(max-width:600px){.mpp-manage-grid{grid-template-columns:1fr}.mpp-manage-design{align-items:stretch;flex-direction:column}.mpp-manage-card{padding:16px}.mpp-manage-header{padding:16px}}
 .mpp-home .mpp-management h1,.mpp-home .mpp-management h2{color:#193d2b!important;text-shadow:none!important;background:none;-webkit-text-fill-color:currentColor}
+
+/* F2.24 · identificación inequívoca y acciones separadas ABRIR / REUTILIZAR */
+.mpp-r5-current-id,.mpp-manage-identity{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px 11px;background:#f1f6ed;border:1px solid #d9e4d6;padding:11px 13px;border-radius:12px;margin:10px 0;color:#203b2d}
+.mpp-r5-current-id strong,.mpp-manage-identity strong{font-size:10px;letter-spacing:.07em;color:#526d5d}
+.mpp-r5-current-id span{font-size:13px;font-weight:850}
+.mpp-r5-current-id code,.mpp-manage-identity code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;font-weight:750;overflow-wrap:anywhere;user-select:text;background:#fff;border:1px solid #d7e5d8;padding:5px 7px;border-radius:7px;color:#1b4932}
+.mpp-manage-identity{margin:12px 0 0}.mpp-manage-identity small{width:100%;font-size:11px;color:#60796c}
+.mpp-r5-race-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.mpp-r5-race-actions button{min-height:43px;border-radius:10px;padding:9px 12px;font-size:11px;font-weight:900}.mpp-r5-race-actions button[data-mpp-reuse]{border:1px solid #aac5ab;background:#edf6ed;color:#1e5735}.mpp-r5-race-actions button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:600px){.mpp-r5-race-actions{width:100%;justify-content:stretch}.mpp-r5-race-actions button{flex:1 1 105px}.mpp-r3-race-list article{flex-wrap:wrap}.mpp-manage-identity{align-items:flex-start;flex-direction:column}}
