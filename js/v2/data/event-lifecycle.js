@@ -4,6 +4,8 @@ import "../bootstrap.js";
 import {
   doc,
   getDoc,
+  getDocs,
+  collection,
   serverTimestamp,
   runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -66,6 +68,87 @@ function currentContext(token) {
 function structureReady(data) {
   const points = Number(data?.checkpointSyncedCount), courses = Number(data?.courseSyncedCount);
   return Number.isSafeInteger(points) && points >= 3 && Number.isSafeInteger(courses) && courses >= 1;
+}
+
+// F2.32 · El botón directo ESTADO Y PUBLICACIÓN no debe omitir las
+// comprobaciones mínimas de diseño del Preflight (paso 9).
+// Solo lee Firestore: no edita controles, recorridos ni itinerarios.
+function structureVersion(value) {
+  if (value?.seconds !== undefined) return `${value.seconds}:${value.nanoseconds ?? 0}`;
+  if (typeof value?.toMillis === "function") return String(value.toMillis());
+  return value == null ? "" : String(value);
+}
+function validatePublicationCollections(header, checkpointDocs, courseDocs) {
+  const errors = [];
+  const expectedPoints = Number(header?.checkpointSyncedCount);
+  const expectedCourses = Number(header?.courseSyncedCount);
+  const points = new Map();
+  const courses = new Set();
+  const pointsList = Array.isArray(checkpointDocs) ? checkpointDocs : [];
+  const courseList = Array.isArray(courseDocs) ? courseDocs : [];
+  if (!structureReady(header) || pointsList.length !== expectedPoints || courseList.length !== expectedCourses) {
+    errors.push("Los recuentos sincronizados no coinciden con los documentos de balizas y recorridos.");
+  }
+  for (const entry of pointsList) {
+    const item = entry?.data || {};
+    const id = String(entry?.id || "").trim();
+    if (!id || id !== String(item.checkpointId || "").trim() || points.has(id)) {
+      errors.push(`Identificador de baliza incoherente o duplicado: ${id || "sin ID"}.`);
+      continue;
+    }
+    points.set(id, item);
+    const lat = item.lat, lon = item.lon;
+    if (typeof lat !== "number" || !Number.isFinite(lat) || lat < -90 || lat > 90 ||
+        typeof lon !== "number" || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+      errors.push(`Coordenadas inválidas en ${id}.`);
+    }
+    if (item.iof?.complete !== true) errors.push(`Descripción IOF pendiente en ${id}.`);
+  }
+  if (!points.has("START") || !points.has("FINISH")) errors.push("Falta START o FINISH.");
+  if (points.get("START")?.type !== "SALIDA" || points.get("FINISH")?.type !== "LLEGADA") {
+    errors.push("El tipo de START o FINISH no coincide con su identificador.");
+  }
+  const expectedControls = Number(header?.controlCount);
+  if (Number.isSafeInteger(expectedControls) && expectedControls > 0 && points.size !== expectedControls + 2) {
+    errors.push("El número de balizas no coincide con la configuración de la carrera.");
+  }
+  const controlsPerRoute = Number(header?.controlsPerRoute);
+  for (const entry of courseList) {
+    const course = entry?.data || {}, id = String(entry?.id || "").trim();
+    const ids = Array.isArray(course.points) ? course.points.map(x => String(x || "").trim()) : [];
+    if (!id || id !== String(course.courseId || course.routeId || "").trim() || courses.has(id)) {
+      errors.push(`Identificador de recorrido incoherente: ${id || "sin ID"}.`);
+      continue;
+    }
+    courses.add(id);
+    if (ids.length < 3 || ids[0] !== "START" || ids[ids.length-1] !== "FINISH" ||
+        new Set(ids).size !== ids.length || ids.some(pointId => !points.has(pointId))) {
+      errors.push(`Recorrido ${id}: orden, balizas o referencias inválidas.`);
+    }
+    if (Number.isSafeInteger(controlsPerRoute) && controlsPerRoute > 0 && ids.length !== controlsPerRoute + 2) {
+      errors.push(`Recorrido ${id}: número de balizas diferente al configurado.`);
+    }
+  }
+  return errors;
+}
+async function verifyPublicationDesign(firestore, eventId, header) {
+  const [pointSnaps, courseSnaps] = await Promise.all([
+    getDocs(collection(firestore, "events", eventId, "checkpoints")),
+    getDocs(collection(firestore, "events", eventId, "courses"))
+  ]);
+  const errors = validatePublicationCollections(header,
+    pointSnaps.docs.map(snap => ({ id: snap.id, data: snap.data() })),
+    courseSnaps.docs.map(snap => ({ id: snap.id, data: snap.data() })));
+  if (errors.length) {
+    throw new Error(`No se puede publicar: ${errors.slice(0, 3).join(" ")} Revisa Controles, Recorridos y Preflight (pasos 6–9).`);
+  }
+  // El guardado habitual de estructura modifica structureUpdatedAt en el padre;
+  // comprobar la misma revisión dentro de la transacción evita publicar tras
+  // una sincronización que termine mientras se revisan los documentos.
+  if (!structureVersion(header?.structureUpdatedAt)) {
+    throw new Error("La estructura no tiene una sincronización confirmada. Guarda el diseño y vuelve a revisar el Preflight.");
+  }
+  return structureVersion(header.structureUpdatedAt);
 }
 
 function publishLifecycleState(eventId, status, exists = true) {
@@ -502,7 +585,7 @@ async function confirmTransition(from, to, options = null) {
 // F2.30: el estado leído antes de un modal puede quedarse obsoleto.
 // La transacción revalida estado, propietario y estructura al escribir;
 // Firestore la reintenta si alguien cambia el documento concurrentemente.
-async function commitLifecycleTransition(firestore, eventId, from, to, uid, role) {
+async function commitLifecycleTransition(firestore, eventId, from, to, uid, role, expectedStructureVersion = "") {
   const eventRef = doc(firestore, "events", eventId);
   return runTransaction(firestore, async tx => {
     const snap = await tx.get(eventRef);
@@ -516,6 +599,10 @@ async function commitLifecycleTransition(firestore, eventId, from, to, uid, role
       throw new Error("Transición de carrera no permitida desde esta pantalla.");
     if (["prepared", "published"].includes(to) && !structureReady(latest))
       throw new Error("La estructura ha cambiado: revisa las balizas y los recorridos antes de publicar.");
+    if (to === "published" && (!expectedStructureVersion ||
+        structureVersion(latest.structureUpdatedAt) !== expectedStructureVersion)) {
+      throw new Error("La estructura cambió durante la revisión. Actualiza el Preflight antes de publicar.");
+    }
     const payload = {
       status: to, cloudStage: "F2B", lifecycleVersion: 2, updatedAt: serverTimestamp()
     };
@@ -547,6 +634,13 @@ async function advance(options = null) {
     if (["draft", "prepared"].includes(from) && !structureReady(state.event)) {
       finalMessage = readinessText(state.event, from);
       return;
+    }
+    let expectedStructureVersion = "";
+    if (from === "prepared" && to === "published") {
+      const svc = await services();
+      if (!currentContext(token)) return;
+      expectedStructureVersion = await verifyPublicationDesign(svc.firestore, eventId, state.event);
+      if (!currentContext(token)) return;
     }
     if (!await confirmTransition(from, to, options) || !currentContext(token)) return;
     if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return; }
@@ -584,7 +678,7 @@ async function advance(options = null) {
       return;
     }
     // Nunca publicar usando una lectura antigua; no tocar la estructura ni resultados.
-    await commitLifecycleTransition(firestore, eventId, from, to, token.uid, token.role);
+    await commitLifecycleTransition(firestore, eventId, from, to, token.uid, token.role, expectedStructureVersion);
     if (!currentContext(token)) return;
     await refresh();
     if (!currentContext(token)) return;
