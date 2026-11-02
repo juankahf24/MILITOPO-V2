@@ -10,14 +10,13 @@ import {
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
-const ORDER = ["draft", "prepared", "published", "live", "finished", "archived"];
+const ORDER = ["draft", "prepared", "published", "live", "finished"];
 const META = {
   draft: { label: "BORRADOR", action: "MARCAR COMO PREPARADO", next: "prepared", hint: "Diseña la carrera y sincroniza su estructura antes de cerrarla." },
   prepared: { label: "PREPARADO", action: "PUBLICAR CARRERA", next: "published", hint: "Al publicar se bloquearán balizas, recorridos, itinerarios, plano y configuración de diseño. Confirma solo cuando estén revisados." },
   published: { label: "PUBLICADO", action: "INICIAR CARRERA", next: "live", hint: "Carrera visible para el flujo operativo. Iníciala únicamente cuando comience la actividad." },
   live: { label: "EN DIRECTO", action: "FINALIZAR CARRERA", next: "finished", hint: "La sesión Live está activa y los corredores pueden estar compitiendo." },
-  finished: { label: "FINALIZADO", action: "ARCHIVAR CARRERA", next: "archived", hint: "La actividad ha terminado. Revisa resultados antes de archivarla." },
-  archived: { label: "ARCHIVADO", action: "", next: "", hint: "Carrera cerrada y conservada en el histórico." }
+  finished: { label: "FINALIZADO", action: "", next: "", hint: "Estado final. Los resultados, tiempos y tracks permanecen disponibles en el histórico." }
 };
 const state = {
   auth: globalThis.MILITOPO_V2_AUTH || null,
@@ -48,7 +47,10 @@ function esc(value) {
   return String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
 }
 function validStatus(value) {
-  return ORDER.includes(String(value || "")) ? String(value) : "draft";
+  const raw = String(value || "").toLowerCase();
+  // Compatibilidad histórica: nunca convertir un evento archivado en borrador.
+  if (raw === "archived") return "finished";
+  return ORDER.includes(raw) ? raw : "draft";
 }
 function currentEventId() {
   return String(state.eventId || document.getElementById("eventId")?.value || "").trim();
@@ -96,10 +98,10 @@ function injectStyle() {
     .m2-life-title{font:950 20px/1.05 system-ui,-apple-system,sans-serif;letter-spacing:-.02em;color:#172018}
     .m2-life-sub{margin-top:7px;font:650 12px/1.35 system-ui,-apple-system,sans-serif;color:#5b665e;max-width:680px}
     .m2-life-chip{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 11px;border-radius:999px;border:1px solid rgba(20,31,21,.16);font:900 10px/1 system-ui,-apple-system,sans-serif;letter-spacing:.07em;background:#f7f8ef;color:#253027;white-space:nowrap}
-    .m2-life-chip[data-status="draft"]{background:#eceee8;color:#4e5851}.m2-life-chip[data-status="prepared"]{background:#f1e7c9;color:#725a20}.m2-life-chip[data-status="published"]{background:#dcead9;color:#315c36}.m2-life-chip[data-status="live"]{background:#f2d9d2;color:#8a3e2e}.m2-life-chip[data-status="finished"]{background:#dce7ef;color:#39566c}.m2-life-chip[data-status="archived"]{background:#dde0dc;color:#4d554e}
+    .m2-life-chip[data-status="draft"]{background:#eceee8;color:#4e5851}.m2-life-chip[data-status="prepared"]{background:#f1e7c9;color:#725a20}.m2-life-chip[data-status="published"]{background:#dcead9;color:#315c36}.m2-life-chip[data-status="live"]{background:#f2d9d2;color:#8a3e2e}.m2-life-chip[data-status="finished"]{background:#dce7ef;color:#39566c}
     .m2-life-track-wrap{padding:13px;border:1px solid rgba(20,31,21,.12);border-radius:18px;background:#f2f4ea;overflow:hidden}
     .m2-life-track-label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.m2-life-track-label strong{font:900 10px/1 system-ui;letter-spacing:.1em}.m2-life-track-label span{font:650 10px/1.2 system-ui;color:#69736b}
-    .m2-life-track{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin:0}
+    .m2-life-track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0}
     .m2-life-step{position:relative;min-width:0;padding:10px 5px;border-radius:11px;text-align:center;font:850 9px/1.15 system-ui,-apple-system,sans-serif;border:1px solid rgba(20,31,21,.10);background:#e4e8dc;color:#6e776f;opacity:.7}
     .m2-life-step.done{opacity:1;background:#dce8d7;color:#365d3a;border-color:rgba(60,106,65,.18)}
     .m2-life-step.active{opacity:1;background:#1f2b20;color:#f8f4e6;border-color:#1f2b20;box-shadow:0 5px 14px rgba(0,0,0,.14)}
@@ -136,8 +138,7 @@ const TRANSITION_UI = {
   "draft>prepared": ["PREPARANDO EVENTO", "Validando balizas y recorridos y guardando el estado…"],
   "prepared>published": ["PUBLICANDO EVENTO", "Aplicando el estado PUBLICADO y cerrando el diseño…"],
   "published>live": ["INICIANDO EVENTO", "Creando la sesión Live V2 y autorizando corredores…"],
-  "live>finished": ["FINALIZANDO EVENTO", "Cerrando la sesión Live V2 y guardando el final de la actividad…"],
-  "finished>archived": ["ARCHIVANDO EVENTO", "Guardando el evento como archivado sin borrar sus datos…"]
+  "live>finished": ["FINALIZANDO EVENTO", "Cerrando la sesión Live V2 y guardando el final de la actividad…"]
 };
 function ensureProcessingOverlay() {
   if (state.overlay?.isConnected) return state.overlay;
@@ -325,7 +326,7 @@ function nextHint(status) {
   if (status === "prepared") return "PUBLICAR BLOQUEA EL DISEÑO: ya no podrás editar balizas, recorridos, itinerarios ni plano. Antes de publicar, se pedirá confirmación.";
   if (status === "published") return "Iniciar crea la sesión Live V2. Hazlo solo al comenzar la actividad.";
   if (status === "live") return "Finalizar cierra la sesión Live y consolida el cierre de la actividad.";
-  if (status === "finished") return "Archivar conserva todos los datos y mueve la carrera al histórico.";
+  if (status === "finished") return "La carrera ya ha finalizado. Consulta los resultados y el histórico.";
   return "La carrera está cerrada. Los datos permanecen conservados.";
 }
 function readinessText(data, status) {
@@ -339,8 +340,8 @@ function readinessText(data, status) {
   if (status === "prepared") return "El evento está preparado. Publicarlo lo deja listo para la fase de participantes y salida.";
   if (status === "published") return "El evento está publicado. Inícialo solo cuando vaya a comenzar la actividad.";
   if (status === "live") return "Evento EN DIRECTO. Finalízalo cuando termine la actividad.";
-  if (status === "finished") return "Evento finalizado. Archívalo cuando ya no necesites modificar su gestión.";
-  return "Evento archivado. Se conserva en Firestore; no se borra físicamente.";
+  if (status === "finished") return "Evento finalizado. Los resultados y el GPS se mantienen disponibles.";
+  return "El histórico de la carrera permanece disponible en Firebase.";
 }
 function paintAvailability() {
   if (!state.panel || !state.action) return;
@@ -350,7 +351,7 @@ function paintAvailability() {
   else if (!navigator.onLine) reason = "Sin conexión. Recupera Internet para actualizar o cambiar el estado.";
   else if (!canManage()) reason = "Necesitas una cuenta de organizador verificada para continuar.";
   else if (!currentEventId() || !state.event) reason = "Carga una carrera y actualiza su estado para continuar.";
-  else if (!META[validStatus(state.event.status)]?.next) reason = "Carrera archivada. No hay más cambios de estado disponibles.";
+  else if (!META[validStatus(state.event.status)]?.next) reason = "Carrera finalizada. Es el último estado; consulta sus resultados e histórico.";
   else if (blocked) reason = "Estructura incompleta: sincroniza al menos 3 puntos y 1 recorrido válido.";
   state.action.setAttribute("aria-disabled", String(blocked));
   state.action.setAttribute("aria-describedby", "m2LifecycleAvailability");
@@ -417,7 +418,7 @@ function paintContent(message = "") {
   if (!meta.next) {
     if (nextTitle) nextTitle.textContent = "CICLO COMPLETADO";
     state.action.disabled = true;
-    state.action.textContent = "CARRERA ARCHIVADA";
+    state.action.textContent = "CARRERA FINALIZADA";
     state.action.dataset.next = "";
   } else {
     if (nextTitle) nextTitle.textContent = `${meta.label} → ${META[meta.next].label}`;
@@ -496,7 +497,6 @@ async function confirmTransition(from, to, options = null) {
   }
   if (to === "live") return globalThis.MILITOPO_CONFIRM("Vas a marcar el evento como EN DIRECTO.\n\nHazlo solo cuando la actividad vaya a comenzar. ¿Continuar?",{title:"INICIAR CARRERA",confirmText:"PONER EN DIRECTO"});
   if (to === "finished") return globalThis.MILITOPO_CONFIRM("Vas a FINALIZAR el evento.\n\n¿La actividad ha terminado realmente?",{title:"FINALIZAR CARRERA",confirmText:"FINALIZAR",danger:true});
-  if (to === "archived") return globalThis.MILITOPO_CONFIRM("Vas a ARCHIVAR el evento.\n\nNo se borrará, pero quedará cerrado en el ciclo V2. ¿Continuar?",{title:"ARCHIVAR CARRERA",confirmText:"ARCHIVAR",danger:true});
   return true;
 }
 // F2.30: el estado leído antes de un modal puede quedarse obsoleto.
@@ -512,7 +512,7 @@ async function commitLifecycleTransition(firestore, eventId, from, to, uid, role
       throw new Error("La carrera ya no pertenece a esta cuenta.");
     if (!ORDER.includes(String(latest.status || "")) || validStatus(latest.status) !== from)
       throw new Error("El estado de la carrera ha cambiado en Firebase. Actualiza antes de continuar.");
-    if (!["draft>prepared", "prepared>published", "finished>archived"].includes(`${from}>${to}`))
+    if (!["draft>prepared", "prepared>published"].includes(`${from}>${to}`))
       throw new Error("Transición de carrera no permitida desde esta pantalla.");
     if (["prepared", "published"].includes(to) && !structureReady(latest))
       throw new Error("La estructura ha cambiado: revisa las balizas y los recorridos antes de publicar.");
@@ -521,7 +521,6 @@ async function commitLifecycleTransition(firestore, eventId, from, to, uid, role
     };
     if (to === "prepared") payload.preparedAt = serverTimestamp();
     if (to === "published") payload.publishedAt = serverTimestamp();
-    if (to === "archived") payload.archivedAt = serverTimestamp();
     tx.update(eventRef, payload);
     return to;
   });

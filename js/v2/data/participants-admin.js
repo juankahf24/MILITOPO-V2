@@ -289,7 +289,7 @@ function filteredRows() {
 
 function eventStatusLabelEs(value) {
   const key = String(value || "draft").toLowerCase();
-  return ({ draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"ARCHIVADO" })[key] || "BORRADOR";
+  return ({ draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"FINALIZADO" })[key] || "BORRADOR";
 }
 function actionLabel(type) {
   if (type === "pending") return "PENDIENTE";

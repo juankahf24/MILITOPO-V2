@@ -10,7 +10,7 @@ const LABELS = {
   published: "PUBLICADO",
   live: "EN DIRECTO",
   finished: "FINALIZADO",
-  archived: "ARCHIVADO"
+  archived: "FINALIZADO"
 };
 const state = { eventId: "", status: "draft", locked: false, observer: null, applying: false, scheduled: false };
 

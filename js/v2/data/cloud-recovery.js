@@ -44,7 +44,7 @@ function isSuperAdmin(auth = state.auth) {
 }
 const STATUS_LABELS = {
   draft: "BORRADOR", prepared: "PREPARADO", published: "PUBLICADO",
-  live: "EN DIRECTO", finished: "FINALIZADO", archived: "ARCHIVADO"
+  live: "EN DIRECTO", finished: "FINALIZADO", archived: "FINALIZADO"
 };
 function statusLabel(value) {
   return STATUS_LABELS[String(value || "draft")] || String(value || "draft").toUpperCase();
@@ -373,7 +373,7 @@ function normalizeHeader(id, data = {}) {
     premiumRouteCount: Math.max(0, Math.trunc(Number(data.premiumRouteCount) || 0)),
     premiumControlsPerRoute: Math.max(0, Math.trunc(Number(data.premiumControlsPerRoute) || 0)),
     cloudStage: cleanString(data.cloudStage, 20),
-    status: cleanString(data.status || "draft", 30),
+    status: String(data.status || "draft").toLowerCase() === "archived" ? "finished" : cleanString(data.status || "draft", 30),
     ownerUid: cleanString(data.ownerUid, 160),
     updatedAt: data.updatedAt || data.structureUpdatedAt || data.createdAt || null,
     finishedAt: data.finishedAt || null,
@@ -440,11 +440,7 @@ async function loadEventList() {
     if (String(data.kind || "orientation") !== "orientation") return;
     rows.push(normalizeHeader(docSnap.id, data));
   });
-  rows.sort((a, b) => {
-    const aa = a.status === "archived" ? 1 : 0;
-    const ba = b.status === "archived" ? 1 : 0;
-    return aa - ba || timestampMs(b.updatedAt) - timestampMs(a.updatedAt) || a.eventName.localeCompare(b.eventName, "es");
-  });
+  rows.sort((a,b) => timestampMs(b.updatedAt) - timestampMs(a.updatedAt) || a.eventName.localeCompare(b.eventName, "es"));
   state.events = rows;
   return rows;
 }
@@ -453,19 +449,19 @@ function renderEventList(rows) {
   if (!state.list) return;
   const summary = document.getElementById("m2R3RaceSummary");
   const filters = document.getElementById("m2R3RaceFilters");
-  const statuses = ["draft","prepared","published","live","finished","archived"];
+  const statuses = ["draft","prepared","published","live","finished"];
   const counts = Object.fromEntries(statuses.map(key => [key, 0]));
   rows.forEach(row => { const key = String(row.status || "draft"); if (key in counts) counts[key] += 1; });
   if (summary) {
     summary.hidden = false;
     summary.innerHTML = [
       [rows.length,"TOTAL"],[counts.draft,"BORRADOR"],[counts.prepared,"PREPARADO"],
-      [counts.published,"PUBLICADO"],[counts.live,"EN DIRECTO"],[counts.finished + counts.archived,"CERRADAS"]
+      [counts.published,"PUBLICADO"],[counts.live,"EN DIRECTO"],[counts.finished,"CERRADAS"]
     ].map(([value,label]) => `<div class="m2-r3-summary-card"><strong>${value}</strong><span>${label}</span></div>`).join("");
   }
   const filterDefs = [
     ["all","TODAS"],["draft","BORRADOR"],["prepared","PREPARADO"],["published","PUBLICADO"],
-    ["live","EN DIRECTO"],["finished","FINALIZADO"],["archived","ARCHIVADO"]
+    ["live","EN DIRECTO"],["finished","FINALIZADO"]
   ];
   const queryKey = searchKey(state.query);
   const byStatus = state.filter === "all" ? rows : rows.filter(row => String(row.status || "draft") === state.filter);
@@ -495,12 +491,11 @@ function renderEventList(rows) {
     return;
   }
   state.list.innerHTML = visible.map(row => {
-    const archived = row.status === "archived";
     const own = String(row.ownerUid || "") === String(state.auth?.uid || "");
     const routeCount = Math.max(Number(row.courseSyncedCount || 0), 0);
     const pointCount = Math.max(Number(row.checkpointSyncedCount || 0), Number(row.controlCount || 0) + (row.controlCount ? 2 : 0));
     return `
-      <article class="m2-cloud-event${archived ? " archived" : ""}" data-status="${esc(row.status || "draft")}">
+      <article class="m2-cloud-event" data-status="${esc(row.status || "draft")}">
         <div class="m2-r3-event-title">
           <h3>${esc(row.eventName)}</h3>
           <span class="m2-cloud-event-status">${esc(statusLabel(row.status))}</span>
@@ -516,7 +511,7 @@ function renderEventList(rows) {
           <div class="m2-r3-event-updated">Actualizada · ${esc(formatDate(row.updatedAt))}</div>
           <div class="m2-r5-event-actions">
             <button type="button" class="m2-r5-reuse" data-reuse-event="${esc(row.eventId)}" ${row.status === "live" ? 'disabled title="No se puede reutilizar mientras esté EN DIRECTO"' : ""}>REUTILIZAR</button>
-            <button type="button" class="m2-cloud-event-open" data-event-id="${esc(row.eventId)}">${archived ? "ABRIR" : "CARGAR"}</button>
+            <button type="button" class="m2-cloud-event-open" data-event-id="${esc(row.eventId)}">CARGAR</button>
           </div>
         </div>
       </article>`;
@@ -553,7 +548,7 @@ async function loadHistorySummary(row) {
 }
 
 async function loadHistoryRows() {
-  const rows = (await loadEventList()).filter(row => ["finished","archived"].includes(String(row.status || "").toLowerCase()));
+  const rows = (await loadEventList()).filter(row => String(row.status || "").toLowerCase() === "finished");
   const out = [];
   const concurrency = 6;
   for (let offset = 0; offset < rows.length; offset += concurrency) {
@@ -564,7 +559,7 @@ async function loadHistoryRows() {
     })));
     out.push(...summaries);
   }
-  out.sort((a,b) => timestampMs(b.archivedAt || b.finishedAt || b.updatedAt) - timestampMs(a.archivedAt || a.finishedAt || a.updatedAt));
+  out.sort((a,b) => timestampMs(b.finishedAt || b.archivedAt || b.updatedAt) - timestampMs(a.finishedAt || a.archivedAt || a.updatedAt));
   return out;
 }
 
@@ -573,7 +568,7 @@ function renderHistoryList(rows = state.historyRows) {
   const source = Array.isArray(rows) ? rows : [];
   const filtered = source.filter(row => state.historyFilter === "all" || String(row.status || "").toLowerCase() === state.historyFilter);
   if (!source.length) {
-    state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Todavía no hay carreras FINALIZADAS o ARCHIVADAS para esta cuenta.</div>`;
+    state.list.innerHTML = `<div class="m2-cloud-recovery-empty">Todavía no hay carreras FINALIZADAS para esta cuenta.</div>`;
     return;
   }
   const aggregate = filtered.reduce((acc,row) => {
@@ -589,7 +584,6 @@ function renderHistoryList(rows = state.historyRows) {
         <select id="m2R4HistoryFilter" aria-label="Filtrar histórico">
           <option value="all"${state.historyFilter === "all" ? " selected" : ""}>TODAS</option>
           <option value="finished"${state.historyFilter === "finished" ? " selected" : ""}>FINALIZADAS</option>
-          <option value="archived"${state.historyFilter === "archived" ? " selected" : ""}>ARCHIVADAS</option>
         </select>
       </label>
       <span>${filtered.length} carrera${filtered.length === 1 ? "" : "s"} · más recientes primero</span>
@@ -601,10 +595,10 @@ function renderHistoryList(rows = state.historyRows) {
       <div class="m2-cloud-history-stat"><strong>${aggregate.notStarted}</strong><span>NO SALIERON</span></div>
     </div>` + (filtered.length ? filtered.map(row => {
       const counts = row.counts || { total:0, finished:0, incomplete:0, notStarted:0 };
-      const date = row.archivedAt || row.finishedAt || row.updatedAt;
+      const date = row.finishedAt || row.archivedAt || row.updatedAt;
       const best = row.best ? `<div class="m2-cloud-history-best">MEJOR TIEMPO OFICIAL · <strong>${esc(formatDuration(row.best.durationMs))}</strong> · ${esc(row.best.name)}${row.best.routeId ? ` · ${esc(row.best.routeId)}` : ""}</div>` : `<div class="m2-cloud-history-best">Sin tiempo oficial finalizado disponible.</div>`;
       return `
-        <article class="m2-cloud-event${row.status === "archived" ? " archived" : ""}" data-status="${esc(row.status)}">
+        <article class="m2-cloud-event" data-status="${esc(row.status)}">
           <div class="m2-cloud-history-card-head"><h3>${esc(row.eventName)}</h3><span class="m2-cloud-event-status">${esc(statusLabel(row.status))}</span></div>
           <div class="m2-cloud-event-meta"><span>${esc(row.eventId)}</span><span>${esc(formatDate(date))}</span></div>
           <div class="m2-cloud-history-metrics">
@@ -633,7 +627,7 @@ async function openHistoryPicker() {
   const title = document.getElementById("m2CloudRecoveryTitle");
   const subtitle = document.getElementById("m2CloudRecoverySubtitle");
   if (title) title.textContent = "HISTÓRICO DEL ORGANIZADOR";
-  if (subtitle) subtitle.textContent = "Carreras finalizadas y archivadas · resultados y clasificación oficial.";
+  if (subtitle) subtitle.textContent = "Carreras finalizadas · resultados y clasificación oficial.";
   state.overlay?.querySelector(".m2-r5-choice")?.setAttribute("hidden", "");
   document.getElementById("m2R5ExistingWrap")?.removeAttribute("hidden");
   document.getElementById("m2R5NewWrap")?.setAttribute("hidden", "");
@@ -649,7 +643,7 @@ async function openHistoryPicker() {
     const rows = await loadHistoryRows();
     state.historyRows = rows;
     renderHistoryList(rows);
-    paintStatus(`📚 Histórico: ${rows.length} carrera${rows.length === 1 ? "" : "s"} finalizada${rows.length === 1 ? "" : "s"}/archivada${rows.length === 1 ? "" : "s"}.`, "ok");
+    paintStatus(`📚 Histórico: ${rows.length} carrera${rows.length === 1 ? "" : "s"} finalizada${rows.length === 1 ? "" : "s"}.`, "ok");
   } catch (error) {
     console.error("[MILITOPO H7] histórico", error);
     if (state.list) state.list.innerHTML = `<div class="m2-cloud-recovery-empty">⚠️ ${esc(error?.message || "No se pudo cargar el histórico.")}</div>`;
