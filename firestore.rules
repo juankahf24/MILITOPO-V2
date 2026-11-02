@@ -24,10 +24,7 @@ service cloud.firestore {
     }
     function validEventTransition(before, after) {
       return before == after ||
-             (before == "draft" && after == "prepared") ||
-             (before == "prepared" && after == "published") ||
-             (before == "published" && after == "live") ||
-             (before == "live" && after == "finished");
+             (before == "draft" && after == "prepared");
     }
     function preparedDataReady(data) {
       return data.checkpointSyncedCount is int && data.checkpointSyncedCount >= 3 &&
@@ -40,13 +37,6 @@ service cloud.firestore {
       let status = eventDoc(eventId).data.status;
       return status == "prepared" || status == "published";
     }
-    function lifecycleOnlyAfterPublication() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-        "status", "cloudStage", "lifecycleVersion", "updatedAt",
-        "publishedAt", "liveAt", "finishedAt"
-      ]);
-    }
-
     function selfJoinFromAcceptedInvite(eventId, uid) {
       let invite = getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data;
       return verified()
@@ -235,11 +225,10 @@ service cloud.firestore {
                     && request.resource.data.kind == resource.data.kind
                     && validEventStatus(request.resource.data.status)
                     && validEventTransition(resource.data.status, request.resource.data.status)
-                    // F2.33: publicar requiere la Function publishPreparedEvent,
-                    // que valida los documentos reales de balizas y recorridos.
-                    && !(resource.data.status == "prepared" && request.resource.data.status == "published")
-                    && (request.resource.data.status != "prepared" || resource.data.status == "prepared" || preparedDataReady(request.resource.data))
-                    && (designEditableStatus(resource.data.status) || lifecycleOnlyAfterPublication());
+                    // F2.35: publicación, inicio y cierre son exclusivos del servidor.
+                    // Desde PUBLICADO tampoco se pueden alterar fechas o metadatos.
+                    && designEditableStatus(resource.data.status)
+                    && (request.resource.data.status != "prepared" || resource.data.status == "prepared" || preparedDataReady(request.resource.data));
       allow delete: if false;
 
       match /members/{uid} {
