@@ -906,6 +906,73 @@ async function completeLiveStart(identity, eventRef, eventId, ownerUid, active, 
   return { ok: true, recovered: recovered || !changed, eventId, ownerUid, runId, status: "live", participantCount };
 }
 
+// F2.38: revisión de solo lectura, con una instantánea coherente de Firestore.
+async function readLiveStartReadiness(identity, eventId) {
+  const eventRef = db.collection("events").doc(eventId);
+  return db.runTransaction(async tx => {
+    const eventSnap = await tx.get(eventRef);
+    if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera no existe.");
+    const header = eventSnap.data() || {};
+    assertManagerForEvent(identity, header);
+    const [membersSnap, coursesSnap, pointsSnap, assignmentsSnap] = await Promise.all([
+      tx.get(eventRef.collection("members")), tx.get(eventRef.collection("courses")),
+      tx.get(eventRef.collection("checkpoints")), tx.get(eventRef.collection("system").doc("routeAssignments"))
+    ]);
+    const issues = [];
+    const add = (code, message) => issues.push({ code, message });
+    if (header.status !== "published") add("status", "La carrera debe estar PUBLICADA para iniciar.");
+    for (const message of validatePublishableDesign(header, pointsSnap.docs, coursesSnap.docs)) add("design", message);
+    const members = membersSnap.docs.map(snap => ({ ...snap.data(), documentUid: snap.id }));
+    const active = members.filter(row => String(row.status || "active").toLowerCase() === "active");
+    if (!active.length) add("empty", "No hay participantes activos. Revisa las invitaciones antes de iniciar.");
+    const routes = new Map(coursesSnap.docs.map(snap => [snap.id, snap.data() || {}]));
+    const occupied = new Map();
+    for (const member of members) {
+      const id = String(member.participantId || member.webParticipantId || "").trim();
+      if (id) occupied.set(id, (occupied.get(id) || 0) + 1);
+    }
+    const assignments = assignmentsSnap.exists ? (assignmentsSnap.data()?.assignments || {}) : {};
+    for (const member of active) {
+      const uid = member.documentUid;
+      const participantId = String(member.participantId || member.webParticipantId || "").trim();
+      const routeId = String(member.routeId || member.courseId || "").trim();
+      const label = participantId || String(member.displayName || member.username || "Participante sin asignación").slice(0, 80);
+      if (member.uid && member.uid !== uid) add("identity", `${label}: la identidad de la inscripción no coincide.`);
+      if (!participantId || !routeId) add("assignment", `${label}: falta participante o recorrido asignado.`);
+      if (participantId && occupied.get(participantId) > 1) add("duplicate", `${label}: la plaza aparece en varias inscripciones.`);
+      const route = routes.get(routeId);
+      if (routeId && !route) add("route", `${label}: el recorrido ${routeId} no existe.`);
+      if (route) {
+        const actual = Array.isArray(member.routePoints) ? member.routePoints : [];
+        const expected = Array.isArray(route.points) ? route.points : [];
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) add("route_points", `${label}: los controles asignados no coinciden con el recorrido publicado.`);
+      }
+      const reservation = assignments[participantId];
+      if (reservation && (reservation.uid !== uid || reservation.routeId !== routeId)) add("reservation", `${label}: la reserva de la plaza no coincide con su inscripción.`);
+      const owned = Object.entries(assignments).filter(([, value]) => value?.uid === uid);
+      if (owned.length > 1 || (owned.length === 1 && owned[0][0] !== participantId)) add("reservation", `${label}: hay reservas contradictorias para esta cuenta.`);
+    }
+    const docs = [eventSnap, ...membersSnap.docs, ...coursesSnap.docs, ...pointsSnap.docs, assignmentsSnap];
+    const versions = docs.map(snap => [snap.ref.path, snap.exists ? publicationStructureVersion(snap.updateTime) : "missing"]).sort((a, b) => a[0].localeCompare(b[0]));
+    const revision = createHash("sha256").update(JSON.stringify(versions)).digest("hex");
+    return { ok: issues.length === 0, eventId, status: header.status, participantCount: active.length,
+      excludedCount: members.length - active.length, routeCount: routes.size,
+      issueCount: issues.length, issues: issues.slice(0, 20), revision };
+  });
+}
+
+function requireLiveStartReady(report, expectedRevision = "") {
+  if (!report.ok) throw new HttpsError("failed-precondition", `Inicio bloqueado: ${report.issues.slice(0, 4).map(row => row.message).join(" ")}`);
+  if (expectedRevision && expectedRevision !== report.revision) {
+    throw new HttpsError("aborted", "Los participantes o el diseño han cambiado desde la comprobación. Revisa el inicio y confirma de nuevo.");
+  }
+}
+
+exports.getLiveStartReadiness = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  return readLiveStartReadiness(identity, cleanEventId(request.data?.eventId));
+});
+
 exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
@@ -931,8 +998,16 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
     return completeLiveStart(identity, eventRef, eventId, ownerUid, existing, metaSnap.val() || {}, true);
   }
   if (status === "live") throw new HttpsError("failed-precondition", "La carrera figura en directo pero falta su sesión. No se creará otra automáticamente.");
+  const expectedRevision = String(request.data?.expectedReadinessRevision || "");
+  if (expectedRevision && !/^[a-f0-9]{64}$/.test(expectedRevision)) throw new HttpsError("invalid-argument", "La revisión de inicio no es válida.");
+  const readiness = await readLiveStartReadiness(identity, eventId);
+  requireLiveStartReady(readiness, expectedRevision);
   // Prepare access in memory: a delayed contender must not overwrite RTDB.
   const live = await syncLiveAccessForEvent(identity, eventId, eventSnap, false);
+  // Revalidar tras preparar los accesos, antes de crear la sesión.
+  // No representa una transacción global entre Firestore y RTDB.
+  const freshReadiness = await readLiveStartReadiness(identity, eventId);
+  requireLiveStartReady(freshReadiness, readiness.revision);
   const runId = newRunId();
   const now = Date.now();
   const participants = Object.create(null);
@@ -976,7 +1051,9 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
     schemaVersion: 2,
     backend: "cloud-functions-v2"
   };
-  updates[`runs/${runId}/participants`] = participants;
+  // El SDK RTDB requiere un objeto con prototipo estándar. El spread conserva
+  // las claves propias sin asignarlas mediante setters heredados.
+  updates[`runs/${runId}/participants`] = { ...participants };
   updates["activeRun"] = {
     runId,
     status: "active",
