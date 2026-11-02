@@ -297,7 +297,19 @@ function renderControls(){const positionMode=state.controlsPhase!=="iof";return 
   <div class="mpb-controls-layout ${positionMode?"":"is-iof-only"}"><aside class="mpb-controls-panel mpb-card" data-mpb-controls-panel>${controlsPanelHtml()}</aside>${positionMode?`<div class="mpb-controls-map-wrap"><div id="mpbControlsMap" class="mpb-controls-map" aria-label="Mapa para colocar controles"></div><div class="mpb-map-badge"><small>${esc(mapLabel(state.draft.mapLayer))}</small><strong>${state.controlMethod==="map"?"TOCA PARA COLOCAR":"VISTA DE REFERENCIA"}</strong></div></div>`:""}</div></section>`}
 
 function existingRouteCount(){return Number(snapshot()?.routeCount)||0}
-function ensureRouteSelection(){const count=routeTargetCount();const n=Math.max(1,Math.min(count,Number(String(state.selectedRouteId||"R01").replace(/\D/g,""))||1));state.selectedRouteId=routeId(n);const details=routeDetails(state.selectedRouteId);if(details&&Array.isArray(details.controls))state.routeDraftControls=[...details.controls];else if(!Array.isArray(state.routeDraftControls))state.routeDraftControls=[]}
+// F2.28: el render no debe sobrescribir la edición de un recorrido guardado.
+function ensureRouteSelection(){
+  const previous=state.selectedRouteId;
+  const count=routeTargetCount();
+  const n=Math.max(1,Math.min(count,Number(String(previous||"R01").replace(/\D/g,""))||1));
+  const selected=routeId(n);
+  if(previous!==selected||!Array.isArray(state.routeDraftControls)){
+    state.selectedRouteId=selected;
+    const pending=state.draft?.pendingRouteEditors?.[selected]||(state.draft?.pendingRouteEditor?.id===selected?state.draft.pendingRouteEditor:null);
+    const saved=routeDetails(selected);
+    state.routeDraftControls=pending?.id===selected&&Array.isArray(pending.controls)?[...pending.controls]:Array.isArray(saved?.controls)?[...saved.controls]:[];
+  }
+}
 function routeListHtml(){const count=routeTargetCount(),per=controlsPerRoute();return `<div class="mpb-route-list">${Array.from({length:count},(_,i)=>{const id=routeId(i+1),d=routeDetails(id),ok=Boolean(d&&!routeDesignProblem(id));return `<button type="button" data-mpb-route="${id}" class="${id===state.selectedRouteId?"is-selected":""} ${ok?"is-complete":""}"><span>${ok?"✓":String(i+1).padStart(2,"0")}</span><div><strong>${id}</strong><small>${ok?`${d.controls.length} controles · completo`:"Pendiente"}</small></div></button>`}).join("")}</div>`}
 function routeOrderHtml(){const per=controlsPerRoute();return `<div class="mpb-route-order"><span class="is-fixed">SALIDA</span>${Array.from({length:per},(_,i)=>{const id=state.routeDraftControls[i];return id?`<button type="button" data-mpb-route-control="${esc(id)}"><b>${i+1}</b>${esc(id)}<i>×</i></button>`:`<span class="is-empty"><b>${i+1}</b>CONTROL</span>`}).join("")}<span class="is-fixed ${state.routeDraftControls.length===per?"is-connected":"is-waiting"}">${state.routeDraftControls.length===per?"✓ LLEGADA":"○ LLEGADA PENDIENTE"}</span></div>`}
 function routeControlsHtml(){const controls=(snapshot()?.controls||[]).filter(pointPlaced).sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));return `<div class="mpb-route-control-grid">${controls.map(p=>{const idx=state.routeDraftControls.indexOf(p.id);return `<button type="button" data-mpb-route-control="${esc(p.id)}" class="${idx>=0?"is-selected":""}"><span>${idx>=0?idx+1:"+"}</span><strong>${esc(p.id)}</strong></button>`}).join("")}</div>`}
@@ -307,7 +319,7 @@ function renderRoutesStep(){ensureRouteSelection();const target=routeTargetCount
     <div class="mpb-section-label"><span>RECORRIDOS</span><small>${complete}/${target} completos</small></div>${routeListHtml()}
     <div class="mpb-route-builder"><div class="mpb-route-builder-head"><div><span>EDITANDO</span><strong>${esc(state.selectedRouteId)}</strong></div><b>${state.routeDraftControls.length}/${per}</b></div>
       <div class="mpb-route-edit-actions"><button type="button" data-mpb-route-undo ${state.routeDraftControls.length?"":"disabled"}>↶ DESHACER ÚLTIMO</button><button type="button" data-mpb-route-restore ${routeDetails(state.selectedRouteId)?"":"disabled"}>↺ RESTAURAR GUARDADO</button><button type="button" class="is-danger" data-mpb-route-clear ${state.routeDraftControls.length?"":"disabled"}>LIMPIAR RECORRIDO</button></div>
-      <small class="mpb-route-edit-help">Toca una baliza para añadirla. Toca una seleccionada para quitarla. LIMPIAR borra el recorrido guardado tras confirmarlo. Puedes volver a crearlo desde cero y guardar cuando esté listo.</small>${routeOrderHtml()}<div class="mpb-section-label"><span>AÑADIR BALIZAS</span><small>En orden</small></div>${routeControlsHtml()}
+      <small class="mpb-route-edit-help">Puedes editar un recorrido guardado: añade las balizas nuevas, toca una seleccionada para quitarla o pulsa DESHACER ÚLTIMO. Los cambios no sustituyen el recorrido guardado hasta pulsar ACTUALIZAR RECORRIDO. LIMPIAR elimina el recorrido completo solo con confirmación.</small>${routeOrderHtml()}<div class="mpb-section-label"><span>AÑADIR BALIZAS</span><small>En orden</small></div>${routeControlsHtml()}
       <button type="button" class="mpb-btn mpb-btn-primary mpb-route-save" data-mpb-save-route ${state.routeDraftControls.length===per&&!state.routeBusy?"":"disabled"}>${state.routeBusy?"GUARDANDO RECORRIDO…":routeDetails(state.selectedRouteId)?"ACTUALIZAR RECORRIDO":"GUARDAR RECORRIDO"}</button>
     </div>
   </aside><div class="mpb-route-map-wrap"><div id="mpbRouteMap" class="mpb-route-map" aria-label="Vista del recorrido manual"></div><div class="mpb-map-badge"><small>${esc(state.selectedRouteId)}</small><strong>${state.routeDraftControls.length}/${per} BALIZAS</strong></div></div></div></section>`}
@@ -528,7 +540,42 @@ async function saveCurrentRoute(){if(state.routeBusy)return;syncInputs();const a
   saveDraft();showCenterNotice("RECORRIDO GUARDADO",`${state.selectedRouteId} se ha guardado correctamente con ${per} balizas.`,{icon:"militopo"});const n=Number(state.selectedRouteId.replace(/\D/g,""))||1;if(n<routeTargetCount())loadRouteDraft(routeId(n+1));else loadRouteDraft(state.selectedRouteId)}finally{state.routeBusy=false;renderKeepScroll()}}
 
 function nearestItinerarySegment(latlng){if(!state.itineraryMap||state.itineraryDraftPoints.length<2)return 0;const p=state.itineraryMap.latLngToLayerPoint(latlng);let best=0,bestD=Infinity;for(let i=0;i<state.itineraryDraftPoints.length-1;i++){const a=state.itineraryMap.latLngToLayerPoint([state.itineraryDraftPoints[i].lat,state.itineraryDraftPoints[i].lon]),b=state.itineraryMap.latLngToLayerPoint([state.itineraryDraftPoints[i+1].lat,state.itineraryDraftPoints[i+1].lon]),dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1))),x=a.x+t*dx,y=a.y+t*dy,d=(p.x-x)**2+(p.y-y)**2;if(d<bestD){bestD=d;best=i}}return best}
-function renderItineraryMapContent(){if(!state.itineraryMap)return;if(state.itineraryLayer){try{state.itineraryLayer.remove()}catch(_){ }state.itineraryLayer=null}if(state.itineraryMarkers){try{state.itineraryMarkers.remove()}catch(_){ }}state.itineraryMarkers=L.layerGroup().addTo(state.itineraryMap);const pts=state.itineraryDraftPoints;if(pts.length>1)state.itineraryLayer=L.polyline(pts.map(p=>[p.lat,p.lon]),{weight:6,opacity:.95,color:"#d99f29",lineCap:"round",lineJoin:"round"}).addTo(state.itineraryMap);pts.forEach((p,i)=>{const manual=!p.anchorId,html=manual?`<div class="mpb-itinerary-point is-manual"><span>•</span></div>`:mapMarkerHtml(p.anchorId,{variant:"itinerary"}),marker=L.marker([p.lat,p.lon],{draggable:manual,icon:manual?L.divIcon({html,className:"mpb-map-point-wrap",iconSize:[10,10],iconAnchor:[5,5]}):mapMarkerIcon(html)}).addTo(state.itineraryMarkers);if(manual)marker.on("dragend",e=>{const ll=e.target.getLatLng();state.itineraryDraftPoints[i]={lat:ll.lat,lon:ll.lng,anchorId:null};state.itineraryDirty=true;preservePendingEditor();renderItineraryMapContent();refreshItineraryMetrics()})})}
+// F2.28: el icono de Leaflet contiene un círculo real centrado en una zona
+// táctil de 28px. El icono y su zona activa comparten el mismo centro.
+function renderItineraryMapContent(){
+  if(!state.itineraryMap)return;
+  if(state.itineraryLayer){try{state.itineraryLayer.remove()}catch(_){ }state.itineraryLayer=null}
+  if(state.itineraryMarkers){try{state.itineraryMarkers.remove()}catch(_){ }}
+  state.itineraryMarkers=L.layerGroup().addTo(state.itineraryMap);
+  const pts=state.itineraryDraftPoints;
+  if(pts.length>1)state.itineraryLayer=L.polyline(pts.map(p=>[p.lat,p.lon]),{weight:6,opacity:.95,color:"#d99f29",lineCap:"round",lineJoin:"round"}).addTo(state.itineraryMap);
+  pts.forEach((p,i)=>{
+    const manual=!p.anchorId;
+    const icon=manual
+      ?L.divIcon({html:'<div class="mpb-itinerary-point is-manual" aria-hidden="true"></div>',className:"mpb-map-point-wrap mpb-itinerary-drag-marker",iconSize:[28,28],iconAnchor:[14,14]})
+      :mapMarkerIcon(mapMarkerHtml(p.anchorId,{variant:"itinerary"}));
+    const marker=L.marker([p.lat,p.lon],{draggable:manual,autoPan:false,riseOnHover:manual,bubblingMouseEvents:false,icon}).addTo(state.itineraryMarkers);
+    if(!manual)return;
+    const el=marker.getElement?.();
+    if(el){el.setAttribute("title","Arrastra para mover este vértice");el.setAttribute("aria-label","Vértice del itinerario arrastrable");L.DomEvent?.disableClickPropagation?.(el)}
+    marker.on("click",event=>{try{L.DomEvent.stopPropagation(event.originalEvent)}catch(_){ }});
+    marker.on("drag",event=>{
+      const ll=event.target.getLatLng();
+      if(state.itineraryLayer){
+        const moved=state.itineraryDraftPoints.map((point,j)=>j===i?[ll.lat,ll.lng]:[point.lat,point.lon]);
+        state.itineraryLayer.setLatLngs(moved);
+      }
+    });
+    marker.on("dragend",event=>{
+      const ll=event.target.getLatLng();
+      state.itineraryDraftPoints[i]={lat:ll.lat,lon:ll.lng,anchorId:null};
+      state.itineraryDirty=true;
+      preservePendingEditor();
+      renderItineraryMapContent();
+      refreshItineraryMetrics();
+    });
+  });
+}
 function refreshItineraryMetrics(){const metrics=$(".mpb-itinerary-metrics",state.root);if(!metrics)return;const sum=itinerarySummary();metrics.innerHTML=`<article><small>DISTANCIA DIRECTA</small><strong>${formatKm(sum.direct)}</strong></article><article><small>ITINERARIO ESTIMADO</small><strong>${formatKm(sum.real)}</strong></article><article><small>DIFERENCIA</small><strong>${sum.direct?`${sum.diff>=0?"+":""}${sum.diff.toFixed(0)} %`:"—"}</strong></article>`}
 function initItineraryMap(){if(state.step!==7||!state.opened||!globalThis.L)return;const el=$("#mpbItineraryMap",state.root);if(!el)return;if(!state.itineraryDraftPoints.length)loadItineraryDraft(state.selectedRouteId);let center=validCoords()?[Number(state.draft.lat),Number(state.draft.lon)]:validWorkCenter()?[Number(state.draft.mapCenterLat),Number(state.draft.mapCenterLon)]:[40.4168,-3.7038];state.itineraryMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25,zoomDelta:.5,bounceAtZoomLimits:false}).setView(center,15);state.itineraryBase=previewLayer();state.itineraryBase?.addTo?.(state.itineraryMap);renderItineraryMapContent();if(state.itineraryDraftPoints.length>1){try{state.itineraryMap.fitBounds(L.latLngBounds(state.itineraryDraftPoints.map(p=>[p.lat,p.lon])),{padding:[36,36],maxZoom:17,animate:false})}catch(_){ }}state.itineraryMap.on("click",e=>{const i=nearestItinerarySegment(e.latlng);state.itineraryDraftPoints.splice(i+1,0,{lat:e.latlng.lat,lon:e.latlng.lng,anchorId:null});state.itineraryDirty=true;preservePendingEditor();renderItineraryMapContent();refreshItineraryMetrics()});setTimeout(()=>state.itineraryMap?.invalidateSize?.(),80)}
 function undoItineraryVertex(){for(let i=state.itineraryDraftPoints.length-1;i>=0;i--){if(!state.itineraryDraftPoints[i].anchorId){state.itineraryDraftPoints.splice(i,1);state.itineraryDirty=true;preservePendingEditor();renderKeepScroll();notify("Último vértice eliminado");return}}}
@@ -783,7 +830,7 @@ async function onInput(event){
   if(target?.id==="mpbCustomMapLibrary"&&event.type==="change"){selectCustomMap(target.value);return}
   syncInputs();state.blockerMessage="";footer();
   if(event?.type==="change"&&(state.step===3||state.step===4)){setTimeout(render,0);return}
-  if(event?.type==="change"&&state.step===6&&target?.id==="mpbControlsPerRoute"){r2()?.configureManualRoutes?.(routeTargetCount(),controlsPerRoute());ensureRouteSelection();loadRouteDraft(state.selectedRouteId);setTimeout(render,0)}
+  if(event?.type==="change"&&state.step===6&&target?.id==="mpbControlsPerRoute"){preservePendingEditor();r2()?.configureManualRoutes?.(routeTargetCount(),controlsPerRoute());ensureRouteSelection();renderKeepScroll()}
 }
 async function onClick(e){
   const t=e.target.closest("button,a");if(!t)return;
