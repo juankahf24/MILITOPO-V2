@@ -13,13 +13,13 @@ const EVENT_STATUS_ES = {
   published: "PUBLICADO",
   live: "EN DIRECTO",
   finished: "FINALIZADO",
-  archived: "ARCHIVADO"
+  archived: "FINALIZADO"
 };
 const RUN_STATUS_ES = {
   active: "EN DIRECTO",
   closing: "CERRANDO",
   finished: "FINALIZADO",
-  archived: "ARCHIVADO"
+  archived: "FINALIZADO"
 };
 const PARTICIPANT_STATUS_ES = {
   not_started: "SIN SALIR",

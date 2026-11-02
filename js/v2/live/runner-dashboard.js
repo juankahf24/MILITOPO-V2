@@ -12,7 +12,7 @@
   const ONLINE_RELOAD_KEY = "militopo_v2_online_recovery_reload_v1";
 
   const esc = v => String(v ?? "").replace(/[&<>'"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
-  const statusES = s => ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"})[String(s||"").toLowerCase()] || String(s||"").toUpperCase();
+  const statusES = s => ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"FINALIZADO"})[String(s||"").toLowerCase()] || String(s||"").toUpperCase();
   const initials = name => { const p=String(name||"").trim().split(/\s+/).filter(Boolean); return ((p[0]?.[0]||"")+(p[1]?.[0]||"")).toUpperCase()||"R"; };
   const fmtRouteKm = value => Number.isFinite(Number(value)) ? `${Number(value).toFixed(2)} km` : "—";
   const routeSequenceText = row => (Array.isArray(row?.routePoints) ? row.routePoints : []).map(value=>{const key=String(value||"").trim();const upper=key.toUpperCase();return upper==="START"||upper==="SALIDA"?"S":upper==="FINISH"||upper==="LLEGADA"?"L":key;}).filter(Boolean).join(" → ");

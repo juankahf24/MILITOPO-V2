@@ -6,7 +6,7 @@ import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/fireba
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const SYNCABLE_STATES = new Set(["prepared", "published", "live", "finished"]);
-const STATUS_ES = { draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"ARCHIVADO" };
+const STATUS_ES = { draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"FINALIZADO" };
 const state = {
   auth: globalThis.MILITOPO_V2_AUTH || null,
   services: null,

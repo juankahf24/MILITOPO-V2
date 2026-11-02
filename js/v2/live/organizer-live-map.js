@@ -9,7 +9,7 @@ const VERSION = "v2-r9k-cartografia-hd-20261010";
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const DEFAULT_RACE_PLAN_ID = "el-valle-matizado";
 const EVENT_STATUS_ES = {
-  draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"ARCHIVADO"
+  draft:"BORRADOR", prepared:"PREPARADO", published:"PUBLICADO", live:"EN DIRECTO", finished:"FINALIZADO", archived:"FINALIZADO"
 };
 const PARTICIPANT_STATUS_ES = {
   not_started:"SIN SALIR", ready:"PREPARADO", racing:"EN CARRERA", started:"EN CARRERA", finished:"FINALIZADO", removed:"RETIRADO"
