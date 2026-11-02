@@ -745,15 +745,15 @@ function confirmCloudStructure(eventId,isCurrent){
     const requestId=`f227-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let settled=false;
     let timer=null;
-    const finish=ok=>{if(settled)return;settled=true;clearTimeout(timer);globalThis.removeEventListener("militopo:v2-orientation-structure-save-result",onResult);resolve(ok===true)};
+    const finish=(ok,error="")=>{if(settled)return;settled=true;clearTimeout(timer);globalThis.removeEventListener("militopo:v2-orientation-structure-save-result",onResult);resolve({ok:ok===true,error:String(error||"")})};
     const onResult=e=>{
       const d=e.detail||{};
       if(d.requestId!==requestId||d.eventId!==eventId)return;
-      finish(d.ok===true&&isCurrent());
+      finish(d.ok===true&&isCurrent(),d.error);
     };
     globalThis.addEventListener("militopo:v2-orientation-structure-save-result",onResult);
-    timer=setTimeout(()=>finish(false),25000);
-    if(!isCurrent()||globalThis.MILITOPO_ORIENTATION_REQUEST_STRUCTURE_SYNC?.(requestId,eventId)!==true)finish(false);
+    timer=setTimeout(()=>finish(false,"Sin confirmación de Firestore"),25000);
+    if(!isCurrent()||globalThis.MILITOPO_ORIENTATION_REQUEST_STRUCTURE_SYNC?.(requestId,eventId)!==true)finish(false,"El contexto de la carrera cambió");
   });
 }
 // F2.25 · Guardar y salir de cualquier paso, sin validar requisitos de publicación.
@@ -800,8 +800,12 @@ async function saveAndExit(){
       ["draft","prepared"].includes(lifecycleStatus());
     const saved=await syncMetadata(eventId,0,current);
     if(!saved){notify("No se confirmó el guardado de la configuración en Firebase. El borrador sigue aquí; inténtalo otra vez.");return false;}
-    if(!await confirmCloudStructure(eventId,current)){
-      notify("La configuración se guardó, pero no se confirmó la sincronización de balizas y recorridos. Conservamos el borrador abierto; vuelve a intentar GUARDAR Y SALIR.");
+    const structureResult=await confirmCloudStructure(eventId,current);
+    if(!structureResult.ok){
+      const cloudConflict=/conflicto|cambiaron en la nube|edición con firestore/i.test(structureResult.error);
+      notify(cloudConflict?
+        "La carrera cambió en la nube desde el último guardado. No se han sobrescrito balizas ni recorridos. Conserva el borrador local y revisa la carrera antes de continuar.":
+        "La configuración se guardó, pero no se confirmó la sincronización de balizas y recorridos. Conservamos el borrador abierto; vuelve a intentar GUARDAR Y SALIR.");
       return false;
     }
     // Actualizar Mis carreras cuando se abra de nuevo y no mantener la copia editada en pantalla.
