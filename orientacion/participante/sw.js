@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-f226-search-dates-20261102";
+const CACHE_NAME="militopo-v2-participante-f227-draft-sync-20261102";
 const APP_SHELL=[
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
@@ -11,7 +11,7 @@ const APP_SHELL=[
   "../../js/v2/bootstrap.js?v=v2-f3a-runner-sessionfix-20260923",
   "../../js/v2/auth/roles.js",
 
-  "../../js/v2/ui/pwa-update.js?v=v2-f226-search-dates-20261102",
+  "../../js/v2/ui/pwa-update.js?v=v2-f227-draft-sync-20261102",
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
   "./runner-mode-switch.css?v=militopo-r4-profile-20261019",
@@ -158,7 +158,7 @@ async function canActivateMilitopoUpdate() {
   } catch (_) { return false; }
 }
 self.addEventListener("message",event=>{
-  if (event.data?.type === "MILITOPO_GET_SW_VERSION") event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:"v2-f226-search-dates-20261102",scope:"participante"});
+  if (event.data?.type === "MILITOPO_GET_SW_VERSION") event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:"v2-f227-draft-sync-20261102",scope:"participante"});
   if (event.data?.type === "MILITOPO_ACTIVATE_UPDATE") {
     event.waitUntil(canActivateMilitopoUpdate().then(ok=>ok?self.skipWaiting():undefined));
   }
