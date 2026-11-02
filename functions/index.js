@@ -69,6 +69,113 @@ async function appendAudit(action, actorUid, targetUid, extra = {}) {
   });
 }
 
+// F2.33: la publicación debe ser validada por el servidor. Las reglas niegan
+// el salto prepared -> published directo desde SDK, aunque el usuario sea dueño.
+// La transacción lee cabecera, balizas y recorridos antes de publicar; los
+// cambios de estructura del sincronizador modifican también la cabecera.
+function publicationStructureVersion(value) {
+  if (value && Number.isFinite(value.seconds)) return `${value.seconds}:${value.nanoseconds ?? 0}`;
+  return "";
+}
+
+function validatePublishableDesign(header, checkpointSnaps, courseSnaps) {
+  const errors = [];
+  const pointCount = Number(header?.checkpointSyncedCount);
+  const routeCount = Number(header?.courseSyncedCount);
+  const points = new Map();
+  const routes = new Set();
+  if (!Number.isSafeInteger(pointCount) || pointCount < 3 ||
+      !Number.isSafeInteger(routeCount) || routeCount < 1 ||
+      checkpointSnaps.length !== pointCount || courseSnaps.length !== routeCount) {
+    errors.push("Los recuentos sincronizados no coinciden con los documentos del diseño.");
+  }
+  for (const snap of checkpointSnaps) {
+    const item = snap.data() || {};
+    const id = String(snap.id || "").trim();
+    if (!id || id !== String(item.checkpointId || "").trim() || points.has(id)) {
+      errors.push(`Identificador de baliza incorrecto: ${id || "sin ID"}.`);
+      continue;
+    }
+    points.set(id, item);
+    if (typeof item.lat !== "number" || !Number.isFinite(item.lat) || item.lat < -90 || item.lat > 90 ||
+        typeof item.lon !== "number" || !Number.isFinite(item.lon) || item.lon < -180 || item.lon > 180) {
+      errors.push(`Coordenadas inválidas: ${id}.`);
+    }
+    if (item.iof?.complete !== true) errors.push(`Descripción IOF pendiente: ${id}.`);
+  }
+  if (!points.has("START") || !points.has("FINISH") ||
+      points.get("START")?.type !== "SALIDA" || points.get("FINISH")?.type !== "LLEGADA") {
+    errors.push("Faltan START/FINISH o sus tipos son incorrectos.");
+  }
+  const configuredControls = Number(header?.controlCount);
+  if (Number.isSafeInteger(configuredControls) && configuredControls > 0 && points.size !== configuredControls + 2) {
+    errors.push("Cantidad de controles distinta de la configuración.");
+  }
+  const perRoute = Number(header?.controlsPerRoute);
+  for (const snap of courseSnaps) {
+    const item = snap.data() || {};
+    const id = String(snap.id || "").trim();
+    const ids = Array.isArray(item.points) ? item.points.map(x => String(x || "").trim()) : [];
+    if (!id || id !== String(item.courseId || item.routeId || "").trim() || routes.has(id)) {
+      errors.push(`Identificador de recorrido incorrecto: ${id || "sin ID"}.`);
+      continue;
+    }
+    routes.add(id);
+    if (ids.length < 3 || ids[0] !== "START" || ids[ids.length - 1] !== "FINISH" ||
+        new Set(ids).size !== ids.length || ids.some(pointId => !points.has(pointId))) {
+      errors.push(`Referencias u orden incorrectos en recorrido ${id}.`);
+    }
+    if (Number.isSafeInteger(perRoute) && perRoute > 0 && ids.length !== perRoute + 2) {
+      errors.push(`Cantidad de controles incorrecta en recorrido ${id}.`);
+    }
+  }
+  return errors;
+}
+
+exports.publishPreparedEvent = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const eventId = cleanEventId(request.data?.eventId);
+  const expectedVersion = String(request.data?.expectedStructureVersion || "");
+  if (!/^\d{1,15}:\d{1,9}$/.test(expectedVersion)) {
+    throw new HttpsError("invalid-argument", "La revisión de estructura no es válida. Actualiza el Preflight.");
+  }
+  const eventRef = db.collection("events").doc(eventId);
+  try {
+    return await db.runTransaction(async transaction => {
+      const snap = await transaction.get(eventRef);
+      if (!snap.exists) throw new HttpsError("not-found", "La carrera no existe.");
+      const header = snap.data() || {};
+      assertManagerForEvent(identity, header);
+      if (header.status === "published") return { ok: true, status: "published", alreadyPublished: true };
+      if (header.status !== "prepared") {
+        throw new HttpsError("failed-precondition", "La carrera ya no está PREPARADA. Actualiza su estado.");
+      }
+      if (publicationStructureVersion(header.structureUpdatedAt) !== expectedVersion) {
+        throw new HttpsError("aborted", "El diseño ha cambiado durante la revisión. Vuelve al Preflight.");
+      }
+      // Todas las lecturas preceden a la escritura. El guardado C2 actualiza
+      // también la cabecera en el mismo batch que los documentos de diseño.
+      const [pointSnap, routeSnap] = await Promise.all([
+        transaction.get(eventRef.collection("checkpoints")),
+        transaction.get(eventRef.collection("courses"))
+      ]);
+      const errors = validatePublishableDesign(header, pointSnap.docs, routeSnap.docs);
+      if (errors.length) {
+        throw new HttpsError("failed-precondition", `Diseño inválido: ${errors.slice(0, 3).join(" ")} Revisa pasos 6–9.`);
+      }
+      transaction.update(eventRef, {
+        status: "published", cloudStage: "F2B", lifecycleVersion: 2,
+        publishedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
+      });
+      return { ok: true, status: "published", alreadyPublished: false };
+    });
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    console.error("[MILITOPO publishPreparedEvent]", { eventId, code: error?.code || null, message: error?.message || String(error) });
+    throw new HttpsError("aborted", "No se pudo confirmar la publicación. Actualiza el estado y vuelve a intentar.");
+  }
+});
+
 exports.ensureUserProfile = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const user = await auth.getUser(identity.uid);
