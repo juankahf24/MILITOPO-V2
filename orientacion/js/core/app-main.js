@@ -141,10 +141,11 @@ function militopoCloudCourseSnapshots(){
     });
     return [...byRoute.values()].map(course=>({...course,assignedParticipantIds:[...new Set(course.assignedParticipantIds)]}));
 }
-function publishMilitopoCloudStructure(reason="save"){
+function publishMilitopoCloudStructure(reason="save",requestId=""){
     try{
         window.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure",{detail:{
             reason,
+            requestId:String(requestId||""),
             armed:!!__militopoCloudHeaderArmed,
             eventId:String(state.eventId||""),
             checkpoints:militopoCloudCheckpointSnapshots(),
@@ -152,6 +153,16 @@ function publishMilitopoCloudStructure(reason="save"){
         }}));
     }catch(error){console.warn("MILITOPO · publicación de estructura nube",error)}
 }
+
+
+// F2.27 · Expone una solicitud de confirmación del escritor C2 existente.
+// Solo se confirma al recibir el resultado de su commit de Firestore.
+globalThis.MILITOPO_ORIENTATION_REQUEST_STRUCTURE_SYNC=function(requestId,expectedEventId){
+    const eventId=String(state.eventId||"");
+    if(!requestId||!eventId||eventId!==String(expectedEventId||"")||!__militopoCloudHeaderArmed)return false;
+    publishMilitopoCloudStructure("premium-save-exit",requestId);
+    return true;
+};
 
 function init(){
     if(__militopoOrientationInitialized)return;
