@@ -5,7 +5,7 @@ import {
   doc,
   getDoc,
   serverTimestamp,
-  updateDoc
+  runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 
@@ -13,7 +13,7 @@ const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const ORDER = ["draft", "prepared", "published", "live", "finished", "archived"];
 const META = {
   draft: { label: "BORRADOR", action: "MARCAR COMO PREPARADO", next: "prepared", hint: "Diseña la carrera y sincroniza su estructura antes de cerrarla." },
-  prepared: { label: "PREPARADO", action: "PUBLICAR CARRERA", next: "published", hint: "La estructura está cerrada para revisión. Publica cuando pueda abrirse a participantes." },
+  prepared: { label: "PREPARADO", action: "PUBLICAR CARRERA", next: "published", hint: "Al publicar se bloquearán balizas, recorridos, itinerarios, plano y configuración de diseño. Confirma solo cuando estén revisados." },
   published: { label: "PUBLICADO", action: "INICIAR CARRERA", next: "live", hint: "Carrera visible para el flujo operativo. Iníciala únicamente cuando comience la actividad." },
   live: { label: "EN DIRECTO", action: "FINALIZAR CARRERA", next: "finished", hint: "La sesión Live está activa y los corredores pueden estar compitiendo." },
   finished: { label: "FINALIZADO", action: "ARCHIVAR CARRERA", next: "archived", hint: "La actividad ha terminado. Revisa resultados antes de archivarla." },
@@ -322,7 +322,7 @@ function checksHtml(data, status) {
 }
 function nextHint(status) {
   if (status === "draft") return "Cierra la preparación cuando puntos y recorridos estén sincronizados.";
-  if (status === "prepared") return "Publicar habilita el flujo operativo de participantes e invitaciones.";
+  if (status === "prepared") return "PUBLICAR BLOQUEA EL DISEÑO: ya no podrás editar balizas, recorridos, itinerarios ni plano. Antes de publicar, se pedirá confirmación.";
   if (status === "published") return "Iniciar crea la sesión Live V2. Hazlo solo al comenzar la actividad.";
   if (status === "live") return "Finalizar cierra la sesión Live y consolida el cierre de la actividad.";
   if (status === "finished") return "Archivar conserva todos los datos y mueve la carrera al histórico.";
@@ -471,12 +471,62 @@ async function refresh(userRequested = false) {
     return false;
   }
 }
-async function confirmTransition(from, to) {
+// F2.30: aviso común para publicar desde ESTADO Y PUBLICACIÓN y Preflight.
+// La decisión no implica una garantía de bloqueo por sí sola: la barrera real
+// son las reglas Firestore y la comprobación condicional de la transición.
+const PUBLISH_LOCK_WARNING =
+  "¿Seguro que quieres PUBLICAR esta carrera?\n\n" +
+  "Una vez PUBLICADA, no podrás modificar balizas, controles, recorridos, " +
+  "itinerarios, plano ni la configuración de diseño de esta carrera.\n\n" +
+  "Revisa todo antes de continuar. Si necesitas otro diseño, tendrás que crear " +
+  "un nuevo BORRADOR reutilizando la carrera.\n\n" +
+  "¿Confirmas que quieres publicarla y bloquear su diseño?";
+
+async function confirmTransition(from, to, options = null) {
+  if (from === "prepared" && to === "published") {
+    // El Preflight ya solicita este consentimiento expresamente en el paso 9.
+    // Evita mostrar un segundo diálogo durante la misma publicación guiada.
+    if (options?.publicationOnly === true && options?.publishConsentConfirmed === true) return true;
+    if (typeof globalThis.MILITOPO_CONFIRM !== "function") return false;
+    return globalThis.MILITOPO_CONFIRM(PUBLISH_LOCK_WARNING, {
+      title: "PUBLICACIÓN DEFINITIVA · BLOQUEO DE DISEÑO",
+      confirmText: "SÍ, PUBLICAR Y BLOQUEAR",
+      danger: true
+    });
+  }
   if (to === "live") return globalThis.MILITOPO_CONFIRM("Vas a marcar el evento como EN DIRECTO.\n\nHazlo solo cuando la actividad vaya a comenzar. ¿Continuar?",{title:"INICIAR CARRERA",confirmText:"PONER EN DIRECTO"});
   if (to === "finished") return globalThis.MILITOPO_CONFIRM("Vas a FINALIZAR el evento.\n\n¿La actividad ha terminado realmente?",{title:"FINALIZAR CARRERA",confirmText:"FINALIZAR",danger:true});
   if (to === "archived") return globalThis.MILITOPO_CONFIRM("Vas a ARCHIVAR el evento.\n\nNo se borrará, pero quedará cerrado en el ciclo V2. ¿Continuar?",{title:"ARCHIVAR CARRERA",confirmText:"ARCHIVAR",danger:true});
   return true;
 }
+// F2.30: el estado leído antes de un modal puede quedarse obsoleto.
+// La transacción revalida estado, propietario y estructura al escribir;
+// Firestore la reintenta si alguien cambia el documento concurrentemente.
+async function commitLifecycleTransition(firestore, eventId, from, to, uid, role) {
+  const eventRef = doc(firestore, "events", eventId);
+  return runTransaction(firestore, async tx => {
+    const snap = await tx.get(eventRef);
+    if (!snap.exists()) throw new Error("La carrera ya no existe en Firebase. Actualiza su estado.");
+    const latest = snap.data() || {};
+    if (String(latest.ownerUid || "") !== String(uid || "") && role !== "super_admin")
+      throw new Error("La carrera ya no pertenece a esta cuenta.");
+    if (!ORDER.includes(String(latest.status || "")) || validStatus(latest.status) !== from)
+      throw new Error("El estado de la carrera ha cambiado en Firebase. Actualiza antes de continuar.");
+    if (!["draft>prepared", "prepared>published", "finished>archived"].includes(`${from}>${to}`))
+      throw new Error("Transición de carrera no permitida desde esta pantalla.");
+    if (["prepared", "published"].includes(to) && !structureReady(latest))
+      throw new Error("La estructura ha cambiado: revisa las balizas y los recorridos antes de publicar.");
+    const payload = {
+      status: to, cloudStage: "F2B", lifecycleVersion: 2, updatedAt: serverTimestamp()
+    };
+    if (to === "prepared") payload.preparedAt = serverTimestamp();
+    if (to === "published") payload.publishedAt = serverTimestamp();
+    if (to === "archived") payload.archivedAt = serverTimestamp();
+    tx.update(eventRef, payload);
+    return to;
+  });
+}
+
 async function advance(options = null) {
   if (state.busy) return;
   // Bloquear antes de la primera espera, también durante lectura y confirmación.
@@ -499,7 +549,7 @@ async function advance(options = null) {
       finalMessage = readinessText(state.event, from);
       return;
     }
-    if (!await confirmTransition(from, to) || !currentContext(token)) return;
+    if (!await confirmTransition(from, to, options) || !currentContext(token)) return;
     if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return; }
     processing = true;
     showProcessing(from, to);
@@ -534,16 +584,8 @@ async function advance(options = null) {
       ok = true;
       return;
     }
-    const payload = {
-      status: to,
-      cloudStage: "F2B",
-      lifecycleVersion: 2,
-      updatedAt: serverTimestamp()
-    };
-    if (to === "prepared") payload.preparedAt = serverTimestamp();
-    if (to === "published") payload.publishedAt = serverTimestamp();
-    if (to === "archived") payload.archivedAt = serverTimestamp();
-    await updateDoc(doc(firestore, "events", eventId), payload);
+    // Nunca publicar usando una lectura antigua; no tocar la estructura ni resultados.
+    await commitLifecycleTransition(firestore, eventId, from, to, token.uid, token.role);
     if (!currentContext(token)) return;
     await refresh();
     if (!currentContext(token)) return;
