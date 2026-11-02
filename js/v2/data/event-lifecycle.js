@@ -449,6 +449,8 @@ function paintAvailability() {
   state.refresh.title = state.busy ? "Espera a que termine la operación." : !navigator.onLine ? "Sin conexión: no se puede consultar el estado." : "Consultar el estado de la carrera.";
 }
 function paint(message = "") {
+  const notice = state.startNotice;
+  if (!message && notice && currentContext(notice.token) && state.event?.status === "published") message = notice.message;
   paintContent(message);
   paintAvailability();
   const check = state.panel?.querySelector("#m2LifecycleCheckStart");
@@ -573,6 +575,90 @@ const PUBLISH_LOCK_WARNING =
   "un nuevo BORRADOR reutilizando la carrera.\n\n" +
   "¿Confirmas que quieres publicarla y bloquear su diseño?";
 
+// F2.39: una ventana nativa mantiene comprobación, decisión y resultado juntos.
+// El resultado no se cierra con temporizadores. Solo un clic explícito acepta iniciar.
+function createStartDialog() {
+  if (!document.getElementById("m2StartDialogStyle")) {
+    const style = document.createElement("style");
+    style.id = "m2StartDialogStyle";
+    style.textContent = `
+      .m2-start-dialog{box-sizing:border-box;width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;margin:auto;padding:26px;border:1px solid #527e63;border-radius:26px;background:linear-gradient(145deg,#183d2b,#10271c);color:#f4f7f2;box-shadow:0 24px 90px #0008;font-family:system-ui,-apple-system,sans-serif;text-align:center}
+      .m2-start-dialog::backdrop{background:#03150dc9;backdrop-filter:blur(6px)}
+      .m2-start-dialog .m2-start-icon{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 16px;border-radius:50%;background:#d9eccc;color:#173e29;font-size:29px;font-weight:800}
+      .m2-start-dialog[data-busy="true"] .m2-start-icon{background:transparent;border:4px solid #789e7e;border-top-color:#efd17c;animation:m2StartSpin 1s linear infinite;box-sizing:border-box}
+      .m2-start-dialog h2{font-size:22px;line-height:1.2;margin:0 0 14px;color:inherit}
+      .m2-start-dialog .m2-start-message{white-space:pre-line;overflow-wrap:anywhere;text-align:left;line-height:1.55;font-size:15px;margin:0;color:#e1eadd}
+      .m2-start-dialog .m2-start-actions{display:grid;gap:10px;margin-top:22px}
+      .m2-start-dialog button{min-height:48px;padding:13px;border-radius:14px;border:1px solid #759382;background:#254e39;color:#fff;font:750 14px system-ui;cursor:pointer}
+      .m2-start-dialog button[data-confirm]{background:#f1d784;color:#172a1c;border-color:#f1d784}
+      .m2-start-dialog button:focus-visible{outline:3px solid white;outline-offset:3px}
+      .m2-start-dialog button[hidden]{display:none!important}
+      @keyframes m2StartSpin{to{transform:rotate(360deg)}}
+      @media(prefers-reduced-motion:reduce){.m2-start-dialog[data-busy="true"] .m2-start-icon{animation:none}}
+    `;
+    document.head.appendChild(style);
+  }
+  const previousFocus = document.activeElement;
+  const dialog = document.createElement("dialog");
+  dialog.className = "m2-start-dialog";
+  dialog.setAttribute("aria-labelledby", "m2StartTitle");
+  dialog.setAttribute("aria-describedby", "m2StartMessage");
+  dialog.innerHTML = `<div class="m2-start-icon" aria-hidden="true"></div><div aria-live="polite" aria-atomic="true"><h2 id="m2StartTitle"></h2><p id="m2StartMessage" class="m2-start-message"></p></div><div class="m2-start-actions"><button type="button" data-confirm hidden>PONER EN DIRECTO</button><button type="button" data-dismiss>CANCELAR</button></div>`;
+  const title = dialog.querySelector("h2"), message = dialog.querySelector("p");
+  const icon = dialog.querySelector(".m2-start-icon");
+  const confirm = dialog.querySelector("[data-confirm]"), dismiss = dialog.querySelector("[data-dismiss]");
+  let closed = false, writing = false, resolveChoice = null, resolveClosed;
+  const dismissed = new Promise(resolve => { resolveClosed = resolve; });
+  function close() {
+    if (closed) return;
+    closed = true;
+    resolveClosed(null);
+    const resolve = resolveChoice; resolveChoice = null;
+    if (resolve) resolve(false);
+    if (dialog.open) dialog.close();
+    dialog.remove();
+    if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+  }
+  function render(heading, text, busy = false) {
+    if (closed) return;
+    title.textContent = heading;
+    message.textContent = text;
+    dialog.dataset.busy = String(busy);
+    icon.textContent = busy ? "" : "✓";
+    confirm.hidden = true;
+  }
+  dismiss.addEventListener("click", () => { if (!writing) close(); });
+  dialog.addEventListener("cancel", event => { event.preventDefault(); if (!writing) close(); });
+  confirm.addEventListener("click", () => {
+    if (!resolveChoice || closed || confirm.hidden) return;
+    const resolve = resolveChoice; resolveChoice = null;
+    writing = true; confirm.hidden = true; dismiss.hidden = true;
+    resolve(true);
+  });
+  render("COMPROBANDO CARRERA", "Revisando participantes, recorridos y permisos…\nLa carrera todavía no se ha iniciado.", true);
+  document.body.appendChild(dialog);
+  try { dialog.showModal(); dismiss.focus({ preventScroll: true }); }
+  catch (error) { dialog.remove(); throw new Error("No se pudo abrir la confirmación de inicio. Actualiza la aplicación y vuelve a intentarlo."); }
+  return {
+    get closed() { return closed; }, close, dismissed,
+    progress(heading, text) { writing = true; render(heading, text, true); dismiss.hidden = true; },
+    result(heading, text, allowStart = false, problem = false) {
+      if (closed) return Promise.resolve(false);
+      writing = false;
+      render(heading, text);
+      icon.textContent = problem ? "!" : "✓";
+      confirm.hidden = !allowStart;
+      dismiss.hidden = false; dismiss.textContent = allowStart ? "CANCELAR" : "ENTENDIDO";
+      // El foco inicial se mantiene en la opción no destructiva.
+      dismiss.focus({ preventScroll: true });
+      return new Promise(resolve => { resolveChoice = resolve; });
+    }
+  };
+}
+function rememberStartNotice(token, message) {
+  if (currentContext(token)) state.startNotice = { token, message };
+}
+
 function startReadinessText(report) {
   const summary = `${report.participantCount} participantes activos · ${report.routeCount} recorridos · ${report.excludedCount} inscripciones excluidas.`;
   return report.ok ? `COMPROBACIÓN CORRECTA. ${summary} La carrera sigue PUBLICADA; todavía no se ha iniciado.`
@@ -580,7 +666,14 @@ function startReadinessText(report) {
 }
 async function fetchStartReadiness(eventId) {
   const svc = await services();
-  const reply = await httpsCallable(svc.functions, "getLiveStartReadiness")({ eventId });
+  let timeout;
+  let reply;
+  try {
+    reply = await Promise.race([
+      httpsCallable(svc.functions, "getLiveStartReadiness")({ eventId }),
+      new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("La comprobación está tardando demasiado. Revisa la conexión y vuelve a intentarlo.")), 30000); })
+    ]);
+  } finally { clearTimeout(timeout); }
   const report = reply?.data;
   if (!report || report.eventId !== eventId || typeof report.ok !== "boolean" || !Array.isArray(report.issues) || !/^[a-f0-9]{64}$/.test(report.revision || "")) {
     throw new Error("Firebase no devolvió una comprobación de inicio válida.");
@@ -590,16 +683,23 @@ async function fetchStartReadiness(eventId) {
 async function inspectLiveStart() {
   if (state.busy || !navigator.onLine || !canManage()) return;
   state.busy = true;
+  state.startNotice = null;
   const token = lifecycleToken();
-  let message = "";
+  let message = "", dialog;
   paint("Comprobando participantes y recorridos en Firebase…");
   try {
-    const report = await fetchStartReadiness(token.eventId);
-    if (!currentContext(token)) return;
+    dialog = createStartDialog();
+    const report = await Promise.race([fetchStartReadiness(token.eventId), dialog.dismissed]);
+    if (!report || !currentContext(token) || dialog.closed) return;
     message = startReadinessText(report);
+    rememberStartNotice(token, message);
+    await dialog.result(report.ok ? "COMPROBACIÓN CORRECTA" : "INICIO BLOQUEADO", message, false, !report.ok);
   } catch (error) {
     message = `No se pudo comprobar el inicio: ${String(error?.message || error)}`;
+    rememberStartNotice(token, message);
+    if (currentContext(token)) await dialog?.result("NO SE PUDO COMPROBAR", message, false, true);
   } finally {
+    dialog?.close();
     state.busy = false;
     paint(currentContext(token) ? message : "");
   }
@@ -662,13 +762,22 @@ async function advance(options = null) {
   state.busy = true;
   const token = lifecycleToken();
   const publicationOnly = options?.publicationOnly === true;
+  const intendedFrom = validStatus(state.event?.status);
+  let startDialog = null;
   let processing = false, ok = false, finalMessage = "";
   const outcome = () => ({ ok, error: ok ? "" : (finalMessage || "No se confirmó el cambio de estado. Revisa la carrera y tu sesión.") });
   paint();
   try {
-    if (!await refresh() || !currentContext(token)) return outcome();
+    if (!publicationOnly && intendedFrom === "published") {
+      state.startNotice = null;
+      startDialog = createStartDialog();
+    }
+    if (!navigator.onLine) throw new Error("Sin conexión. Recupera Internet y vuelve a comprobar la carrera.");
+    if (!await refresh()) throw new Error("No se pudo actualizar el estado de la carrera.");
+    if (!currentContext(token) || startDialog?.closed) return outcome();
     const eventId = token.eventId;
     const from = validStatus(state.event?.status);
+    if (from !== intendedFrom) throw new Error("El estado de la carrera ha cambiado. Revisa el estado actualizado antes de realizar otra acción.");
     const to = META[from]?.next;
     if (!to) return outcome();
     if (publicationOnly && (String(options.eventId || "") !== eventId || options.expectedFrom !== from || !["draft", "prepared"].includes(from))) {
@@ -689,19 +798,28 @@ async function advance(options = null) {
     let startReadiness = null;
     if (from === "published" && to === "live") {
       paint("Comprobando participantes y recorridos antes de iniciar…");
-      startReadiness = await fetchStartReadiness(eventId);
-      if (!currentContext(token)) return outcome();
-      if (!startReadiness.ok) throw new Error(startReadinessText(startReadiness));
-    }
-    if (!await confirmTransition(from, to, { ...options, startReadiness }) || !currentContext(token)) return outcome();
-    if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return outcome(); }
+      startReadiness = await Promise.race([fetchStartReadiness(eventId), startDialog.dismissed]);
+      if (!startReadiness || !currentContext(token) || startDialog.closed) return outcome();
+      const summary = startReadinessText(startReadiness);
+      rememberStartNotice(token, summary);
+      if (!startReadiness.ok) {
+        finalMessage = summary;
+        await startDialog.result("INICIO BLOQUEADO", summary, false, true);
+        return outcome();
+      }
+      const accepted = await startDialog.result("TODO LISTO PARA INICIAR", summary + "\n\n¿Quieres poner la carrera EN DIRECTO ahora?", true);
+      if (!accepted) { finalMessage = "Inicio cancelado. No se ha enviado ninguna solicitud de inicio."; rememberStartNotice(token, finalMessage); return outcome(); }
+    } else if (!await confirmTransition(from, to, options)) return outcome();
+    if (!currentContext(token)) return outcome();
+    if (!navigator.onLine) throw new Error("Sin conexión. Recupera Internet antes de cambiar el estado.");
     // El asistente de publicación mantiene una única interfaz durante ambos pasos.
-    processing = !publicationOnly;
+    processing = !publicationOnly && !startDialog;
+    if (startDialog) startDialog.progress("PONIENDO EN DIRECTO", "Confirmando el inicio con el servidor…\nEspera el resultado antes de volver a intentarlo.");
     if (processing) showProcessing(from, to);
     paint(`Cambiando ${META[from].label} → ${META[to].label}…`);
     const svc = await services();
     if (!currentContext(token)) return outcome();
-    if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return outcome(); }
+    if (!navigator.onLine) throw new Error("Sin conexión. Recupera Internet antes de cambiar el estado.");
     const { firestore, functions } = svc;
     if (from === "published" && to === "live") {
       const response = await httpsCallable(functions, "startLiveRun")({ eventId, expectedReadinessRevision: startReadiness.revision });
@@ -715,6 +833,7 @@ async function advance(options = null) {
       finalMessage = `Evento EN DIRECTO · ${Number(data.participantCount || 0)} corredor${Number(data.participantCount || 0) === 1 ? "" : "es"} autorizado${Number(data.participantCount || 0) === 1 ? "" : "s"}.`;
       if (typeof globalThis.toast === "function") globalThis.toast(`Carrera iniciada · ${data.participantCount ?? 0} corredor(es)`);
       ok = true;
+      await startDialog.result("CARRERA EN DIRECTO", finalMessage);
       return outcome();
     }
     if (from === "live" && to === "finished") {
@@ -754,10 +873,15 @@ async function advance(options = null) {
   } catch (error) {
     console.error("[MILITOPO F2B] transition", error);
     finalMessage = `No se pudo cambiar el estado: ${String(error?.message || error)}`;
+    if (startDialog && currentContext(token)) {
+      rememberStartNotice(token, finalMessage);
+      await startDialog.result("INICIO NO CONFIRMADO", finalMessage + "\n\nActualiza el estado de la carrera antes de reintentar.", false, true);
+    }
   } finally {
     try {
       if (processing) await finishProcessing(ok, currentContext(token) ? finalMessage : "La vista ha cambiado. Actualiza el estado de la carrera correspondiente.");
     } finally {
+      startDialog?.close();
       state.busy = false;
       paint(currentContext(token) && !ok ? finalMessage : "");
     }
