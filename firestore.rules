@@ -27,8 +27,7 @@ service cloud.firestore {
              (before == "draft" && after == "prepared") ||
              (before == "prepared" && after == "published") ||
              (before == "published" && after == "live") ||
-             (before == "live" && after == "finished") ||
-             (before == "finished" && after == "archived");
+             (before == "live" && after == "finished");
     }
     function preparedDataReady(data) {
       return data.checkpointSyncedCount is int && data.checkpointSyncedCount >= 3 &&
@@ -44,7 +43,7 @@ service cloud.firestore {
     function lifecycleOnlyAfterPublication() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
         "status", "cloudStage", "lifecycleVersion", "updatedAt",
-        "publishedAt", "liveAt", "finishedAt", "archivedAt"
+        "publishedAt", "liveAt", "finishedAt"
       ]);
     }
 
