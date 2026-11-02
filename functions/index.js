@@ -620,8 +620,9 @@ function memberRouteSummary(member = {}) {
   };
 }
 
-async function existingParticipantReservations(eventRef, excludeUid = "") {
-  const snap = await eventRef.collection("members").get();
+async function existingParticipantReservations(eventRef, excludeUid = "", transaction = null) {
+  const query = eventRef.collection("members");
+  const snap = transaction ? await transaction.get(query) : await query.get();
   const reserved = new Map();
   snap.forEach(docSnap => {
     const uid = String(docSnap.id || "").trim();
@@ -633,9 +634,47 @@ async function existingParticipantReservations(eventRef, excludeUid = "") {
   return reserved;
 }
 
+// F2.37: conservar la identidad de inscripciones antiguas y no apropiarse de
+// reservas ajenas. Los miembros/reservas se leen dentro de la misma transacción.
+function resolveMemberRouteAssignment(catalog, member, assignments, reserved, uid) {
+  let participantId = String(member.participantId || member.webParticipantId || "").trim();
+  let routeId = String(member.routeId || member.courseId || "").trim();
+  const owned = Object.entries(assignments).filter(([, row]) => row?.uid === uid);
+  if (owned.length > 1) {
+    throw new HttpsError("failed-precondition", "Tu inscripción tiene varias plazas reservadas. El organizador debe revisar la asignación.");
+  }
+  if (owned.length === 1) {
+    const [savedParticipantId, saved] = owned[0];
+    const savedRouteId = String(saved.routeId || "").trim();
+    if ((participantId && participantId !== savedParticipantId) || (routeId && savedRouteId && routeId !== savedRouteId)) {
+      throw new HttpsError("failed-precondition", "La inscripción y su reserva no coinciden. El organizador debe revisar la asignación.");
+    }
+    participantId = participantId || savedParticipantId;
+    routeId = routeId || savedRouteId;
+  }
+  const freeForMember = id => !reserved.has(id) && (!assignments[id]?.uid || assignments[id].uid === uid);
+  if (participantId) {
+    if (!freeForMember(participantId)) {
+      throw new HttpsError("failed-precondition", "La plaza de tu inscripción está reservada a otra persona. El organizador debe revisar la asignación.");
+    }
+    if (!routeId) routeId = catalog.slots.find(slot => slot.participantId === participantId)?.routeId || "";
+    const course = catalog.courses.find(row => row.routeId === routeId);
+    if (!course) {
+      throw new HttpsError("failed-precondition", "No se puede recuperar el recorrido de tu inscripción. El organizador debe revisar la asignación.");
+    }
+    // Usar los datos del recorrido sin sustituir Pxx por el de otro slot.
+    return routeSlotPayload({ ...course, participantId });
+  }
+  if (routeId && !catalog.courses.some(row => row.routeId === routeId)) {
+    throw new HttpsError("failed-precondition", "El recorrido guardado ya no existe. El organizador debe revisar la asignación.");
+  }
+  const slot = catalog.slots.find(row => (!routeId || row.routeId === routeId) && freeForMember(row.participantId));
+  if (!slot) throw new HttpsError("resource-exhausted", "No quedan plazas disponibles para esta inscripción.");
+  return routeSlotPayload(slot);
+}
+
 async function ensureMemberRouteAssignment(eventRef, eventData, uid, { allowLive = true } = {}) {
   const catalog = await loadRouteCatalog(eventRef, eventData);
-  const reserved = await existingParticipantReservations(eventRef, uid);
   const memberRef = eventRef.collection("members").doc(uid);
   const stateRef = eventRef.collection("system").doc("routeAssignments");
 
@@ -655,36 +694,15 @@ async function ensureMemberRouteAssignment(eventRef, eventData, uid, { allowLive
       throw new HttpsError("failed-precondition", "Tu inscripción no está activa.");
     }
 
-    const currentParticipantId = String(member.participantId || member.webParticipantId || "").trim();
-    const currentRouteId = String(member.routeId || member.courseId || "").trim();
     const stateData = assignmentSnap.exists ? (assignmentSnap.data() || {}) : {};
     const assignments = stateData.assignments && typeof stateData.assignments === "object" ? { ...stateData.assignments } : {};
-
-    if (currentParticipantId && currentRouteId) {
-      const slot = catalog.slots.find(x => x.participantId === currentParticipantId && x.routeId === currentRouteId)
-        || catalog.slots.find(x => x.routeId === currentRouteId)
-        || null;
-      const summary = slot ? routeSlotPayload(slot) : memberRouteSummary(member);
-      assignments[currentParticipantId] = { uid, routeId: currentRouteId };
-      tx.set(stateRef, { schemaVersion: 1, assignments, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-      // Completa métricas si la membresía viene de una versión anterior.
-      if (slot) tx.set(memberRef, { ...summary, routeAssignedAt: member.routeAssignedAt || FieldValue.serverTimestamp(), routeAssignmentSource: member.routeAssignmentSource || "legacy_backfill", updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-      return summary;
-    }
-
-    const slot = catalog.slots.find(candidate => {
-      const occupiedByMember = reserved.get(candidate.participantId);
-      const occupiedByState = assignments[candidate.participantId]?.uid;
-      return !occupiedByMember && (!occupiedByState || occupiedByState === uid);
-    });
-    if (!slot) throw new HttpsError("resource-exhausted", "No quedan plazas/recorridos disponibles en este evento.");
-
-    const summary = routeSlotPayload(slot);
+    const reserved = await existingParticipantReservations(eventRef, uid, tx);
+    const summary = resolveMemberRouteAssignment(catalog, member, assignments, reserved, uid);
     assignments[summary.participantId] = { uid, routeId: summary.routeId };
     tx.set(memberRef, {
       ...summary,
-      routeAssignedAt: FieldValue.serverTimestamp(),
-      routeAssignmentSource: "automatic",
+      routeAssignedAt: member.routeAssignedAt || FieldValue.serverTimestamp(),
+      routeAssignmentSource: member.routeAssignmentSource || "automatic",
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
     tx.set(stateRef, { schemaVersion: 1, assignments, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
@@ -734,7 +752,6 @@ exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request =>
   if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera ya no existe.");
   const eventData = eventSnap.data() || {};
   const catalog = await loadRouteCatalog(eventRef, eventData);
-  const reserved = await existingParticipantReservations(eventRef, uid);
   const memberRef = eventRef.collection("members").doc(uid);
   const stateRef = eventRef.collection("system").doc("routeAssignments");
   const profile = profileSnap.exists ? (profileSnap.data() || {}) : {};
@@ -761,26 +778,10 @@ exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request =>
     if (memberSnap.exists && String(member.status || "active").toLowerCase() === "removed") {
       throw new HttpsError("failed-precondition", "El organizador ha retirado temporalmente tu inscripción.");
     }
-    const currentParticipantId = String(member.participantId || member.webParticipantId || "").trim();
-    const currentRouteId = String(member.routeId || member.courseId || "").trim();
     const stateData = assignmentSnap.exists ? (assignmentSnap.data() || {}) : {};
     const assignments = stateData.assignments && typeof stateData.assignments === "object" ? { ...stateData.assignments } : {};
-
-    let summary = null;
-    if (currentParticipantId && currentRouteId) {
-      const slot = catalog.slots.find(x => x.participantId === currentParticipantId && x.routeId === currentRouteId)
-        || catalog.slots.find(x => x.routeId === currentRouteId)
-        || null;
-      summary = slot ? routeSlotPayload(slot) : memberRouteSummary(member);
-    } else {
-      const slot = catalog.slots.find(candidate => {
-        const occupiedByMember = reserved.get(candidate.participantId);
-        const occupiedByState = assignments[candidate.participantId]?.uid;
-        return !occupiedByMember && (!occupiedByState || occupiedByState === uid);
-      });
-      if (!slot) throw new HttpsError("resource-exhausted", "No quedan plazas/recorridos disponibles en esta carrera.");
-      summary = routeSlotPayload(slot);
-    }
+    const reserved = await existingParticipantReservations(eventRef, uid, tx);
+    const summary = resolveMemberRouteAssignment(catalog, member, assignments, reserved, uid);
 
     assignments[summary.participantId] = { uid, routeId: summary.routeId };
     const memberPayload = {
