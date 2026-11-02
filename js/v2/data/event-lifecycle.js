@@ -614,68 +614,70 @@ async function commitLifecycleTransition(firestore, eventId, from, to, uid, role
 }
 
 async function advance(options = null) {
-  if (state.busy) return;
+  if (state.busy) return { ok: false, error: "Ya hay un cambio de estado en curso. Espera a que termine." };
   // Bloquear antes de la primera espera, también durante lectura y confirmación.
   state.busy = true;
   const token = lifecycleToken();
   const publicationOnly = options?.publicationOnly === true;
   let processing = false, ok = false, finalMessage = "";
+  const outcome = () => ({ ok, error: ok ? "" : (finalMessage || "No se confirmó el cambio de estado. Revisa la carrera y tu sesión.") });
   paint();
   try {
-    if (!await refresh() || !currentContext(token)) return;
+    if (!await refresh() || !currentContext(token)) return outcome();
     const eventId = token.eventId;
     const from = validStatus(state.event?.status);
     const to = META[from]?.next;
-    if (!to) return;
+    if (!to) return outcome();
     if (publicationOnly && (String(options.eventId || "") !== eventId || options.expectedFrom !== from || !["draft", "prepared"].includes(from))) {
       finalMessage = "El estado o la carrera ha cambiado. Revisa la publicación antes de continuar.";
-      return;
+      return outcome();
     }
     if (["draft", "prepared"].includes(from) && !structureReady(state.event)) {
       finalMessage = readinessText(state.event, from);
-      return;
+      return outcome();
     }
     let expectedStructureVersion = "";
     if (from === "prepared" && to === "published") {
       const svc = await services();
-      if (!currentContext(token)) return;
+      if (!currentContext(token)) return outcome();
       expectedStructureVersion = await verifyPublicationDesign(svc.firestore, eventId, state.event);
-      if (!currentContext(token)) return;
+      if (!currentContext(token)) return outcome();
     }
-    if (!await confirmTransition(from, to, options) || !currentContext(token)) return;
-    if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return; }
-    processing = true;
-    showProcessing(from, to);
+    if (!await confirmTransition(from, to, options) || !currentContext(token)) return outcome();
+    if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return outcome(); }
+    // El asistente de publicación mantiene una única interfaz durante ambos pasos.
+    processing = !publicationOnly;
+    if (processing) showProcessing(from, to);
     paint(`Cambiando ${META[from].label} → ${META[to].label}…`);
     const svc = await services();
-    if (!currentContext(token)) return;
-    if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return; }
+    if (!currentContext(token)) return outcome();
+    if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return outcome(); }
     const { firestore, functions } = svc;
     if (from === "published" && to === "live") {
       const response = await httpsCallable(functions, "startLiveRun")({ eventId });
       const data = response?.data || {};
-      if (!currentContext(token)) return;
+      if (!currentContext(token)) return outcome();
       await refresh();
-      if (!currentContext(token)) return;
+      if (!currentContext(token)) return outcome();
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
       finalMessage = `Evento EN DIRECTO · ${Number(data.participantCount || 0)} corredor${Number(data.participantCount || 0) === 1 ? "" : "es"} autorizado${Number(data.participantCount || 0) === 1 ? "" : "s"}.`;
       if (typeof globalThis.toast === "function") globalThis.toast(`Carrera iniciada · ${data.participantCount ?? 0} corredor(es)`);
       ok = true;
-      return;
+      return outcome();
     }
     if (from === "live" && to === "finished") {
       const response = await httpsCallable(functions, "finishLiveRun")({ eventId });
       const data = response?.data || {};
-      if (!currentContext(token)) return;
+      if (!currentContext(token)) return outcome();
       await refresh();
-      if (!currentContext(token)) return;
+      if (!currentContext(token)) return outcome();
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
       globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
       finalMessage = "Evento FINALIZADO · sesión Live V2 cerrada correctamente.";
       if (typeof globalThis.toast === "function") globalThis.toast("Carrera finalizada en backend Live V2");
       ok = true;
-      return;
+      return outcome();
     }
     // F2.33: el paso PREPARADA -> PUBLICADA solo se realiza mediante Function.
     // El navegador sigue haciendo preflight, pero no es la barrera de seguridad.
@@ -691,12 +693,12 @@ async function advance(options = null) {
     } else {
       await commitLifecycleTransition(firestore, eventId, from, to, token.uid, token.role, expectedStructureVersion);
     }
-    if (!currentContext(token)) return;
+    if (!currentContext(token)) return outcome();
     await refresh();
-    if (!currentContext(token)) return;
+    if (!currentContext(token)) return outcome();
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to } }));
     finalMessage = `Estado actualizado a ${META[to].label}.`;
-    if (typeof globalThis.toast === "function") globalThis.toast(`Estado: ${META[to].label}`);
+    if (!publicationOnly && typeof globalThis.toast === "function") globalThis.toast(`Estado: ${META[to].label}`);
     ok = true;
   } catch (error) {
     console.error("[MILITOPO F2B] transition", error);
@@ -709,6 +711,7 @@ async function advance(options = null) {
       paint(currentContext(token) && !ok ? finalMessage : "");
     }
   }
+  return outcome();
 }
 
 function onAuthReady(event) {
