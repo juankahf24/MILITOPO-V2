@@ -148,7 +148,7 @@ async function loadOrganizerSummaryForRunner(user){
   }catch(error){if(currentUser?.uid!==user.uid)return;statusNode.textContent=String(error?.message||"No se pudo consultar la actividad de organización.");}
 }
 
-function statusES(s){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"ARCHIVADA",incomplete:"INCOMPLETA",not_started:"NO SALIÓ"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();}
+function statusES(s){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"FINALIZADA",incomplete:"INCOMPLETA",not_started:"NO SALIÓ"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();}
 function formatDuration(ms){const n=Number(ms);if(!Number.isFinite(n)||n<0)return "—";const total=Math.round(n/1000),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60;return h>0?`${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${m}:${String(s).padStart(2,"0")}`;}
 function formatDate(ms){const n=Number(ms);if(!Number.isFinite(n)||n<=0)return "";try{return new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(n));}catch(_){return "";}}
 function formatKm(m){const n=Number(m);return Number.isFinite(n)&&n>0?`${(n/1000).toFixed(2)} km`:"0.00 km";}

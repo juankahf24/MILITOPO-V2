@@ -1,22 +1,22 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-f230-publish-guard-20261102";
+const CACHE_NAME="militopo-v2-participante-f231-sin-archivado-20261102";
 const APP_SHELL=[
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
-  "./runner-home-v4.js?v=militopo-p16-account-recovery-20261028",
+  "./runner-home-v4.js?v=militopo-f231-sin-archivado-20261102",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
   "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
   "../../js/v2/bootstrap.js?v=v2-f3a-runner-sessionfix-20260923",
   "../../js/v2/auth/roles.js",
 
-  "../../js/v2/ui/pwa-update.js?v=v2-f230-publish-guard-20261102",
+  "../../js/v2/ui/pwa-update.js?v=v2-f231-sin-archivado-20261102",
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
   "./runner-mode-switch.css?v=militopo-r4-profile-20261019",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
-  "./runner-home-v4.js?v=militopo-r4-profile-20261019","./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=v2-r9n-provisional-classification-20261011","./runner-r9m-responsive.js?v=v2-r9m-runner-responsive-20261011",
+  "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=v2-r9n-provisional-classification-20261011","./runner-r9m-responsive.js?v=v2-r9m-runner-responsive-20261011",
   "../../js/v2/firebase-config.js","../../js/v2/firebase-config.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
@@ -28,7 +28,7 @@ const APP_SHELL=[
   "../../js/v2/auth/auth-ui.js?v=v2-r8l-profile-photo-square-20261009",
   "../../js/v2/data/invitation-inbox.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/live/runner-session-v2.js?v=v2-f210-close-presence-20261031",
-  "../js/live/live-phase2.js?v=v2-f3a-runner-homefix2-20260923",
+  "../js/live/live-phase2.js?v=v2-f231-sin-archivado-20261102",
   "../../js/v2/maps/race-plan-history.js?v=v2-r7e-runner-coherence-20261008",
   "../../js/v2/live/runner-track-v2.js?v=v2-p03-gps-reconciliation-20261023",
   "../../js/v2/live/runner-gps-v2.js?v=v2-p01-gps-track-guard-20261023",
@@ -158,7 +158,7 @@ async function canActivateMilitopoUpdate() {
   } catch (_) { return false; }
 }
 self.addEventListener("message",event=>{
-  if (event.data?.type === "MILITOPO_GET_SW_VERSION") event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:"v2-f230-publish-guard-20261102",scope:"participante"});
+  if (event.data?.type === "MILITOPO_GET_SW_VERSION") event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:"v2-f231-sin-archivado-20261102",scope:"participante"});
   if (event.data?.type === "MILITOPO_ACTIVATE_UPDATE") {
     event.waitUntil(canActivateMilitopoUpdate().then(ok=>ok?self.skipWaiting():undefined));
   }
