@@ -235,6 +235,9 @@ service cloud.firestore {
                     && request.resource.data.kind == resource.data.kind
                     && validEventStatus(request.resource.data.status)
                     && validEventTransition(resource.data.status, request.resource.data.status)
+                    // F2.33: publicar requiere la Function publishPreparedEvent,
+                    // que valida los documentos reales de balizas y recorridos.
+                    && !(resource.data.status == "prepared" && request.resource.data.status == "published")
                     && (request.resource.data.status != "prepared" || resource.data.status == "prepared" || preparedDataReady(request.resource.data))
                     && (designEditableStatus(resource.data.status) || lifecycleOnlyAfterPublication());
       allow delete: if false;
