@@ -663,7 +663,10 @@ async function publishRace(){
   };
   try{
     if(typeof globalThis.MILITOPO_CONFIRM!=="function")throw new Error("La confirmación no está disponible. Vuelve a intentarlo cuando termine la carga.");
-    const ok=await globalThis.MILITOPO_CONFIRM("Se preparará y publicará esta carrera. No se iniciará el seguimiento en directo.",{title:"PUBLICAR CARRERA",confirmText:"PUBLICAR"});
+    const ok=await globalThis.MILITOPO_CONFIRM(
+      "¿Seguro que quieres PUBLICAR esta carrera?\n\nAl publicarla quedarán bloqueadas las balizas, controles, recorridos, itinerarios, el plano y la configuración de diseño. No podrás modificarlos en esta carrera; para otro diseño tendrás que crear un nuevo BORRADOR reutilizándola.\n\nNo se iniciará el seguimiento en directo.",
+      {title:"PUBLICACIÓN DEFINITIVA · BLOQUEO DE DISEÑO",confirmText:"SÍ, PUBLICAR Y BLOQUEAR",danger:true}
+    );
     if(!ok)return;
     ensureCurrent();
     if(!preflightReady())throw new Error("El diseño ha cambiado. Revisa los requisitos pendientes.");
@@ -683,7 +686,7 @@ async function publishRace(){
         ensureCurrent();status=lifecycleStatus();
         if(status==="published")break;
         if(!["draft","prepared"].includes(status))throw new Error(`El estado ha cambiado a ${lifecycleLabel(status)}.`);
-        await advance({publicationOnly:true,eventId:token.eventId,expectedFrom:status});
+        await advance({publicationOnly:true,publishConsentConfirmed:true,eventId:token.eventId,expectedFrom:status});
         ensureCurrent();
         // Esperar la confirmación oficial antes de intentar otra transición; evita
         // exigir otro clic por una lectura/repaint tardío tras PREPARADO.
