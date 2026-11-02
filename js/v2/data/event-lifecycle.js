@@ -358,6 +358,7 @@ function ensurePanel() {
           <p id="m2LifecycleNextHint">Carga una carrera desde CARGAR CARRERA para continuar.</p>
           <div class="m2-life-actions">
             <button id="m2LifecycleRefresh" type="button">↻ ACTUALIZAR</button>
+            <button id="m2LifecycleCheckStart" type="button" hidden>COMPROBAR INICIO</button>
             <button id="m2LifecycleAction" type="button" class="m2-life-primary" disabled>NO DISPONIBLE</button>
             <p id="m2LifecycleAvailability" class="m2-life-availability" role="status" aria-live="polite" aria-atomic="true"></p>
             <button id="m2LifecycleGoLive" type="button" class="m2-life-live-link" hidden>IR A LIVE · CARRERA EN DIRECTO</button>
@@ -376,6 +377,7 @@ function ensurePanel() {
   state.liveLink = panel.querySelector("#m2LifecycleGoLive");
   state.refresh.addEventListener("click", () => refresh(true));
   state.action.addEventListener("click", advance);
+  panel.querySelector("#m2LifecycleCheckStart").addEventListener("click", inspectLiveStart);
   state.liveLink?.addEventListener("click",()=>globalThis.dispatchEvent(new CustomEvent("militopo:r1-open-live")));
   paint();
   return panel;
@@ -449,6 +451,11 @@ function paintAvailability() {
 function paint(message = "") {
   paintContent(message);
   paintAvailability();
+  const check = state.panel?.querySelector("#m2LifecycleCheckStart");
+  if (check) {
+    check.hidden = !canManage() || state.event?.status !== "published";
+    check.disabled = state.busy || !navigator.onLine;
+  }
 }
 function paintContent(message = "") {
   ensurePanel();
@@ -566,6 +573,38 @@ const PUBLISH_LOCK_WARNING =
   "un nuevo BORRADOR reutilizando la carrera.\n\n" +
   "¿Confirmas que quieres publicarla y bloquear su diseño?";
 
+function startReadinessText(report) {
+  const summary = `${report.participantCount} participantes activos · ${report.routeCount} recorridos · ${report.excludedCount} inscripciones excluidas.`;
+  return report.ok ? `COMPROBACIÓN CORRECTA. ${summary} La carrera sigue PUBLICADA; todavía no se ha iniciado.`
+    : `INICIO BLOQUEADO. ${summary} ${report.issues.map(row => row.message).join(" ")}`;
+}
+async function fetchStartReadiness(eventId) {
+  const svc = await services();
+  const reply = await httpsCallable(svc.functions, "getLiveStartReadiness")({ eventId });
+  const report = reply?.data;
+  if (!report || report.eventId !== eventId || typeof report.ok !== "boolean" || !Array.isArray(report.issues) || !/^[a-f0-9]{64}$/.test(report.revision || "")) {
+    throw new Error("Firebase no devolvió una comprobación de inicio válida.");
+  }
+  return report;
+}
+async function inspectLiveStart() {
+  if (state.busy || !navigator.onLine || !canManage()) return;
+  state.busy = true;
+  const token = lifecycleToken();
+  let message = "";
+  paint("Comprobando participantes y recorridos en Firebase…");
+  try {
+    const report = await fetchStartReadiness(token.eventId);
+    if (!currentContext(token)) return;
+    message = startReadinessText(report);
+  } catch (error) {
+    message = `No se pudo comprobar el inicio: ${String(error?.message || error)}`;
+  } finally {
+    state.busy = false;
+    paint(currentContext(token) ? message : "");
+  }
+}
+
 async function confirmTransition(from, to, options = null) {
   if (from === "prepared" && to === "published") {
     // El Preflight ya solicita este consentimiento expresamente en el paso 9.
@@ -578,7 +617,11 @@ async function confirmTransition(from, to, options = null) {
       danger: true
     });
   }
-  if (to === "live") return globalThis.MILITOPO_CONFIRM("Vas a marcar el evento como EN DIRECTO.\n\nHazlo solo cuando la actividad vaya a comenzar. ¿Continuar?",{title:"INICIAR CARRERA",confirmText:"PONER EN DIRECTO"});
+  if (to === "live") {
+    const report = options?.startReadiness;
+    if (!report?.ok) return false;
+    return globalThis.MILITOPO_CONFIRM(`Comprobación correcta: ${report.participantCount} participantes activos, ${report.routeCount} recorridos y ${report.excludedCount} inscripciones excluidas.\n\nVas a iniciar la carrera EN DIRECTO. Hazlo solo cuando vaya a comenzar la actividad. ¿Continuar?`, {title:"INICIAR CARRERA",confirmText:"PONER EN DIRECTO"});
+  }
   if (to === "finished") return globalThis.MILITOPO_CONFIRM("Vas a FINALIZAR el evento.\n\n¿La actividad ha terminado realmente?",{title:"FINALIZAR CARRERA",confirmText:"FINALIZAR",danger:true});
   return true;
 }
@@ -643,7 +686,14 @@ async function advance(options = null) {
       expectedStructureVersion = await verifyPublicationDesign(svc.firestore, eventId, state.event);
       if (!currentContext(token)) return outcome();
     }
-    if (!await confirmTransition(from, to, options) || !currentContext(token)) return outcome();
+    let startReadiness = null;
+    if (from === "published" && to === "live") {
+      paint("Comprobando participantes y recorridos antes de iniciar…");
+      startReadiness = await fetchStartReadiness(eventId);
+      if (!currentContext(token)) return outcome();
+      if (!startReadiness.ok) throw new Error(startReadinessText(startReadiness));
+    }
+    if (!await confirmTransition(from, to, { ...options, startReadiness }) || !currentContext(token)) return outcome();
     if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return outcome(); }
     // El asistente de publicación mantiene una única interfaz durante ambos pasos.
     processing = !publicationOnly;
@@ -654,8 +704,9 @@ async function advance(options = null) {
     if (!navigator.onLine) { finalMessage = "Sin conexión. Recupera Internet antes de cambiar el estado."; return outcome(); }
     const { firestore, functions } = svc;
     if (from === "published" && to === "live") {
-      const response = await httpsCallable(functions, "startLiveRun")({ eventId });
+      const response = await httpsCallable(functions, "startLiveRun")({ eventId, expectedReadinessRevision: startReadiness.revision });
       const data = response?.data || {};
+      if (data.ok !== true || data.status !== "live" || !data.runId) throw new Error("Firebase no confirmó el inicio de la carrera. Actualiza su estado antes de reintentar.");
       if (!currentContext(token)) return outcome();
       await refresh();
       if (!currentContext(token)) return outcome();
