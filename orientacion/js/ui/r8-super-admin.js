@@ -17,10 +17,11 @@ const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt
 const searchKey=value=>String(value??"").toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 const cleanRole=value=>["runner","organizer","super_admin"].includes(String(value||""))?String(value):"runner";
 const roleLabel=value=>({runner:"CORREDOR",organizer:"ORGANIZADOR",super_admin:"SÚPER ADMIN"}[cleanRole(value)]||"CORREDOR");
-const statusLabel=value=>({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"}[String(value||"draft").toLowerCase()]||String(value||"BORRADOR").toUpperCase());
+const statusLabel=value=>({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"FINALIZADO"}[String(value||"draft").toLowerCase()]||String(value||"BORRADOR").toUpperCase());
 const resultStatusLabel=value=>({finished:"FINALIZADA",incomplete:"INCOMPLETA",not_started:"NO SALIÓ"}[String(value||"not_started").toLowerCase()]||String(value||"—").toUpperCase());
 const tsMs=value=>{try{if(Number.isFinite(Number(value))&&Number(value)>0)return Number(value);if(typeof value?.toMillis==="function")return value.toMillis();if(value?.seconds)return Number(value.seconds)*1000;const n=Date.parse(value);return Number.isFinite(n)?n:0}catch(_){return 0}};
-const statusKeys=["draft","prepared","published","live","finished","archived"];
+const statusKeys=["draft","prepared","published","live","finished"];
+const eventStatus = value => String(value || "draft").toLowerCase() === "archived" ? "finished" : String(value || "draft").toLowerCase();
 
 function toast(message){try{if(typeof globalThis.toast==="function")globalThis.toast(message);else console.info("[MILITOPO R8]",message)}catch(_){}}
 function isSuperAdmin(){return cleanRole(state.auth?.role||globalThis.MILITOPO_V2_AUTH?.role)==="super_admin"}
@@ -100,7 +101,7 @@ function ownerLabel(uid){const user=state.users.find(row=>row.uid===uid);return 
 function metrics(){const roles={runner:0,organizer:0,super_admin:0};state.users.forEach(row=>roles[userRole(row)]++);const live=state.events.filter(row=>String(row.status)==="live").length;return {users:state.users.length,...roles,events:state.events.length,live}}
 function renderSummary(){
   const view=$("[data-r8-view='summary']",ensureUi());if(!view)return;const m=metrics();
-  const counts=eventCounts();const closed=(counts.finished||0)+(counts.archived||0);
+  const counts=eventCounts();const closed=(counts.finished||0);
   const recent=state.events.slice().sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt)).slice(0,5);
   view.innerHTML=`<div class="r8-admin-metrics">
     <div class="r8-admin-metric"><strong>${m.users}</strong><span>USUARIOS</span></div><div class="r8-admin-metric"><strong>${m.runner}</strong><span>CORREDORES</span></div><div class="r8-admin-metric"><strong>${m.organizer}</strong><span>ORGANIZADORES</span></div><div class="r8-admin-metric"><strong>${m.super_admin}</strong><span>SÚPER ADMIN</span></div><div class="r8-admin-metric"><strong>${m.events}</strong><span>CARRERAS</span></div><div class="r8-admin-metric"><strong>${m.live}</strong><span>EN DIRECTO</span></div>
@@ -110,7 +111,7 @@ function renderSummary(){
     <button type="button" class="militopo-nav-target" data-r8-summary-filter="published"><strong>${counts.published||0}</strong><span>PUBLICADAS</span><small>Listas para competir</small></button>
     <button type="button" class="militopo-nav-target" data-r8-summary-filter="prepared"><strong>${counts.prepared||0}</strong><span>PREPARADAS</span><small>Pendientes de publicar</small></button>
     <button type="button" class="militopo-nav-target" data-r8-summary-filter="draft"><strong>${counts.draft||0}</strong><span>BORRADORES</span><small>En preparación</small></button>
-    <button type="button" class="militopo-nav-target" data-r8-summary-filter="closed"><strong>${closed}</strong><span>CERRADAS</span><small>Finalizadas / archivadas</small></button>
+    <button type="button" class="militopo-nav-target" data-r8-summary-filter="closed"><strong>${closed}</strong><span>CERRADAS</span><small>Finalizadas</small></button>
   </div></section>
   <section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>ACTIVIDAD DE CARRERAS</strong><small>Las 5 carreras actualizadas más recientemente</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-events>VER TODAS</button></div><div class="r8-event-list">${recent.length?recent.map(eventRowHtml).join(""):'<div class="r8-admin-empty">Todavía no hay carreras.</div>'}</div></section>`;
 }
@@ -204,7 +205,7 @@ function eventRowHtml(row){
   const controlCount=Math.max(0,Math.trunc(Number(row.controlCount)||0));
   const routeCount=Math.max(0,Math.trunc(Number(row.courseSyncedCount)||0));
   const metrics=[participantCount?`${participantCount} plazas`:"",controlCount?`${controlCount} balizas`:"",routeCount?`${routeCount} recorridos`:""].filter(Boolean).join(" · ");
-  return `<div class="r8-event-row"><div class="r8-event-copy"><strong>${esc(row.eventName||row.name||row.eventId||"Carrera")}</strong><span>${esc(row.eventId||"")}</span><small><b>ORGANIZADOR</b> · ${esc(ownerLabel(String(row.ownerUid||"")))}</small>${metrics?`<small>${esc(metrics)}</small>`:""}<small>Actualizada · ${esc(formatDate(row.updatedAt||row.createdAt))}</small></div><div class="r8-event-side"><b class="r8-event-status" data-status="${esc(String(row.status||"draft"))}">${esc(statusLabel(row.status))}</b><button type="button" class="r8-event-detail-btn militopo-nav-target" data-r8-event-detail="${esc(row.eventId)}">VER FICHA</button></div></div>`;
+  return `<div class="r8-event-row"><div class="r8-event-copy"><strong>${esc(row.eventName||row.name||row.eventId||"Carrera")}</strong><span>${esc(row.eventId||"")}</span><small><b>ORGANIZADOR</b> · ${esc(ownerLabel(String(row.ownerUid||"")))}</small>${metrics?`<small>${esc(metrics)}</small>`:""}<small>Actualizada · ${esc(formatDate(row.updatedAt||row.createdAt))}</small></div><div class="r8-event-side"><b class="r8-event-status" data-status="${esc(eventStatus(row.status))}">${esc(statusLabel(row.status))}</b><button type="button" class="r8-event-detail-btn militopo-nav-target" data-r8-event-detail="${esc(row.eventId)}">VER FICHA</button></div></div>`;
 }
 function renderEventDetail(){
   const row=state.events.find(item=>item.eventId===state.selectedEventId);if(!row)return "";
@@ -215,33 +216,33 @@ function renderEventDetail(){
   const controlsPerRoute=Math.max(0,Math.trunc(Number(row.controlsPerRoute)||0));
   return `<section class="r8-event-detail" data-r8-event-detail-card><div class="r8-event-detail-head"><div><span>FICHA DE SUPERVISIÓN</span><strong>${esc(row.eventName||row.name||row.eventId||"Carrera")}</strong><small>${esc(row.eventId||"")}</small></div><button type="button" data-r8-close-event-detail aria-label="Cerrar ficha">✕</button></div><div class="r8-event-detail-grid"><div><strong>${esc(statusLabel(row.status))}</strong><span>ESTADO</span></div><div><strong>${participantCount}</strong><span>PARTICIPANTES</span></div><div><strong>${controlCount}</strong><span>BALIZAS</span></div><div><strong>${routeCount||"—"}</strong><span>RECORRIDOS</span></div><div><strong>${controlsPerRoute||"—"}</strong><span>BALIZAS / REC.</span></div><div><strong>${esc(formatDate(row.updatedAt||row.createdAt))}</strong><span>ÚLTIMA ACT.</span></div></div><div class="r8-event-detail-owner"><b>ORGANIZADOR</b><span>${esc(ownerLabel(String(row.ownerUid||"")))}</span>${owner?.email?`<small>${esc(owner.email)}</small>`:""}</div><button type="button" class="r8-event-detail-open militopo-nav-target" data-r8-open-organizer-center="${esc(row.eventId)}">LOCALIZAR EN CARGAR CARRERA</button></section>`;
 }
-function eventCounts(rows=state.events){const counts=Object.fromEntries(statusKeys.map(key=>[key,0]));rows.forEach(row=>{const key=String(row.status||"draft");if(key in counts)counts[key]++});return counts}
+function eventCounts(rows=state.events){const counts=Object.fromEntries(statusKeys.map(key=>[key,0]));rows.forEach(row=>{const key=eventStatus(row.status);if(key in counts)counts[key]++});return counts}
 function filteredEvents(){
   const q=searchKey(state.eventQuery.trim());
   return state.events.slice().filter(row=>{
-    if(state.eventStatusFilter!=="all"&&String(row.status||"draft")!==state.eventStatusFilter)return false;
+    if(state.eventStatusFilter!=="all"&&eventStatus(row.status)!==state.eventStatusFilter)return false;
     if(!q)return true;
     const owner=ownerLabel(String(row.ownerUid||""));
     return [row.eventName,row.name,row.eventId,owner,row.ownerUid,statusLabel(row.status)].some(value=>searchKey(value).includes(q));
   }).sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt));
 }
 function renderEventSummary(){
-  const counts=eventCounts();const closed=(counts.finished||0)+(counts.archived||0);
+  const counts=eventCounts();const closed=(counts.finished||0);
   return `<div class="r8-event-summary">
     <button type="button" data-r8-event-chip="all" class="${state.eventStatusFilter==="all"?"is-active":""}"><strong>${state.events.length}</strong><span>TOTAL</span></button>
     <button type="button" data-r8-event-chip="draft" class="${state.eventStatusFilter==="draft"?"is-active":""}"><strong>${counts.draft||0}</strong><span>BORRADOR</span></button>
     <button type="button" data-r8-event-chip="prepared" class="${state.eventStatusFilter==="prepared"?"is-active":""}"><strong>${counts.prepared||0}</strong><span>PREPARADO</span></button>
     <button type="button" data-r8-event-chip="published" class="${state.eventStatusFilter==="published"?"is-active":""}"><strong>${counts.published||0}</strong><span>PUBLICADO</span></button>
     <button type="button" data-r8-event-chip="live" class="${state.eventStatusFilter==="live"?"is-active":""}"><strong>${counts.live||0}</strong><span>EN DIRECTO</span></button>
-    <button type="button" data-r8-event-chip="closed" class="${["closed","finished","archived"].includes(state.eventStatusFilter)?"is-active":""}"><strong>${closed}</strong><span>CERRADAS</span></button>
+    <button type="button" data-r8-event-chip="closed" class="${["closed","finished"].includes(state.eventStatusFilter)?"is-active":""}"><strong>${closed}</strong><span>CERRADAS</span></button>
   </div>`;
 }
 function renderEvents(){
   const view=$("[data-r8-view='events']",ensureUi());if(!view)return;
   let rows=filteredEvents();
-  if(state.eventStatusFilter==="closed")rows=state.events.slice().filter(row=>["finished","archived"].includes(String(row.status||""))).filter(row=>{const q=searchKey(state.eventQuery.trim());if(!q)return true;return [row.eventName,row.name,row.eventId,ownerLabel(String(row.ownerUid||"")),row.ownerUid].some(value=>searchKey(value).includes(q))}).sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt));
+  if(state.eventStatusFilter==="closed")rows=state.events.slice().filter(row=>eventStatus(row.status)==="finished").filter(row=>{const q=searchKey(state.eventQuery.trim());if(!q)return true;return [row.eventName,row.name,row.eventId,ownerLabel(String(row.ownerUid||"")),row.ownerUid].some(value=>searchKey(value).includes(q))}).sort((a,b)=>tsMs(b.updatedAt)-tsMs(a.updatedAt));
   const visible=rows.slice(0,state.eventsVisible);const remaining=Math.max(0,rows.length-visible.length);
-  const statusOptions=[["all","TODOS LOS ESTADOS"],["draft","BORRADOR"],["prepared","PREPARADO"],["published","PUBLICADO"],["live","EN DIRECTO"],["closed","CERRADAS"],["finished","FINALIZADO"],["archived","ARCHIVADO"]];
+  const statusOptions=[["all","TODOS LOS ESTADOS"],["draft","BORRADOR"],["prepared","PREPARADO"],["published","PUBLICADO"],["live","EN DIRECTO"],["closed","CERRADAS"],["finished","FINALIZADO"]];
   view.innerHTML=`${renderEventSummary()}<div class="r8-admin-toolbar r8-events-toolbar"><input type="search" value="${esc(state.eventQuery)}" data-r8-event-search placeholder="Buscar carrera, ID u organizador" aria-label="Buscar carreras"><select data-r8-event-status aria-label="Filtrar carreras por estado">${statusOptions.map(([key,label])=>`<option value="${key}" ${state.eventStatusFilter===key?"selected":""}>${label}</option>`).join("")}</select></div>${renderEventDetail()}<section class="r8-admin-section"><div class="r8-admin-section-head"><div><strong>SUPERVISIÓN GLOBAL</strong><small>${rows.length===state.events.length?`${rows.length} carreras accesibles como súper administrador`:`${rows.length} de ${state.events.length} carreras coinciden con el filtro`}</small></div><button type="button" class="r8-admin-open-events militopo-nav-target" data-r8-open-organizer-center>ABRIR CARGAR CARRERA</button></div><div class="r8-event-list">${visible.length?visible.map(eventRowHtml).join(""):'<div class="r8-admin-empty">No hay carreras que coincidan con la búsqueda o el filtro.</div>'}</div>${remaining?`<div class="r8-load-more-wrap"><button type="button" class="r8-load-more" data-r8-load-more><span>CARGAR MÁS</span><small>${Math.min(EVENT_PAGE_SIZE,remaining)} de ${remaining} restantes</small></button></div>`:""}</section>`;
 }
 function render(){if(!state.overlay)return;if(state.tab==="summary")renderSummary();else if(state.tab==="users")renderUsers();else renderEvents()}

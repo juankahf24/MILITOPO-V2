@@ -311,7 +311,7 @@
         ${moreAction("SECUENCIA","Salidas, llegadas y control","sequence")}
         ${moreAction("RESULTADOS","Resultados y clasificación","results")}
         ${moreAction("ANÁLISIS","Reproductor y análisis post-carrera","analysis")}
-        ${moreAction("HISTÓRICO","Carreras finalizadas y archivadas","history")}
+        ${moreAction("HISTÓRICO","Carreras finalizadas","history")}
         ${moreAction("AYUDA Y GUÍA","Centro visual de ayuda y flujo de trabajo","help")}
       </div></section>`;
     document.body.appendChild(wrap);wrap.addEventListener("click",event=>{if(event.target===wrap||event.target.closest("[data-more-close]")){closeMore();return}const a=event.target.closest("[data-more-action]")?.dataset.moreAction;if(a)runMoreAction(a)});
@@ -632,9 +632,9 @@
     return true;
   }
   function runMoreAction(a){if(a==="admin")return openSuperAdmin();if(a==="manager")return openRaceManager();if(a==="config")return openStep(1,"CONFIGURACIÓN DE CARRERA");if(a==="participants")return openParticipantsModule(false);if(a==="routes")return openRoutesModule();if(a==="maptools")return openStep(2,"AJUSTES Y DATOS DEL MAPA");if(a==="material"){if(!materialQrUnlocked())return showMaterialLockedNotice();return openStep(4,"MATERIAL QR Y EXPORTACIÓN")}if(a==="sequence")return openStep(5,"SECUENCIA DE SALIDA Y LLEGADA");if(a==="results")return openResultsModule(false);if(a==="analysis")return openAnalysisModule(false);if(a==="history"){closeMore();return openHistory()}if(a==="help"){closeMore();if(typeof window.showOrientationGuide==="function")window.showOrientationGuide();return}}
-  const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"ARCHIVADO"};
-  const R3_ORDER=["draft","prepared","published","live","finished","archived"];
-  function currentLifecycleStatus(){return String(window.MILITOPO_V2_EVENT_STATUS?.status||state.eventStatus?.status||state.managerEvent?.status||"draft")}
+  const R3_STATUS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"FINALIZADO"};
+  const R3_ORDER=["draft","prepared","published","live","finished"];
+  function currentLifecycleStatus(){const raw=String(window.MILITOPO_V2_EVENT_STATUS?.status||state.eventStatus?.status||state.managerEvent?.status||"draft");return raw==="archived"?"finished":raw}
   function refreshLiveNavState(){
     const active=currentLifecycleStatus()==="live";
     const button=$("[data-r1-action='live']");
