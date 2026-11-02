@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="militopo-f233-publicacion-servidor-20261102";
+const BUILD_ID="militopo-f234-publicacion-flujo-20261102";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -14,7 +14,7 @@ const CORE_ASSETS=[
 
   "./",
   "./index.html",
-  "../js/v2/ui/pwa-update.js?v=v2-f233-publicacion-servidor-20261102",
+  "../js/v2/ui/pwa-update.js?v=v2-f234-publicacion-flujo-20261102",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
   "./css/styles.css?v=v2-r8e-help-center-20261009",
   "./css/r1-shell.css?v=r9l-estabilidad-cartografia-admin-20261011",
@@ -30,7 +30,7 @@ const CORE_ASSETS=[
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=militopo-r5a-analisis-comparativo-20261019",
-  "./js/premium/premium-builder.js?v=militopo-f231-sin-archivado-20261102",
+  "./js/premium/premium-builder.js?v=militopo-f234-publicacion-flujo-20261102",
   "./js/premium/premium-home.js?v=militopo-f231-sin-archivado-20261102",
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
   "./js/premium/orientation-modes.js?v=militopo-r3-fullscreen-20261018",
@@ -60,7 +60,7 @@ const CORE_ASSETS=[
   "../js/v2/data/events.js?v=v2-f3b-runtimefix-20260924",
   "../js/v2/data/orientation-structure.js?v=v2-f231-sin-archivado-20261102",
   "../js/v2/data/cloud-recovery.js?v=militopo-f231-sin-archivado-20261102",
-  "../js/v2/data/event-lifecycle.js?v=v2-f233-publicacion-servidor-20261102",
+  "../js/v2/data/event-lifecycle.js?v=v2-f234-publicacion-flujo-20261102",
   "../js/v2/data/event-edit-lock.js?v=militopo-f231-sin-archivado-20261102",
   "../js/v2/live/realtime-foundation.js?v=militopo-f231-sin-archivado-20261102",
   "../js/v2/live/organizer-monitor.js?v=militopo-f231-sin-archivado-20261102",
