@@ -17,7 +17,7 @@ const state={
   controlMap:null,controlBase:null,controlMarkers:null,selectedControlId:"START",controlsPhase:"placement",controlMethod:"map",atakPreview:null,atakFileName:"",
   routeMap:null,routeBase:null,routeMarkers:null,routeLine:null,selectedRouteId:"R01",routeDraftControls:[],
   itineraryMap:null,itineraryBase:null,itineraryLayer:null,itineraryMarkers:null,itineraryDraftPoints:[],itineraryDirty:false,
-  blockerMessage:"",importState:null,packageBusy:false,publishing:false,publicationEpoch:0,draftOwnerUid:""
+  blockerMessage:"",importState:null,packageBusy:false,publishing:false,publicationError:null,publicationEpoch:0,draftOwnerUid:""
 };
 const $=(s,r=document)=>r.querySelector(s);
 
@@ -340,6 +340,7 @@ function publicationAvailability(ready=preflightReady(),editable=["draft","prepa
   if(state.publishing)return "Publicación en curso. Espera a que termine.";
   if(!navigator.onLine)return "Sin conexión. Recupera Internet para publicar.";
   if(!editable)return "El estado actual no permite publicar esta carrera.";
+  if(state.publicationError&&publicationIsCurrent(state.publicationError.token))return state.publicationError.message;
   if(!ready)return "Completa los requisitos pendientes antes de publicar.";
   return "Disponible para publicar tras tu confirmación.";
 }
@@ -426,9 +427,10 @@ function showCenterNotice(title,message,{kind="success",busy=false,autoClose=250
   const logo=icon==="militopo"
     ?`<div class="mpb-center-brand"><img src="../icons/militopo-512.png" width="80" height="80" alt="Topo MILITOPO"><span class="mpb-center-brand-state">${busy?"···":kind==="error"?"!":"✓"}</span></div>`
     :`<span class="mpb-center-notice-icon">${busy?"◌":kind==="success"?"✓":"!"}</span>`;
-  node.innerHTML=`<div class="mpb-center-notice-card"><div class="mpb-center-kicker">MILITOPO · ORGANIZACIÓN</div>${logo}<strong>${esc(title)}</strong><p>${esc(message)}</p>${busy?'<div class="mpb-center-progress" aria-label="Generando archivo"><div></div></div>':""}</div>`;
+  node.innerHTML=`<div class="mpb-center-notice-card"><div class="mpb-center-kicker">MILITOPO · ORGANIZACIÓN</div>${logo}<strong>${esc(title)}</strong><p>${esc(message)}</p>${busy?'<div class="mpb-center-progress" aria-label="Operación en curso"><div></div></div>':""}</div>`;
   host.appendChild(node);
   if(autoClose>0)setTimeout(()=>{if(node.isConnected)node.remove()},autoClose);
+  return node;
 }
 function updateCenterNotice(title,message,options={}){showCenterNotice(title,message,options)}
 function openPrecisionPicker(){
@@ -656,7 +658,9 @@ async function publishRace(){
   const refresh=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_REFRESH,advance=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;
   if(typeof refresh!=="function"||typeof advance!=="function"){notify("Ciclo de vida no disponible.");return}
   // Lock before confirmation; all later work stays bound to this race/account/view.
+  state.publicationError=null;
   state.publishing=true;refreshPublicationAvailability();
+  let publicationNotice=null;
   const ensureCurrent=()=>{
     if(!current())throw new Error("La carrera, la sesión o la vista ha cambiado. Revisa el estado antes de volver a publicar.");
     if(!navigator.onLine)throw new Error("Sin conexión. Recupera Internet y comprueba el estado antes de reintentar.");
@@ -669,6 +673,7 @@ async function publishRace(){
     );
     if(!ok)return;
     ensureCurrent();
+    publicationNotice=showCenterNotice("PUBLICANDO CARRERA", "Esperando la confirmación de Firebase. Mantén esta pantalla abierta.", {busy:true,autoClose:0,icon:"militopo"});
     if(!preflightReady())throw new Error("El diseño ha cambiado. Revisa los requisitos pendientes.");
     if(!await refresh())throw new Error("No se pudo comprobar el estado de la carrera. No se ha continuado la publicación.");
     ensureCurrent();
@@ -686,8 +691,9 @@ async function publishRace(){
         ensureCurrent();status=lifecycleStatus();
         if(status==="published")break;
         if(!["draft","prepared"].includes(status))throw new Error(`El estado ha cambiado a ${lifecycleLabel(status)}.`);
-        await advance({publicationOnly:true,publishConsentConfirmed:true,eventId:token.eventId,expectedFrom:status});
+        const result=await advance({publicationOnly:true,publishConsentConfirmed:true,eventId:token.eventId,expectedFrom:status});
         ensureCurrent();
+        if(result?.ok!==true)throw new Error(result?.error||"No se recibió confirmación del cambio de estado. Actualiza la aplicación antes de reintentar.");
         // Esperar la confirmación oficial antes de intentar otra transición; evita
         // exigir otro clic por una lectura/repaint tardío tras PREPARADO.
         let confirmed="";
@@ -702,11 +708,17 @@ async function publishRace(){
       }
     }
     if(status!=="published")throw new Error(`No se completó la publicación · estado ${lifecycleLabel(status)}`);
-    notify("Carrera PUBLICADA · invitaciones habilitadas");renderKeepScroll();
+    renderKeepScroll();
+    showCenterNotice("CARRERA PUBLICADA", "Firebase ha confirmado la publicación. Invitaciones habilitadas.", {icon:"militopo"});
   }catch(error){
     console.error("[MILITOPO Premium Builder] publicar",error);
-    if(current())notify(`No se pudo completar la publicación: ${error?.message||error}`);
+    if(current()){
+      const message=`Publicación no confirmada: ${error?.message||error}`;
+      state.publicationError={token,message};
+      showCenterNotice("PUBLICACIÓN NO CONFIRMADA", message, {kind:"error",autoClose:6000,icon:"militopo"});
+    }
   }finally{
+    publicationNotice?.remove();
     state.publishing=false;
     // Do not rebuild another race's form or move its scroll position.
     refreshPublicationAvailability();
