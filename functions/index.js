@@ -693,6 +693,30 @@ async function ensureMemberRouteAssignment(eventRef, eventData, uid, { allowLive
   return result;
 }
 
+// F2.36: autorizar también los reintentos antes de revelar datos de la invitación.
+// La coincidencia por correo solo es válida si Firebase lo ha verificado.
+function assertInvitationRecipient(identity, invite) {
+  const uid = String(identity.uid || "").trim();
+  const tokenEmail = String(identity.token.email || "").trim().toLowerCase();
+  const targetUid = String(invite.targetUid || "").trim();
+  const targetEmail = String(invite.targetEmail || "").trim().toLowerCase();
+  const uidMatches = Boolean(targetUid && targetUid === uid);
+  const emailMatches = Boolean(identity.token.email_verified === true && tokenEmail && targetEmail && tokenEmail === targetEmail);
+  if (!uidMatches && !emailMatches) {
+    throw new HttpsError("permission-denied", "La invitación no corresponde a esta cuenta.");
+  }
+  return { uidMatches };
+}
+
+async function appendInvitationAudit(action, actorUid, extra) {
+  try {
+    await appendAudit(action, actorUid, actorUid, extra);
+  } catch (error) {
+    // La operación principal ya está confirmada: no devolver un falso fallo.
+    console.error("[MILITOPO invitation audit]", { action, eventId: extra.eventId, invitationId: extra.invitationId, code: error?.code || null });
+  }
+}
+
 exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const uid = String(identity.uid || "").trim();
@@ -703,6 +727,7 @@ exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request =>
   const initialInviteSnap = await inviteRef.get();
   if (!initialInviteSnap.exists) throw new HttpsError("not-found", "La invitación ya no existe.");
   const initialInvite = initialInviteSnap.data() || {};
+  assertInvitationRecipient(identity, initialInvite);
   const eventId = cleanEventId(initialInvite.eventId);
   const eventRef = db.collection("events").doc(eventId);
   const [eventSnap, profileSnap] = await Promise.all([eventRef.get(), db.collection("users").doc(uid).get()]);
@@ -727,9 +752,7 @@ exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request =>
     if (String(freshEvent.status || "").toLowerCase() !== "published") {
       throw new HttpsError("failed-precondition", "Solo puedes unirte mientras la carrera está PUBLICADA.");
     }
-    const uidMatches = String(invite.targetUid || "") === uid;
-    const emailMatches = tokenEmail && String(invite.targetEmail || "").trim().toLowerCase() === tokenEmail;
-    if (!uidMatches && !emailMatches) throw new HttpsError("permission-denied", "La invitación no corresponde a esta cuenta.");
+    const { uidMatches } = assertInvitationRecipient(identity, invite);
     const inviteStatus = String(invite.status || "pending").toLowerCase();
     if (inviteStatus === "revoked") throw new HttpsError("failed-precondition", "La invitación ha sido revocada.");
     if (!new Set(["pending", "accepted"]).has(inviteStatus)) throw new HttpsError("failed-precondition", "La invitación ya no está disponible.");
@@ -783,7 +806,7 @@ exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request =>
     return summary;
   });
 
-  await appendAudit("RUNNER_ROUTE_ASSIGNED", uid, uid, { eventId, invitationId, participantId: assignment.participantId, routeId: assignment.routeId });
+  await appendInvitationAudit("RUNNER_ROUTE_ASSIGNED", uid, { eventId, invitationId, participantId: assignment.participantId, routeId: assignment.routeId });
   return { ok: true, eventId, eventName: String(eventData.eventName || "Carrera de orientación").slice(0, 140), ...assignment };
 });
 
@@ -802,6 +825,7 @@ exports.declineInvitationV2 = onCall({ enforceAppCheck: false }, async request =
     if (!snap.exists) throw new HttpsError("not-found", "La invitación ya no existe.");
 
     const invite = snap.data() || {};
+    assertInvitationRecipient(identity, invite);
     const status = String(invite.status || "pending").toLowerCase();
     if (status === "declined") {
       return {
@@ -812,15 +836,6 @@ exports.declineInvitationV2 = onCall({ enforceAppCheck: false }, async request =
     }
     if (status !== "pending") {
       throw new HttpsError("failed-precondition", "Esta invitación ya no está pendiente.");
-    }
-
-    const tokenEmail = String(identity.token.email || "").trim().toLowerCase();
-    const targetUid = String(invite.targetUid || "").trim();
-    const targetEmail = String(invite.targetEmail || "").trim().toLowerCase();
-    const uidMatches = Boolean(targetUid && targetUid === uid);
-    const emailMatches = Boolean(tokenEmail && targetEmail && targetEmail === tokenEmail);
-    if (!uidMatches && !emailMatches) {
-      throw new HttpsError("permission-denied", "La invitación no corresponde a esta cuenta.");
     }
 
     tx.set(inviteRef, {
@@ -837,7 +852,7 @@ exports.declineInvitationV2 = onCall({ enforceAppCheck: false }, async request =
     };
   });
 
-  await appendAudit("INVITATION_DECLINED_BY_RUNNER", uid, uid, {
+  await appendInvitationAudit("INVITATION_DECLINED_BY_RUNNER", uid, {
     eventId: result.eventId || null,
     invitationId
   });
