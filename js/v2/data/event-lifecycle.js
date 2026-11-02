@@ -677,8 +677,20 @@ async function advance(options = null) {
       ok = true;
       return;
     }
-    // Nunca publicar usando una lectura antigua; no tocar la estructura ni resultados.
-    await commitLifecycleTransition(firestore, eventId, from, to, token.uid, token.role, expectedStructureVersion);
+    // F2.33: el paso PREPARADA -> PUBLICADA solo se realiza mediante Function.
+    // El navegador sigue haciendo preflight, pero no es la barrera de seguridad.
+    // La Function vuelve a leer y validar los documentos reales dentro de la
+    // transacción de Firestore; las reglas impiden publicar directamente.
+    if (from === "prepared" && to === "published") {
+      const reply = await httpsCallable(functions, "publishPreparedEvent")({
+        eventId, expectedStructureVersion
+      });
+      if (reply?.data?.ok !== true || reply?.data?.status !== "published") {
+        throw new Error("Firebase no confirmó la publicación de la carrera.");
+      }
+    } else {
+      await commitLifecycleTransition(firestore, eventId, from, to, token.uid, token.role, expectedStructureVersion);
+    }
     if (!currentContext(token)) return;
     await refresh();
     if (!currentContext(token)) return;
