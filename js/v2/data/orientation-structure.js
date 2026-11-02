@@ -21,6 +21,9 @@ const state = {
   busy: false,
   rerun: false,
   remoteByEvent: new Map(),
+  remoteRecheck: new Set(),
+  cloudConflicts: new Set(),
+  activeUid: String(globalThis.MILITOPO_V2_AUTH?.uid || ""),
   parentWaits: 0
 };
 
@@ -172,17 +175,52 @@ function scheduleSync(delay = 900) {
     paintStatus("⚠️ Nube: no se pudieron sincronizar balizas/recorridos. La copia local sigue intacta.", "warn");
   }), delay);
 }
-async function loadRemoteIndex(firestore, eventId) {
-  if (state.remoteByEvent.has(eventId)) return state.remoteByEvent.get(eventId);
-  paintStatus("☁️ Comparando balizas y recorridos con Firestore…", "warn");
+// F2.29: recuerda únicamente una huella de la última estructura CONFIRMADA,
+// separada por cuenta y carrera. No almacena puntos nuevos ni modifica la cola.
+function baselineKey(eventId) {
+  return `militopo_c2_confirmed_${encodeURIComponent(String(state.auth?.uid || ""))}_${encodeURIComponent(eventId)}`;
+}
+function remoteFingerprint(remote) {
+  return hashPayload({
+    checkpoints: [...remote.checkpoints].sort((a,b)=>a[0].localeCompare(b[0])),
+    courses: [...remote.courses].sort((a,b)=>a[0].localeCompare(b[0]))
+  });
+}
+function remoteDocumentHash(data) {
+  const hash=cleanString(data?.contentHash,32);
+  if (hash) return hash;
+  // Documentos anteriores al campo contentHash: detectar igualmente cambios
+  // de contenido, ignorando los metadatos temporales del propio guardado.
+  const content={...data};
+  ["contentHash","createdAt","updatedAt","schemaVersion"].forEach(k=>delete content[k]);
+  return `legacy:${hashPayload(content)}`;
+}
+function savedFingerprint(eventId) {
+  try { return localStorage.getItem(baselineKey(eventId)) || ""; } catch (_) { return ""; }
+}
+function rememberConfirmedRemote(eventId, remote) {
+  state.remoteByEvent.set(eventId, remote);
+  state.remoteRecheck.delete(eventId);
+  try { localStorage.setItem(baselineKey(eventId), remoteFingerprint(remote)); } catch (_) {}
+}
+async function loadRemoteIndex(firestore, eventId, verifyFresh = false) {
+  const known = state.remoteByEvent.get(eventId);
+  if (known && !verifyFresh) return known;
+  paintStatus("☁️ Comprobando cambios de balizas y recorridos en Firestore…", "warn");
   const [checkpointSnap, courseSnap] = await Promise.all([
     getDocs(collection(firestore, "events", eventId, "checkpoints")),
     getDocs(collection(firestore, "events", eventId, "courses"))
   ]);
   const remote = { checkpoints: new Map(), courses: new Map() };
-  checkpointSnap.forEach(snap => remote.checkpoints.set(snap.id, cleanString(snap.data()?.contentHash, 32)));
-  courseSnap.forEach(snap => remote.courses.set(snap.id, cleanString(snap.data()?.contentHash, 32)));
+  checkpointSnap.forEach(snap => remote.checkpoints.set(snap.id, remoteDocumentHash(snap.data() || {})));
+  courseSnap.forEach(snap => remote.courses.set(snap.id, remoteDocumentHash(snap.data() || {})));
+  const expected = known ? remoteFingerprint(known) : savedFingerprint(eventId);
+  if (expected && expected !== remoteFingerprint(remote)) {
+    state.cloudConflicts.add(eventId);
+    throw new Error("Conflicto: las balizas o recorridos cambiaron en la nube. No se ha sobrescrito la versión remota. Conserva tu borrador local y revisa la carrera antes de volver a guardar.");
+  }
   state.remoteByEvent.set(eventId, remote);
+  state.remoteRecheck.delete(eventId);
   return remote;
 }
 function desiredMap(items, keyName) {
@@ -202,6 +240,11 @@ async function syncLatest() {
   if (!packet?.armed || !packet.eventId) {
     confirmStructureSave(packet,false,"No hay una carrera activa para sincronizar");
     paintStatus("☁️ Estructura: confirma primero el PASO 1.", "warn");
+    return false;
+  }
+  if (state.cloudConflicts.has(packet.eventId)) {
+    confirmStructureSave(packet,false,"Conflicto de edición con Firestore");
+    paintStatus("⚠️ La carrera cambió en la nube. No se sobrescribirán balizas ni recorridos. Revisa las versiones antes de continuar.", "err");
     return false;
   }
   if (!canManage()) {
@@ -246,7 +289,16 @@ async function syncLatest() {
       return false;
     }
 
-    const remote = await loadRemoteIndex(firestore, packet.eventId);
+    // Nunca usar el índice cacheado tras reconectar o confirmar GUARDAR Y SALIR.
+    // Cualquier edición externa reconocible detiene la escritura antes del batch.
+    const status=String(eventData.status || "draft").toLowerCase();
+    if (!["draft","prepared"].includes(status)) {
+      confirmStructureSave(packet,false,"Carrera no editable en la nube");
+      paintStatus("🔒 La carrera ya no está en BORRADOR/PREPARADO en Firebase.", "err");
+      return false;
+    }
+    const remote = await loadRemoteIndex(firestore, packet.eventId,
+      Boolean(packet.requestId) || state.remoteRecheck.has(packet.eventId));
     const wantedCheckpoints = desiredMap(packet.checkpoints, "checkpointId");
     const wantedCourses = desiredMap(packet.courses, "courseId");
     const batch = writeBatch(firestore);
@@ -311,18 +363,24 @@ async function syncLatest() {
 
       remote.checkpoints = new Map([...wantedCheckpoints].map(([id, item]) => [id, item.hash]));
       remote.courses = new Map([...wantedCourses].map(([id, item]) => [id, item.hash]));
+      rememberConfirmedRemote(packet.eventId, remote);
       paintStatus(`✅ Estructura sincronizada · ${packet.checkpoints.length} puntos · ${packet.courses.length} recorridos`, "ok");
       try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-synced", { detail: { eventId: packet.eventId, checkpointCount: packet.checkpoints.length, courseCount: packet.courses.length, changed: true, reason: packet.reason } })); } catch (_) {}
       confirmStructureSave(packet, true);
       return true;
     }
 
+    rememberConfirmedRemote(packet.eventId, remote);
     paintStatus(`☁️ Estructura al día · ${packet.checkpoints.length} puntos · ${packet.courses.length} recorridos`, "ok");
     try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-synced", { detail: { eventId: packet.eventId, checkpointCount: packet.checkpoints.length, courseCount: packet.courses.length, changed: false, reason: packet.reason } })); } catch (_) {}
     confirmStructureSave(packet, true);
     return true;
   } catch (error) {
     confirmStructureSave(packet, false, error?.message || "Error de Firestore");
+    if (state.cloudConflicts.has(packet.eventId)) {
+      paintStatus("⚠️ Conflicto con otra edición en la nube. No se ha sobrescrito la carrera. Conserva el borrador local y revisa la carrera.", "err");
+      return false;
+    }
     throw error;
   } finally {
     state.busy = false;
@@ -345,14 +403,32 @@ function acceptPacket(detail) {
 }
 function onAuthReady(event) {
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
-  if (state.latest?.armed) scheduleSync(180);
+  const uid=String(state.auth?.uid || "");
+  if (uid !== state.activeUid) {
+    state.remoteByEvent.clear();
+    state.remoteRecheck.clear();
+    state.cloudConflicts.clear();
+    state.activeUid=uid;
+  }
+  if (state.latest?.armed) {
+    state.remoteRecheck.add(state.latest.eventId);
+    scheduleSync(180);
+  }
 }
 function init() {
   ensureStatusNodes();
   globalThis.addEventListener("militopo:v2-auth-ready", onAuthReady);
   globalThis.addEventListener("militopo:v2-orientation-structure", event => acceptPacket(event.detail));
-  globalThis.addEventListener("online", () => { if (state.latest?.armed) scheduleSync(180); });
-  globalThis.addEventListener("offline", () => paintStatus("📴 Sin conexión: balizas y recorridos siguen protegidos localmente.", "warn"));
+  globalThis.addEventListener("online", () => {
+    if (state.latest?.armed) {
+      state.remoteRecheck.add(state.latest.eventId);
+      scheduleSync(180);
+    }
+  });
+  globalThis.addEventListener("offline", () => {
+    if (state.latest?.eventId) state.remoteRecheck.add(state.latest.eventId);
+    paintStatus("📴 Sin conexión: balizas y recorridos siguen protegidos localmente.", "warn");
+  });
   if (globalThis.MILITOPO_V2_AUTH) onAuthReady({ detail: globalThis.MILITOPO_V2_AUTH });
 }
 
