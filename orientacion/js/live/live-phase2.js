@@ -1064,15 +1064,15 @@ function updateOrganizerButtons() {
   if(delExercise)delExercise.disabled=organizerRunActionBusy;
   if(start){
     start.disabled=!ready||organizerRunActionBusy||hasRun;
-    start.textContent=organizerRunActionBusy?"PROCESANDO…":organizerRunStatus==="archived"?"✓ CARRERA ARCHIVADA · DATOS CONSERVADOS":active?"CARRERA EN VIVO YA INICIADA":"▶ INICIAR CARRERA EN VIVO";
+    start.textContent=organizerRunActionBusy?"PROCESANDO…":organizerRunStatus==="archived"?"✓ CARRERA FINALIZADA · DATOS CONSERVADOS":active?"CARRERA EN VIVO YA INICIADA":"▶ INICIAR CARRERA EN VIVO";
   }
   if(stop){
     stop.disabled=!ready||organizerRunActionBusy||!active;
     if(organizerRunActionBusy)stop.textContent="PROCESANDO…";
-    else if(organizerRunStatus==="closing"&&progress.awaitingArrival.length)stop.textContent=`⏳ ${progress.awaitingArrival.length} PENDIENTE${progress.awaitingArrival.length===1?"":"S"} DE LLEGADA · ARCHIVAR`;
-    else if(organizerRunStatus==="closing"&&progress.awaitingDelivery.length)stop.textContent=`☁ ${progress.awaitingDelivery.length} ENVÍO${progress.awaitingDelivery.length===1?"":"S"} PENDIENTE${progress.awaitingDelivery.length===1?"":"S"} · ARCHIVAR`;
-    else if(organizerRunStatus==="closing")stop.textContent="✓ FINALIZAR Y ARCHIVAR";
-    else if(organizerRunStatus==="archived")stop.textContent="✓ CARRERA ARCHIVADA";
+    else if(organizerRunStatus==="closing"&&progress.awaitingArrival.length)stop.textContent=`⏳ ${progress.awaitingArrival.length} PENDIENTE${progress.awaitingArrival.length===1?"":"S"} DE LLEGADA · FINALIZAR`;
+    else if(organizerRunStatus==="closing"&&progress.awaitingDelivery.length)stop.textContent=`☁ ${progress.awaitingDelivery.length} ENVÍO${progress.awaitingDelivery.length===1?"":"S"} PENDIENTE${progress.awaitingDelivery.length===1?"":"S"} · FINALIZAR`;
+    else if(organizerRunStatus==="closing")stop.textContent="✓ FINALIZAR CARRERA";
+    else if(organizerRunStatus==="archived")stop.textContent="✓ CARRERA FINALIZADA";
     else stop.textContent="■ CERRAR CARRERA EN VIVO";
   }
 }
@@ -1111,10 +1111,10 @@ async function attachOrganizerRun(eventKey, runId, meta = null) {
   organizerRunId=nextRunId;
   const archived=organizerRunStatus==="archived";
   const closing=organizerRunStatus==="closing";
-  setBadge("live2RunBadge",archived?"CARRERA · ARCHIVADA":closing?"CARRERA · RECIBIENDO PENDIENTES":"CARRERA · ACTIVA",closing?"warn":archived?"neutral":"ok");
+  setBadge("live2RunBadge",archived?"CARRERA · FINALIZADA":closing?"CARRERA · RECIBIENDO PENDIENTES":"CARRERA · ACTIVA",closing?"warn":archived?"neutral":"ok");
   organizerAutoImportedCount=Object.keys(readAutoImportMap()).length;
   const ctx=organizerContext()||{};
-  if($("live2RunText"))$("live2RunText").innerHTML=`Ejercicio: <b>${safeText(ctx.eventName||meta?.eventName||"ORIENTACIÓN")}</b><br>Sesión: <b>${safeText(nextRunId)}</b><br>Estado: <b>${archived?"ARCHIVADA · DATOS CONSERVADOS":closing?"RECEPCIÓN DE LLEGADAS Y ENVÍOS":"EN CURSO"}</b>`;
+  if($("live2RunText"))$("live2RunText").innerHTML=`Ejercicio: <b>${safeText(ctx.eventName||meta?.eventName||"ORIENTACIÓN")}</b><br>Sesión: <b>${safeText(nextRunId)}</b><br>Estado: <b>${archived?"FINALIZADA · DATOS CONSERVADOS":closing?"RECEPCIÓN DE LLEGADAS Y ENVÍOS":"EN CURSO"}</b>`;
   try{localStorage.setItem(ORGANIZER_RUN_KEY_PREFIX+nextEventKey,nextRunId);}catch(_){}
   // Vincular/recuperar una sesión no bloquea el diseño por sí solo. La protección
   // se activa cuando existe una salida o dato real de carrera.
@@ -1149,7 +1149,7 @@ async function attachOrganizerRun(eventKey, runId, meta = null) {
   }
 
   updateOrganizerButtons();
-  if(archived)setMessage("Carrera archivada. La tabla y los datos permanecen visibles; los móviles pendientes todavía pueden entregar su información.","ok");
+  if(archived)setMessage("Carrera finalizada. La tabla y los datos permanecen visibles; los móviles pendientes todavía pueden entregar su información.","ok");
   else if(closing)setMessage("Modo recepción activo. Se siguen aceptando llegadas, resultados y tracks sin crear otra carrera.","warn");
   else setMessage("Carrera en vivo activa. La llegada, el resultado y el track se actualizarán automáticamente.","ok");
 }
@@ -1285,16 +1285,16 @@ async function archiveOrganizerRun({forced=false}={}) {
     archivedAtClient:nowIso()
   });
   try{window.MILITOPO_TOUCH_RACE_DATA?.({runId:organizerRunId,status:"archived",lastDataAt:nowIso()})}catch(_){}
-  setBadge("live2RunBadge","CARRERA · ARCHIVADA","neutral");
+  setBadge("live2RunBadge","CARRERA · FINALIZADA","neutral");
   setMessage(forced
-    ?`Carrera archivada de forma forzada. Quedan ${progress.awaitingArrival.length} llegadas y ${progress.awaitingDelivery.length} envíos pendientes; la sesión conserva la tabla y seguirá aceptando datos tardíos.`
-    :"Carrera archivada. Todos los participantes que finalizaron tienen sus entregas confirmadas.","ok");
+    ?`Carrera finalizada de forma forzada. Quedan ${progress.awaitingArrival.length} llegadas y ${progress.awaitingDelivery.length} envíos pendientes; la sesión conserva la tabla y seguirá aceptando datos tardíos.`
+    :"Carrera finalizada. Todos los participantes que finalizaron tienen sus entregas confirmadas.","ok");
 }
 
 async function stopOrganizerRun() {
   if(organizerRunActionBusy||!organizerEventKey||!organizerRunId)return;
   if(!["active","closing"].includes(organizerRunStatus)){
-    setMessage("Esta carrera ya está archivada. Sus datos permanecen visibles y protegidos.","warn");
+    setMessage("Esta carrera ya está finalizada. Sus datos permanecen visibles y protegidos.","warn");
     return;
   }
   const progress=organizerProgressSummary();
@@ -1326,22 +1326,22 @@ async function stopOrganizerRun() {
         closingAtClient:nowIso()
       });
       setBadge("live2RunBadge","CARRERA · RECIBIENDO PENDIENTES","warn");
-      setMessage(`Modo recepción activo: ${arrivals} pendientes de llegada y ${deliveries} envíos pendientes. Pulsa de nuevo para archivar de forma forzada si fuera necesario.`,"warn");
+      setMessage(`Modo recepción activo: ${arrivals} pendientes de llegada y ${deliveries} envíos pendientes. Pulsa de nuevo para finalizar de forma forzada si fuera necesario.`,"warn");
       return;
     }
 
     if(organizerRunStatus==="closing"&&(arrivals>0||deliveries>0)){
       const forced=await globalThis.MILITOPO_CONFIRM(
         `Todavía quedan ${arrivals} participantes pendientes de llegada y ${deliveries} entregas pendientes.\n\n`+
-        "¿Archivar de forma forzada? No se borrará la tabla ni los datos, y los móviles podrán seguir sincronizando después.",
-        {title:"ARCHIVAR DE FORMA FORZADA",confirmText:"ARCHIVAR",danger:true}
+        "¿Finalizar de forma forzada? No se borrará la tabla ni los datos, y los móviles podrán seguir sincronizando después.",
+        {title:"FINALIZAR DE FORMA FORZADA",confirmText:"FINALIZAR",danger:true}
       );
       if(!forced)return;
       await archiveOrganizerRun({forced:true});
       return;
     }
 
-    if(!await globalThis.MILITOPO_CONFIRM("No quedan participantes en carrera ni entregas de finalizados pendientes. ¿Finalizar y archivar esta carrera?",{title:"FINALIZAR CARRERA",confirmText:"FINALIZAR Y ARCHIVAR",danger:true}))return;
+    if(!await globalThis.MILITOPO_CONFIRM("No quedan participantes en carrera ni entregas de finalizados pendientes. ¿Finalizar esta carrera?",{title:"FINALIZAR CARRERA",confirmText:"FINALIZAR",danger:true}))return;
     await archiveOrganizerRun({forced:false});
   }catch(error){
     setMessage(`No se pudo cerrar la carrera: ${error.message}`,"error");
@@ -1487,7 +1487,7 @@ async function resetOrganizerEventForReusableExercise(eventId) {
     const progress=organizerProgressSummary();
     if(progress.awaitingArrival.length||progress.awaitingDelivery.length){
       setMessage(
-        `No se puede restaurar todavía: quedan ${progress.awaitingArrival.length} participantes pendientes de llegada y ${progress.awaitingDelivery.length} envíos pendientes. Archiva la carrera o espera la sincronización antes de preparar otra.`,
+        `No se puede restaurar todavía: quedan ${progress.awaitingArrival.length} participantes pendientes de llegada y ${progress.awaitingDelivery.length} envíos pendientes. Finaliza la carrera o espera la sincronización antes de preparar otra.`,
         "error"
       );
       return false;
@@ -1514,7 +1514,7 @@ async function resetOrganizerEventForReusableExercise(eventId) {
     organizerRunId="";
     organizerRunStatus="";
     await attachOrganizerRun(eventKey,"");
-    setMessage("Ejercicio restaurado. La carrera anterior permanece archivada y la tabla nueva no se creará hasta pulsar INICIAR.","warn");
+    setMessage("Ejercicio restaurado. La carrera anterior permanece finalizada y la tabla nueva no se creará hasta pulsar INICIAR.","warn");
     await bindOrganizerEvent({eventId:eventKey});
     return true;
   }catch(error){
