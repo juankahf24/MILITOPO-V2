@@ -6,7 +6,7 @@ import {fetchOrganizerUnifiedProfile} from "./organizer-profile-data.js?v=milito
 const premium=globalThis.MILITOPO_PREMIUM;
 if(!premium)throw new Error("MILITOPO Premium core no disponible");
 const ROLES=new Set(["organizer","super_admin"]);
-const LABELS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"ARCHIVADA"};
+const LABELS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA"};
 const state={auth:globalThis.MILITOPO_V2_AUTH||null,root:null,opened:false,screen:"home",rows:[],rowsLoaded:false,rowsError:"",lastFetch:0,busy:false,pendingRecoveryId:"",filter:"all",search:"",notice:"",profile:{uid:"",busy:false,loadedAt:0,user:null,history:null,profileError:"",historyError:""},profileRequest:0,operationKind:"publish",packageBusy:false};
 const $=(sel,root=document)=>root.querySelector(sel);
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
@@ -14,7 +14,7 @@ const role=()=>String(state.auth?.role||globalThis.MILITOPO_V2_AUTH?.role||"").t
 const canManage=()=>Boolean(state.auth?.uid&&state.auth.emailVerified&&ROLES.has(role()));
 const bridge=()=>premium.get("legacy-bridge");
 const current=()=>bridge()?.shell?.current?.()||{};
-const status=s=>String(s||"draft").toLowerCase();
+const status=s=>{const raw=String(s||"draft").toLowerCase();return raw==="archived"?"finished":raw};
 const statusLabel=s=>LABELS[status(s)]||"BORRADOR";
 const isEditable=s=>["draft","prepared"].includes(status(s));
 function icon(name){const p={lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3"/>',plus:'<path d="M12 5v14M5 12h14"/>',arrow:'<path d="m5 12 14 0m-6-6 6 6-6 6"/>',back:'<path d="m15 18-6-6 6-6"/>',calendar:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/>',chart:'<path d="M4 19V5m0 14h16M8 15v-5m5 5V7m5 8V4"/>',users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m14-17a4 4 0 0 1 0 8m6 9v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/>',radio:'<circle cx="12" cy="12" r="2"/><path d="M7 7a7 7 0 0 0 0 10m10-10a7 7 0 0 1 0 10M4 4a11 11 0 0 0 0 16m16-16a11 11 0 0 1 0 16"/>',route:'<circle cx="6" cy="4" r="2"/><circle cx="18" cy="20" r="2"/><path d="M6 6v7a5 5 0 0 0 5 5h5m-5-13h5a4 4 0 0 1 0 8h-5"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/>',flag:'<path d="M5 21V4m0 0c5-2 9 2 14 0v12c-5 2-9-2-14 0"/>',refresh:'<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 9a8 8 0 0 1 14 3m-2 3a8 8 0 0 1-14-3"/>',search:'<circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/>',shield:'<path d="M12 2 4 6v6c0 5 3 8 8 10 5-2 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/>'};return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p[name]||p.arrow}</svg>`}
@@ -31,7 +31,7 @@ function ensure(){if(state.root?.isConnected)return state.root;
   </div></div>`;
   root.addEventListener("click",onClick);root.addEventListener("input",onInput);root.addEventListener("change",onInput);document.body.appendChild(root);state.root=root;return root;
 }
-function statCounts(){const stats={draft:0,published:0,live:0,closed:0};for(const row of state.rows){const s=status(row.status);if(isEditable(s))stats.draft++;if(s==="published")stats.published++;if(s==="live")stats.live++;if(["finished","archived"].includes(s))stats.closed++}return stats}
+function statCounts(){const stats={draft:0,published:0,live:0,closed:0};for(const row of state.rows){const s=status(row.status);if(isEditable(s))stats.draft++;if(s==="published")stats.published++;if(s==="live")stats.live++;if(s==="finished")stats.closed++}return stats}
 function statCards(){const stats=statCounts(),n=value=>state.rowsLoaded?value:"—";return `<div class="mpp-r3-stats"><article><strong>${n(stats.draft)}</strong><small>EN PREPARACIÓN</small></article><article><strong>${n(stats.published)}</strong><small>PUBLICADAS</small></article><article class="is-live"><strong>${n(stats.live)}</strong><small>EN DIRECTO</small></article><article><strong>${n(stats.closed)}</strong><small>FINALIZADAS</small></article></div>`}
 function currentCard(){const ctx=current(),id=String(ctx.eventId||"").trim(),s=status(ctx.status),name=id?ctx.eventName||"Carrera sin nombre":"Todavía no hay carrera activa";const p=primary({eventId:id,status:s});
   return `<article class="mpp-r3-current"><div class="mpp-r3-current-top"><small>CARRERA ACTUAL</small><span class="mpp-r3-status" data-status="${esc(s)}">${id?statusLabel(s):"SIN CARRERA"}</span></div><h2>${esc(name)}</h2><div class="mpp-r3-sub">${id?esc(id):"Tu próxima carrera empieza con un asistente guiado."}</div>
@@ -55,7 +55,7 @@ function createdAtMs(value){
   return Number.isFinite(ms)&&ms>0?ms:0;
 }
 function createdLabel(ms){return ms?new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short",year:"numeric",timeZone:"Europe/Madrid"}).format(ms):"Fecha de creación no disponible"}
-function filteredRows(){return state.rows.filter(row=>{const q=state.search.toLocaleLowerCase("es"),s=status(row.status);const hit=!q||[row.eventName,row.eventId].join(" ").toLocaleLowerCase("es").includes(q);return hit&&(state.filter==="all"||state.filter==="draft"&&isEditable(s)||s===state.filter||state.filter==="closed"&&["finished","archived"].includes(s))})}
+function filteredRows(){return state.rows.filter(row=>{const q=state.search.toLocaleLowerCase("es"),s=status(row.status);const hit=!q||[row.eventName,row.eventId].join(" ").toLocaleLowerCase("es").includes(q);return hit&&(state.filter==="all"||state.filter==="draft"&&isEditable(s)||s===state.filter||state.filter==="closed"&&s==="finished")})}
 function raceListHtml(){const rows=filteredRows();return rows.length?rows.map(row=>`<article><div><span class="mpp-r3-status" data-status="${esc(status(row.status))}">${statusLabel(row.status)}</span><h3>${esc(row.eventName||"Carrera")}</h3><small>${esc(row.eventId)}</small><span class="mpp-r3-created">${icon("calendar")} Creada: ${esc(createdLabel(row.createdMs))}</span></div><div class="mpp-r5-race-actions"><button type="button" data-mpp-reuse="${esc(row.eventId)}" ${status(row.status)==="live"?"disabled":""}>REUTILIZAR</button><button type="button" data-mpp-load="${esc(row.eventId)}">ABRIR ${icon("arrow")}</button></div></article>`).join(""):`<div class="mpp-r3-empty">${state.busy?"Cargando carreras…":state.rows.length?"No hay carreras con esos filtros.":navigator.onLine?"Aún no hay carreras disponibles. Puedes empezar con el asistente.":"Sin conexión. La carrera cargada localmente sigue disponible."}</div>`}
 // Refrescar solo las tarjetas: Firebase, eventos LIVE y guardado del asistente
 // NO pueden sustituir el input enfocado ni cerrar el teclado virtual en Safari.
@@ -121,9 +121,9 @@ function operationAllowed(kind,ctx=current()){
   if(kind==="publish")return isEditable(s)?{ok:true,action:"open-publish",label:"ABRIR PREFLIGHT Y PUBLICACIÓN"}:{ok:false,reason:"Esta carrera ya está publicada o cerrada. No necesita volver a publicarse."};
   if(kind==="participants")return ["published","live","finished"].includes(s)?{ok:true,action:"launch-participants",label:"ABRIR INVITACIONES Y PARTICIPANTES"}:{ok:false,reason:"Las invitaciones se habilitan cuando la carrera está PUBLICADA."};
   if(kind==="live")return ["published","live","finished"].includes(s)?{ok:true,action:"launch-live",label:"ABRIR CENTRO LIVE"}:{ok:false,reason:"El seguimiento LIVE solo se habilita tras publicar la carrera."};
-  if(kind==="results")return ["published","live","finished","archived"].includes(s)?{ok:true,action:"launch-results",label:"VER RESULTADOS"}:{ok:false,reason:"Los resultados estarán disponibles cuando la carrera se publique y comience a recibir actividad."};
-  if(kind==="analysis")return ["finished","archived"].includes(s)?{ok:true,action:"launch-analysis",label:"COMPARAR PARTICIPANTES"}:{ok:false,reason:"Finaliza la carrera antes de abrir el análisis comparativo. Los tracks GPS y los tiempos deben estar consolidados."};
-  if(kind==="package")return ["published","live","finished","archived"].includes(s)?{ok:true,action:"download-package",label:"DESCARGAR ZIP DEL ORGANIZADOR"}:{ok:false,reason:"Termina el diseño y genera el material desde el Preflight del asistente antes de publicar."};
+  if(kind==="results")return ["published","live","finished"].includes(s)?{ok:true,action:"launch-results",label:"VER RESULTADOS"}:{ok:false,reason:"Los resultados estarán disponibles cuando la carrera se publique y comience a recibir actividad."};
+  if(kind==="analysis")return s==="finished"?{ok:true,action:"launch-analysis",label:"COMPARAR PARTICIPANTES"}:{ok:false,reason:"Finaliza la carrera antes de abrir el análisis comparativo. Los tracks GPS y los tiempos deben estar consolidados."};
+  if(kind==="package")return ["published","live","finished"].includes(s)?{ok:true,action:"download-package",label:"DESCARGAR ZIP DEL ORGANIZADOR"}:{ok:false,reason:"Termina el diseño y genera el material desde el Preflight del asistente antes de publicar."};
   return {ok:false,reason:"Operación no disponible"};
 }
 function managementCard(row,ctx){

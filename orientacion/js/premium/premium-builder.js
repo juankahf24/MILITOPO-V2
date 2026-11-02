@@ -107,7 +107,7 @@ function itineraryDesignProblem(id,s=snapshot()){
 }
 function routesComplete(){const s=snapshot();return !pointDesignProblem(s)&&Array.from({length:routeTargetCount()},(_,i)=>routeDesignProblem(routeId(i+1),s)).every(x=>!x)}
 function lifecycleStatus(){return String(globalThis.MILITOPO_V2_EVENT_STATUS?.status||bridge()?.shell?.current?.().status||"draft").toLowerCase()}
-function lifecycleLabel(value=lifecycleStatus()){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"ARCHIVADA"})[String(value||"draft").toLowerCase()]||String(value||"").toUpperCase()}
+function lifecycleLabel(value=lifecycleStatus()){return ({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA",archived:"FINALIZADA"})[String(value||"draft").toLowerCase()]||String(value||"").toUpperCase()}
 function preflightReady(){return preflightItems().every(x=>x.ok)}
 
 function haversineMeters(a,b){const R=6371000,toRad=x=>x*Math.PI/180,la1=toRad(Number(a.lat)),la2=toRad(Number(b.lat)),dLa=toRad(Number(b.lat)-Number(a.lat)),dLo=toRad(Number(b.lon)-Number(a.lon));const h=Math.sin(dLa/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))}
