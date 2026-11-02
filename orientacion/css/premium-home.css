@@ -182,3 +182,10 @@ body.r5-premium-tool-open #r1Workspace[data-premium-tool="analysis"] .table-wrap
 .mpp-home .mpp-r3-filters input[data-mpp-search]::placeholder{color:#526a5a!important;-webkit-text-fill-color:#526a5a!important;opacity:1!important}
 .mpp-home .mpp-r3-filters label:focus-within{border-color:#25764b!important;box-shadow:0 0 0 3px rgba(39,121,76,.17)!important}
 .mpp-home .mpp-r3-filters select{font-size:16px!important;min-height:50px;color:#173725!important;background:#fff!important;-webkit-text-fill-color:#173725!important}
+
+/* F2.26 · Safari: mismo tono en el contenedor y el campo, sin capa blanca nativa. */
+.mpp-home .mpp-r3-filters label{background:#f6f9f6!important}
+.mpp-home .mpp-r3-filters input[data-mpp-search]{-webkit-appearance:none!important;appearance:none!important;background:transparent!important;background-color:transparent!important;background-image:none!important;box-shadow:none!important;-webkit-box-shadow:none!important;border-radius:0!important}
+.mpp-home .mpp-r3-sort-note{margin:0;color:#526e59;font-size:11px;line-height:1.4;font-weight:650}
+.mpp-home .mpp-r3-created{display:flex;align-items:center;gap:5px;color:#456b51;font-size:11px;font-weight:720;line-height:1.35}
+.mpp-home .mpp-r3-created svg{width:14px;height:14px;flex:0 0 14px}
