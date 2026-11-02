@@ -16,6 +16,7 @@ const state = {
   auth: globalThis.MILITOPO_V2_AUTH || null,
   services: null,
   latest: null,
+  saveQueue: [],
   timer: null,
   busy: false,
   rerun: false,
@@ -116,6 +117,7 @@ function normalizePacket(detail = {}) {
     eventId,
     armed: Boolean(detail.armed),
     reason: cleanString(detail.reason, 80),
+    requestId: cleanString(detail.requestId, 120),
     checkpoints,
     courses
   };
@@ -153,6 +155,16 @@ async function services() {
   state.services = await globalThis.MILITOPO_V2.firebase();
   return state.services;
 }
+function confirmStructureSave(packet, ok, error="") {
+  if (!packet?.requestId) return;
+  const index=state.saveQueue.indexOf(packet);
+  if(index>=0)state.saveQueue.splice(index,1);
+  try {
+    globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-save-result", {
+      detail: { requestId: packet.requestId, eventId: packet.eventId, ok: ok === true, error: String(error || "") }
+    }));
+  } catch (_) {}
+}
 function scheduleSync(delay = 900) {
   clearTimeout(state.timer);
   state.timer = setTimeout(() => syncLatest().catch(error => {
@@ -184,21 +196,27 @@ function desiredMap(items, keyName) {
   return map;
 }
 async function syncLatest() {
-  const packet = state.latest;
+  // Solicitudes expresas de GUARDAR Y SALIR no se pierden por un
+  // evento de autosave posterior que sustituya state.latest.
+  const packet = state.saveQueue[0] || state.latest;
   if (!packet?.armed || !packet.eventId) {
+    confirmStructureSave(packet,false,"No hay una carrera activa para sincronizar");
     paintStatus("☁️ Estructura: confirma primero el PASO 1.", "warn");
     return false;
   }
   if (!canManage()) {
+    confirmStructureSave(packet,false,"Sesión o permisos no disponibles");
     paintStatus("🔒 Estructura: requiere rol organizer o super_admin con correo verificado.", "warn");
     return false;
   }
   const editLock = globalThis.MILITOPO_V2_EVENT_EDIT_LOCK;
   if (editLock?.locked && (!editLock.eventId || String(editLock.eventId) === packet.eventId)) {
+    confirmStructureSave(packet,false,"La carrera no está editable");
     paintStatus(`🔒 Estructura bloqueada en ${String(editLock.label || editLock.status || "PUBLICADO")}. Firestore conserva la versión publicada.`, "warn");
     return false;
   }
   if (!navigator.onLine) {
+    confirmStructureSave(packet,false,"Sin conexión");
     paintStatus("📴 Sin conexión: balizas y recorridos siguen protegidos localmente.", "warn");
     return false;
   }
@@ -214,6 +232,8 @@ async function syncLatest() {
     const eventSnap = await getDoc(eventRef);
     if (!eventSnap.exists()) {
       state.parentWaits += 1;
+      // El guardado explícito no se declara correcto si aún falta la cabecera.
+      confirmStructureSave(packet,false,"Falta confirmar la carrera en Firestore");
       paintStatus("☁️ Estructura: esperando a que C1 cree la cabecera del evento…", "warn");
       if (state.parentWaits <= 5) scheduleSync(1400);
       return false;
@@ -221,6 +241,7 @@ async function syncLatest() {
     state.parentWaits = 0;
     const eventData = eventSnap.data() || {};
     if (String(eventData.ownerUid || "") !== String(state.auth.uid || "")) {
+      confirmStructureSave(packet,false,"El propietario de la carrera no coincide");
       paintStatus("🔒 Estructura: este evento pertenece a otra cuenta. No se ha sobrescrito nada.", "err");
       return false;
     }
@@ -292,27 +313,34 @@ async function syncLatest() {
       remote.courses = new Map([...wantedCourses].map(([id, item]) => [id, item.hash]));
       paintStatus(`✅ Estructura sincronizada · ${packet.checkpoints.length} puntos · ${packet.courses.length} recorridos`, "ok");
       try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-synced", { detail: { eventId: packet.eventId, checkpointCount: packet.checkpoints.length, courseCount: packet.courses.length, changed: true, reason: packet.reason } })); } catch (_) {}
+      confirmStructureSave(packet, true);
       return true;
     }
 
     paintStatus(`☁️ Estructura al día · ${packet.checkpoints.length} puntos · ${packet.courses.length} recorridos`, "ok");
     try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-synced", { detail: { eventId: packet.eventId, checkpointCount: packet.checkpoints.length, courseCount: packet.courses.length, changed: false, reason: packet.reason } })); } catch (_) {}
+    confirmStructureSave(packet, true);
     return true;
+  } catch (error) {
+    confirmStructureSave(packet, false, error?.message || "Error de Firestore");
+    throw error;
   } finally {
     state.busy = false;
-    if (state.rerun) {
+    if (state.rerun || state.saveQueue.length) {
       state.rerun = false;
-      scheduleSync(300);
+      scheduleSync(state.saveQueue.length ? 0 : 300);
     }
   }
 }
 function acceptPacket(detail) {
   state.latest = normalizePacket(detail);
+  if (state.latest.requestId) state.saveQueue.push(state.latest);
   if (!state.latest.armed) {
+    confirmStructureSave(state.latest,false,"La estructura todavía no está habilitada");
     paintStatus("☁️ Estructura: confirma primero el PASO 1.", "warn");
     return;
   }
-  const fastReasons = new Set(["step1-confirmed", "r2-config-live", "step2-confirmed", "routes-generated", "route-regenerated", "r2-manual-route"]);
+  const fastReasons = new Set(["step1-confirmed", "r2-config-live", "step2-confirmed", "routes-generated", "route-regenerated", "r2-manual-route", "premium-save-exit"]);
   scheduleSync(fastReasons.has(state.latest.reason) ? 60 : 1100);
 }
 function onAuthReady(event) {
