@@ -456,6 +456,7 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
   const currentRunId = String(currentActiveRun.runId || "").trim();
   const currentRunActive = Boolean(currentRunId && String(currentActiveRun.status || "") === "active");
   const updates = {
+    "meta/accessReadVersion": `${String(membersSnap.readTime.seconds).padStart(12,"0")}:${String(membersSnap.readTime.nanoseconds).padStart(9,"0")}`,
     "meta/ownerUid": ownerUid,
     "meta/eventId": eventId,
     "meta/eventName": String(eventData.eventName || "").slice(0, 140),
@@ -504,7 +505,27 @@ async function syncLiveAccessForEvent(identity, eventId, suppliedEventSnap = nul
   for (const uid of Object.keys(currentMembers)) {
     if (!seen.has(uid)) updates[`members/${uid}`] = null;
   }
-  if (writeLive) await baseRef.update(updates);
+  if (writeLive) await baseRef.transaction(current=>{
+    if(current?.meta?.accessReadVersion&&current.meta.accessReadVersion>updates["meta/accessReadVersion"])return;
+    const next=structuredClone(current||{});
+    // Reconcile removals against the transaction snapshot, not an earlier RTDB read.
+    for(const uid of Object.keys(next.members||{}))if(!seen.has(uid))delete next.members[uid];
+    for(const [path,original] of Object.entries(updates)){
+      if(path.startsWith("runs/")&&(!currentRunId||current?.activeRun?.runId!==currentRunId||current.activeRun.status!=="active"||current.runs?.[currentRunId]?.meta?.status!=="active"||!current.runs[currentRunId].participants?.[path.split("/")[3]]))continue;
+      let value=original;
+      if(path==="meta/status"&&current?.activeRun?.runId){
+        if(current.activeRun.status==="active")value="live";
+        if(current.activeRun.status==="finished")value="finished";
+      }
+      const parts=path.split("/");let target=next;
+      for(const key of parts.slice(0,-1)){
+        if(!Object.hasOwn(target,key)||!target[key]||typeof target[key]!=="object")Object.defineProperty(target,key,{value:{},enumerable:true,writable:true,configurable:true});
+        target=target[key];
+      }
+      if(value===null)delete target[parts.at(-1)];else Object.defineProperty(target,parts.at(-1),{value,writable:true,enumerable:true,configurable:true});
+    }
+    return next;
+  });
   return {
     eventRef, eventSnap, eventData, ownerUid, status, members, baseRef, updates,
     activeMembers: members.filter(row => row.status === "active")
@@ -877,6 +898,28 @@ exports.syncLiveAccess = onCall({ enforceAppCheck: false }, async request => {
 });
 
 // F2.4: acknowledge the same initialized run; Firestore is the final gate.
+// F2.47: a rejected start is fenced in Firestore before its unused RTDB run is archived.
+// A concurrent finalizer reads that same fence, so it cannot publish an archived attempt.
+async function archiveRejectedLiveStart(ownerUid, eventId, runId) {
+  const base=rtdb.ref(`v2/live/${ownerUid}/${eventId}`),now=Date.now();
+  const result=await base.transaction(current=>{
+    // An uncached SDK transaction can first receive null. Let the server
+    // compare it and retry with its current value instead of aborting locally.
+    if(current===null)return null;
+    if(!current?.activeRun?.runId)return;
+    if(current.activeRun.runId!==runId)return;
+    const run=current.runs?.[runId];
+    if(!run||run.meta?.status!=="active"||run.meta?.runId!==runId||run.meta?.eventId!==eventId||run.meta?.ownerUid!==ownerUid)return;
+    if(Object.values(run.participants||{}).some(p=>p.status!=="not_started"||p.startedAt||p.finishedAt)||Object.keys(run).some(k=>!["meta","participants"].includes(k)))return;
+    const next=structuredClone(current);
+    next.abortedStarts={...(next.abortedStarts||{}),[runId]:{...next.runs[runId],meta:{...run.meta,status:"aborted",abortedAt:now,reason:"START_REVISION_CHANGED"}}};
+    delete next.runs[runId];delete next.activeRun;
+    if(next.meta?.activeRunId===runId){next.meta.status="published";delete next.meta.activeRunId;next.meta.updatedAt=now;}
+    return next;
+  });
+  if(!result.committed&&result.snapshot.child("activeRun/runId").val()===runId)throw new HttpsError("failed-precondition","El inicio pendiente contiene datos que requieren revisión. Se conservan y la carrera no se pondrá en directo automáticamente.");
+}
+
 async function completeLiveStart(identity, eventRef, eventId, ownerUid, active, meta, recovered) {
   const runId = String(active.runId || "");
   if (!runId || active.status !== "active" || meta.status !== "active" ||
@@ -892,12 +935,24 @@ async function completeLiveStart(identity, eventRef, eventId, ownerUid, active, 
     const status = String(data.status || "").toLowerCase();
     if (status === "live" && data.liveRunId === runId) return false;
     if (status !== "published") throw new HttpsError("failed-precondition", "El estado de la carrera ha cambiado. Actualiza antes de continuar.");
+    if(data.rejectedLiveStartRuns?.[runId])return "rejected";
+    // The source queries and the final status write belong to ONE Firestore transaction.
+    const report=await readLiveStartReadiness(identity,eventId,tx);
+    if(!report.ok||!meta.startReadinessRevision||meta.startReadinessRevision!==report.revision||Number(meta.participantCount)!==report.participantCount){
+      tx.set(eventRef,{rejectedLiveStartRuns:{...(data.rejectedLiveStartRuns||{}),[runId]:{rejectedAt:FieldValue.serverTimestamp(),reason:"START_REVISION_CHANGED"}}},{merge:true});
+      return "rejected";
+    }
+
     tx.set(eventRef, {
       status: "live", liveRunId: runId, liveBackend: "cloud-functions-v2",
       liveAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
     return true;
   });
+  if(changed==="rejected"){
+    await archiveRejectedLiveStart(ownerUid,eventId,runId);
+    throw new HttpsError("aborted","Los participantes o el diseño cambiaron durante el inicio. La carrera sigue publicada. Comprueba de nuevo y confirma el inicio; el intento anterior se ha conservado sin iniciar corredores.");
+  }
   const participantCount = Number(meta.participantCount || 0);
   if (changed) {
     try { await appendAudit("LIVE_RUN_STARTED", identity.uid, null, { eventId, ownerUid, runId, participantCount, recovered }); }
@@ -907,9 +962,9 @@ async function completeLiveStart(identity, eventRef, eventId, ownerUid, active, 
 }
 
 // F2.38: revisión de solo lectura, con una instantánea coherente de Firestore.
-async function readLiveStartReadiness(identity, eventId) {
+async function readLiveStartReadiness(identity, eventId, transaction = null) {
   const eventRef = db.collection("events").doc(eventId);
-  return db.runTransaction(async tx => {
+  const read = async tx => {
     const eventSnap = await tx.get(eventRef);
     if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera no existe.");
     const header = eventSnap.data() || {};
@@ -958,7 +1013,8 @@ async function readLiveStartReadiness(identity, eventId) {
     return { ok: issues.length === 0, eventId, status: header.status, participantCount: active.length,
       excludedCount: members.length - active.length, routeCount: routes.size,
       issueCount: issues.length, issues: issues.slice(0, 20), revision };
-  });
+  };
+  return transaction ? read(transaction) : db.runTransaction(read);
 }
 
 function requireLiveStartReady(report, expectedRevision = "") {
@@ -1046,6 +1102,7 @@ exports.startLiveRun = onCall({ enforceAppCheck: false }, async request => {
     eventName: String(eventData.eventName || "").slice(0, 140),
     status: "active",
     participantCount: live.activeMembers.length,
+    startReadinessRevision: freshReadiness.revision,
     startedAt: now,
     finishedAt: null,
     schemaVersion: 2,
