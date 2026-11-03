@@ -5,10 +5,10 @@ import "../bootstrap.js";
 import {
   collection,
   doc,
-  getDoc,
-  getDocs,
+  getDocFromServer,
+  getDocsFromServer,
   serverTimestamp,
-  writeBatch
+  runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
@@ -24,7 +24,9 @@ const state = {
   remoteRecheck: new Set(),
   cloudConflicts: new Set(),
   activeUid: String(globalThis.MILITOPO_V2_AUTH?.uid || ""),
-  parentWaits: 0
+  parentWaits: 0,
+  epoch: 0,
+  confirmedPacket: ""
 };
 
 function cleanRole(role) {
@@ -161,7 +163,8 @@ async function services() {
 function confirmStructureSave(packet, ok, error="") {
   if (!packet?.requestId) return;
   const index=state.saveQueue.indexOf(packet);
-  if(index>=0)state.saveQueue.splice(index,1);
+  if(index<0)return;
+  state.saveQueue.splice(index,1);
   try {
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-save-result", {
       detail: { requestId: packet.requestId, eventId: packet.eventId, ok: ok === true, error: String(error || "") }
@@ -203,17 +206,19 @@ function rememberConfirmedRemote(eventId, remote) {
   state.remoteRecheck.delete(eventId);
   try { localStorage.setItem(baselineKey(eventId), remoteFingerprint(remote)); } catch (_) {}
 }
-async function loadRemoteIndex(firestore, eventId, verifyFresh = false) {
+async function loadRemoteIndex(firestore, eventId, verifyFresh = false, validateContext = () => {}) {
+  validateContext();
   const known = state.remoteByEvent.get(eventId);
   if (known && !verifyFresh) return known;
   paintStatus("☁️ Comprobando cambios de balizas y recorridos en Firestore…", "warn");
   const [checkpointSnap, courseSnap] = await Promise.all([
-    getDocs(collection(firestore, "events", eventId, "checkpoints")),
-    getDocs(collection(firestore, "events", eventId, "courses"))
+    getDocsFromServer(collection(firestore, "events", eventId, "checkpoints")),
+    getDocsFromServer(collection(firestore, "events", eventId, "courses"))
   ]);
-  const remote = { checkpoints: new Map(), courses: new Map() };
-  checkpointSnap.forEach(snap => remote.checkpoints.set(snap.id, remoteDocumentHash(snap.data() || {})));
-  courseSnap.forEach(snap => remote.courses.set(snap.id, remoteDocumentHash(snap.data() || {})));
+  validateContext();
+  const remote = { checkpoints: new Map(), courses: new Map(), documents: new Map() };
+  checkpointSnap.forEach(snap => { remote.checkpoints.set(snap.id, remoteDocumentHash(snap.data() || {})); remote.documents.set(`checkpoints/${snap.id}`, stableJson(snap.data() || {})); });
+  courseSnap.forEach(snap => { remote.courses.set(snap.id, remoteDocumentHash(snap.data() || {})); remote.documents.set(`courses/${snap.id}`, stableJson(snap.data() || {})); });
   const expected = known ? remoteFingerprint(known) : savedFingerprint(eventId);
   if (expected && expected !== remoteFingerprint(remote)) {
     state.cloudConflicts.add(eventId);
@@ -222,6 +227,9 @@ async function loadRemoteIndex(firestore, eventId, verifyFresh = false) {
   state.remoteByEvent.set(eventId, remote);
   state.remoteRecheck.delete(eventId);
   return remote;
+}
+function packetSignature(packet) {
+  return stableJson({ eventId: packet.eventId, armed: packet.armed, checkpoints: packet.checkpoints, courses: packet.courses });
 }
 function desiredMap(items, keyName) {
   const map = new Map();
@@ -237,6 +245,10 @@ async function syncLatest() {
   // Solicitudes expresas de GUARDAR Y SALIR no se pierden por un
   // evento de autosave posterior que sustituya state.latest.
   const packet = state.saveQueue[0] || state.latest;
+  const uid = String(state.auth?.uid || ""), epoch = state.epoch;
+  const current = () => state.epoch === epoch && String(state.auth?.uid || "") === uid &&
+    state.latest?.eventId === packet?.eventId && canManage();
+  const assertCurrent = () => { if (!current()) throw new Error("La carrera o la cuenta han cambiado. No se confirma este guardado."); };
   if (!packet?.armed || !packet.eventId) {
     confirmStructureSave(packet,false,"No hay una carrera activa para sincronizar");
     paintStatus("☁️ Estructura: confirma primero el PASO 1.", "warn");
@@ -271,8 +283,10 @@ async function syncLatest() {
   state.busy = true;
   try {
     const { firestore } = await services();
+    assertCurrent();
     const eventRef = doc(firestore, "events", packet.eventId);
-    const eventSnap = await getDoc(eventRef);
+    const eventSnap = await getDocFromServer(eventRef);
+    assertCurrent();
     if (!eventSnap.exists()) {
       state.parentWaits += 1;
       // El guardado explícito no se declara correcto si aún falta la cabecera.
@@ -297,11 +311,43 @@ async function syncLatest() {
       paintStatus("🔒 La carrera ya no está en BORRADOR/PREPARADO en Firebase.", "err");
       return false;
     }
-    const remote = await loadRemoteIndex(firestore, packet.eventId,
-      Boolean(packet.requestId) || state.remoteRecheck.has(packet.eventId));
+    // Nunca preparar escrituras usando un índice de otra sesión o anterior.
+    const remote = await loadRemoteIndex(firestore, packet.eventId, true, assertCurrent);
+    assertCurrent();
     const wantedCheckpoints = desiredMap(packet.checkpoints, "checkpointId");
     const wantedCourses = desiredMap(packet.courses, "courseId");
-    const batch = writeBatch(firestore);
+    const operations = [];
+    const batch = {
+      set: (ref, data, options) => operations.push({ kind: "set", ref, data, options }),
+      delete: ref => operations.push({ kind: "delete", ref })
+    };
+    const checkedPaths = new Set([
+      ...remote.documents.keys(),
+      ...[...wantedCheckpoints.keys()].map(id => `checkpoints/${id}`),
+      ...[...wantedCourses.keys()].map(id => `courses/${id}`)
+    ]);
+    const conflict = () => { throw Object.assign(new Error("La estructura cambió durante el guardado. Se conserva la copia local y no se sobrescribe la nube."), { structureConflict: true }); };
+    const commitChecked = () => runTransaction(firestore, async tx => {
+      assertCurrent();
+      const headerSnap = await tx.get(eventRef);
+      if (!headerSnap.exists()) conflict();
+      const header = headerSnap.data() || {};
+      if (header.ownerUid !== uid || !["draft", "prepared"].includes(String(header.status || "draft"))) conflict();
+      if (stableJson(header.structureUpdatedAt || null) !== stableJson(eventData.structureUpdatedAt || null)) conflict();
+      // Leer todos los documentos conocidos, incluidos los que no iban a cambiar.
+      // Así un reintento no acepta silenciosamente una edición concurrente.
+      const refs = [...checkedPaths].map(path => doc(firestore, "events", packet.eventId, ...path.split("/")));
+      const snapshots = await Promise.all(refs.map(ref => tx.get(ref)));
+      snapshots.forEach((snap, index) => {
+        const expected = remote.documents.get([...checkedPaths][index]);
+        if (snap.exists() ? stableJson(snap.data() || {}) !== expected : expected !== undefined) conflict();
+      });
+      assertCurrent();
+      for (const op of operations) {
+        if (op.kind === "delete") tx.delete(op.ref);
+        else tx.set(op.ref, op.data, op.options);
+      }
+    });
     let mutations = 0;
 
     for (const [id, item] of wantedCheckpoints) {
@@ -359,23 +405,32 @@ async function syncLatest() {
       }, { merge: true });
       mutations += 1;
       paintStatus("☁️ Guardando balizas y recorridos en Firestore…", "warn");
-      await batch.commit();
+      if (operations.length > 450) throw new Error("Demasiados cambios para un único guardado seguro. Conservamos el borrador local; revisa el tamaño de la carrera.");
+      await commitChecked();
+      assertCurrent();
 
       remote.checkpoints = new Map([...wantedCheckpoints].map(([id, item]) => [id, item.hash]));
       remote.courses = new Map([...wantedCourses].map(([id, item]) => [id, item.hash]));
       rememberConfirmedRemote(packet.eventId, remote);
+      state.confirmedPacket = packetSignature(packet);
       paintStatus(`✅ Estructura sincronizada · ${packet.checkpoints.length} puntos · ${packet.courses.length} recorridos`, "ok");
       try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-synced", { detail: { eventId: packet.eventId, checkpointCount: packet.checkpoints.length, courseCount: packet.courses.length, changed: true, reason: packet.reason } })); } catch (_) {}
       confirmStructureSave(packet, true);
       return true;
     }
 
+    await commitChecked();
+    assertCurrent();
     rememberConfirmedRemote(packet.eventId, remote);
+    state.confirmedPacket = packetSignature(packet);
     paintStatus(`☁️ Estructura al día · ${packet.checkpoints.length} puntos · ${packet.courses.length} recorridos`, "ok");
     try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-orientation-structure-synced", { detail: { eventId: packet.eventId, checkpointCount: packet.checkpoints.length, courseCount: packet.courses.length, changed: false, reason: packet.reason } })); } catch (_) {}
     confirmStructureSave(packet, true);
     return true;
   } catch (error) {
+    if (!current()) { confirmStructureSave(packet, false, "La carrera o la cuenta han cambiado"); return false; }
+    state.remoteRecheck.add(packet.eventId);
+    if (error?.structureConflict) state.cloudConflicts.add(packet.eventId);
     confirmStructureSave(packet, false, error?.message || "Error de Firestore");
     if (state.cloudConflicts.has(packet.eventId)) {
       paintStatus("⚠️ Conflicto con otra edición en la nube. No se ha sobrescrito la carrera. Conserva el borrador local y revisa la carrera.", "err");
@@ -391,7 +446,15 @@ async function syncLatest() {
   }
 }
 function acceptPacket(detail) {
-  state.latest = normalizePacket(detail);
+  const next = normalizePacket(detail);
+  if (state.latest && state.latest.eventId !== next.eventId) {
+    state.epoch += 1;
+    state.confirmedPacket = "";
+    for (const pending of [...state.saveQueue]) confirmStructureSave(pending, false, "La carrera seleccionada ha cambiado");
+  }
+  state.latest = next;
+  if (!state.busy && !state.saveQueue.length && !next.requestId && next.armed && !state.remoteRecheck.has(next.eventId) &&
+      !state.cloudConflicts.has(next.eventId) && packetSignature(next) === state.confirmedPacket) return;
   if (state.latest.requestId) state.saveQueue.push(state.latest);
   if (!state.latest.armed) {
     confirmStructureSave(state.latest,false,"La estructura todavía no está habilitada");
@@ -405,6 +468,11 @@ function onAuthReady(event) {
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
   const uid=String(state.auth?.uid || "");
   if (uid !== state.activeUid) {
+    state.epoch += 1;
+    state.confirmedPacket = "";
+    clearTimeout(state.timer);
+    for (const pending of [...state.saveQueue]) confirmStructureSave(pending, false, "La cuenta ha cambiado");
+    state.latest = null;
     state.remoteByEvent.clear();
     state.remoteRecheck.clear();
     state.cloudConflicts.clear();
@@ -418,6 +486,7 @@ function onAuthReady(event) {
 function init() {
   ensureStatusNodes();
   globalThis.addEventListener("militopo:v2-auth-ready", onAuthReady);
+  globalThis.addEventListener("militopo:v2-auth-signed-out", () => onAuthReady({ detail: { uid: "" } }));
   globalThis.addEventListener("militopo:v2-orientation-structure", event => acceptPacket(event.detail));
   globalThis.addEventListener("online", () => {
     if (state.latest?.armed) {
