@@ -440,3 +440,6 @@ body.militopo-premium-builder-open{overflow:hidden!important}
   box-sizing:border-box!important;line-height:0!important;transform:none!important;
   pointer-events:none;
 }
+/* F2.40 · Estado local visible sin ocupar el área desplazable del editor. */
+.mpb-stage{grid-template-rows:auto auto minmax(0,1fr) auto}
+@media(max-width:780px){.mpb-stage{grid-template-rows:auto minmax(0,1fr) auto}}
