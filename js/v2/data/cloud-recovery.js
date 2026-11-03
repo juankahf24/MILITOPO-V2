@@ -7,19 +7,22 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromServer,
+  getDocsFromServer,
   getDocs,
   query,
   where,
   runTransaction,
-  writeBatch,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
 const state = {
   auth: globalThis.MILITOPO_V2_AUTH || null,
+  authEpoch: 0,
   services: null,
   busy: false,
+  confirming: false,
   overlay: null,
   list: null,
   status: null,
@@ -694,15 +697,52 @@ async function openCloudPicker(resetFilter = true, options = {}) {
     if (launcher) launcher.disabled = false;
   }
 }
+// F2.43: una recuperación/copia usa una revisión comprobada del servidor.
+const recoveryProofs = new WeakMap();
+function recoveryJson(value) {
+  const stable = v => Array.isArray(v) ? v.map(stable) : v && typeof v === "object"
+    ? Object.fromEntries(Object.keys(v).sort().map(k => [k, stable(v[k])])) : v;
+  return JSON.stringify(stable(value));
+}
+function recoveryIdentity(auth = state.auth) {
+  return JSON.stringify([auth?.uid || "", auth?.role || "", auth?.emailVerified === true]);
+}
+function recoveryContext() {
+  return {identity: recoveryIdentity(), epoch: state.authEpoch};
+}
+function assertRecoveryContext(context) {
+  if (!navigator.onLine || !canManage() || context.epoch !== state.authEpoch || context.identity !== recoveryIdentity()) {
+    throw new Error("La conexión o la sesión han cambiado. No se aplicará esta recuperación. Vuelve a intentarlo con la cuenta correcta.");
+  }
+}
+async function verifyRecoverySource(tx, firestore, proof, forCopy = false) {
+  assertRecoveryContext(proof.context);
+  const ref = doc(firestore, "events", proof.eventId);
+  const header = await tx.get(ref);
+  if (!header.exists() || recoveryJson(header.data()) !== proof.header) throw new Error("La carrera cambió mientras se preparaba. Vuelve a cargarla antes de continuar.");
+  if (header.data().ownerUid !== state.auth.uid && !isSuperAdmin()) throw new Error("La carrera pertenece a otra cuenta.");
+  if (forCopy && String(header.data().status).toLowerCase() === "live") throw new Error("No se puede copiar una carrera EN DIRECTO.");
+  const paths = [...proof.documents.keys()];
+  const snapshots = await Promise.all(paths.map(path => tx.get(doc(firestore, "events", proof.eventId, ...path.split("/")))));
+  snapshots.forEach((snap, i) => {
+    if (!snap.exists() || recoveryJson(snap.data()) !== proof.documents.get(paths[i])) throw new Error("Las balizas o recorridos cambiaron mientras se preparaba la carrera. Vuelve a cargarla.");
+  });
+  assertRecoveryContext(proof.context);
+}
+
 async function fetchCloudEvent(eventId) {
+  const context = recoveryContext();
+  assertRecoveryContext(context);
   const { firestore } = await services();
   const eventRef = doc(firestore, "events", eventId);
   const [eventSnap, checkpointSnap, courseSnap] = await Promise.all([
-    getDoc(eventRef),
-    getDocs(collection(firestore, "events", eventId, "checkpoints")),
-    getDocs(collection(firestore, "events", eventId, "courses"))
+    getDocFromServer(eventRef),
+    getDocsFromServer(collection(firestore, "events", eventId, "checkpoints")),
+    getDocsFromServer(collection(firestore, "events", eventId, "courses"))
   ]);
+  assertRecoveryContext(context);
   if (!eventSnap.exists()) throw new Error("El evento ya no existe en Firestore.");
+  if (eventSnap.data().eventId && eventSnap.data().eventId !== eventId) throw new Error("La identificación de la carrera es inconsistente.");
   const header = normalizeHeader(eventSnap.id, eventSnap.data() || {});
   if (String(header.ownerUid || "") !== String(state.auth?.uid || "") && !isSuperAdmin()) {
     throw new Error("Este evento no pertenece a la cuenta actual.");
@@ -716,7 +756,21 @@ async function fetchCloudEvent(eventId) {
     return order(a.checkpointId) - order(b.checkpointId);
   });
   courses.sort((a, b) => a.routeDesignIndex - b.routeDesignIndex || a.routeId.localeCompare(b.routeId, "es"));
-  return { header, checkpoints, courses };
+  for (const [key, count] of [["checkpointSyncedCount", checkpoints.length], ["courseSyncedCount", courses.length]]) {
+    if (eventSnap.data()[key] != null && Number(eventSnap.data()[key]) !== count) throw new Error("El diseño no está completamente sincronizado. Espera a que termine de guardarse antes de recuperarlo.");
+  }
+  const proof = {context, eventId, header: recoveryJson(eventSnap.data()), documents: new Map()};
+  checkpointSnap.forEach(snap => proof.documents.set(`checkpoints/${snap.id}`, recoveryJson(snap.data())));
+  courseSnap.forEach(snap => proof.documents.set(`courses/${snap.id}`, recoveryJson(snap.data())));
+  // No aceptar dos documentos que se conviertan en el mismo identificador local.
+  if (new Set(checkpoints.map(p => p.checkpointId)).size !== checkpoints.length ||
+      new Set(courses.map(c => c.courseId)).size !== courses.length) throw new Error("La carrera contiene identificadores duplicados.");
+  await runTransaction(firestore, tx => verifyRecoverySource(tx, firestore, proof));
+  assertRecoveryContext(context);
+  const packet = { header, checkpoints, courses };
+  proof.packet = recoveryJson(packet);
+  recoveryProofs.set(packet, proof);
+  return packet;
 }
 
 // F2.24: duplicacion MATERIAL en Firestore. No recupera ni publica primero
@@ -726,6 +780,9 @@ async function createIndependentRaceCopy(packet) {
   if (!navigator.onLine) throw new Error("Necesitas conexion para crear y guardar la copia en Firebase.");
   if (!canManage()) throw new Error("Inicia sesion como organizador verificado.");
   const {firestore} = await services();
+  const proof = recoveryProofs.get(packet);
+  if (!proof || proof.packet !== recoveryJson(packet)) throw new Error("Vuelve a cargar el diseño antes de crear una copia.");
+  assertRecoveryContext(proof.context);
   const source = packet.header;
   if (String(source.status || "").toLowerCase() === "live") throw new Error("No se puede reutilizar una carrera EN DIRECTO.");
   if (!packet.checkpoints.some(p => p.checkpointId === "START") || !packet.checkpoints.some(p => p.checkpointId === "FINISH")) {
@@ -760,33 +817,41 @@ async function createIndependentRaceCopy(packet) {
     premiumControlsPerRoute:source.premiumControlsPerRoute,
     premiumSchemaVersion:4
   };
-  // La creacion es exclusiva. Un ID existente jamas se sobrescribe.
-  await runTransaction(firestore,async tx=>{
-    const sourceRef=doc(firestore,"events",String(source.eventId));
-    const [sourceNow,previous]=await Promise.all([tx.get(sourceRef),tx.get(ref)]);
-    if (!sourceNow.exists()) throw new Error("La carrera de origen ya no existe.");
-    const freshSource=sourceNow.data()||{};
-    if (String(freshSource.status||"").toLowerCase()==="live") throw new Error("La carrera de origen ha pasado a EN DIRECTO.");
-    if (String(freshSource.ownerUid||"")!==ownerUid && !isSuperAdmin()) throw new Error("La carrera de origen ya no pertenece a esta cuenta.");
-    if (Number(freshSource.courseSyncedCount||0)!==Number(source.courseSyncedCount||0)
-      || Number(freshSource.checkpointSyncedCount||0)!==Number(source.checkpointSyncedCount||0)) {
-      throw new Error("El diseno del origen ha cambiado. Actualiza la lista antes de reutilizarlo.");
-    }
-    if (previous.exists()) throw new Error("El identificador generado ya existe. Vuelve a intentarlo.");
-    tx.set(ref,{
+  const targetPayload = {
       eventId:id,eventName:name,ownerUid,kind:"orientation",status:"draft",
-      schemaVersion:1,cloudStage:"C1",createdAt:serverTimestamp(),updatedAt:serverTimestamp(),
+      schemaVersion:1,cloudStage:"C1",
       participantCount:source.participantCount,maxUniqueRoutes:source.maxUniqueRoutes,
       controlCount:source.controlCount,controlsPerRoute:source.controlsPerRoute,
       maxControlReuse:source.maxControlReuse,planScale:source.planScale,
       planEquidistanceM:source.planEquidistanceM,
       ...designMeta
-    });
+  };
+  // La creacion es exclusiva. Un ID existente jamas se sobrescribe.
+  await runTransaction(firestore,async tx=>{
+    await verifyRecoverySource(tx, firestore, proof, true);
+    const previous = await tx.get(ref);
+    assertRecoveryContext(proof.context);
+    if (previous.exists()) throw new Error("El identificador generado ya existe. Vuelve a intentarlo.");
+    tx.set(ref,{...targetPayload,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
   });
   // Las reglas de Firestore consultan el documento padre ya existente.
   // Por ello los puntos/recorridos se guardan en una segunda escritura.
   try {
-    const batch=writeBatch(firestore);
+    assertRecoveryContext(proof.context);
+    const target = await getDocFromServer(ref);
+    assertRecoveryContext(proof.context);
+    if (!target.exists()) throw new Error("El borrador de destino ya no existe.");
+    if (Object.entries(targetPayload).some(([key,value]) => recoveryJson(target.data()[key]) !== recoveryJson(value))) throw new Error("El borrador de destino cambió antes de completar la copia.");
+    const targetVersion = recoveryJson(target.data());
+    await runTransaction(firestore, async batch => {
+    await verifyRecoverySource(batch, firestore, proof, true);
+    const freshTarget = await batch.get(ref);
+    if (!freshTarget.exists() || recoveryJson(freshTarget.data()) !== targetVersion ||
+        freshTarget.data().ownerUid !== ownerUid || freshTarget.data().status !== "draft" || freshTarget.data().cloudStage !== "C1") throw new Error("El borrador de destino cambió; no se sobrescribe.");
+    const targetRefs = [...packet.checkpoints.map(p => doc(firestore,"events",id,"checkpoints",p.checkpointId)), ...packet.courses.map(c => doc(firestore,"events",id,"courses",c.courseId))];
+    const targetDocs = await Promise.all(targetRefs.map(r => batch.get(r)));
+    if (targetDocs.some(d => d.exists())) throw new Error("El destino ya contiene estructura; no se sobrescribe.");
+    assertRecoveryContext(proof.context);
     for (const point of packet.checkpoints) {
       batch.set(doc(firestore,"events",id,"checkpoints",point.checkpointId),{
         ...point,schemaVersion:1,createdAt:serverTimestamp(),updatedAt:serverTimestamp()
@@ -803,7 +868,8 @@ async function createIndependentRaceCopy(packet) {
       locatedCheckpointCount:checkedCount,courseSyncedCount:packet.courses.length,
       structureUpdatedAt:serverTimestamp(),updatedAt:serverTimestamp()
     },{merge:true});
-    await batch.commit();
+    });
+    assertRecoveryContext(proof.context);
   } catch(error) {
     throw new Error(`Se creo el borrador ${id}, pero NO se pudo copiar toda la estructura. No lo publiques. Revisa permisos y conexion: ${String(error?.message||error)}`);
   }
@@ -811,7 +877,7 @@ async function createIndependentRaceCopy(packet) {
 }
 
 async function recoverEvent(eventId, options = {}) {
-  if (state.busy) return;
+  if (state.busy || state.confirming) return;
   const row = state.events.find(item => item.eventId === eventId);
   if (!row) return;
   const openResults = options?.openResults === true;
@@ -832,16 +898,23 @@ Se copiarán configuración, balizas y recorridos. NO se copiarán participantes
 MILITOPO guardará primero una copia duradera del evento que tengas abierto en este dispositivo. Después cargará la configuración, balizas y recorridos de la nube.
 
 ¿Continuar?`;
-  const ok = await globalThis.MILITOPO_CONFIRM(message, {
+  const context = recoveryContext();
+  const previousEventId = String(globalThis.MILITOPO_V2_EVENT_STATUS?.eventId || "");
+  state.confirming = true;
+  let ok;
+  try {
+    ok = await globalThis.MILITOPO_CONFIRM(message, {
     title: reuse ? "REUTILIZAR CARRERA" : "ABRIR CARRERA",
     confirmText: reuse ? "CREAR COPIA" : "CONTINUAR"
   });
+  } finally { state.confirming = false; }
   if (!ok) { state.openResultsAfterRecover = ""; return false; }
 
   state.busy = true;
   state.list?.querySelectorAll("button").forEach(button => { button.disabled = true; });
   paintStatus(`☁️ Descargando ${row.eventId}…`, "warn");
   try {
+    assertRecoveryContext(context);
     const packet = await fetchCloudEvent(eventId);
     // F2.23: el estado de la lista puede estar desactualizado. Una carrera
     // que acaba de entrar EN DIRECTO no puede reutilizarse aunque su botón
@@ -853,6 +926,8 @@ MILITOPO guardará primero una copia duradera del evento que tengas abierto en e
       throw new Error("La copia de nube no contiene salida y llegada completas.");
     }
     const copy = reuse ? await createIndependentRaceCopy(packet) : null;
+    assertRecoveryContext(context);
+    if (String(globalThis.MILITOPO_V2_EVENT_STATUS?.eventId || "") !== previousEventId) throw new Error("La carrera abierta cambió. No se sustituirá su diseño.");
     const requestId = `c3_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     globalThis.dispatchEvent(new CustomEvent("militopo:v2-cloud-event-loaded", {
       detail: {
@@ -878,7 +953,9 @@ MILITOPO guardará primero una copia duradera del evento que tengas abierto en e
 }
 
 function onAuthReady(event) {
+  const before = recoveryIdentity();
   state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
+  if (before !== recoveryIdentity()) state.authEpoch += 1;
   const button = document.getElementById("m2CloudRecoveryOpen");
   const historyButton = document.getElementById("m2OrganizerHistoryOpen");
   if (button) button.disabled = !canManage();
@@ -924,6 +1001,7 @@ function init() {
   ensureLauncher();
   ensureOverlay();
   globalThis.addEventListener("militopo:v2-auth-ready", onAuthReady);
+  globalThis.addEventListener("militopo:v2-auth-signed-out", () => onAuthReady({detail:{uid:""}}));
   globalThis.addEventListener("militopo:v2-cloud-event-applied", onApplied);
   globalThis.addEventListener("militopo:v2-event-status-changed", () => {
     if (state.overlayMode === "events" && state.overlay && !state.overlay.hidden) {

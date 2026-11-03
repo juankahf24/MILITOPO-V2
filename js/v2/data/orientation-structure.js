@@ -26,8 +26,7 @@ const state = {
   activeUid: String(globalThis.MILITOPO_V2_AUTH?.uid || ""),
   parentWaits: 0,
   epoch: 0,
-  confirmedPacket: "",
-  reviewBusy: false
+  confirmedPacket: ""
 };
 
 function cleanRole(role) {
@@ -151,7 +150,6 @@ function ensureStatusNodes() {
   return nodes;
 }
 function paintStatus(text, kind = "warn") {
-  paintConflictAction();
   ensureStatusNodes().forEach(node => {
     node.className = `status ${kind}`;
     node.textContent = text;
@@ -258,7 +256,7 @@ async function syncLatest(review = null) {
   }
   if (state.cloudConflicts.has(packet.eventId) && !review) {
     confirmStructureSave(packet,false,"Conflicto de edición con Firestore");
-    paintStatus("⚠️ La carrera cambió en la nube. No se sobrescribirán balizas ni recorridos. Revisa las versiones antes de continuar.", "err");
+    paintStatus("⚠️ La carrera cambió en la nube. No se sobrescribirán balizas ni recorridos. Tu borrador sigue conservado en este dispositivo.", "err");
     return false;
   }
   if (!canManage()) {
@@ -438,7 +436,7 @@ async function syncLatest(review = null) {
     if (error?.structureConflict) markConflict(packet.eventId);
     confirmStructureSave(packet, false, error?.message || "Error de Firestore");
     if (state.cloudConflicts.has(packet.eventId)) {
-      paintStatus("⚠️ Conflicto con otra edición en la nube. No se ha sobrescrito la carrera. Conserva el borrador local y revisa la carrera.", "err");
+      paintStatus("⚠️ Conflicto con otra edición en la nube. No se ha sobrescrito la carrera. Tu borrador sigue conservado en este dispositivo.", "err");
       return false;
     }
     throw error;
@@ -454,13 +452,11 @@ function acceptPacket(detail) {
   const next = normalizePacket(detail);
   if (state.latest && state.latest.eventId !== next.eventId) {
     state.epoch += 1;
-    document.getElementById("m2ConflictDialog")?.close();
     state.confirmedPacket = "";
     for (const pending of [...state.saveQueue]) confirmStructureSave(pending, false, "La carrera seleccionada ha cambiado");
   }
   state.latest = next;
   try { if (localStorage.getItem(conflictKey(next.eventId))) state.cloudConflicts.add(next.eventId); } catch (_) {}
-  paintConflictAction();
   if (!state.busy && !state.saveQueue.length && !next.requestId && next.armed && !state.remoteRecheck.has(next.eventId) &&
       !state.cloudConflicts.has(next.eventId) && packetSignature(next) === state.confirmedPacket) return;
   if (state.latest.requestId) state.saveQueue.push(state.latest);
@@ -485,8 +481,6 @@ function onAuthReady(event) {
     state.remoteRecheck.clear();
     state.cloudConflicts.clear();
     state.activeUid=uid;
-    document.getElementById("m2ConflictDialog")?.close();
-    paintConflictAction();
   }
   if (state.latest?.armed) {
     state.remoteRecheck.add(state.latest.eventId);
@@ -598,87 +592,8 @@ function downloadReview(text, eventId) {
   document.body.appendChild(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
-function paintConflictAction() {
-  let banner = document.getElementById("m2ConflictAction");
-  const visible = canManage() && state.latest && state.cloudConflicts.has(state.latest.eventId);
-  if (!visible) { banner?.remove(); return; }
-  if (banner || !document.body) return;
-  banner = document.createElement("aside"); banner.id = "m2ConflictAction";
-  banner.style.cssText = "position:fixed;bottom:16px;left:16px;right:16px;z-index:2147483000;padding:14px;background:#fff5d9;color:#182d22;border:2px solid #ad7914;border-radius:16px;box-shadow:0 4px 20px #0003;display:flex;gap:12px;align-items:center;flex-wrap:wrap";
-  const text = document.createElement("span"); text.textContent = "Guardado detenido: hay otra versión de balizas o recorridos.";
-  const button = document.createElement("button"); button.type = "button";button.textContent = "Comparar versiones";
-  button.style.cssText = "padding:12px 18px;background:#205e43;color:white;border:0;border-radius:10px;font:inherit;cursor:pointer";
-  button.addEventListener("click", openConflictReview);
-  banner.append(text, button); document.body.appendChild(banner);
-}
-async function openConflictReview() {
-  if (state.reviewBusy || document.getElementById("m2ConflictDialog")?.open) return;
-  state.reviewBusy = true;
-  const opener = document.activeElement;
-  const dialog = document.createElement("dialog");dialog.id = "m2ConflictDialog";
-  dialog.setAttribute("aria-labelledby", "m2ConflictTitle");
-  dialog.style.cssText = "width:min(680px,calc(100vw - 32px));max-height:85dvh;box-sizing:border-box;overflow:auto;border:2px solid #2b6548;border-radius:20px;padding:20px;background:#fff;color:#1b3025;font:16px system-ui;z-index:2147483647";
-  const title = document.createElement("h2");title.id = "m2ConflictTitle";title.textContent = "Comparar balizas y recorridos";
-  const message = document.createElement("p");message.setAttribute("role", "status");message.textContent = "Consultando la versión del servidor…";
-  const content = document.createElement("div");
-  const close = document.createElement("button");close.type = "button";close.textContent = "Cerrar sin sustituir";close.onclick = () => dialog.close();
-  const styleButton = button => {button.style.cssText = "padding:12px;margin:8px 8px 8px 0;border:1px solid #245d40;border-radius:10px;font:inherit;cursor:pointer";return button;};
-  dialog.append(title, message, content, styleButton(close));document.body.appendChild(dialog);
-  let committing = false;
-  dialog.addEventListener("cancel", e => {if (committing) e.preventDefault();});
-  dialog.addEventListener("close", () => {dialog.remove();opener?.focus();});
-  dialog.showModal();
-  try {
-    const review = await prepareConflictReview();
-    if (!dialog.open) return;
-    const rows = reviewDifferences(review);
-    message.textContent = `${rows.length} elementos diferentes. Solo se compara estructura confirmada: balizas y recorridos. Los itinerarios y borradores parciales no se sustituyen. Si cierras, se conservan ambas versiones y el guardado sigue detenido.`;
-    for (const row of rows) {
-      const section = document.createElement("details"), label = document.createElement("summary");
-      label.textContent = `${row.group === "checkpoints" ? "Punto" : "Recorrido"} ${row.id} · ${!row.local ? "solo en nube (se borraría)" : !row.cloud ? "solo local (se añadiría)" : "modificado"}`;
-      section.appendChild(label);
-      for (const [name, value] of [["Mi versión local", row.local], ["Versión en la nube", row.cloud]]) {
-        const heading = document.createElement("h3"), pre = document.createElement("pre");heading.textContent = name;
-        pre.style.cssText = "white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;background:#f0f5f1;padding:10px";
-        pre.textContent = readableVersion(value);section.append(heading, pre);
-      }
-      content.appendChild(section);
-    }
-    const download = styleButton(document.createElement("button"));download.type = "button";download.textContent = "Descargar ambas versiones (JSON)";
-    download.onclick = () => {
-      try {
-        const current = JSON.parse(reviewArchiveText(review));
-        let copies = [current], saved = false;
-        try {archiveReview(review); copies = archivedReviews(review.eventId); saved = true;} catch (_) {}
-        downloadReview(JSON.stringify({format:"MILITOPO-conflict-copies-v1",copies},null,2),review.eventId);
-        message.textContent = saved ? "Copia preparada. Comprueba la descarga en Archivos/Descargas. No se ha cambiado la nube." : "Se prepara la descarga de ambas versiones actuales, pero no se pudo conservar una copia en este dispositivo. Comprueba Archivos/Descargas. No se ha cambiado la nube.";
-      } catch(error) {message.textContent = error.message;}
-    };
-    const label = document.createElement("label"), checkbox = document.createElement("input");checkbox.type = "checkbox";
-    label.append(checkbox, document.createTextNode(" He revisado las diferencias y quiero sustituir la estructura de la nube por mi versión local, incluidos los borrados indicados."));label.style.display = "block";
-    const apply = styleButton(document.createElement("button"));apply.type = "button";apply.textContent = "Guardar mi versión revisada";apply.disabled = true;
-    checkbox.onchange = () => {apply.disabled = !checkbox.checked;};
-    apply.onclick = async () => {
-      if (committing || !checkbox.checked) return;
-      committing = true;apply.disabled = close.disabled = download.disabled = checkbox.disabled = true;
-      message.textContent = "Conservando ambas copias y comprobando de nuevo la nube…";
-      try {await resolveReviewedLocal(review);message.textContent = "Versión local guardada y confirmada. Ambas estructuras quedan respaldadas en este dispositivo.";label.remove();apply.remove();paintConflictAction();}
-      catch(error) {message.textContent = error.message;apply.remove();label.remove();}
-      finally {committing = false;close.disabled = false;download.disabled = false;}
-    };
-    content.append(download, label, apply);
-  } catch(error) {message.textContent = error.message;}
-  finally {state.reviewBusy = false;}
-}
-
-globalThis.MILITOPO_DOWNLOAD_STRUCTURE_COPIES = eventId => {
-  if (!canManage() || !eventId || state.latest?.eventId !== eventId) throw new Error("Abre la carrera con la cuenta propietaria antes de consultar sus copias.");
-  const copies = archivedReviews(eventId);
-  if (!copies.length) throw new Error("Esta cuenta no tiene copias de conflictos de esta carrera en este dispositivo.");
-  downloadReview(JSON.stringify({format:"MILITOPO-conflict-copies-v1",copies},null,2),eventId);
-  return copies.length;
-};
-
+// F2.43: protección y copias internas conservadas; sin herramientas visibles
+// de conflictos, descargas o resolución. Los errores usan el estado de guardado.
 function init() {
   ensureStatusNodes();
   globalThis.addEventListener("militopo:v2-auth-ready", onAuthReady);
