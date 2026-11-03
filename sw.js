@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-f244-impresion-20261103";
+const BUILD_ID="v2-f245-encuadre-20261103";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -46,9 +46,9 @@ const APP_SHELL=[
 
   "./",
   "./index.html",
-  "./js/v2/ui/pwa-update.js?v=v2-f244-impresion-20261103",
+  "./js/v2/ui/pwa-update.js?v=v2-f245-encuadre-20261103",
   "./styles.css?v=v2-a1-backend-20260919",
-  "./app.js?v=militopo-f244-impresion-20261103",
+  "./app.js?v=militopo-f245-encuadre-20261103",
   "./manifest.webmanifest",
   "./icons/militopo-192.png",
   "./icons/militopo-512.png",
