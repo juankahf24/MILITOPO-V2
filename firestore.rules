@@ -215,6 +215,10 @@ service cloud.firestore {
     }
 
     match /events/{eventId} {
+      // F2.43: comprobar un ID libre antes de crear la copia exclusiva.
+      // Solo get inexistente; no amplía list ni lectura de carreras existentes.
+      allow get: if verified() && isOrganizer()
+                    && !exists(/databases/$(database)/documents/events/$(eventId));
       allow create: if verified() && isOrganizer()
                     && request.resource.data.ownerUid == request.auth.uid
                     && request.resource.data.status == "draft";
