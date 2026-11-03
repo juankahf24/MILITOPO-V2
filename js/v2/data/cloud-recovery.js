@@ -781,6 +781,14 @@ async function fetchCloudEvent(eventId) {
 // F2.24: duplicacion MATERIAL en Firestore. No recupera ni publica primero
 // el estado original en el organizador: asi la carrera FINALIZADA no se abre
 // temporalmente como si fuera la nueva. No se copian miembros ni resultados.
+function copyWithoutTimes(data){const {createdAt,updatedAt,...rest}=data;return rest;}
+function copyTargetMatches(data,payload){
+  if(!["C1","C2"].includes(data.cloudStage))return false;
+  const clean=copyWithoutTimes(data);
+  if(data.cloudStage==="C2")for(const key of ["checkpointSyncedCount","locatedCheckpointCount","courseSyncedCount","structureUpdatedAt"])delete clean[key];
+  clean.cloudStage="C1";
+  return recoveryJson(clean)===recoveryJson(payload);
+}
 async function createIndependentRaceCopy(packet) {
   if (!navigator.onLine) throw new Error("Necesitas conexion para crear y guardar la copia en Firebase.");
   if (!canManage()) throw new Error("Inicia sesion como organizador verificado.");
@@ -801,11 +809,21 @@ async function createIndependentRaceCopy(packet) {
   if (packet.checkpoints.length > 150 || packet.courses.length > 120) {
     throw new Error("El diseño supera el limite de copia segura. No se ha cambiado la carrera actual.");
   }
-  const suffix = globalThis.crypto?.randomUUID?.().replaceAll("-", "").slice(0, 16).toUpperCase()
-    || (globalThis.crypto?.getRandomValues ? Array.from(globalThis.crypto.getRandomValues(new Uint8Array(8)),n=>n.toString(16).padStart(2,"0")).join("").toUpperCase() : "");
-  if (!suffix) throw new Error("No se pudo generar un identificador seguro para la copia.");
-  const id = `ORI_${new Date().toISOString().slice(0,10).replaceAll("-","")}_${suffix}`;
-  if (id === source.eventId) throw new Error("La nueva carrera no puede tener el identificador original.");
+  // Persist only an operation identity, never the race content or credentials.
+  const digestBytes=await globalThis.crypto.subtle.digest("SHA-256",new TextEncoder().encode(recoveryJson([proof.header,[...proof.documents]])));
+  const sourceDigest=Array.from(new Uint8Array(digestBytes),n=>n.toString(16).padStart(2,"0")).join("");
+  assertRecoveryContext(proof.context);
+  const pendingKey="militopo_pending_race_copy_v1:"+encodeURIComponent(state.auth.uid)+":"+encodeURIComponent(source.eventId);
+  let pending;
+  try{pending=JSON.parse(localStorage.getItem(pendingKey)||"null")}catch(_){throw new Error("No se puede leer el registro de copia pendiente. No se ha creado otra carrera.")}
+  if(pending&&(!/^ORI_\d{8}_[A-F0-9]{16}$/.test(pending.id)||!pending.token||pending.sourceDigest!==sourceDigest))throw new Error("Hay una copia pendiente y el origen ha cambiado. Conserva el borrador pendiente y revisa su diseño antes de volver a copiar.");
+  if(!pending){
+    const token=globalThis.crypto.randomUUID();
+    pending={id:`ORI_${new Date().toISOString().slice(0,10).replaceAll("-","")}_${token.replaceAll("-","").slice(0,16).toUpperCase()}`,token,sourceDigest};
+    try{localStorage.setItem(pendingKey,JSON.stringify(pending))}catch(_){throw new Error("No se puede guardar el registro de recuperación en este dispositivo. No se ha creado ninguna copia.")}
+  }
+  const id=pending.id;
+  if(id===source.eventId)throw new Error("La nueva carrera no puede tener el identificador original.");
   const name = cleanString(`${source.eventName} · COPIA`,140);
   const ownerUid = String(state.auth.uid);
   const ref = doc(firestore,"events",id);
@@ -824,7 +842,7 @@ async function createIndependentRaceCopy(packet) {
   };
   const targetPayload = {
       eventId:id,eventName:name,ownerUid,kind:"orientation",status:"draft",
-      schemaVersion:1,cloudStage:"C1",
+      schemaVersion:1,cloudStage:"C1",copyOperationToken:pending.token,copySourceDigest:sourceDigest,
       participantCount:source.participantCount,maxUniqueRoutes:source.maxUniqueRoutes,
       controlCount:source.controlCount,controlsPerRoute:source.controlsPerRoute,
       maxControlReuse:source.maxControlReuse,planScale:source.planScale,
@@ -836,7 +854,10 @@ async function createIndependentRaceCopy(packet) {
     await verifyRecoverySource(tx, firestore, proof, true);
     const previous = await tx.get(ref);
     assertRecoveryContext(proof.context);
-    if (previous.exists()) throw new Error("El identificador generado ya existe. Vuelve a intentarlo.");
+    if(previous.exists()){
+      if(!copyTargetMatches(previous.data(),targetPayload))throw new Error("El borrador de destino cambió; no se sobrescribe.");
+      return;
+    }
     tx.set(ref,{...targetPayload,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
   });
   // Las reglas de Firestore consultan el documento padre ya existente.
@@ -846,15 +867,20 @@ async function createIndependentRaceCopy(packet) {
     const target = await getDocFromServer(ref);
     assertRecoveryContext(proof.context);
     if (!target.exists()) throw new Error("El borrador de destino ya no existe.");
-    if (Object.entries(targetPayload).some(([key,value]) => recoveryJson(target.data()[key]) !== recoveryJson(value))) throw new Error("El borrador de destino cambió antes de completar la copia.");
+    if (!copyTargetMatches(target.data(),targetPayload)) throw new Error("El borrador de destino cambió antes de completar la copia.");
     const targetVersion = recoveryJson(target.data());
     await runTransaction(firestore, async batch => {
     await verifyRecoverySource(batch, firestore, proof, true);
     const freshTarget = await batch.get(ref);
     if (!freshTarget.exists() || recoveryJson(freshTarget.data()) !== targetVersion ||
-        freshTarget.data().ownerUid !== ownerUid || freshTarget.data().status !== "draft" || freshTarget.data().cloudStage !== "C1") throw new Error("El borrador de destino cambió; no se sobrescribe.");
+        freshTarget.data().ownerUid !== ownerUid || freshTarget.data().status !== "draft" || !copyTargetMatches(freshTarget.data(),targetPayload)) throw new Error("El borrador de destino cambió; no se sobrescribe.");
     const targetRefs = [...packet.checkpoints.map(p => doc(firestore,"events",id,"checkpoints",p.checkpointId)), ...packet.courses.map(c => doc(firestore,"events",id,"courses",c.courseId))];
     const targetDocs = await Promise.all(targetRefs.map(r => batch.get(r)));
+    if(freshTarget.data().cloudStage==="C2"){
+      const expected=[...packet.checkpoints.map(p=>({...p,schemaVersion:1})),...packet.courses.map(c=>({...c,assignedParticipantIds:[],schemaVersion:1}))];
+      if(freshTarget.data().checkpointSyncedCount!==packet.checkpoints.length||freshTarget.data().courseSyncedCount!==packet.courses.length||freshTarget.data().locatedCheckpointCount!==checkedCount||targetDocs.some((d,i)=>!d.exists()||recoveryJson(copyWithoutTimes(d.data()))!==recoveryJson(expected[i])))throw new Error("La copia ya contiene cambios. No se sobrescribe ni se confirma como recuperada.");
+      assertRecoveryContext(proof.context);return;
+    }
     if (targetDocs.some(d => d.exists())) throw new Error("El destino ya contiene estructura; no se sobrescribe.");
     assertRecoveryContext(proof.context);
     for (const point of packet.checkpoints) {
@@ -876,8 +902,9 @@ async function createIndependentRaceCopy(packet) {
     });
     assertRecoveryContext(proof.context);
   } catch(error) {
-    throw new Error(`Se creo el borrador ${id}, pero NO se pudo copiar toda la estructura. No lo publiques. Revisa permisos y conexion: ${String(error?.message||error)}`);
+    throw new Error(`Se creo el borrador ${id}, pero NO se pudo copiar toda la estructura. No lo publiques. Recupera la conexión y vuelve a reutilizar el mismo origen desde este dispositivo para completar esta misma copia: ${String(error?.message||error)}`);
   }
+  try{if(JSON.parse(localStorage.getItem(pendingKey)||"null")?.token===pending.token)localStorage.removeItem(pendingKey)}catch(_){/* Keep receipt for a verified retry; never create another ID on uncertainty. */}
   return {eventId:id,eventName:name,designMeta};
 }
 
