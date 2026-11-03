@@ -15,6 +15,6 @@
     base = current.split("/").slice(0, -1).join("/") + "/";
   }
   for (var i = 0; i < files.length; i++) {
-    document.write('<script src="' + base + files[i].replace(/^js\//, "") + '?v=' + ((files[i] === "js/core/app-main.js" || files[i] === "js/pdf/pdf-professional.js") ? "militopo-f244-impresion-20261103" : VERSION) + '"><\/script>');
+    document.write('<script src="' + base + files[i].replace(/^js\//, "") + '?v=' + ((files[i] === "js/core/app-main.js" || files[i] === "js/pdf/pdf-professional.js") ? "militopo-f245-encuadre-20261103" : VERSION) + '"><\/script>');
   }
 })();
