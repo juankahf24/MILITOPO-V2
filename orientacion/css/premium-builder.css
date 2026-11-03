@@ -443,3 +443,6 @@ body.militopo-premium-builder-open{overflow:hidden!important}
 /* F2.40 · Estado local visible sin ocupar el área desplazable del editor. */
 .mpb-stage{grid-template-rows:auto auto minmax(0,1fr) auto}
 @media(max-width:780px){.mpb-stage{grid-template-rows:auto minmax(0,1fr) auto}}
+
+/* F2.44: impresión integrada en Plano y Controles. */
+.mpb-print-settings{padding:18px;margin:16px 0}.mpb-print-actions{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.mpb-print-actions .mpb-field{max-width:220px}.mpb-print-center{display:grid;place-items:center;background:#fff8d8;color:#183d2b;border:3px solid #245b3e;border-radius:50%;font-size:30px;box-shadow:0 2px 8px #0005}
