@@ -45,6 +45,11 @@ function normalizeHeader(raw = {}) {
     controlsPerRoute: toInt(raw.controlsPerRoute, 8, 0),
     maxControlReuse: toInt(raw.maxControlReuse, 6, 1),
     planScale: Number(raw.planScale) === 7500 ? 7500 : 10000,
+    printMarginMm: Math.min(15,Math.max(5,Number(raw.printMarginMm)||5)),
+    pdfPlanCenterManual: raw.pdfPlanCenterManual && raw.pdfPlanCenterManual.lat != null && raw.pdfPlanCenterManual.lon != null && raw.pdfPlanCenterManual.lat !== "" && raw.pdfPlanCenterManual.lon !== "" &&
+      Number.isFinite(Number(raw.pdfPlanCenterManual.lat)) && Number.isFinite(Number(raw.pdfPlanCenterManual.lon)) &&
+      Math.abs(Number(raw.pdfPlanCenterManual.lat)) <= 85 && Math.abs(Number(raw.pdfPlanCenterManual.lon)) <= 180
+      ? {lat:Number(raw.pdfPlanCenterManual.lat),lon:Number(raw.pdfPlanCenterManual.lon)} : null,
     planEquidistanceM: toNumber(raw.planEquidistanceM, 5, 0.5)
   };
 }

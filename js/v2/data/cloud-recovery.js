@@ -365,6 +365,11 @@ function normalizeHeader(id, data = {}) {
     controlsPerRoute: Math.max(0, Math.trunc(Number(data.controlsPerRoute) || 0)),
     maxControlReuse: Math.max(1, Math.trunc(Number(data.maxControlReuse) || 6)),
     planScale: Number(data.planScale) === 7500 ? 7500 : 10000,
+    printMarginMm: Math.min(15,Math.max(5,Number(data.printMarginMm)||5)),
+    pdfPlanCenterManual: data.pdfPlanCenterManual && data.pdfPlanCenterManual.lat != null && data.pdfPlanCenterManual.lon != null && data.pdfPlanCenterManual.lat !== "" && data.pdfPlanCenterManual.lon !== "" &&
+      Number.isFinite(Number(data.pdfPlanCenterManual.lat)) && Number.isFinite(Number(data.pdfPlanCenterManual.lon)) &&
+      Math.abs(Number(data.pdfPlanCenterManual.lat)) <= 85 && Math.abs(Number(data.pdfPlanCenterManual.lon)) <= 180
+      ? {lat:Number(data.pdfPlanCenterManual.lat),lon:Number(data.pdfPlanCenterManual.lon)} : null,
     planEquidistanceM: Math.max(0.5, Number(data.planEquidistanceM) || 5),
     // Solo configuracion de diseno, nunca invitaciones, miembros, sesiones o resultados.
     raceType: cleanString(data.raceType || "training", 30),
@@ -823,7 +828,7 @@ async function createIndependentRaceCopy(packet) {
       participantCount:source.participantCount,maxUniqueRoutes:source.maxUniqueRoutes,
       controlCount:source.controlCount,controlsPerRoute:source.controlsPerRoute,
       maxControlReuse:source.maxControlReuse,planScale:source.planScale,
-      planEquidistanceM:source.planEquidistanceM,
+      planEquidistanceM:source.planEquidistanceM,printMarginMm:source.printMarginMm,pdfPlanCenterManual:source.pdfPlanCenterManual,
       ...designMeta
   };
   // La creacion es exclusiva. Un ID existente jamas se sobrescribe.
