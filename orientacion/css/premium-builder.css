@@ -445,4 +445,7 @@ body.militopo-premium-builder-open{overflow:hidden!important}
 @media(max-width:780px){.mpb-stage{grid-template-rows:auto minmax(0,1fr) auto}}
 
 /* F2.44: impresión integrada en Plano y Controles. */
-.mpb-print-settings{padding:18px;margin:16px 0}.mpb-print-actions{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.mpb-print-actions .mpb-field{max-width:220px}.mpb-print-center{display:grid;place-items:center;background:#fff8d8;color:#183d2b;border:3px solid #245b3e;border-radius:50%;font-size:30px;box-shadow:0 2px 8px #0005}
+.mpb-print-settings{padding:18px;margin:16px 0}.mpb-print-actions{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.mpb-print-actions .mpb-field{max-width:220px}.mpb-controls-map .mpb-print-center{display:grid;place-items:center;width:44px!important;height:44px!important;min-width:44px;min-height:44px;padding:0!important;background:transparent!important;color:#183d2b;border:0!important;border-radius:0!important;box-shadow:none!important;cursor:grab;box-sizing:border-box}
+.mpb-controls-map .mpb-print-center svg{display:block;width:40px;height:40px;max-width:none;pointer-events:none;filter:drop-shadow(0 0 2px #fff) drop-shadow(0 0 1px #fff)}
+.mpb-controls-map .mpb-print-center.leaflet-drag-target{cursor:grabbing}
+#mpbControlsMap:focus{outline:none}
