@@ -10,8 +10,8 @@
   const guardPaths = ["__militopo_active_race_lock__", "orientacion/participante/__militopo_active_race_lock__"];
   let registration = null, requested = false, notice = null, versionLabels = [];
   let currentVersionText = "MILITOPO · versión sin confirmar";
-  const localRelease = "F2.45";
-  const releaseMatch = /f245-encuadre-20261103/i;
+  const localRelease = "F2.46";
+  const releaseMatch = /f246-recuperacion-20261103/i;
   // F2.25: etiqueta temporal de depuración dentro del flujo normal del
   // documento, nunca fixed/sticky. Cada rama tiene su propio contenedor.
   function getVersionHosts() {
