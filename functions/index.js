@@ -2105,6 +2105,7 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
 
   const txResult = await progressRef.transaction(currentValue => {
     transactionError = "";
+    acceptedAttemptIds.length = 0; // F2.50: discard speculative callback attempts.
     const progress = currentValue && typeof currentValue === "object" ? { ...currentValue } : {};
     // F2.14: after the finishing transaction sealed progress, only an exact
     // retry of attempts already saved can succeed; no late QR/GPS/discard.
@@ -2136,7 +2137,16 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
       const checkpointId = canonicalControlId(raw?.checkpointId);
       if (!checkpointId || checkpointId === "START") { transactionError = "Control no válido."; return; }
       const attemptId = String(raw?.attemptId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 100) || randomUUID().replace(/-/g, "");
-      if (seenAttempts.has(attemptId)) continue;
+      if (seenAttempts.has(attemptId)) {
+        const saved = [...Object.values(passes), finishPass].filter(Boolean)
+          .find(row => String(row.attemptId || "") === attemptId);
+        if (!saved || canonicalControlId(saved.checkpointId) !== checkpointId ||
+            String(saved.source || "gps").toLowerCase() !== source) {
+          transactionError = "El identificador del intento ya pertenece a otra baliza o método. Se conserva el progreso guardado.";
+          return;
+        }
+        continue;
+      }
 
       const isFinish = checkpointId === "FINISH";
       let expected = null;
@@ -2255,9 +2265,9 @@ async function syncRunnerControlPassBatchInternal(identity, eventId, rawPasses, 
     };
   });
 
-  if (!txResult.committed && transactionError) throw new HttpsError("failed-precondition", transactionError);
+  if (!txResult.committed) throw new HttpsError("failed-precondition", transactionError || "No se ha confirmado la sincronización. Conserva los controles pendientes y vuelve a intentarlo.");
 
-  const progressSnap = await progressRef.get();
+  const progressSnap = txResult.snapshot; // Only acknowledge this committed transaction.
   const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
   const completedCount = Math.max(0, Number(progress.completedCount || 0));
   const progressPasses = progress.passes && typeof progress.passes === "object" ? Object.values(progress.passes) : [];
@@ -2393,7 +2403,15 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
     const passes = progress.passes && typeof progress.passes === "object" ? { ...progress.passes } : {};
     const alreadyNormal = Object.values(passes).find(row => String(row?.attemptId || "") === attemptId);
     const alreadyFinish = String(progress.finishPass?.attemptId || "") === attemptId;
-    if (alreadyNormal || alreadyFinish) return progress;
+    if (alreadyNormal || alreadyFinish) {
+      const saved = alreadyNormal || progress.finishPass;
+      if (canonicalControlId(saved.checkpointId) !== checkpointId ||
+          String(saved.source || "gps").toLowerCase() !== source) {
+        transactionReason = "attempt_conflict";
+        return;
+      }
+      return progress;
+    }
 
     const completedCount = Math.max(0, Number(progress.completedCount || 0));
     if (isFinish) {
@@ -2482,17 +2500,20 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
     };
   });
 
+  if (!txResult.committed && transactionReason === "attempt_conflict") {
+    throw new HttpsError("failed-precondition", "El identificador del intento ya pertenece a otra baliza o método. Se conserva el progreso guardado.");
+  }
   if (!txResult.committed && transactionReason === "sealed") {
     throw new HttpsError("failed-precondition", "La llegada ya está cerrada. El nuevo control no se ha registrado.");
   }
-  const progressSnap = await progressRef.get();
+  const progressSnap = txResult.committed ? txResult.snapshot : await progressRef.get();
   const progress = progressSnap.exists() ? (progressSnap.val() || {}) : {};
   const passes = normalizeLiveControlPasses(progress.passes);
   const accepted = isFinish
     ? (progress.finishValidated && canonicalControlId(progress.finishPass?.checkpointId) === "FINISH" ? progress.finishPass : null)
     : passes.find(row => row.order === expectedOrder && row.checkpointId === checkpointId);
 
-  if (!txResult.committed && !accepted) {
+  if (!accepted) {
     if (transactionReason === "controls_complete" && !isFinish) {
       throw new HttpsError("failed-precondition", "Todas las balizas están validadas. La siguiente validación es LLEGADA.");
     }
