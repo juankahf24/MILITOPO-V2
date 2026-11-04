@@ -1939,7 +1939,7 @@ async function resolveRunnerLiveContext(identity, eventId, expectedRunId = undef
   }
   const participantRef = baseRef.child(`runs/${runId}/participants/${uid}`);
   const participantSnap = await participantRef.get();
-  if (!participantSnap.exists) throw new HttpsError("permission-denied", "No estás incluido en esta sesión Live V2.");
+  if (!participantSnap.exists()) throw new HttpsError("permission-denied", "No estás incluido en esta sesión Live V2.");
   return { uid, eventId, eventRef, eventData, ownerUid, baseRef, runId, participantRef, participant: participantSnap.val() || {}, member };
 }
 
@@ -1959,7 +1959,9 @@ exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
   // F2.13: a delayed JOIN must not restore a stale RACING status or bring a
   // finished participant back online. Read/decide/write the status atomically.
   const joined = await ctx.participantRef.transaction(current => {
-    if (!current || typeof current !== "object") return;
+    // F2.49: null may be the SDK cache, not the server participant.
+    if (current === null) return null;
+    if (typeof current !== "object") return;
     const state = String(current.status || "not_started").toLowerCase();
     if (state === "finished" || !["not_started", "ready", "racing", "started"].includes(state)) return;
     return {
@@ -1978,7 +1980,7 @@ exports.runnerJoinLive = onCall({ enforceAppCheck: false }, async request => {
   // FINISHED is returned for the UI, without modifying its presence or times.
   const latest = joined.snapshot.val() || {};
   const status = String(latest.status || "not_started").toLowerCase();
-  if (!joined.committed && status !== "finished") {
+  if ((!joined.committed || !joined.snapshot.exists()) && status !== "finished") {
     throw new HttpsError("aborted", "La participación cambió al conectarte. Se conservan sus datos; vuelve a intentarlo.");
   }
   return { ok: true, eventId, ownerUid: ctx.ownerUid, runId: ctx.runId,
@@ -2009,14 +2011,16 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
   const started = await ctx.participantRef.transaction(current => {
     refused = "";
     recovered = false;
-    if (!current || typeof current !== "object") { refused = "Participación no encontrada."; return; }
+    // Compare with the server before treating an empty cache as missing.
+    if (current === null) return null;
+    if (typeof current !== "object") { refused = "Participación no encontrada."; return; }
     const state = String(current.status || "not_started").toLowerCase();
     if (state === "finished") { refused = "Este recorrido ya está finalizado."; return; }
     if (["racing", "started"].includes(state)) { recovered = true; return current; }
     if (!["not_started", "ready"].includes(state)) { refused = "Estado de salida no válido."; return; }
     return { ...current, status: "racing", online: true, startedAt: now, lastSeen: now, updatedAt: now };
   }, undefined, false);
-  if (!started.committed) throw new HttpsError("failed-precondition", refused || "La salida cambió durante el inicio. Vuelve a intentarlo.");
+  if (!started.committed || !started.snapshot.exists()) throw new HttpsError("failed-precondition", refused || "La salida cambió durante el inicio. Vuelve a intentarlo.");
   const startedAt = started.snapshot.val()?.startedAt || null;
   const controlPlan = await buildRunnerControlPlan(ctx.eventRef, ctx.member, eventId);
   const controlProgressRef = ctx.baseRef.child(`runs/${ctx.runId}/controlProgress/${ctx.uid}`);
@@ -2076,11 +2080,12 @@ async function sealRunnerControlProgress(ctx, controlPlan) {
 // control-progress node instead of relying on this denormalized summary.
 async function updateRunningParticipantControlSummary(ctx, fields) {
   const tx = await ctx.participantRef.transaction(current => {
-    if (!current || typeof current !== "object" ||
+    if (current === null) return null;
+    if (typeof current !== "object" ||
         !["racing", "started"].includes(String(current.status || "").toLowerCase())) return;
     return { ...current, ...fields };
   }, undefined, false);
-  if (!tx.committed && String(tx.snapshot.val()?.status || "").toLowerCase() !== "finished") {
+  if ((!tx.committed || !tx.snapshot.exists()) && String(tx.snapshot.val()?.status || "").toLowerCase() !== "finished") {
     throw new HttpsError("aborted", "El estado del corredor cambió durante la validación. Se conservan los controles ya recibidos.");
   }
 }
@@ -2635,7 +2640,8 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   let transitionError = "";
   const finishTx = await ctx.participantRef.transaction(latest => {
     transitionError = "";
-    if (!latest || typeof latest !== "object") { transitionError = "Participación no encontrada."; return; }
+    if (latest === null) return null;
+    if (typeof latest !== "object") { transitionError = "Participación no encontrada."; return; }
     const state = String(latest.status || "").toLowerCase();
     if (state === "finished") return;
     if (!["racing", "started"].includes(state)) { transitionError = "La participación ya no está EN CARRERA."; return; }
@@ -2655,7 +2661,7 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
       updatedAt: now
     };
   }, undefined, false);
-  if (!finishTx.committed) {
+  if (!finishTx.committed || !finishTx.snapshot.exists()) {
     if (String(finishTx.snapshot.val()?.status || "").toLowerCase() === "finished") return recoverFinished();
     throw new HttpsError("failed-precondition", transitionError || "El estado del corredor cambió. Se conserva la participación; vuelve a intentarlo.");
   }
