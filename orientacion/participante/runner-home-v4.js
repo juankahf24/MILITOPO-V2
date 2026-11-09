@@ -38,9 +38,9 @@ const els={
 let auth=null,currentUser=null,profile=null,currentRaceTab="active",currentMainTab="home";
 let functions=null,historyRows=[],activeRows=[],inviteRows=[],historyVisible=HISTORY_PAGE,historyFilter="all",inviteBusy=false;
 let inviteUnsubs=[],inviteEmailRows=new Map(),inviteUidRows=new Map();
-let activeEventUnsubs=new Map(),activeRefreshTimer=0,activeRefreshBusy=false,lastActiveRefreshAt=0,currentApp=null;
+let activeEventUnsubs=new Map(),activeRefreshTimer=0,activeRefreshRequest=null,lastActiveRefreshAt=0,currentApp=null;
 const completedEventIds=new Set();
-let postRaceRefreshTimer=0,eventsRequestSequence=0;
+let postRaceRefreshTimer=0,eventsRequest=null;
 // P1.6: una recuperación de cuenta a la vez, sin recargar la página ni tocar GPS.
 let accountRefreshPromise=null,accountRecoveryTimer=0,accountRecoveryAttempts=0;
 let accountRecoveryPending=true,accountRecoveryGeneration=0,accountClosing=false;
@@ -51,7 +51,11 @@ function text(el,v){if(el)el.textContent=String(v??"");}
 function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
 function setStatus(message,type=""){text(els.status,message);if(els.status)els.status.className=`status${type?` ${type}`:""}`;}
 function initials(name){const p=String(name||"").trim().split(/\s+/).filter(Boolean);return ((p[0]?.[0]||"")+(p[1]?.[0]||"")).toUpperCase()||"M";}
-function withTimeout(promise,ms,label){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label||"TIMEOUT")),ms))]);}
+function withTimeout(promise,ms,label){
+  let timer;
+  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(label||"TIMEOUT")),ms);});
+  return Promise.race([promise,timeout]).finally(()=>clearTimeout(timer));
+}
 function config(){const cfg=globalThis.MILITOPO_V2_CONFIG;if(!cfg?.configured||!cfg.firebase?.apiKey)throw new Error("La configuración Firebase V2 no está disponible.");return cfg.firebase;}
 function findApp(){return getApps().find(a=>a.name===APP_NAME)||null;}
 async function initFirebase(){
@@ -242,15 +246,17 @@ function stopActiveEventRealtime(){
 }
 function scheduleActiveRefresh(app,delay=220){
   if(activeRefreshTimer)clearTimeout(activeRefreshTimer);
-  activeRefreshTimer=setTimeout(()=>{activeRefreshTimer=0;refreshActiveEvents(app,{silent:true}).catch(()=>{});},Math.max(50,delay));
+  activeRefreshTimer=setTimeout(()=>{activeRefreshTimer=0;void refreshActiveEvents(app);},Math.max(50,delay));
 }
 function bindActiveEventRealtime(app){
+  const uid=currentUser?.uid;
   const db=getFirestore(app),wanted=new Set(activeRows.map(row=>String(row.eventId||"")).filter(Boolean));
   for(const [eventId,unsub] of [...activeEventUnsubs.entries()]){if(wanted.has(eventId))continue;try{unsub?.();}catch(_){}activeEventUnsubs.delete(eventId);}
   for(const ev of activeRows){
     const eventId=String(ev.eventId||"");if(!eventId||activeEventUnsubs.has(eventId))continue;
     const unsub=onSnapshot(doc(db,"events",eventId),snap=>{
-      if(!snap.exists())return;const data=snap.data()||{},nextStatus=String(data.status||"").toLowerCase();
+      if(!isRunnerAccount(uid)||!snap.exists())return;
+      const data=snap.data()||{},nextStatus=String(data.status||"").toLowerCase();
       const idx=activeRows.findIndex(row=>String(row.eventId)===eventId);if(idx<0)return;
       const prevStatus=String(activeRows[idx].status||"").toLowerCase(),changed=prevStatus!==nextStatus;
       if(["published","live"].includes(nextStatus)){
@@ -265,19 +271,46 @@ function bindActiveEventRealtime(app){
     activeEventUnsubs.set(eventId,unsub);
   }
 }
-async function refreshActiveEvents(app,{silent=false}={}){
-  if(activeRefreshBusy||!app||!currentUser?.uid)return activeRows;
-  activeRefreshBusy=true;
-  try{
-    functions=functions||getFunctions(app,REGION);const activeCall=httpsCallable(functions,"getRunnerLiveEvents");
-    const activeResult=await withTimeout(activeCall({clientVersion:VERSION}),12000,"No se pudieron actualizar las carreras activas.");
-    const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
-    const historical=historyEventIdSet();
-    activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase())&&!historical.has(String(ev?.eventId||""))&&!completedEventIds.has(String(ev?.eventId||"")));
-    lastActiveRefreshAt=Date.now();renderActiveEvents(activeRows);renderDashboard();bindActiveEventRealtime(app);
-    if(!silent)setStatus(`${activeRows.length} activa${activeRows.length===1?"":"s"} · actualización en tiempo real`,"ok");
-    return activeRows;
-  }finally{activeRefreshBusy=false;}
+function isRunnerAccount(uid){
+  return Boolean(uid && !accountClosing && currentUser?.uid===uid && auth?.currentUser?.uid===uid);
+}
+function currentListRequest(request){
+  return isRunnerAccount(request.uid) && navigator.onLine!==false &&
+    request.generation===accountRecoveryGeneration;
+}
+function eligibleActiveRows(rows){
+  const historical=historyEventIdSet();
+  return rows.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase()) &&
+    !historical.has(String(ev?.eventId||"")) && !completedEventIds.has(String(ev?.eventId||"")));
+}
+function refreshActiveEvents(app){
+  const request={uid:currentUser?.uid,generation:accountRecoveryGeneration,promise:null};
+  if(!app||!currentListRequest(request))return Promise.resolve(false);
+  if(activeRefreshRequest?.uid===request.uid && activeRefreshRequest.generation===request.generation){
+    return activeRefreshRequest.promise;
+  }
+  activeRefreshRequest=request;
+  request.promise=(async()=>{
+    try{
+      functions=functions||getFunctions(app,REGION);
+      const call=httpsCallable(functions,"getRunnerLiveEvents");
+      const result=await withTimeout(call({clientVersion:VERSION}),12000,"No se pudieron actualizar las carreras activas.");
+      if(!currentListRequest(request))return false;
+      if(result?.data?.uid!==request.uid||!Array.isArray(result.data.events)){
+        throw new Error("La respuesta de carreras activas no corresponde a la sesión.");
+      }
+      activeRows=eligibleActiveRows(result.data.events);
+      lastActiveRefreshAt=Date.now();
+      renderActiveEvents(activeRows);renderDashboard();bindActiveEventRealtime(app);
+      return true;
+    }catch(error){
+      if(currentListRequest(request))console.warn("[MILITOPO runner active events]",error);
+      return false;
+    }finally{
+      if(activeRefreshRequest===request)activeRefreshRequest=null;
+    }
+  })();
+  return request.promise;
 }
 function stopInvitationRealtime(){for(const unsub of inviteUnsubs.splice(0)){try{unsub?.();}catch(_){}}inviteEmailRows.clear();inviteUidRows.clear();}
 function mergeInvitationRows(){
@@ -555,28 +588,63 @@ async function hydrateBestRank(){
   if(els.recordBestRankEvent)els.recordBestRankEvent.textContent=best?.eventName||"Sin clasificación";
 }
 
-async function loadEvents(app){
-  const uid=currentUser?.uid,requestSequence=++eventsRequestSequence;
-  if(accountClosing||!uid)return false;
-  if(navigator.onLine===false){setStatus("Sin cobertura. Tus datos se actualizarán al recuperar la conexión.");return false;}
-  setStatus("Consultando tus carreras…");if(els.retry)els.retry.style.display="none";functions=functions||getFunctions(app,REGION);
-  const activeCall=httpsCallable(functions,"getRunnerLiveEvents"),historyCall=httpsCallable(functions,"getRunnerHistory");
+async function refreshRunnerHistory(app,request){
   try{
-    const [activeResult,historyResult]=await withTimeout(Promise.all([activeCall({clientVersion:VERSION}),historyCall({clientVersion:VERSION,limit:100})]),18000,"La consulta de tus carreras tardó demasiado.");
-    if(accountClosing||auth?.currentUser?.uid!==uid||requestSequence!==eventsRequestSequence)return false;
-    const activeRaw=Array.isArray(activeResult?.data?.events)?activeResult.data.events:[];
-    historyRows=Array.isArray(historyResult?.data?.results)?historyResult.data.results:[];
-    // Identificar colas antiguas con el historial de esta cuenta ya consultado.
-    // Un fallo local de recuperación no debe bloquear ni vaciar el historial.
-    try{globalThis.MILITOPO_RUNNER_TRACK_V2?.registerHistory?.(historyRows,uid)?.catch?.(()=>{});}catch(_){}
-    const historical=historyEventIdSet();
-    for(const eventId of historical)completedEventIds.delete(eventId);
-    activeRows=activeRaw.filter(ev=>["published","live"].includes(String(ev?.status||"").toLowerCase())&&!historical.has(String(ev?.eventId||""))&&!completedEventIds.has(String(ev?.eventId||"")));
-    renderActiveEvents(activeRows);renderHistory(true);renderDashboard();renderProfileStats();bindActiveEventRealtime(app);
-    const total=activeRows.length+historyRows.length;
-    if(total)setStatus(`${activeRows.length} activa${activeRows.length===1?"":"s"} · ${historyRows.length} en histórico`,`ok`);else setStatus("No encontramos carreras asociadas a esta cuenta.","ok");
+    functions=functions||getFunctions(app,REGION);
+    const call=httpsCallable(functions,"getRunnerHistory");
+    const result=await withTimeout(call({clientVersion:VERSION,limit:100}),18000,"No se pudo actualizar el histórico.");
+    if(!currentListRequest(request))return false;
+    if(result?.data?.uid!==request.uid||!Array.isArray(result.data.results)){
+      throw new Error("La respuesta del histórico no corresponde a la sesión.");
+    }
+    historyRows=result.data.results;
+    // Las colas GPS antiguas se identifican únicamente con el historial de esta cuenta.
+    try{globalThis.MILITOPO_RUNNER_TRACK_V2?.registerHistory?.(historyRows,request.uid)?.catch?.(()=>{});}catch(_){}
+    for(const eventId of historyEventIdSet())completedEventIds.delete(eventId);
+    activeRows=eligibleActiveRows(activeRows);
+    renderActiveEvents(activeRows);renderHistory(false);renderDashboard();renderProfileStats();bindActiveEventRealtime(app);
     return true;
-  }catch(error){if(accountClosing||auth?.currentUser?.uid!==uid||requestSequence!==eventsRequestSequence)return false;console.error("[MILITOPO runner events]",error);const code=String(error?.code||""),msg=String(error?.message||"No se pudieron consultar tus carreras.");setStatus(`${msg}${code?` (${code})`:""}`,"err");if(els.retry)els.retry.style.display="block";return false;}
+  }catch(error){
+    if(currentListRequest(request))console.warn("[MILITOPO runner history]",error);
+    return false;
+  }
+}
+
+function loadEvents(app){
+  const request={uid:currentUser?.uid,generation:accountRecoveryGeneration,promise:null};
+  if(!app||!isRunnerAccount(request.uid))return Promise.resolve(false);
+  if(navigator.onLine===false){
+    setStatus("Sin cobertura. Tus datos se actualizarán al recuperar la conexión.");
+    return Promise.resolve(false);
+  }
+  if(eventsRequest?.uid===request.uid && eventsRequest.generation===request.generation)return eventsRequest.promise;
+  setStatus("Consultando tus carreras…");
+  if(els.retry)els.retry.style.display="none";
+  eventsRequest=request;
+  request.promise=Promise.all([refreshActiveEvents(app),refreshRunnerHistory(app,request)]).then(([activeLoaded,historyLoaded])=>{
+    if(!currentListRequest(request))return false;
+    if(activeLoaded&&historyLoaded){
+      if(activeRows.length+historyRows.length){
+        setStatus(`${activeRows.length} activa${activeRows.length===1?"":"s"} · ${historyRows.length} en histórico`,"ok");
+      }else setStatus("No encontramos carreras asociadas a esta cuenta.","ok");
+      return true;
+    }
+    const pending=activeLoaded?"el histórico":historyLoaded?"las carreras activas":"tus carreras y el histórico";
+    setStatus(`Queda pendiente actualizar ${pending}. Puedes volver a intentarlo.`,"err");
+    if(els.retry)els.retry.style.display="block";
+    return false;
+  }).finally(()=>{if(eventsRequest===request)eventsRequest=null;});
+  return request.promise;
+}
+
+function clearRunnerLists(){
+  stopActiveEventRealtime();stopInvitationRealtime();
+  if(postRaceRefreshTimer)clearTimeout(postRaceRefreshTimer);
+  postRaceRefreshTimer=0;
+  accountRecoveryGeneration++;
+  activeRows=[];historyRows=[];inviteRows=[];
+  completedEventIds.clear();classificationCache.clear();
+  renderActiveEvents(activeRows);renderHistory(true);renderInvitations();renderDashboard();renderProfileStats();
 }
 
 function schedulePostRaceRefresh(eventId){
@@ -590,9 +658,11 @@ function schedulePostRaceRefresh(eventId){
 
 function scheduleAccountRecovery({reset=false,delay=1000}={}){
   if(accountClosing)return;
-  if(reset){accountRecoveryAttempts=0;accountRecoveryPending=true;accountRecoveryGeneration++;}
-  if(accountRecoveryTimer){clearTimeout(accountRecoveryTimer);accountRecoveryTimer=0;}
-  if(navigator.onLine===false||!accountRecoveryPending||accountRecoveryAttempts>=3)return;
+  if(reset){
+    accountRecoveryAttempts=0;accountRecoveryPending=true;accountRecoveryGeneration++;
+    if(accountRecoveryTimer){clearTimeout(accountRecoveryTimer);accountRecoveryTimer=0;}
+  }
+  if(accountRecoveryTimer||accountRefreshPromise||navigator.onLine===false||!accountRecoveryPending||accountRecoveryAttempts>=3)return;
   accountRecoveryTimer=setTimeout(()=>{
     accountRecoveryTimer=0;
     // El intento en curso volverá a programar la recuperación si hace falta.
@@ -635,12 +705,17 @@ async function prepareRunnerRecovery(user){
 function boot(){
   if(accountClosing)return Promise.resolve(false);
   if(accountRefreshPromise)return accountRefreshPromise;
-  const generation=accountRecoveryGeneration;
+  let generation=accountRecoveryGeneration;
   accountRefreshPromise=(async()=>{
     try{
       const app=await initFirebase();currentApp=app;updateConnectivity();
       const user=await waitForUser();
       if(accountClosing)return false;
+      if(currentUser?.uid && currentUser.uid!==user?.uid){
+        currentUser=null;profile=null;
+        clearRunnerLists();
+        generation=accountRecoveryGeneration;
+      }
       if(!user)throw new Error("No hay una sesión iniciada. Vuelve a la pantalla de acceso.");
       if(currentUser?.uid!==user.uid)profile=null;
       currentUser=user;
@@ -654,14 +729,15 @@ function boot(){
           :"Sin cobertura. Tus datos se actualizarán al recuperar la conexión.");
         return false;
       }
+      const eventsPromise=loadEvents(app);
       const profileLoaded=await loadProfile(app,user);
       if(accountClosing||auth?.currentUser?.uid!==user.uid)return false;
       startInvitationRealtime(app);
-      const eventsLoaded=await loadEvents(app);
+      const eventsLoaded=await eventsPromise;
       if(accountClosing||auth?.currentUser?.uid!==user.uid)return false;
       accountRecoveryPending=!profileLoaded||!eventsLoaded||navigator.onLine===false||generation!==accountRecoveryGeneration;
       if(!accountRecoveryPending){accountRecoveryAttempts=0;if(accountRecoveryTimer){clearTimeout(accountRecoveryTimer);accountRecoveryTimer=0;}if(els.retry)els.retry.style.display="none";}
-      else if(navigator.onLine!==false){setStatus("Algunos datos siguen pendientes de actualizar. Reintentaremos la consulta.");if(els.retry)els.retry.style.display="block";}
+      else if(eventsLoaded&&navigator.onLine!==false){setStatus("El perfil sigue pendiente de actualizar. Puedes volver a intentarlo.");if(els.retry)els.retry.style.display="block";}
       return !accountRecoveryPending;
     }catch(error){
       accountRecoveryPending=true;
@@ -670,10 +746,7 @@ function boot(){
     }
   })().finally(()=>{
     accountRefreshPromise=null;
-    if(accountRecoveryPending){
-      scheduleAccountRecovery({delay:[1000,3000,8000][accountRecoveryAttempts]||8000});
-      if(!accountClosing&&navigator.onLine!==false&&accountRecoveryAttempts>=3){setStatus("No se pudo completar la actualización. Puedes volver a intentarlo con REINTENTAR.","err");if(els.retry)els.retry.style.display="block";}
-    }
+    if(accountRecoveryPending)scheduleAccountRecovery({delay:[1000,3000,8000][accountRecoveryAttempts]||8000});
   });
   return accountRefreshPromise;
 }
@@ -722,7 +795,7 @@ window.addEventListener("militopo:v2-runner-race-closed",event=>{const detail=ev
 window.addEventListener("militopo:v2-runner-postrace-nav",event=>{const detail=event?.detail||{},eventId=String(detail.eventId||detail.event?.eventId||"");if(eventId)schedulePostRaceRefresh(eventId);setMainTab("races");setRaceTab("history");});
 window.addEventListener("online",()=>{updateConnectivity();scheduleAccountRecovery({reset:true,delay:250});});
 window.addEventListener("offline",()=>{updateConnectivity();accountRecoveryPending=true;accountRecoveryGeneration++;if(accountRecoveryTimer){clearTimeout(accountRecoveryTimer);accountRecoveryTimer=0;}});
-window.addEventListener("focus",()=>{if(accountRecoveryPending)scheduleAccountRecovery({reset:true,delay:250});else if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState!=="visible")return;if(accountRecoveryPending)scheduleAccountRecovery({reset:true,delay:250});else if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
+window.addEventListener("focus",()=>{if(accountRecoveryPending)scheduleAccountRecovery({delay:250});else if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState!=="visible")return;if(accountRecoveryPending)scheduleAccountRecovery({delay:250});else if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
 
 boot();

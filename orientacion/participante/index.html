@@ -305,7 +305,7 @@
     <section class="runner-panel" data-runner-panel="races">
       <div class="panel-shell">
         <div class="runner-panel-head"><h2 class="section-title">MIS CARRERAS</h2><span class="panel-note">COMPETICIÓN</span></div>
-        <div class="status" id="rhStatus">Preparando tus carreras…</div>
+        <div class="status" id="rhStatus" role="status">Preparando tus carreras…</div>
         <button class="btn primary" id="rhResumeRace" type="button" hidden>REANUDAR CARRERA</button>
         <nav class="race-tabs" aria-label="Carreras del corredor">
           <button type="button" class="is-active" data-race-tab="active">ACTIVAS <span id="rhActiveCount">0</span></button>
@@ -430,8 +430,8 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=2.0.5"></script>
+  <script type="module" src="./runner-home-v4.js?v=2.0.6"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.5" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.6" data-sw="./sw.js"></script>
 </body>
 </html>
