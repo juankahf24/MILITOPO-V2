@@ -3,17 +3,19 @@
    que aún usen un SW antiguo. Las siguientes muestran este aviso al instalarse una versión. */
 (() => {
   "use strict";
-  if (!("serviceWorker" in navigator) || !("caches" in window) || !/^https?:$/.test(location.protocol)) return;
   const scriptTag = document.currentScript;
   const swPath = scriptTag?.getAttribute("data-sw") || "./sw.js";
+  const pageRelease = scriptTag?.getAttribute("data-release") || "";
+  const workerUrl = new URL(swPath, location.href).href;
   const guardCache = "militopo-v2-update-guard";
   const guardPaths = ["__militopo_active_race_lock__", "orientacion/participante/__militopo_active_race_lock__"];
   let registration = null, requested = false, notice = null, versionLabels = [];
-  let currentVersionText = "MILITOPO · versión sin confirmar";
-  const localRelease = "F2.46";
-  const releaseMatch = /f246-recuperacion-20261103/i;
-  // F2.25: etiqueta temporal de depuración dentro del flujo normal del
-  // documento, nunca fixed/sticky. Cada rama tiene su propio contenedor.
+  let versionTimer, activationTimer;
+  const versionName = buildId => /^\d+\.\d+\.\d+$/.test(buildId) ? `v${buildId}` : buildId;
+  const pageName = pageRelease ? `MILITOPO ${versionName(pageRelease)}` : "MILITOPO";
+  const unconfirmed = `${pageName} · caché sin confirmar`;
+  let currentVersionText = unconfirmed;
+  // La etiqueta pertenece al contenido desplazable de cada vista.
   function getVersionHosts() {
     // La vista Premium y el gestor LIVE se abren sobre la interfaz base:
     // cada una debe tener su propia etiqueta DENTRO de su zona desplazable.
@@ -33,7 +35,7 @@
       const label = document.createElement("div");
       label.id = i ? `militopo-active-version-${i + 1}` : "militopo-active-version";
       label.setAttribute("role", "status");
-      label.setAttribute("aria-label", "Versión activa de MILITOPO (depuración)");
+      label.setAttribute("aria-label", "Versión de MILITOPO");
       Object.assign(label.style, {
         position:"static", display:"block", float:"none", clear:"both",
         width:"fit-content", maxWidth:"100%", boxSizing:"border-box",
@@ -51,6 +53,7 @@
     });
   }
   function showVersion(value) {
+    if (currentVersionText === value) return;
     currentVersionText = value;
     ensureVersionLabels();
     versionLabels.forEach(label => { label.textContent = value; });
@@ -73,18 +76,30 @@
   });
   dynamicHostsObserver.observe(document.body, {childList:true});
   watchWorkspace();
+  ensureVersionLabels();
+  if (!("serviceWorker" in navigator) || !("caches" in window) || !/^https?:$/.test(location.protocol)) return;
+
   function requestActiveVersion() {
-    if (!document.body) return;
+    clearTimeout(versionTimer);
     const controller = navigator.serviceWorker.controller;
-    if (!controller) { showVersion("MILITOPO · versión sin confirmar"); return; }
-    showVersion("MILITOPO · comprobando versión…");
-    try { controller.postMessage({type:"MILITOPO_GET_SW_VERSION"}); }
-    catch (_) { showVersion("MILITOPO · versión sin confirmar"); }
+    if (controller?.scriptURL !== workerUrl) { showVersion(unconfirmed); return; }
+    try {
+      controller.postMessage({type:"MILITOPO_GET_SW_VERSION"});
+      versionTimer = setTimeout(() => showVersion(unconfirmed), 5000);
+    } catch (_) { showVersion(unconfirmed); }
   }
   navigator.serviceWorker.addEventListener("message", event => {
-    if (event.data?.type !== "MILITOPO_SW_VERSION") return;
-    const buildId = String(event.data.buildId || "");
-    showVersion(releaseMatch.test(buildId) ? `MILITOPO ${localRelease} · activa` : "MILITOPO · otra versión activa");
+    const {type, buildId} = event.data || {};
+    if (type !== "MILITOPO_SW_VERSION" || typeof buildId !== "string" || !buildId ||
+        event.source?.scriptURL !== workerUrl) return;
+    if (event.source === navigator.serviceWorker.controller) {
+      clearTimeout(versionTimer);
+      showVersion(buildId === pageRelease
+        ? `${pageName} · activa`
+        : `${pageName} · caché ${versionName(buildId)} · recarga pendiente`);
+    } else if (event.source === registration?.waiting && notice && !requested) {
+      notice.firstElementChild.textContent = `Disponible MILITOPO ${versionName(buildId)}`;
+    }
   });
   const root = location.pathname.includes("/MILITOPO-V2/")
     ? location.origin + location.pathname.split("/MILITOPO-V2/")[0] + "/MILITOPO-V2/"
@@ -105,7 +120,8 @@
   }
   function clearNotice() { notice?.remove(); notice = null; }
   async function showIfWaiting() {
-    if (!registration?.waiting || requested || notice || !navigator.onLine || await hasActiveRace()) return;
+    if (!registration?.waiting || requested || notice || !navigator.onLine) return;
+    if (await hasActiveRace() || !registration?.waiting || requested || notice || !navigator.onLine) return;
     notice = document.createElement("aside");
     notice.id = "militopo-version-notice";
     notice.setAttribute("role", "status");
@@ -124,22 +140,39 @@
       if (!worker) { clearNotice(); return; }
       requested = true;
       label.textContent = "Activando nueva versión…";
-      worker.postMessage({type:"MILITOPO_ACTIVATE_UPDATE"});
+      function restoreButton() {
+        requested = false;
+        label.textContent = "Actualización pendiente. Vuelve a intentarlo.";
+        button.disabled = false;
+      }
+      try {
+        worker.postMessage({type:"MILITOPO_ACTIVATE_UPDATE"});
+        activationTimer = setTimeout(restoreButton, 12000);
+      } catch (_) { restoreButton(); }
     });
     notice.append(label,button,later); document.body.appendChild(notice);
+    try { registration.waiting.postMessage({type:"MILITOPO_GET_SW_VERSION"}); } catch (_) {}
   }
   function watch(reg) {
     if (!reg) return;
     registration = reg;
     showIfWaiting();
-    reg.addEventListener("updatefound", () => {
+    function watchInstalling() {
       const installing = reg.installing;
       installing?.addEventListener("statechange", () => { if (installing.state === "installed") showIfWaiting(); });
-    });
+    }
+    reg.addEventListener("updatefound", watchInstalling);
+    watchInstalling();
   }
   navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (requested && navigator.serviceWorker.controller?.scriptURL === workerUrl) {
+      clearTimeout(activationTimer);
+      location.reload();
+      return;
+    }
+    if (!registration?.waiting) clearNotice();
+    showVersion(unconfirmed);
     requestActiveVersion();
-    if (requested) location.reload();
   });
   window.addEventListener("online", () => { registration?.update().catch(()=>{}); showIfWaiting(); requestActiveVersion(); });
   // Comprobar versiones al volver de otra aplicación, sin reactivar durante la carrera.
@@ -149,16 +182,18 @@
     requestActiveVersion();
     if (!navigator.onLine || Date.now() - lastForegroundCheck < 60000) return;
     lastForegroundCheck = Date.now();
-    hasActiveRace().then(active => { if (!active) registration?.update().then(showIfWaiting).catch(()=>{}); });
+    hasActiveRace().then(active => {
+      if (!active && registration) registration.update().catch(()=>{}).then(showIfWaiting);
+    });
   });
   window.addEventListener("load", async () => {
     try {
       const reg = await navigator.serviceWorker.register(swPath, {updateViaCache:"none"});
       watch(reg);
       requestActiveVersion();
-      await reg.update();
+      await reg.update().catch(()=>{});
       await showIfWaiting();
-      requestActiveVersion();
     } catch (_) { /* La app sigue funcionando con su versión existente. */ }
   });
+  requestActiveVersion();
 })();
