@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="v2-f246-recuperacion-20261103";
+const BUILD_ID="v2-lote1-cache-segura-20261109";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -120,7 +120,7 @@ async function cacheRemote(cache,url){
       if(firebase)return;
       r=await fetch(new Request(url,{mode:"no-cors",cache:"reload"}));
     }
-    if(r&&(!firebase||(r.ok&&r.type!=="opaque")))await cache.put(url,r.clone());
+    if(cacheableResponse(r)&&(!firebase||(r.ok&&r.type!=="opaque")))await cache.put(url,r.clone());
   }catch(_){}
 }
 async function trimCache(name,max=450){
@@ -154,7 +154,7 @@ self.addEventListener("install",event=>{
 });
 
 self.addEventListener("activate",event=>event.waitUntil((async()=>{
-  if(self.registration.navigationPreload)try{await self.registration.navigationPreload.enable();}catch(_){}
+  if(self.registration.navigationPreload)try{await self.registration.navigationPreload.disable();}catch(_){}
   const keys=await caches.keys();
   await Promise.all(keys.filter(k=>(k.startsWith(CACHE_PREFIX)||k.startsWith(RUNTIME_PREFIX))&&k!==CACHE_NAME&&k!==RUNTIME_CACHE).map(k=>caches.delete(k)));
   await self.clients.claim();
@@ -186,6 +186,18 @@ self.addEventListener("message",event=>{
   if(data.type==="MILITOPO_GET_SW_VERSION")event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:BUILD_ID,scope:"root"});
 });
 
+// Lote 1: el almacenamiento es opcional al servir red; nunca cachear errores HTTP.
+function cacheableResponse(response) {
+  return !!response && ((response.ok && response.status !== 206) || response.type === "opaque");
+}
+async function openServingCache(name) {
+  try { return await caches.open(name); } catch (_) { return null; }
+}
+async function storeResponse(cache, request, response) {
+  if (!cache || !cacheableResponse(response)) return false;
+  try { await cache.put(request, response.clone()); return true; } catch (_) { return false; }
+}
+
 self.addEventListener("fetch",event=>{
   const req=event.request;if(req.method!=="GET")return;
   const url=new URL(req.url);
@@ -200,7 +212,7 @@ self.addEventListener("fetch",event=>{
 
   event.respondWith((async()=>{
     const cacheName=same?CACHE_NAME:RUNTIME_CACHE;
-    const cache=await caches.open(cacheName);
+    const cache=await openServingCache(cacheName);
     const isNav=same&&req.mode==="navigate";
 
     /* I1: el código de una versión activa es INMUTABLE. Cache-first sin revalidar.
@@ -208,13 +220,15 @@ self.addEventListener("fetch",event=>{
     if(same&&isAppCode(url,req)){
       const hit=await matchIn(CACHE_NAME,req);
       if(hit)return hit;
-      if(isNav){
+      const shellRoot=new URL("./",self.registration.scope).pathname;
+      const shellIndex=new URL("./index.html",self.registration.scope).pathname;
+      if(isNav&&(url.pathname===shellRoot||url.pathname===shellIndex)){
         const shell=(await matchIn(CACHE_NAME,new Request("./index.html")))||(await matchIn(CACHE_NAME,new Request("./")));
         if(shell)return shell;
       }
       try{
         const r=await fetch(new Request(req,{cache:"no-store"}));
-        if(r&&r.ok&&r.status!==206)await cache.put(req,r.clone());
+        if(r&&r.ok&&r.status!==206)await storeResponse(cache,req,r);
         return r;
       }catch(_){
         if(isNav)return new Response("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO offline</title><body style='background:#0a0e0a;color:#f5e6c8;font-family:monospace;padding:24px'><h1>MILITOPO sin cobertura</h1><p>La aplicación no pudo cargar su shell local. Vuelve a conectar una vez para completar la instalación offline.</p></body>",{headers:{"Content-Type":"text/html;charset=utf-8"}});
@@ -225,12 +239,12 @@ self.addEventListener("fetch",event=>{
     /* Assets no ejecutables y recursos remotos: cache-first + refresco no bloqueante. */
     const hit=await matchIn(cacheName,req);
     if(hit){
-      event.waitUntil(fetch(req).then(r=>{if(r&&r.status!==206)cache.put(req,r.clone()).catch(()=>{});}).catch(()=>{}));
+      event.waitUntil(fetch(req).then(r=>storeResponse(cache,req,r)).catch(()=>{}));
       return hit;
     }
     try{
       const r=await fetch(req);
-      if(r&&r.status!==206){cache.put(req,r.clone()).catch(()=>{});if(!same)event.waitUntil(trimCache(RUNTIME_CACHE));}
+      if(cacheableResponse(r))event.waitUntil(storeResponse(cache,req,r).then(saved=>saved&&!same?trimCache(RUNTIME_CACHE):undefined));
       return r;
     }catch(_){return new Response("",{status:503,statusText:"Offline"});}
   })());
