@@ -1,5 +1,5 @@
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
-import "./runner-live-loader.js?v=v2-lote2-gps-20261109";
+import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.5";
 import "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
@@ -32,7 +32,7 @@ const els={
   profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileIncomplete:document.getElementById("rhProfileIncomplete"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profileElevation:document.getElementById("rhProfileElevation"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank"),
   performanceHeadline:document.getElementById("rhPerformanceHeadline"),performanceSub:document.getElementById("rhPerformanceSub"),performanceRing:document.getElementById("rhPerformanceRing"),perfKmAvg:document.getElementById("rhPerfKmAvg"),perfPenaltyAvg:document.getElementById("rhPerfPenaltyAvg"),perfStreak:document.getElementById("rhPerfStreak"),perfDiscardAvg:document.getElementById("rhPerfDiscardAvg"),performanceList:document.getElementById("rhPerformanceList"),performanceCount:document.getElementById("rhPerformanceCount"),profileHistoryBtn:document.getElementById("rhProfileHistoryBtn"),
   recordDistance:document.getElementById("rhRecordDistance"),recordDistanceEvent:document.getElementById("rhRecordDistanceEvent"),recordElevation:document.getElementById("rhRecordElevation"),recordElevationEvent:document.getElementById("rhRecordElevationEvent"),recordControls:document.getElementById("rhRecordControls"),recordControlsEvent:document.getElementById("rhRecordControlsEvent"),recordBestRank:document.getElementById("rhRecordBestRank"),recordBestRankEvent:document.getElementById("rhRecordBestRankEvent"),
-  network:document.querySelector(".online")
+  resumeRace:document.getElementById("rhResumeRace"),network:document.querySelector(".online")
 };
 
 let auth=null,currentUser=null,profile=null,currentRaceTab="active",currentMainTab="home";
@@ -45,6 +45,7 @@ let postRaceRefreshTimer=0,eventsRequestSequence=0;
 let accountRefreshPromise=null,accountRecoveryTimer=0,accountRecoveryAttempts=0;
 let accountRecoveryPending=true,accountRecoveryGeneration=0,accountClosing=false;
 const classificationCache=new Map();
+let recoveryAccountUid=null;
 
 function text(el,v){if(el)el.textContent=String(v??"");}
 function esc(v){return String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));}
@@ -100,11 +101,7 @@ function openRunnerPhotoMenu(){
   openProfilePhotoMenu({photoURL,name,canChange:true,onSave:saveRunnerPhotoBlob});
 }
 
-async function loadProfile(app,user){
-  const db=getFirestore(app);let data=profile||{},loaded=false;
-  try{const snap=await withTimeout(getDoc(doc(db,"users",user.uid)),8000,"El perfil tardó demasiado en responder.");data=snap.exists()?(snap.data()||{}):{};loaded=true;}catch(error){console.warn("[MILITOPO runner profile]",error);}
-  if(accountClosing||auth?.currentUser?.uid!==user.uid)return false;
-  profile=data;
+function paintRunnerProfile(user,data={}){
   const displayName=String(data.displayName||user.displayName||user.email||"Usuario").trim();
   const username=String(data.usernameKey||data.username||"").trim().toLowerCase().replace(/^@/,"");
   text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);
@@ -112,6 +109,14 @@ async function loadProfile(app,user){
   paintRunnerAvatar(displayName,data.photoURL||user.photoURL||"");
   if(els.detailsBtn)els.detailsBtn.disabled=false;if(els.logoutBtn)els.logoutBtn.disabled=false;
   if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> CORREDOR`;
+}
+
+async function loadProfile(app,user){
+  const db=getFirestore(app);let data=profile||{},loaded=false;
+  try{const snap=await withTimeout(getDoc(doc(db,"users",user.uid)),8000,"El perfil tardó demasiado en responder.");data=snap.exists()?(snap.data()||{}):{};loaded=true;}catch(error){console.warn("[MILITOPO runner profile]",error);}
+  if(accountClosing||auth?.currentUser?.uid!==user.uid)return false;
+  profile=data;
+  paintRunnerProfile(user,data);
   publishRunnerAuth();
   await enableOrganizerModeIfAuthorized(user);
   return loaded;
@@ -596,6 +601,37 @@ function scheduleAccountRecovery({reset=false,delay=1000}={}){
     void boot();
   },delay);
 }
+function canResumeSavedRace(){
+  const uid=auth?.currentUser?.uid;
+  if(accountClosing||!uid||uid!==recoveryAccountUid)return false;
+  const snapshot=globalThis.MILITOPO_RUNNER_RESILIENCE_V2?.snapshot?.()?.context;
+  return Boolean(snapshot?.auth?.uid===uid && snapshot.event?.eventId &&
+    snapshot.runId && snapshot.controlPlan && Number(snapshot.participant?.startedAt)>0 &&
+    ["racing","started"].includes(String(snapshot.participant?.status||snapshot.status||"").toLowerCase()) &&
+    ["racing","started"].includes(String(snapshot.status||"").toLowerCase()));
+}
+
+function updateResumeRace(){
+  if(els.resumeRace)els.resumeRace.hidden=!canResumeSavedRace();
+}
+
+async function prepareRunnerRecovery(user){
+  if(accountClosing||auth?.currentUser?.uid!==user.uid)return false;
+  if(recoveryAccountUid===user.uid)return true;
+  // Los perfiles, invitaciones e históricos requieren red. El respaldo de
+  // carrera y sus colas locales solo necesitan la sesión de este dispositivo.
+  publishRunnerAuth();
+  await loadRunnerRecovery();
+  if(accountClosing||auth?.currentUser?.uid!==user.uid){
+    if(globalThis.MILITOPO_V2_AUTH?.uid===user.uid)globalThis.MILITOPO_V2_AUTH={uid:null,role:null};
+    return false;
+  }
+  recoveryAccountUid=user.uid;
+  updateResumeRace();
+  if(canResumeSavedRace())globalThis.MILITOPO_RUNNER_RESILIENCE_V2.restore();
+  return true;
+}
+
 function boot(){
   if(accountClosing)return Promise.resolve(false);
   if(accountRefreshPromise)return accountRefreshPromise;
@@ -609,6 +645,15 @@ function boot(){
       if(currentUser?.uid!==user.uid)profile=null;
       currentUser=user;
       if(!user.emailVerified)throw new Error("Tu correo todavía no está verificado.");
+      if(!await prepareRunnerRecovery(user))return false;
+      if(navigator.onLine===false){
+        paintRunnerProfile(user,profile||{});
+        accountRecoveryPending=true;
+        setStatus(canResumeSavedRace()
+          ?"Sin cobertura. Puedes reanudar la carrera guardada en este dispositivo."
+          :"Sin cobertura. Tus datos se actualizarán al recuperar la conexión.");
+        return false;
+      }
       const profileLoaded=await loadProfile(app,user);
       if(accountClosing||auth?.currentUser?.uid!==user.uid)return false;
       startInvitationRealtime(app);
@@ -646,8 +691,20 @@ try{const params=new URLSearchParams(location.search);if(params.get("militopo_ta
 }}catch(_){ }
 els.photoBtn?.addEventListener("click",openRunnerPhotoMenu);
 els.detailsBtn?.addEventListener("click",()=>{els.details?.classList.toggle("show");if(els.detailsBtn)els.detailsBtn.textContent=els.details?.classList.contains("show")?"OCULTAR DATOS":"VER DATOS DE CUENTA";});
-els.logoutBtn?.addEventListener("click",async()=>{accountClosing=true;if(accountRecoveryTimer)clearTimeout(accountRecoveryTimer);stopInvitationRealtime();stopActiveEventRealtime();try{globalThis.MILITOPO_V2_AUTH=null;}catch(_){}try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
+els.logoutBtn?.addEventListener("click",async()=>{accountClosing=true;updateResumeRace();if(accountRecoveryTimer)clearTimeout(accountRecoveryTimer);stopInvitationRealtime();stopActiveEventRealtime();try{globalThis.MILITOPO_V2_AUTH={uid:null,role:null};}catch(_){}try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
 els.retry?.addEventListener("click",()=>scheduleAccountRecovery({reset:true,delay:0}));
+els.resumeRace?.addEventListener("click",()=>{
+  if(canResumeSavedRace())globalThis.MILITOPO_RUNNER_RESILIENCE_V2.restore();
+  else updateResumeRace();
+});
+window.addEventListener("militopo:v2-race-local-snapshot",updateResumeRace);
+window.addEventListener("militopo:v2-runner-race-closed",updateResumeRace);
+window.addEventListener("militopo:v2-race-event-finished",updateResumeRace);
+window.addEventListener("militopo:v2-auth-signed-out",()=>{
+  recoveryAccountUid=null;
+  updateResumeRace();
+});
+
 els.historyMore?.addEventListener("click",()=>{historyVisible+=HISTORY_PAGE;renderHistory(false);});
 document.querySelectorAll("[data-history-filter]").forEach(btn=>btn.addEventListener("click",()=>{historyFilter=String(btn.dataset.historyFilter||"all");historyVisible=HISTORY_PAGE;document.querySelectorAll("[data-history-filter]").forEach(node=>node.classList.toggle("is-active",node===btn));renderHistory(false);}));
 els.resultClose?.addEventListener("click",closeResultModal);
