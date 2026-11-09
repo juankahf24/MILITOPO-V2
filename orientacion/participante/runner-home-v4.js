@@ -1,5 +1,5 @@
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
-import "./runner-live-loader.js?v=v2-r9n-provisional-classification-20261011";
+import "./runner-live-loader.js?v=v2-lote2-gps-20261109";
 import "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
