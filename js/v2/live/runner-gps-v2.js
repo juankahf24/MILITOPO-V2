@@ -3,7 +3,7 @@
    El track se guarda localmente y se sincroniza al recuperar conexión. */
 import { ref, update } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
-const VERSION = "v2-f16-gps-lifecycle-20261029";
+const VERSION = "v2-lote2-gps-20261109";
 const MIN_WRITE_MS = 4000;
 const FORCE_WRITE_MS = 12000;
 const MIN_MOVE_M = 3;
@@ -18,6 +18,7 @@ const state = {
   active: false,
   lastSent: null,
   lastFixAt: 0,
+  publishingEpoch: null,
   resumeBusy: false,
   seedFix: null,
   lastError: ""
@@ -48,17 +49,26 @@ function emit(status, detail = {}) {
   }));
 }
 
+function isFreshFix(fix) {
+  const age = Date.now() - fix?.updatedAt;
+  return Number.isFinite(fix?.updatedAt) && fix.updatedAt > 0 && age >= -1000 && age < RESUME_STALE_MS;
+}
+
 function toFix(position) {
   const c = position?.coords;
   if (!c) return null;
-  return {
-    lat: Number(c.latitude),
-    lng: Number(c.longitude),
-    accuracy: Math.max(0, Number(c.accuracy || 0)),
-    heading: Number.isFinite(Number(c.heading)) ? Number(c.heading) : null,
-    speed: Number.isFinite(Number(c.speed)) ? Number(c.speed) : null,
-    updatedAt: Date.now()
+  const fix = {
+    lat: c.latitude,
+    lng: c.longitude,
+    accuracy: c.accuracy,
+    heading: Number.isFinite(c.heading) ? c.heading : null,
+    speed: Number.isFinite(c.speed) ? c.speed : null,
+    updatedAt: position.timestamp
   };
+  if (!isFreshFix(fix) || !Number.isFinite(fix.lat) || Math.abs(fix.lat) > 90 ||
+      !Number.isFinite(fix.lng) || Math.abs(fix.lng) > 180 ||
+      !Number.isFinite(fix.accuracy) || fix.accuracy < 0 || fix.accuracy > 5000) return null;
+  return fix;
 }
 
 function distanceM(a, b) {
@@ -81,10 +91,13 @@ function contextPath() {
 
 async function publishFix(fix, epoch = state.epoch) {
   const path = contextPath();
-  if (!current(epoch) || !state.active || !path || !fix || navigator.onLine === false) return false;
+  if (!current(epoch) || !state.active || !path || !isFreshFix(fix) ||
+      navigator.onLine === false || state.publishingEpoch === epoch) return false;
+  // RTDB puede retener el envío hasta reconectar. El track local sigue capturando.
+  state.publishingEpoch = epoch;
   try {
     const { database } = await services();
-    if (!current(epoch) || !state.active) return false;
+    if (!current(epoch) || !state.active || !isFreshFix(fix) || navigator.onLine === false) return false;
     await update(ref(database, path), {
       active: true,
       lat: fix.lat,
@@ -101,16 +114,21 @@ async function publishFix(fix, epoch = state.epoch) {
     state.lastError = String(error?.message || error);
     emit(navigator.onLine === false ? "offline_active" : "error", { message: state.lastError, fix: { ...fix } });
     return false;
+  } finally {
+    if (state.publishingEpoch === epoch) state.publishingEpoch = null;
   }
 }
 
 async function writeFix(fix, force = false, epoch = state.epoch) {
-  if (!current(epoch) || !fix || !state.active) return;
-  state.lastFixAt = Date.now();
+  if (!current(epoch) || !state.active || !isFreshFix(fix) || fix.updatedAt <= state.lastFixAt) return;
+  state.lastFixAt = fix.updatedAt;
   try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-gps-fix", { detail: { fix: { ...fix }, version: VERSION } })); } catch (_) {}
+  await trackOperation(() => saveFix(fix, force, epoch));
+}
+
+async function saveFix(fix, force, epoch) {
   if (!current(epoch) || !state.active) return;
-  const now = Date.now();
-  const elapsed = state.lastSent ? now - state.lastSent.updatedAt : Infinity;
+  const elapsed = state.lastSent ? fix.updatedAt - state.lastSent.updatedAt : Infinity;
   const moved = state.lastSent ? distanceM(state.lastSent, fix) : Infinity;
   if (!force && elapsed < MIN_WRITE_MS) return;
   if (!force && elapsed < FORCE_WRITE_MS && moved < MIN_MOVE_M) return;
@@ -130,7 +148,7 @@ async function writeFix(fix, force = false, epoch = state.epoch) {
     emit("offline_active", { fix: { ...fix }, message: "GPS activo sin cobertura. La posición y el track se guardan en el dispositivo." });
     return;
   }
-  await publishFix(fix, epoch);
+  void publishFix(fix, epoch);
 }
 
 function geolocationError(error) {
@@ -162,6 +180,11 @@ function prepare(epoch = state.epoch, context = null) {
         if (!valid()) { resolve(null); return; }
         const fix = toFix(position);
         state.seedFix = fix;
+        if (!fix) {
+          geolocationError({ message: "La posición GPS no es válida o está desactualizada. Vuelve a intentarlo." });
+          resolve(null);
+          return;
+        }
         emit("ready", { fix: { ...fix } });
         resolve(fix);
       },
@@ -186,17 +209,18 @@ async function start(context, seedFix = null) {
   state.resumeBusy = false;
   state.lastFixAt = 0;
   state.lastError = "";
+  state.lastSent = null;
   state.context = { ...context };
-  state.active = true;
+  state.active = false;
   const trackReady = await trackOperation(() => current(epoch) ? trackApi()?.start?.(context) : false);
   if (!current(epoch)) return false;
   if (trackReady !== true) {
-    state.active = false;
     emit("storage_error", { message: "No se puede proteger el recorrido GPS en el dispositivo. Comprueba el almacenamiento antes de continuar." });
     return false;
   }
-  state.lastSent = null;
-  const first = seedFix || state.seedFix;
+  state.active = true;
+  const seed = seedFix || state.seedFix;
+  const first = isFreshFix(seed) ? seed : null;
   state.seedFix = null;
   if (first) await writeFix(first, true, epoch);
   if (!current(epoch) || !state.active) return false;
@@ -253,6 +277,20 @@ function stopWatchOnly() {
   state.watchId = null;
 }
 
+async function publishInactive(path, fix, epoch) {
+  try {
+    const { database } = await services();
+    if (!current(epoch)) return;
+    await update(ref(database, path), {
+      active: false,
+      lat: fix.lat,
+      lng: fix.lng,
+      accuracy: Math.round(fix.accuracy * 10) / 10,
+      updatedAt: fix.updatedAt
+    });
+  } catch (_) {}
+}
+
 async function stop(reason = "manual") {
   const epoch = ++state.epoch;
   stopWatchOnly();
@@ -264,17 +302,8 @@ async function stop(reason = "manual") {
   state.seedFix = null;
   // Encolar antes de esperar a la red: una parada antigua nunca detiene un inicio nuevo.
   const stopped = trackOperation(() => trackApi()?.stop?.({ flushPending: reason !== "signed_out" }));
-  if (path && wasActive && lastSent && reason !== "signed_out") {
-    try {
-      const { database } = await services();
-      if (current(epoch)) await update(ref(database, path), {
-        active: false,
-        lat: lastSent.lat,
-        lng: lastSent.lng,
-        accuracy: Math.round(lastSent.accuracy * 10) / 10,
-        updatedAt: Date.now()
-      });
-    } catch (_) {}
+  if (path && wasActive && isFreshFix(lastSent) && reason !== "signed_out" && navigator.onLine !== false) {
+    void publishInactive(path, lastSent, epoch);
   }
   await stopped;
   if (epoch === state.epoch) emit("stopped", { reason, fix: lastSent });
@@ -315,7 +344,7 @@ function snapshot() {
 }
 
 window.addEventListener("online", () => {
-  if (state.active && state.lastSent) publishFix({ ...state.lastSent, updatedAt: Date.now() }).catch(() => {});
+  if (state.active) void publishFix(state.lastSent);
 });
 window.addEventListener("offline", () => {
   if (state.active) emit("offline_active", { fix: state.lastSent ? { ...state.lastSent } : null, message: "GPS activo sin cobertura. El track continúa guardándose localmente." });
