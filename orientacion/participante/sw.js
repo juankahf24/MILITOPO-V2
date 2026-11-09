@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const CACHE_NAME="militopo-v2-participante-f246-recuperacion-20261103";
+const CACHE_NAME="militopo-v2-participante-lote1-cache-segura-20261109";
 const APP_SHELL=[
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
@@ -129,9 +129,9 @@ async function getCurrentBuild(cache,req,url){
   if(req.mode==="navigate"&&OFFLINE_PAGES.has(url.pathname)){
     const pathname=new URL(url.href);
     pathname.search="";pathname.hash="";
-    return (await cache.match(req))||(await cache.match(pathname.href));
+    return (await cache?.match(req))||(await cache?.match(pathname.href));
   }
-  return cache.match(req,{ignoreSearch:false});
+  return cache?.match(req,{ignoreSearch:false});
 }
 function offlineResponse(){
   return new Response("<!doctype html><html lang=es><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>MILITOPO sin conexión</title><body style='background:#0e1912;color:#f4edd9;font:16px system-ui;padding:24px'><h1>Sin conexión</h1><p>No se ha podido recuperar esta página de MILITOPO sin Internet. Conserva los datos de la carrera y vuelve a intentarlo cuando haya conexión.</p></body></html>",{
@@ -158,11 +158,23 @@ async function canActivateMilitopoUpdate() {
   } catch (_) { return false; }
 }
 self.addEventListener("message",event=>{
-  if (event.data?.type === "MILITOPO_GET_SW_VERSION") event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:"v2-f246-recuperacion-20261103",scope:"participante"});
+  if (event.data?.type === "MILITOPO_GET_SW_VERSION") event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:"v2-lote1-cache-segura-20261109",scope:"participante"});
   if (event.data?.type === "MILITOPO_ACTIVATE_UPDATE") {
     event.waitUntil(canActivateMilitopoUpdate().then(ok=>ok?self.skipWaiting():undefined));
   }
 });
+// Lote 1: el almacenamiento es opcional al servir red; nunca cachear errores HTTP.
+function cacheableResponse(response) {
+  return !!response && ((response.ok && response.status !== 206) || response.type === "opaque");
+}
+async function openServingCache(name) {
+  try { return await caches.open(name); } catch (_) { return null; }
+}
+async function storeResponse(cache, request, response) {
+  if (!cache || !cacheableResponse(response)) return false;
+  try { await cache.put(request, response.clone()); return true; } catch (_) { return false; }
+}
+
 self.addEventListener("fetch",event=>{
   const req=event.request;
   if(req.method!=="GET")return;
@@ -170,16 +182,16 @@ self.addEventListener("fetch",event=>{
   const versionedAsset=VERSIONED_ASSET_URLS.has(url.href);
   if(url.origin!==self.location.origin&&!versionedAsset)return;
   event.respondWith((async()=>{
-    const cache=await caches.open(CACHE_NAME);
+    const cache=await openServingCache(CACHE_NAME);
     if(isParticipantCode(req,url)||versionedAsset){
-      const current=await getCurrentBuild(cache,req,url);
+      const current=await getCurrentBuild(cache,req,url).catch(()=>undefined);
       if(current)return current;
       try{
         const response=await fetch(new Request(req,versionedAsset?{cache:"no-store",mode:"cors",credentials:"omit",redirect:"error"}:{cache:"no-store"}));
         if(response&&response.ok&&response.status!==206&&(!versionedAsset||usableVersionedAsset(response,url))){
           // No guardamos URLs de navegación con parámetros de evento/participante.
           if(req.mode!=="navigate"||!url.search){
-            event.waitUntil(cache.put(req,response.clone()).catch(()=>{}));
+            event.waitUntil(storeResponse(cache,req,response));
           }
         }
         return response;
@@ -189,12 +201,12 @@ self.addEventListener("fetch",event=>{
     }
     /* Imágenes y otros recursos: también limitados a ESTA caché.
        No recuperar assets obsoletos de SW raíz, antiguo o de organizador. */
-    const hit=await cache.match(req);
+    const hit=await cache?.match(req).catch(()=>undefined);
     if(hit)return hit;
     try{
       const response=await fetch(req);
       if(response&&response.ok&&response.status!==206){
-        event.waitUntil(cache.put(req,response.clone()).catch(()=>{}));
+        event.waitUntil(storeResponse(cache,req,response));
       }
       return response;
     }catch(_){return new Response("",{status:503,statusText:"Offline"});}
