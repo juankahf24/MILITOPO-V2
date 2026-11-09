@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="militopo-f246-recuperacion-20261103";
+const BUILD_ID="militopo-lote1-cache-segura-20261109";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -97,7 +97,7 @@ const TRUSTED_RUNTIME_ORIGINS=new Set([
 ]);
 
 async function cacheRemote(cache,url){
-  try{const target=new URL(url),firebase=target.origin==="https://www.gstatic.com";let r;try{r=await fetch(new Request(url,{mode:"cors",cache:"reload"}));}catch(_){if(firebase)return;r=await fetch(new Request(url,{mode:"no-cors",cache:"reload"}));}if(r&&(!firebase||(r.ok&&r.type!=="opaque")))await cache.put(url,r.clone());}catch(_){}
+  try{const target=new URL(url),firebase=target.origin==="https://www.gstatic.com";let r;try{r=await fetch(new Request(url,{mode:"cors",cache:"reload"}));}catch(_){if(firebase)return;r=await fetch(new Request(url,{mode:"no-cors",cache:"reload"}));}if(cacheableResponse(r)&&(!firebase||(r.ok&&r.type!=="opaque")))await cache.put(url,r.clone());}catch(_){}
 }
 async function trimCache(name,max=500){try{const c=await caches.open(name),keys=await c.keys();await Promise.all(keys.slice(0,Math.max(0,keys.length-max)).map(k=>c.delete(k)));}catch(_){}}
 async function matchIn(name,req){try{return await (await caches.open(name)).match(req,{ignoreSearch:false});}catch(_){return undefined;}}
@@ -111,6 +111,8 @@ self.addEventListener("install",event=>{
   /* La página actual no se recarga sola; el SW nuevo queda listo para la siguiente
      navegación, evitando tener que borrar manualmente la caché del navegador. */
   event.waitUntil((async()=>{
+    // Igual que raíz y participante: no instalar otro build con una carrera protegida.
+    if(!(await canActivateMilitopoUpdate()))throw new Error("MILITOPO_UPDATE_DEFERRED_ACTIVE_RACE");
     const cache=await caches.open(MILITOPO_CACHE);
     const runtime=await caches.open(RUNTIME_CACHE);
     await cache.addAll(CORE_ASSETS.map(u=>new Request(u,{cache:"reload"})));
@@ -123,7 +125,7 @@ self.addEventListener("install",event=>{
 });
 
 self.addEventListener("activate",event=>event.waitUntil((async()=>{
-  if(self.registration.navigationPreload)try{await self.registration.navigationPreload.enable();}catch(_){}
+  if(self.registration.navigationPreload)try{await self.registration.navigationPreload.disable();}catch(_){}
   const keys=await caches.keys();
   await Promise.all(keys.filter(k=>{
     const oldMain=(k.startsWith(CACHE_PREFIX)||k.startsWith(RUNTIME_PREFIX))&&k!==MILITOPO_CACHE&&k!==RUNTIME_CACHE;
@@ -157,15 +159,30 @@ self.addEventListener("message",event=>{
   if(data.type==="MILITOPO_GET_SW_VERSION")event.source?.postMessage?.({type:"MILITOPO_SW_VERSION",buildId:BUILD_ID,scope:"orientacion"});
 });
 
+// Lote 1: el almacenamiento es opcional al servir red; nunca cachear errores HTTP.
+function cacheableResponse(response) {
+  return !!response && ((response.ok && response.status !== 206) || response.type === "opaque");
+}
+async function openServingCache(name) {
+  try { return await caches.open(name); } catch (_) { return null; }
+}
+async function storeResponse(cache, request, response) {
+  if (!cache || !cacheableResponse(response)) return false;
+  try { await cache.put(request, response.clone()); return true; } catch (_) { return false; }
+}
+
 self.addEventListener("fetch",event=>{
   const req=event.request;if(req.method!=="GET")return;
   const url=new URL(req.url);
   const same=url.origin===self.location.origin,isRemote=TRUSTED_RUNTIME_ORIGINS.has(url.origin);
   if(!same&&!isRemote)return;
 
+  // El SW del organizador no debe congelar archivos del corredor en su propia versión.
+  if(same&&url.pathname.startsWith(new URL("./participante/",self.registration.scope).pathname))return;
+
   event.respondWith((async()=>{
     const cacheName=same?MILITOPO_CACHE:RUNTIME_CACHE;
-    const cache=await caches.open(cacheName);
+    const cache=await openServingCache(cacheName);
     const isNav=same&&req.mode==="navigate";
 
     /* P1.3: código de la versión activa INMUTABLE (cache-first).
@@ -187,7 +204,7 @@ self.addEventListener("fetch",event=>{
       }
       try{
         const r=await fetch(new Request(req,{cache:"no-store"}));
-        if(r&&r.ok&&r.status!==206&&(!isNav||!url.search))await cache.put(req,r.clone());
+        if(r&&r.ok&&r.status!==206&&(!isNav||!url.search))await storeResponse(cache,req,r);
         return r;
       }catch(_){
         if(isNav){
@@ -198,10 +215,10 @@ self.addEventListener("fetch",event=>{
     }
 
     const hit=await matchIn(cacheName,req);
-    if(hit){event.waitUntil(fetch(req).then(r=>{if(r&&r.status!==206)cache.put(req,r.clone()).catch(()=>{});}).catch(()=>{}));return hit;}
+    if(hit){event.waitUntil(fetch(req).then(r=>storeResponse(cache,req,r)).catch(()=>{}));return hit;}
     try{
       const r=await fetch(req);
-      if(r&&r.status!==206){cache.put(req,r.clone()).catch(()=>{});if(!same)event.waitUntil(trimCache(RUNTIME_CACHE));}
+      if(cacheableResponse(r))event.waitUntil(storeResponse(cache,req,r).then(saved=>saved&&!same?trimCache(RUNTIME_CACHE):undefined));
       return r;
     }catch(_){return new Response("",{status:503,statusText:"Offline"});}
   })());
