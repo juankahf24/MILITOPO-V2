@@ -3347,14 +3347,14 @@ let geoTiffState = {
     displayHeight:0,
     bbox:null,
     epsg:null,
-    zone:null,
-    northern:true,
+    projection:null,
     canAssign:false,
     zoom:1,
     sourceImage:null,
     redrawToken:0,
     isRendering:false
 };
+let geoTiffImportId = 0;
 let geoTiffPinchState = null;
 let geoTiffDragState = null;
 let geoTiffSuppressCanvasClickUntil = 0;
@@ -3422,59 +3422,80 @@ function closeGeoTiffModal(){
 }
 
 function detectGeoTiffEpsg(image){
-    try{
-        const keys=image.getGeoKeys?image.getGeoKeys():{};
-        const code=keys.ProjectedCSTypeGeoKey||keys.GeographicTypeGeoKey||keys.ProjectedCSType||keys.GeographicType;
-        const epsg=Number(code);
-        return Number.isFinite(epsg)?epsg:null;
-    }catch(e){return null;}
+    const keys=image.getGeoKeys?.() || {};
+    if(keys.GTModelTypeGeoKey!=null && keys.GTModelTypeGeoKey!==1)return null;
+    const epsg=Number(keys.ProjectedCSTypeGeoKey ?? keys.ProjectedCSType);
+    return Number.isInteger(epsg) && epsg>0 && epsg<32767 ? epsg : null;
 }
 
-function epsgToUtmInfo(epsg,bbox){
-    if(!epsg)return null;
-    if(epsg>=32601&&epsg<=32660)return {zone:epsg-32600,northern:true,datum:"WGS84"};
-    if(epsg>=32701&&epsg<=32760)return {zone:epsg-32700,northern:false,datum:"WGS84"};
-    if(epsg>=25828&&epsg<=25831)return {zone:epsg-25800,northern:true,datum:"ETRS89"};
-    if(epsg>=23028&&epsg<=23031)return {zone:epsg-23000,northern:true,datum:"ED50"};
-    // Si no hay EPSG UTM pero las coordenadas parecen UTM, intentamos deducir zona por defecto de España.
-    if(bbox&&bbox.length>=4){
-        const x=(bbox[0]+bbox[2])/2, y=(bbox[1]+bbox[3])/2;
-        if(x>100000&&x<900000&&y>0&&y<10000000)return {zone:30,northern:true,datum:"UTM"};
+function geoTiffUtmProjection(epsg){
+    if(!Number.isInteger(epsg))return null;
+    if(epsg>=32601 && epsg<=32660){
+        return {datum:"WGS84",zone:epsg-32600,definition:`+proj=utm +zone=${epsg-32600} +datum=WGS84 +units=m`};
+    }
+    if(epsg>=32701 && epsg<=32760){
+        return {datum:"WGS84",zone:epsg-32700,definition:`+proj=utm +zone=${epsg-32700} +south +datum=WGS84 +units=m`};
+    }
+    if(epsg>=25828 && epsg<=25838){
+        return {datum:"ETRS89",zone:epsg-25800,definition:`+proj=utm +zone=${epsg-25800} +ellps=GRS80 +towgs84=0,0,0 +units=m`};
     }
     return null;
 }
 
-function utmBandFromLat(lat){
-    const bands="CDEFGHJKLMNPQRSTUVWX";
-    let idx=Math.floor((lat+80)/8);
-    if(idx<0)idx=0;
-    if(idx>=bands.length)idx=bands.length-1;
-    return bands[idx];
+function geoTiffNorthUpBounds(image){
+    const directory=image.getFileDirectory?.() || image.fileDirectory || {};
+    const matrix=directory.ModelTransformation;
+    if(matrix){
+        // El visor convierte píxeles a metros mediante una caja sin rotación.
+        if(matrix.length!==16 || !Array.from(matrix).every(Number.isFinite) ||
+           matrix[0]<=0 || matrix[5]>=0 || matrix[1]!==0 || matrix[4]!==0 ||
+           matrix[12]!==0 || matrix[13]!==0 || matrix[14]!==0 || matrix[15]!==1){
+            throw new Error("El plano está girado o deformado. Vuelve a exportarlo con el norte arriba.");
+        }
+    }
+    const bbox=image.getBoundingBox();
+    if(!bbox || bbox.length!==4 || !bbox.every(Number.isFinite) ||
+       bbox[2]<=bbox[0] || bbox[3]<=bbox[1]){
+        throw new Error("El GeoTIFF no contiene límites georreferenciados válidos.");
+    }
+    if(image.getGeoKeys?.()?.GTRasterTypeGeoKey===2){
+        throw new Error("El plano usa píxeles de punto. Exporta el GeoTIFF con píxeles de área para asignar balizas.");
+    }
+    return bbox;
 }
 
 function projectedToCoordText(x,y){
-    const info=geoTiffState;
-    if(!info.canAssign||!info.zone)throw new Error("El GeoTIFF no tiene sistema UTM legible.");
-    let latLon=null;
-    try{
-        if(typeof proj4==="function"){
-            const projUTM=`+proj=utm +zone=${info.zone} +${info.northern?"north":"south"} +ellps=WGS84 +datum=WGS84 +units=m +no_defs`;
-            const wgs84="+proj=longlat +datum=WGS84 +no_defs";
-            const out=proj4(projUTM,wgs84,[x,y]);
-            latLon={lon:out[0],lat:out[1]};
-        }
-    }catch(e){latLon=null;}
-
-    if(currentCoordType==="MGRS"){
-        if(latLon&&typeof latLonToMGRS==="function")return latLonToMGRS(latLon.lat,latLon.lon);
-        throw new Error("No se puede convertir a MGRS sin lat/lon.");
+    const {canAssign,projection}=geoTiffState;
+    if(!canAssign || !projection || typeof proj4!=="function"){
+        throw new Error("No hay una proyección UTM válida para asignar balizas.");
     }
-
-    let band="T";
-    if(latLon&&Number.isFinite(latLon.lat))band=utmBandFromLat(latLon.lat);
-    return `${String(info.zone).padStart(2,"0")}${band} ${Math.round(x)} ${Math.round(y)}`;
+    const [lon,lat]=proj4(projection.definition,"EPSG:4326",[x,y]);
+    if(!Number.isFinite(lat) || !Number.isFinite(lon)){
+        throw new Error("No se pudo convertir este punto a WGS84.");
+    }
+    const coord=latLonToCoordText(lat,lon);
+    if(!coord)throw new Error("El punto está fuera de los límites de UTM/MGRS.");
+    return coord;
 }
 
+function geoTiffMarkerPosition(coord){
+    const {canAssign,projection,bbox}=geoTiffState;
+    if(!canAssign || !projection || !bbox || typeof proj4!=="function")return null;
+    const ll=utmToLatLon(coord) || mgrsToLatLon(coord);
+    if(!ll)return null;
+    try{
+        const [x,y]=proj4("EPSG:4326",projection.definition,[ll.lon,ll.lat]);
+        if(!Number.isFinite(x) || !Number.isFinite(y))return null;
+        const [west,south,east,north]=bbox;
+        // La coordenada guardada se redondea al metro.
+        const margin=2;
+        if(x<west-margin || x>east+margin || y<south-margin || y>north+margin)return null;
+        return {
+            left:Math.min(100,Math.max(0,(x-west)/(east-west)*100)),
+            top:Math.min(100,Math.max(0,(north-y)/(north-south)*100))
+        };
+    }catch(_){return null;}
+}
 
 function geoTiffClientToProjected(clientX,clientY){
     const canvas=document.getElementById("geoTiffCanvas");
@@ -3494,6 +3515,7 @@ function geoTiffSavePointFromProjected(pointId,pos,openPopup=true){
     const coord=projectedToCoordText(pos.x,pos.y);
     if(!puntosData[pointId])puntosData[pointId]={coordsUTM:"",descripcion:""};
     puntosData[pointId].coordsUTM=coord;
+    delete puntosData[pointId].latlng;
     guardarStorage();
     renderizarPuntos();
     actualizarDashboard();
@@ -3579,13 +3601,15 @@ async function renderGeoTiffCanvasForZoom(force=false){
         }
         ctx.putImageData(img,0,0);
     }catch(err){
+        if(force)throw err;
         console.warn("GeoTIFF zoom redraw failed",err);
     }finally{
-        geoTiffState.isRendering=false;
+        if(token===geoTiffState.redrawToken)geoTiffState.isRendering=false;
     }
 }
 
 function setGeoTiffZoom(nextZoom,keepCenter=true){
+    if(!geoTiffState.loaded)return;
     const shell=document.getElementById("geoTiffCanvasShell");
     let cx=0.5,cy=0.5;
     if(shell&&keepCenter&&shell.scrollWidth&&shell.scrollHeight){
@@ -3652,12 +3676,9 @@ function showGeoTiffPointPopup(pointId){
     if(!viewport||!geoTiffState.bbox)return;
 
     const data=puntosData[pointId]||{};
-    const parsed=parseUtmForGeoTiff(data.coordsUTM);
-    if(!parsed)return;
-
-    const b=geoTiffState.bbox;
-    const left=((parsed.easting-b[0])/(b[2]-b[0]))*100;
-    const top=((b[3]-parsed.northing)/(b[3]-b[1]))*100;
+    const position=geoTiffMarkerPosition(data.coordsUTM);
+    if(!position)return;
+    const {left,top}=position;
 
     hideGeoTiffPointPopup();
 
@@ -3802,21 +3823,16 @@ function renderGeoTiffMarkers(){
     if(!layer||!shell||!geoTiffState.bbox)return;
 
     layer.innerHTML="";
+    if(!geoTiffState.canAssign)return;
     const b=geoTiffState.bbox;
 
     Object.keys(puntosData||{}).forEach(id=>{
         const data=puntosData[id]||{};
         if(!data.coordsUTM)return;
 
-        const parsed=parseUtmForGeoTiff(data.coordsUTM);
-        if(!parsed)return;
-
-        const x=parsed.easting;
-        const y=parsed.northing;
-        if(x<b[0]||x>b[2]||y<b[1]||y>b[3])return;
-
-        const left=((x-b[0])/(b[2]-b[0]))*100;
-        const top=((b[3]-y)/(b[3]-b[1]))*100;
+        const position=geoTiffMarkerPosition(data.coordsUTM);
+        if(!position)return;
+        const {left,top}=position;
 
         const marker=document.createElement("button");
         marker.type="button";
@@ -3910,87 +3926,73 @@ function renderGeoTiffMarkers(){
 }
 
 
-function parseUtmForGeoTiff(text){
-    try{
-        const parts=String(text||"").trim().split(/\s+/);
-        if(parts.length<3)return null;
-        const zoneBand=parts[0].toUpperCase();
-        const zone=Number((zoneBand.match(/\d+/)||[])[0]);
-        const band=(zoneBand.match(/[A-Z]/)||[])[0]||"T";
-        const easting=Number(parts[1]);
-        const northing=Number(parts[2]);
-        if(!Number.isFinite(zone)||!Number.isFinite(easting)||!Number.isFinite(northing))return null;
-        return {zone,band,easting,northing};
-    }catch(e){return null;}
-}
-
 async function loadGeoTiffFile(file){
     if(!file)return;
+    const importId=++geoTiffImportId;
+    geoTiffState={...geoTiffState,loaded:false,canAssign:false,sourceImage:null,redrawToken:geoTiffState.redrawToken+1};
+    geoTiffDragState=null;
+    hideGeoTiffPointPopup();
+    renderGeoTiffMarkers();
     const modal=document.getElementById("geoTiffModal");
     if(modal)modal.style.display="flex";
+    const canvas=document.getElementById("geoTiffCanvas");
+    if(canvas)canvas.width=0;
     geoTiffSetStatus("⏳ Leyendo GeoTIFF. En archivos grandes puede tardar...","warn");
 
     try{
         const GeoTIFF=await ensureGeoTiffLib();
-        const buffer=await file.arrayBuffer();
-        const tiff=await GeoTIFF.fromArrayBuffer(buffer);
+        const tiff=await GeoTIFF.fromArrayBuffer(await file.arrayBuffer());
         const image=await tiff.getImage();
-        const bbox=image.getBoundingBox?image.getBoundingBox():null;
-        const width=image.getWidth();
-        const height=image.getHeight();
+        if(importId!==geoTiffImportId)return;
         const epsg=detectGeoTiffEpsg(image);
-        const utmInfo=epsgToUtmInfo(epsg,bbox);
-
-        if(!bbox||bbox.length<4||!bbox.every(Number.isFinite)){
-            geoTiffState={...geoTiffState,loaded:false,canAssign:false};
-            geoTiffSetStatus("⚠️ Este TIF se ha abierto, pero <strong>no contiene georreferenciación legible</strong>. No se pueden calcular coordenadas. Sube un GeoTIFF con coordenadas o usa el mapa IGN.","error");
-            return;
+        const projection=geoTiffUtmProjection(epsg);
+        if(!projection){
+            if(epsg>=23028 && epsg<=23038){
+                throw new Error(`El plano usa ED50 (EPSG:${epsg}). Convierte el archivo a UTM ETRS89 o WGS84 antes de asignar balizas.`);
+            }
+            throw new Error(epsg
+                ? `EPSG:${epsg} no es una proyección UTM compatible. Exporta el plano en UTM ETRS89 o WGS84.`
+                : "El plano no declara una proyección UTM. Exporta un GeoTIFF con EPSG de UTM ETRS89 o WGS84.");
         }
-
-        if(!utmInfo){
-            geoTiffState={...geoTiffState,loaded:false,canAssign:false,bbox,epsg};
-            geoTiffSetStatus(`⚠️ El GeoTIFF tiene coordenadas, pero la app no reconoce un sistema UTM compatible${epsg?` (EPSG:${epsg})`:""}. No se asignarán puntos para evitar errores. Usa GeoTIFF UTM WGS84/ETRS89 o mapa IGN.`,"error");
-            return;
+        if(typeof proj4!=="function")throw new Error("No se pudo cargar el conversor de coordenadas.");
+        const width=image.getWidth(),height=image.getHeight();
+        if(!Number.isInteger(width) || !Number.isInteger(height) || width<1 || height<1){
+            throw new Error("Dimensiones de GeoTIFF inválidas.");
         }
-
-        const maxW=1600;
-        const scale=Math.min(1,maxW/width);
-        const outW=Math.max(1,Math.round(width*scale));
-        const outH=Math.max(1,Math.round(height*scale));
-
-        const canvas=document.getElementById("geoTiffCanvas");
+        const bbox=geoTiffNorthUpBounds(image);
         if(!canvas)throw new Error("No existe canvas GeoTIFF.");
 
+        const scale=Math.min(1,1600/width);
         geoTiffState={
-            loaded:true,
+            loaded:false,
             fileName:file.name||"GeoTIFF",
             width,
             height,
-            displayWidth:outW,
-            displayHeight:outH,
+            displayWidth:Math.max(1,Math.round(width*scale)),
+            displayHeight:Math.max(1,Math.round(height*scale)),
             bbox,
             epsg,
-            zone:utmInfo.zone,
-            northern:utmInfo.northern,
-            canAssign:true,
+            projection,
+            canAssign:false,
             zoom:1,
             sourceImage:image,
-            redrawToken:0,
+            redrawToken:geoTiffState.redrawToken,
             isRendering:false
         };
 
         applyGeoTiffZoom();
         await renderGeoTiffCanvasForZoom(true);
-        setTimeout(()=>fitGeoTiffToViewer(),80);
-
-        const epsgTxt=epsg?`EPSG:${epsg}`:"sin EPSG declarado";
-        geoTiffSetStatus(`✅ <strong>${escapeHtml(file.name)}</strong><br>${epsgTxt} · UTM zona ${utmInfo.zone} · ${Math.round(bbox[0])}, ${Math.round(bbox[1])} → ${Math.round(bbox[2])}, ${Math.round(bbox[3])}`,"ok");
+        if(importId!==geoTiffImportId)return;
+        geoTiffState.loaded=true;
+        geoTiffState.canAssign=true;
+        setTimeout(()=>{if(importId===geoTiffImportId)fitGeoTiffToViewer();},80);
+        geoTiffSetStatus(`✅ <strong>${escapeHtml(geoTiffState.fileName)}</strong><br>EPSG:${epsg} · ${projection.datum} · huso ${projection.zone} · balizas en WGS84`,"ok");
         geoTiffFillPointSelect();
         renderGeoTiffMarkers();
     }catch(err){
-        console.error(err);
-        geoTiffState={...geoTiffState,loaded:false,canAssign:false};
-        geoTiffSetStatus(`⚠️ No se pudo leer el GeoTIFF o sus coordenadas.<br><strong>Motivo:</strong> ${escapeHtml(err&&err.message?err.message:err)}<br>Usa un GeoTIFF georreferenciado o el mapa IGN.`,"error");
+        if(importId!==geoTiffImportId)return;
+        geoTiffState={...geoTiffState,loaded:false,canAssign:false,sourceImage:null};
+        geoTiffSetStatus(`⚠️ No se pudo importar el GeoTIFF.<br><strong>Motivo:</strong> ${escapeHtml(err?.message||String(err))}`,"error");
     }
 }
 
