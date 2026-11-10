@@ -1,0 +1,1034 @@
+/* MILITOPO Orientación · ciclo de vida con revisión de cierre en Organizar.
+   PUBLICADO→EN DIRECTO y EN DIRECTO→FINALIZADO pasan por Cloud Functions. */
+import "../../../js/v2/bootstrap.js";
+import {
+  doc,
+  getDoc,
+  getDocs,
+  collection,
+  serverTimestamp,
+  runTransaction
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
+
+const MANAGER_ROLES = new Set(["organizer", "super_admin"]);
+const ORDER = ["draft", "prepared", "published", "live", "finished"];
+const META = {
+  draft: { label: "BORRADOR", action: "MARCAR COMO PREPARADO", next: "prepared", hint: "Diseña la carrera y sincroniza su estructura antes de cerrarla." },
+  prepared: { label: "PREPARADO", action: "PUBLICAR CARRERA", next: "published", hint: "Al publicar se bloquearán balizas, recorridos, itinerarios, plano y configuración de diseño. Confirma solo cuando estén revisados." },
+  published: { label: "PUBLICADO", action: "INICIAR CARRERA", next: "live", hint: "Carrera visible para el flujo operativo. Iníciala únicamente cuando comience la actividad." },
+  live: { label: "EN DIRECTO", action: "FINALIZAR CARRERA", next: "finished", hint: "La sesión Live está activa y los corredores pueden estar compitiendo." },
+  finished: { label: "FINALIZADO", action: "", next: "", hint: "Estado final. Los resultados, tiempos y tracks permanecen disponibles en el histórico." }
+};
+const state = {
+  auth: globalThis.MILITOPO_V2_AUTH || null,
+  services: null,
+  eventId: "",
+  event: null,
+  busy: false,
+  contextEpoch: 0,
+  refreshSequence: 0,
+  panel: null,
+  status: null,
+  detail: null,
+  action: null,
+  refresh: null,
+  liveLink: null,
+  overlay: null,
+  overlayShownAt: 0
+};
+
+function roleOf(auth = state.auth) {
+  const role = String(auth?.role || "runner");
+  return ["runner", "organizer", "super_admin"].includes(role) ? role : "runner";
+}
+function canManage() {
+  return Boolean(state.auth?.uid && state.auth?.emailVerified && MANAGER_ROLES.has(roleOf()));
+}
+function esc(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
+}
+function validStatus(value) {
+  const raw = String(value || "").toLowerCase();
+  // Compatibilidad histórica: nunca convertir un evento archivado en borrador.
+  if (raw === "archived") return "finished";
+  return ORDER.includes(raw) ? raw : "draft";
+}
+function currentEventId() {
+  return String(state.eventId || document.getElementById("eventId")?.value || "").trim();
+}
+
+function lifecycleToken() {
+  return { eventId: currentEventId(), uid: state.auth?.uid, role: roleOf(), epoch: state.contextEpoch };
+}
+function currentContext(token) {
+  return token.epoch === state.contextEpoch && token.eventId === currentEventId() &&
+    token.uid === state.auth?.uid && token.role === roleOf() && canManage();
+}
+function structureReady(data) {
+  const points = Number(data?.checkpointSyncedCount), courses = Number(data?.courseSyncedCount);
+  return Number.isSafeInteger(points) && points >= 3 && Number.isSafeInteger(courses) && courses >= 1;
+}
+
+// F2.32 · El botón directo ESTADO Y PUBLICACIÓN no debe omitir las
+// comprobaciones mínimas de diseño del Preflight (paso 9).
+// Solo lee Firestore: no edita controles, recorridos ni itinerarios.
+function structureVersion(value) {
+  if (value?.seconds !== undefined) return `${value.seconds}:${value.nanoseconds ?? 0}`;
+  if (typeof value?.toMillis === "function") return String(value.toMillis());
+  return value == null ? "" : String(value);
+}
+function validatePublicationCollections(header, checkpointDocs, courseDocs) {
+  const errors = [];
+  const expectedPoints = Number(header?.checkpointSyncedCount);
+  const expectedCourses = Number(header?.courseSyncedCount);
+  const points = new Map();
+  const courses = new Set();
+  const pointsList = Array.isArray(checkpointDocs) ? checkpointDocs : [];
+  const courseList = Array.isArray(courseDocs) ? courseDocs : [];
+  if (!structureReady(header) || pointsList.length !== expectedPoints || courseList.length !== expectedCourses) {
+    errors.push("Los recuentos sincronizados no coinciden con los documentos de balizas y recorridos.");
+  }
+  for (const entry of pointsList) {
+    const item = entry?.data || {};
+    const id = String(entry?.id || "").trim();
+    if (!id || id !== String(item.checkpointId || "").trim() || points.has(id)) {
+      errors.push(`Identificador de baliza incoherente o duplicado: ${id || "sin ID"}.`);
+      continue;
+    }
+    points.set(id, item);
+    const lat = item.lat, lon = item.lon;
+    if (typeof lat !== "number" || !Number.isFinite(lat) || lat < -90 || lat > 90 ||
+        typeof lon !== "number" || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+      errors.push(`Coordenadas inválidas en ${id}.`);
+    }
+    if (item.iof?.complete !== true) errors.push(`Descripción IOF pendiente en ${id}.`);
+  }
+  if (!points.has("START") || !points.has("FINISH")) errors.push("Falta START o FINISH.");
+  if (points.get("START")?.type !== "SALIDA" || points.get("FINISH")?.type !== "LLEGADA") {
+    errors.push("El tipo de START o FINISH no coincide con su identificador.");
+  }
+  const expectedControls = Number(header?.controlCount);
+  if (Number.isSafeInteger(expectedControls) && expectedControls > 0 && points.size !== expectedControls + 2) {
+    errors.push("El número de balizas no coincide con la configuración de la carrera.");
+  }
+  const controlsPerRoute = Number(header?.controlsPerRoute);
+  for (const entry of courseList) {
+    const course = entry?.data || {}, id = String(entry?.id || "").trim();
+    const ids = Array.isArray(course.points) ? course.points.map(x => String(x || "").trim()) : [];
+    if (!id || id !== String(course.courseId || course.routeId || "").trim() || courses.has(id)) {
+      errors.push(`Identificador de recorrido incoherente: ${id || "sin ID"}.`);
+      continue;
+    }
+    courses.add(id);
+    if (ids.length < 3 || ids[0] !== "START" || ids[ids.length-1] !== "FINISH" ||
+        new Set(ids).size !== ids.length || ids.some(pointId => !points.has(pointId))) {
+      errors.push(`Recorrido ${id}: orden, balizas o referencias inválidas.`);
+    }
+    if (Number.isSafeInteger(controlsPerRoute) && controlsPerRoute > 0 && ids.length !== controlsPerRoute + 2) {
+      errors.push(`Recorrido ${id}: número de balizas diferente al configurado.`);
+    }
+  }
+  return errors;
+}
+async function verifyPublicationDesign(firestore, eventId, header) {
+  const [pointSnaps, courseSnaps] = await Promise.all([
+    getDocs(collection(firestore, "events", eventId, "checkpoints")),
+    getDocs(collection(firestore, "events", eventId, "courses"))
+  ]);
+  const errors = validatePublicationCollections(header,
+    pointSnaps.docs.map(snap => ({ id: snap.id, data: snap.data() })),
+    courseSnaps.docs.map(snap => ({ id: snap.id, data: snap.data() })));
+  if (errors.length) {
+    throw new Error(`No se puede publicar: ${errors.slice(0, 3).join(" ")} Revisa Controles, Recorridos y Preflight (pasos 6–9).`);
+  }
+  // El guardado habitual de estructura modifica structureUpdatedAt en el padre;
+  // comprobar la misma revisión dentro de la transacción evita publicar tras
+  // una sincronización que termine mientras se revisan los documentos.
+  if (!structureVersion(header?.structureUpdatedAt)) {
+    throw new Error("La estructura no tiene una sincronización confirmada. Guarda el diseño y vuelve a revisar el Preflight.");
+  }
+  return structureVersion(header.structureUpdatedAt);
+}
+
+function publishLifecycleState(eventId, status, exists = true) {
+  const normalized = validStatus(status);
+  const locked = Boolean(exists && !["draft", "prepared"].includes(normalized));
+  const detail = {
+    eventId: String(eventId || ""),
+    status: normalized,
+    exists: Boolean(exists),
+    lockedDesign: locked,
+    label: META[normalized]?.label || normalized
+  };
+  globalThis.MILITOPO_V2_EVENT_STATUS = detail;
+  globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status", { detail }));
+  return detail;
+}
+async function services() {
+  if (!state.services) state.services = await globalThis.MILITOPO_V2.firebase();
+  return state.services;
+}
+function injectStyle() {
+  if (document.getElementById("m2LifecycleStyle")) return;
+  const style = document.createElement("style");
+  style.id = "m2LifecycleStyle";
+  style.textContent = `
+    .m2-life{margin:0;padding:0;color:#172018;background:transparent}
+    .m2-life-shell{display:grid;gap:14px}
+    .m2-life-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px;border:1px solid rgba(255,255,255,.58);border-radius:20px;background:linear-gradient(145deg,#edf0e4,#dfe4d5);box-shadow:0 12px 30px rgba(0,0,0,.14)}
+    .m2-life-kicker{font:900 10px/1 system-ui,-apple-system,sans-serif;letter-spacing:.13em;color:#667168;text-transform:uppercase;margin-bottom:7px}
+    .m2-life-title{font:950 20px/1.05 system-ui,-apple-system,sans-serif;letter-spacing:-.02em;color:#172018}
+    .m2-life-sub{margin-top:7px;font:650 12px/1.35 system-ui,-apple-system,sans-serif;color:#5b665e;max-width:680px}
+    .m2-life-chip{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 11px;border-radius:999px;border:1px solid rgba(20,31,21,.16);font:900 10px/1 system-ui,-apple-system,sans-serif;letter-spacing:.07em;background:#f7f8ef;color:#253027;white-space:nowrap}
+    .m2-life-chip[data-status="draft"]{background:#eceee8;color:#4e5851}.m2-life-chip[data-status="prepared"]{background:#f1e7c9;color:#725a20}.m2-life-chip[data-status="published"]{background:#dcead9;color:#315c36}.m2-life-chip[data-status="live"]{background:#f2d9d2;color:#8a3e2e}.m2-life-chip[data-status="finished"]{background:#dce7ef;color:#39566c}
+    .m2-life-track-wrap{padding:13px;border:1px solid rgba(20,31,21,.12);border-radius:18px;background:#f2f4ea;overflow:hidden}
+    .m2-life-track-label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.m2-life-track-label strong{font:900 10px/1 system-ui;letter-spacing:.1em}.m2-life-track-label span{font:650 10px/1.2 system-ui;color:#69736b}
+    .m2-life-track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0}
+    .m2-life-step{position:relative;min-width:0;padding:10px 5px;border-radius:11px;text-align:center;font:850 9px/1.15 system-ui,-apple-system,sans-serif;border:1px solid rgba(20,31,21,.10);background:#e4e8dc;color:#6e776f;opacity:.7}
+    .m2-life-step.done{opacity:1;background:#dce8d7;color:#365d3a;border-color:rgba(60,106,65,.18)}
+    .m2-life-step.active{opacity:1;background:#1f2b20;color:#f8f4e6;border-color:#1f2b20;box-shadow:0 5px 14px rgba(0,0,0,.14)}
+    .m2-life-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);gap:12px}
+    .m2-life-card{padding:15px;border:1px solid rgba(20,31,21,.12);border-radius:18px;background:#f1f3e9}
+    .m2-life-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:11px}.m2-life-card-head strong{font:900 11px/1 system-ui;letter-spacing:.08em}.m2-life-card-head span{font:700 10px/1.2 system-ui;color:#69736b}
+    .m2-life-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .m2-life-check{display:flex;align-items:center;gap:9px;min-height:56px;padding:10px;border:1px solid rgba(20,31,21,.10);border-radius:13px;background:#e8ebe1}
+    .m2-life-check-dot{width:10px;height:10px;border-radius:50%;background:#8d958e;box-shadow:0 0 0 4px rgba(141,149,142,.11);flex:0 0 auto}.m2-life-check.is-ok .m2-life-check-dot{background:#638b61;box-shadow:0 0 0 4px rgba(99,139,97,.12)}.m2-life-check.is-warn .m2-life-check-dot{background:#c59e4c;box-shadow:0 0 0 4px rgba(197,158,76,.13)}
+    .m2-life-check-copy{display:grid;gap:2px;min-width:0}.m2-life-check-copy strong{font:900 10px/1.1 system-ui}.m2-life-check-copy span{font:650 10px/1.22 system-ui;color:#667168}
+    .m2-life-detail{font:700 12px/1.45 system-ui,-apple-system,sans-serif;color:#465249;margin:0;padding:12px;border-radius:13px;background:#e8ebe1;border:1px solid rgba(20,31,21,.09)}
+    .m2-life-next{display:grid;gap:8px}.m2-life-next small{font:900 9px/1 system-ui;letter-spacing:.11em;color:#727c74}.m2-life-next strong{font:950 15px/1.15 system-ui;color:#202b21}.m2-life-next p{margin:0;font:650 11px/1.4 system-ui;color:#59645c}
+    .m2-life-actions{display:grid;grid-template-columns:auto minmax(180px,1fr);gap:8px;margin-top:12px}.m2-life-live-link{grid-column:1/-1;background:linear-gradient(180deg,#a94331,#7f2e23)!important;color:#fff5ee!important;border-color:#c95b45!important;box-shadow:0 8px 20px rgba(116,37,25,.20);position:relative}.m2-life-live-link::before{content:"●";margin-right:7px;color:#ffb19e}.m2-life-live-link:not([hidden]){animation:m2LifeLiveLinkPulse 1.6s ease-in-out infinite}@keyframes m2LifeLiveLinkPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
+    .m2-life button{min-height:46px;border-radius:13px;border:1px solid rgba(20,31,21,.16);padding:9px 12px;font:900 10px/1.15 system-ui,-apple-system,sans-serif;cursor:pointer;background:#e5e9de;color:#202b21}
+    .m2-life button[disabled]{opacity:.46;cursor:not-allowed}.m2-life .m2-life-primary{background:#1f2b20;color:#f7f4e7;border-color:#1f2b20}.m2-life .m2-life-primary[data-next="live"]{background:#8c3d2e;border-color:#8c3d2e}.m2-life .m2-life-primary[data-next="finished"]{background:#495e6c;border-color:#495e6c}
+    .m2-life #m2LifecycleAction:disabled,.m2-life #m2LifecycleRefresh:disabled{opacity:1!important;background:#e5e7e2!important;color:#555e56!important;border:2px dashed #8a9389!important;box-shadow:none!important;cursor:not-allowed}
+    .m2-life #m2LifecycleAction:disabled::before,.m2-life #m2LifecycleRefresh:disabled::before,.m2-life-availability[data-blocked="true"]::before{content:"";display:inline-block;width:16px;height:16px;margin-right:7px;vertical-align:-3px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23555e56' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='10' width='16' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3M12 14v3'/%3E%3C/svg%3E") center/contain no-repeat}
+    .m2-life-availability{grid-column:1/-1;margin:0!important;padding:10px 12px;border-radius:10px;background:#e0eddf;color:#244d2b!important;font:750 12px/1.4 system-ui!important;overflow-wrap:anywhere}
+    .m2-life-availability[data-blocked="true"]{background:#fff0d1;color:#614617!important;border:1px solid #cfb274}
+    .m2-life-overlay[hidden]{display:none!important}
+    .m2-life-overlay{position:fixed;inset:0;z-index:2147482500;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,3,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+    .m2-life-progress-card{width:min(92vw,430px);border:1px solid rgba(245,204,121,.52);border-radius:22px;padding:22px 20px;background:rgba(8,20,10,.97);box-shadow:0 18px 60px rgba(0,0,0,.35);text-align:center;color:#f6f3e8}
+    .m2-life-progress-icon{font-size:2rem;line-height:1;margin-bottom:10px}.m2-life-progress-title{font-weight:900;letter-spacing:.09em;color:#f5d18b;font-size:1.05rem}.m2-life-progress-text{margin-top:8px;line-height:1.45;opacity:.88;font-size:.84rem;min-height:2.9em}
+    .m2-life-progress-track{height:7px;margin-top:18px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.10)}.m2-life-progress-bar{width:12%;height:100%;border-radius:inherit;background:linear-gradient(90deg,rgba(245,204,121,.55),#f5cc79);transition:width .48s cubic-bezier(.2,.8,.2,1)}
+    .m2-life-progress-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:14px}.m2-life-progress-step{padding:7px 5px;border-radius:10px;border:1px solid rgba(255,255,255,.08);font-size:.61rem;line-height:1.2;opacity:.42;transition:opacity .28s ease,background .28s ease,border-color .28s ease}.m2-life-progress-step.is-active{opacity:1;background:rgba(245,204,121,.10);border-color:rgba(245,204,121,.38)}.m2-life-progress-step.is-done{opacity:.78;background:rgba(118,166,88,.12);border-color:rgba(118,166,88,.30)}
+    .m2-life-overlay.is-success .m2-life-progress-bar{width:100%!important}.m2-life-overlay.is-error .m2-life-progress-bar{width:100%!important;opacity:.5}.m2-life-progress-card{animation:m2LifeCardIn .22s ease-out both}@keyframes m2LifeCardIn{from{opacity:0;transform:scale(.975) translateY(8px)}to{opacity:1;transform:none}}
+    @media(prefers-reduced-motion:reduce){.m2-life-progress-bar,.m2-life-progress-step,.m2-life-progress-card{transition:none;animation:none}}
+    @media(max-width:720px){.m2-life-grid{grid-template-columns:1fr}.m2-life-track{display:flex;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}.m2-life-track::-webkit-scrollbar{display:none}.m2-life-step{flex:0 0 92px}.m2-life-checks{grid-template-columns:1fr 1fr}.m2-life-hero{padding:14px}.m2-life-title{font-size:18px}}
+    @media(max-width:430px){.m2-life-checks{grid-template-columns:1fr}.m2-life-actions{grid-template-columns:1fr}.m2-life-actions button{width:100%}}
+  `;
+  document.head.appendChild(style);
+}
+const TRANSITION_UI = {
+  "draft>prepared": ["PREPARANDO EVENTO", "Validando balizas y recorridos y guardando el estado…"],
+  "prepared>published": ["PUBLICANDO EVENTO", "Aplicando el estado PUBLICADO y cerrando el diseño…"],
+  "published>live": ["INICIANDO EVENTO", "Creando la sesión Live V2 y autorizando corredores…"],
+  "live>finished": ["FINALIZANDO EVENTO", "Cerrando la sesión Live V2 y guardando el final de la actividad…"]
+};
+function ensureProcessingOverlay() {
+  if (state.overlay?.isConnected) return state.overlay;
+  const overlay = document.createElement("div");
+  overlay.id = "m2LifecycleProcessing";
+  overlay.className = "m2-life-overlay";
+  overlay.hidden = true;
+  overlay.setAttribute("role", "status");
+  overlay.setAttribute("aria-live", "polite");
+  overlay.setAttribute("aria-busy", "false");
+  overlay.innerHTML = `
+    <div class="m2-life-progress-card">
+      <div class="m2-life-progress-icon" aria-hidden="true">⏳</div>
+      <div class="m2-life-progress-title">PROCESANDO…</div>
+      <div class="m2-life-progress-text">Espera un momento.</div>
+      <div class="m2-life-progress-track" aria-hidden="true"><div class="m2-life-progress-bar"></div></div>
+      <div class="m2-life-progress-steps" aria-hidden="true">
+        <div class="m2-life-progress-step" data-stage="1">SOLICITUD</div>
+        <div class="m2-life-progress-step" data-stage="2">VALIDACIÓN</div>
+        <div class="m2-life-progress-step" data-stage="3">GUARDADO</div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  state.overlay = overlay;
+  return overlay;
+}
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+function setProcessingStage(stage, title, text, width) {
+  const overlay = ensureProcessingOverlay();
+  if (title) overlay.querySelector(".m2-life-progress-title").textContent = title;
+  if (text) overlay.querySelector(".m2-life-progress-text").textContent = text;
+  const bar = overlay.querySelector(".m2-life-progress-bar");
+  if (bar && Number.isFinite(Number(width))) bar.style.width = `${Math.max(8, Math.min(100, Number(width)))}%`;
+  overlay.querySelectorAll(".m2-life-progress-step").forEach((node, index) => {
+    const n = index + 1;
+    node.classList.toggle("is-done", n < stage);
+    node.classList.toggle("is-active", n === stage);
+  });
+}
+function showProcessing(from, to) {
+  const overlay = ensureProcessingOverlay();
+  const [title, text] = TRANSITION_UI[`${from}>${to}`] || ["ACTUALIZANDO EVENTO", "Guardando el nuevo estado…"];
+  overlay.classList.remove("is-success", "is-error");
+  overlay.querySelector(".m2-life-progress-icon").textContent = "⏳";
+  overlay.hidden = false;
+  overlay.setAttribute("aria-busy", "true");
+  state.overlayShownAt = Date.now();
+  setProcessingStage(1, title, "Solicitud recibida. Preparando la operación…", 12);
+
+  // La secuencia visual empieza inmediatamente y avanza aunque el backend responda muy rápido.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    setProcessingStage(1, title, "Solicitud recibida. Preparando la operación…", 18);
+  }));
+  clearTimeout(state.processingStage2Timer);
+  clearTimeout(state.processingStage3Timer);
+  state.processingStage2Timer = setTimeout(() => {
+    if (!overlay.hidden) setProcessingStage(2, title, text, 48);
+  }, 420);
+  state.processingStage3Timer = setTimeout(() => {
+    if (!overlay.hidden) setProcessingStage(3, title, "Guardando y confirmando el nuevo estado…", 78);
+  }, 1050);
+}
+async function finishProcessing(ok, text = "") {
+  const overlay = ensureProcessingOverlay();
+  clearTimeout(state.processingStage2Timer);
+  clearTimeout(state.processingStage3Timer);
+
+  // Mantener la secuencia el tiempo suficiente para que pueda leerse y no dé sensación de salto.
+  const elapsed = Date.now() - Number(state.overlayShownAt || 0);
+  if (elapsed < 1650) {
+    if (elapsed < 420) {
+      await sleep(Math.max(0, 420 - elapsed));
+      setProcessingStage(2, null, "Validando la operación con MILITOPO…", 48);
+    }
+    const elapsed2 = Date.now() - Number(state.overlayShownAt || 0);
+    if (elapsed2 < 1050) {
+      await sleep(Math.max(0, 1050 - elapsed2));
+      setProcessingStage(3, null, "Guardando y confirmando el nuevo estado…", 78);
+    }
+    const elapsed3 = Date.now() - Number(state.overlayShownAt || 0);
+    if (elapsed3 < 1650) await sleep(1650 - elapsed3);
+  }
+
+  overlay.classList.toggle("is-success", Boolean(ok));
+  overlay.classList.toggle("is-error", !ok);
+  overlay.querySelector(".m2-life-progress-icon").textContent = ok ? "✅" : "⚠️";
+  overlay.querySelector(".m2-life-progress-title").textContent = ok ? "OPERACIÓN COMPLETADA" : "NO SE PUDO COMPLETAR";
+  overlay.querySelector(".m2-life-progress-text").textContent = text || (ok ? "Estado actualizado correctamente." : "Revisa el mensaje del bloque de gestión.");
+  overlay.querySelector(".m2-life-progress-bar").style.width = "100%";
+  overlay.querySelectorAll(".m2-life-progress-step").forEach(node => {
+    node.classList.remove("is-active");
+    node.classList.add("is-done");
+  });
+  overlay.setAttribute("aria-busy", "false");
+
+  // Resultado visible el tiempo suficiente para leerlo.
+  await sleep(ok ? 1350 : 2000);
+  overlay.hidden = true;
+  overlay.classList.remove("is-success", "is-error");
+  overlay.querySelector(".m2-life-progress-bar").style.width = "12%";
+}
+
+function ensurePanel() {
+  if (state.panel?.isConnected) return state.panel;
+  const step = document.getElementById("step1");
+  if (!step) return null;
+  injectStyle();
+  const panel = document.createElement("section");
+  panel.id = "m2EventLifecycle";
+  panel.className = "m2-life";
+  panel.innerHTML = `
+    <div class="m2-life-shell">
+      <div class="m2-life-hero">
+        <div>
+          <div class="m2-life-kicker">CICLO OPERATIVO DE LA CARRERA</div>
+          <div class="m2-life-title">ESTADO Y PUBLICACIÓN</div>
+          <div class="m2-life-sub">Controla el avance de la carrera sin salir del panel de gestión. Cada estado protege las funciones que corresponden a esa fase.</div>
+        </div>
+        <div id="m2LifecycleStatus" class="m2-life-chip" data-status="draft">SIN CARGAR</div>
+      </div>
+      <div class="m2-life-track-wrap">
+        <div class="m2-life-track-label"><strong>PROGRESO</strong><span>El avance es secuencial</span></div>
+        <div id="m2LifecycleTrack" class="m2-life-track"></div>
+      </div>
+      <div class="m2-life-grid">
+        <div class="m2-life-card">
+          <div class="m2-life-card-head"><strong>COMPROBACIONES</strong><span>Estado actual del evento</span></div>
+          <div id="m2LifecycleChecks" class="m2-life-checks"></div>
+          <div id="m2LifecycleDetail" class="m2-life-detail">Carga una carrera para consultar su estado.</div>
+        </div>
+        <div class="m2-life-card m2-life-next">
+          <small>SIGUIENTE ACCIÓN</small>
+          <strong id="m2LifecycleNextTitle">CARRERA NO CARGADA</strong>
+          <p id="m2LifecycleNextHint">Carga una carrera desde CARGAR CARRERA para continuar.</p>
+          <div class="m2-life-actions">
+            <button id="m2LifecycleRefresh" type="button">↻ ACTUALIZAR</button>
+            <button id="m2LifecycleCheckStart" type="button" hidden>COMPROBAR INICIO</button>
+            <button id="m2LifecycleAction" type="button" class="m2-life-primary" disabled>NO DISPONIBLE</button>
+            <p id="m2LifecycleAvailability" class="m2-life-availability" role="status" aria-live="polite" aria-atomic="true"></p>
+            <button id="m2LifecycleGoLive" type="button" class="m2-life-live-link" hidden>IR A LIVE · CARRERA EN DIRECTO</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  const nav = step.querySelector(".nav-row");
+  if (nav) nav.insertAdjacentElement("beforebegin", panel);
+  else step.appendChild(panel);
+  state.panel = panel;
+  state.status = panel.querySelector("#m2LifecycleStatus");
+  state.detail = panel.querySelector("#m2LifecycleDetail");
+  state.action = panel.querySelector("#m2LifecycleAction");
+  state.refresh = panel.querySelector("#m2LifecycleRefresh");
+  state.liveLink = panel.querySelector("#m2LifecycleGoLive");
+  state.refresh.addEventListener("click", () => refresh(true));
+  state.action.addEventListener("click", advance);
+  panel.querySelector("#m2LifecycleCheckStart").addEventListener("click", inspectLiveStart);
+  state.liveLink?.addEventListener("click",()=>globalThis.dispatchEvent(new CustomEvent("militopo:r1-open-live")));
+  paint();
+  return panel;
+}
+function trackHtml(status) {
+  const current = ORDER.indexOf(status);
+  return ORDER.map((key, index) => {
+    const cls = index < current ? "done" : index === current ? "active" : "";
+    return `<div class="m2-life-step ${cls}">${esc(META[key].label)}</div>`;
+  }).join("");
+}
+function checkItem(label, value, ok = false, warn = false) {
+  return `<div class="m2-life-check ${ok ? "is-ok" : warn ? "is-warn" : ""}"><span class="m2-life-check-dot"></span><span class="m2-life-check-copy"><strong>${esc(label)}</strong><span>${esc(value)}</span></span></div>`;
+}
+function checksHtml(data, status) {
+  const points = Math.max(0, Number(data?.checkpointSyncedCount || 0));
+  const courses = Math.max(0, Number(data?.courseSyncedCount || 0));
+  const structureOk = points >= 3;
+  const routesOk = courses >= 1;
+  const locked = !["draft", "prepared"].includes(status);
+  const online = navigator.onLine;
+  return [
+    checkItem("PUNTOS SINCRONIZADOS", `${points} en Firestore`, structureOk, !structureOk),
+    checkItem("RECORRIDOS", `${courses} sincronizado${courses === 1 ? "" : "s"}`, routesOk, !routesOk),
+    checkItem("DISEÑO", locked ? "Bloqueado por estado" : "Editable", true, false),
+    checkItem("CONEXIÓN", online ? "Online" : "Offline · no se puede avanzar", online, !online)
+  ].join("");
+}
+function nextHint(status) {
+  if (status === "draft") return "Cierra la preparación cuando puntos y recorridos estén sincronizados.";
+  if (status === "prepared") return "PUBLICAR BLOQUEA EL DISEÑO: ya no podrás editar balizas, recorridos, itinerarios ni plano. Antes de publicar, se pedirá confirmación.";
+  if (status === "published") return "Iniciar crea la sesión Live V2. Hazlo solo al comenzar la actividad.";
+  if (status === "live") return "Finalizar cierra la sesión Live y consolida el cierre de la actividad.";
+  if (status === "finished") return "La carrera ya ha finalizado. Consulta los resultados y el histórico.";
+  return "La carrera está cerrada. Los datos permanecen conservados.";
+}
+function readinessText(data, status) {
+  if (status === "draft" || status === "prepared") {
+    const points = Number(data?.checkpointSyncedCount || 0);
+    const courses = Number(data?.courseSyncedCount || 0);
+    if (!structureReady(data)) return `Antes de ${status === "prepared" ? "PUBLICAR" : "marcar como PREPARADO"}, revisa la estructura sincronizada: ${points} puntos · ${courses} recorridos. Se necesitan al menos 3 puntos y 1 recorrido con recuentos válidos.`;
+    if (status === "prepared") return "El evento está preparado. Publicarlo lo deja listo para la fase de participantes y salida.";
+    return `Estructura preparada: ${points} puntos · ${courses} recorridos. Ya puedes cerrar la preparación.`;
+  }
+  if (status === "prepared") return "El evento está preparado. Publicarlo lo deja listo para la fase de participantes y salida.";
+  if (status === "published") return "El evento está publicado. Inícialo solo cuando vaya a comenzar la actividad.";
+  if (status === "live") return "Evento EN DIRECTO. Finalízalo cuando termine la actividad.";
+  if (status === "finished") return "Evento finalizado. Los resultados y el GPS se mantienen disponibles.";
+  return "El histórico de la carrera permanece disponible en Firebase.";
+}
+function paintAvailability() {
+  if (!state.panel || !state.action) return;
+  const blocked = state.action.disabled;
+  let reason = "Disponible: puedes continuar con esta acción.";
+  if (state.busy) reason = "Operación en curso. Espera a que termine.";
+  else if (!navigator.onLine) reason = "Sin conexión. Recupera Internet para actualizar o cambiar el estado.";
+  else if (!canManage()) reason = "Necesitas una cuenta de organizador verificada para continuar.";
+  else if (!currentEventId() || !state.event) reason = "Carga una carrera y actualiza su estado para continuar.";
+  else if (!META[validStatus(state.event.status)]?.next) reason = "Carrera finalizada. Es el último estado; consulta sus resultados e histórico.";
+  else if (blocked) reason = "Estructura incompleta: sincroniza al menos 3 puntos y 1 recorrido válido.";
+  state.action.setAttribute("aria-disabled", String(blocked));
+  state.action.setAttribute("aria-describedby", "m2LifecycleAvailability");
+  state.action.title = reason;
+  const note = state.panel.querySelector("#m2LifecycleAvailability");
+  if (note) { note.textContent = (blocked ? "Bloqueado: " : "") + reason; note.dataset.blocked = String(blocked); }
+  state.refresh.disabled = state.busy || !navigator.onLine;
+  state.refresh.textContent = state.refresh.disabled ? "ACTUALIZAR" : "↻ ACTUALIZAR";
+  state.refresh.setAttribute("aria-disabled", String(state.refresh.disabled));
+  state.refresh.title = state.busy ? "Espera a que termine la operación." : !navigator.onLine ? "Sin conexión: no se puede consultar el estado." : "Consultar el estado de la carrera.";
+}
+function paint(message = "") {
+  const notice = state.startNotice;
+  if (!message && notice && currentContext(notice.token) && state.event?.status === "published") message = notice.message;
+  paintContent(message);
+  paintAvailability();
+  const check = state.panel?.querySelector("#m2LifecycleCheckStart");
+  if (check) {
+    check.hidden = !canManage() || state.event?.status !== "published";
+    check.disabled = state.busy || !navigator.onLine;
+  }
+}
+function paintContent(message = "") {
+  ensurePanel();
+  if (!state.panel) return;
+  const eventId = currentEventId();
+  const track = state.panel.querySelector("#m2LifecycleTrack");
+  const checks = state.panel.querySelector("#m2LifecycleChecks");
+  const nextTitle = state.panel.querySelector("#m2LifecycleNextTitle");
+  const nextHintEl = state.panel.querySelector("#m2LifecycleNextHint");
+  if (!canManage()) {
+    state.status.textContent = "SIN PERMISOS";
+    state.status.dataset.status = "draft";
+    state.detail.textContent = "Se necesita una cuenta organizer o super_admin verificada.";
+    if (checks) checks.innerHTML = checkItem("ACCESO", "Cuenta sin permisos de gestión", false, true);
+    if (nextTitle) nextTitle.textContent = "ACCESO NO DISPONIBLE";
+    if (nextHintEl) nextHintEl.textContent = "Verifica la cuenta y el rol antes de continuar.";
+    state.action.disabled = true;
+    state.refresh.disabled = state.busy;
+    state.action.textContent = "NO DISPONIBLE";
+    state.action.dataset.next = "";
+    if (state.liveLink) state.liveLink.hidden = true;
+    if (track) track.innerHTML = trackHtml("draft");
+    return;
+  }
+  if (!eventId || !state.event) {
+    state.status.textContent = eventId ? "COMPROBANDO" : "SIN CARRERA";
+    state.status.dataset.status = "draft";
+    state.detail.textContent = message || "Carga una carrera y sincronízala con Firestore para consultar su ciclo operativo.";
+    if (checks) checks.innerHTML = [checkItem("CARRERA", eventId || "Sin cargar", Boolean(eventId), !eventId),checkItem("CONEXIÓN", navigator.onLine ? "Online" : "Offline", navigator.onLine, !navigator.onLine)].join("");
+    if (nextTitle) nextTitle.textContent = "CARRERA NO DISPONIBLE";
+    if (nextHintEl) nextHintEl.textContent = "Carga una carrera desde CARGAR CARRERA para continuar.";
+    state.action.disabled = true;
+    state.refresh.disabled = state.busy;
+    state.action.textContent = "NO DISPONIBLE";
+    state.action.dataset.next = "";
+    if (state.liveLink) state.liveLink.hidden = true;
+    if (track) track.innerHTML = trackHtml("draft");
+    return;
+  }
+  const status = validStatus(state.event.status);
+  const meta = META[status];
+  state.refresh.disabled = state.busy;
+  state.status.textContent = meta.label;
+  state.status.dataset.status = status;
+  if (state.liveLink) state.liveLink.hidden = status !== "live";
+  if (track) track.innerHTML = trackHtml(status);
+  if (checks) checks.innerHTML = checksHtml(state.event, status);
+  state.detail.textContent = message || readinessText(state.event, status);
+  if (nextHintEl) nextHintEl.textContent = nextHint(status);
+  if (!meta.next) {
+    if (nextTitle) nextTitle.textContent = "CICLO COMPLETADO";
+    state.action.disabled = true;
+    state.action.textContent = "CARRERA FINALIZADA";
+    state.action.dataset.next = "";
+  } else {
+    if (nextTitle) nextTitle.textContent = `${meta.label} → ${META[meta.next].label}`;
+    const notReady = ["draft", "prepared"].includes(status) && !structureReady(state.event);
+    state.action.disabled = state.busy || notReady || !navigator.onLine;
+    state.action.textContent = state.busy ? "ACTUALIZANDO…" : meta.action;
+    state.action.dataset.next = meta.next;
+  }
+}
+async function refresh(userRequested = false) {
+  ensurePanel();
+  const eventId = currentEventId();
+  state.eventId = eventId;
+  const token = lifecycleToken(), sequence = ++state.refreshSequence;
+  const current = () => currentContext(token) && sequence === state.refreshSequence;
+  if (!canManage() || !eventId) {
+    state.event = null;
+    publishLifecycleState(eventId, "draft", false);
+    paint();
+    return false;
+  }
+  if (!navigator.onLine) {
+    paint("Sin conexión. El estado de Firestore no se puede comprobar ahora; los datos locales permanecen intactos.");
+    return false;
+  }
+  try {
+    const { firestore } = await services();
+    if (!current()) return false;
+    const snap = await getDoc(doc(firestore, "events", eventId));
+    if (!current()) return false;
+    if (!snap.exists()) {
+      state.event = null;
+      publishLifecycleState(eventId, "draft", false);
+      paint("Este código todavía no existe en Firestore. Confirma el PASO 1 y espera a que aparezca ‘Firestore al día’. ");
+      return false;
+    }
+    const data = snap.data() || {};
+    if (String(data.ownerUid || "") !== String(state.auth?.uid || "") && roleOf() !== "super_admin") {
+      state.event = null;
+      paint("Este evento no pertenece a esta cuenta.");
+      return false;
+    }
+    state.event = { ...data, eventId: snap.id, status: validStatus(data.status) };
+    publishLifecycleState(snap.id, state.event.status, true);
+    paint(userRequested ? "Estado actualizado desde Firestore. " + readinessText(state.event, state.event.status) : "");
+    return true;
+  } catch (error) {
+    if (!current()) return false;
+    console.error("[MILITOPO D1] refresh", error);
+    paint("No se pudo leer el estado del evento. La copia local no se ha modificado.");
+    return false;
+  }
+}
+// F2.30: aviso común para publicar desde ESTADO Y PUBLICACIÓN y Preflight.
+// La decisión no implica una garantía de bloqueo por sí sola: la barrera real
+// son las reglas Firestore y la comprobación condicional de la transición.
+const PUBLISH_LOCK_WARNING =
+  "¿Seguro que quieres PUBLICAR esta carrera?\n\n" +
+  "Una vez PUBLICADA, no podrás modificar balizas, controles, recorridos, " +
+  "itinerarios, plano ni la configuración de diseño de esta carrera.\n\n" +
+  "Revisa todo antes de continuar. Si necesitas otro diseño, tendrás que crear " +
+  "un nuevo BORRADOR reutilizando la carrera.\n\n" +
+  "¿Confirmas que quieres publicarla y bloquear su diseño?";
+
+// F2.39: una ventana nativa mantiene comprobación, decisión y resultado juntos.
+// El resultado no se cierra con temporizadores. Solo un clic explícito acepta iniciar.
+function createStartDialog() {
+  if (!document.getElementById("m2StartDialogStyle")) {
+    const style = document.createElement("style");
+    style.id = "m2StartDialogStyle";
+    style.textContent = `
+      .m2-start-dialog{box-sizing:border-box;width:min(440px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;margin:auto;padding:26px;border:1px solid #527e63;border-radius:26px;background:linear-gradient(145deg,#183d2b,#10271c);color:#f4f7f2;box-shadow:0 24px 90px #0008;font-family:system-ui,-apple-system,sans-serif;text-align:center}
+      .m2-start-dialog::backdrop{background:#03150dc9;backdrop-filter:blur(6px)}
+      .m2-start-dialog .m2-start-icon{width:58px;height:58px;display:grid;place-items:center;margin:0 auto 16px;border-radius:50%;background:#d9eccc;color:#173e29;font-size:29px;font-weight:800}
+      .m2-start-dialog[data-busy="true"] .m2-start-icon{background:transparent;border:4px solid #789e7e;border-top-color:#efd17c;animation:m2StartSpin 1s linear infinite;box-sizing:border-box}
+      .m2-start-dialog h2{font-size:22px;line-height:1.2;margin:0 0 14px;color:inherit}
+      .m2-start-dialog .m2-start-message{white-space:pre-line;overflow-wrap:anywhere;text-align:left;line-height:1.55;font-size:15px;margin:0;color:#e1eadd}
+      .m2-start-dialog .m2-start-actions{display:grid;gap:10px;margin-top:22px}
+      .m2-start-dialog button{min-height:48px;padding:13px;border-radius:14px;border:1px solid #759382;background:#254e39;color:#fff;font:750 14px system-ui;cursor:pointer}
+      .m2-start-dialog button[data-confirm]{background:#f1d784;color:#172a1c;border-color:#f1d784}
+      .m2-start-dialog button:focus-visible{outline:3px solid white;outline-offset:3px}
+      .m2-start-dialog button[hidden]{display:none!important}
+      @keyframes m2StartSpin{to{transform:rotate(360deg)}}
+      @media(prefers-reduced-motion:reduce){.m2-start-dialog[data-busy="true"] .m2-start-icon{animation:none}}
+    `;
+    document.head.appendChild(style);
+  }
+  const previousFocus = document.activeElement;
+  const dialog = document.createElement("dialog");
+  dialog.className = "m2-start-dialog";
+  dialog.setAttribute("aria-labelledby", "m2StartTitle");
+  dialog.setAttribute("aria-describedby", "m2StartMessage");
+  dialog.innerHTML = `<div class="m2-start-icon" aria-hidden="true"></div><div aria-live="polite" aria-atomic="true"><h2 id="m2StartTitle"></h2><p id="m2StartMessage" class="m2-start-message"></p></div><div class="m2-start-actions"><button type="button" data-confirm hidden>PONER EN DIRECTO</button><button type="button" data-dismiss>CANCELAR</button></div>`;
+  const title = dialog.querySelector("h2"), message = dialog.querySelector("p");
+  const icon = dialog.querySelector(".m2-start-icon");
+  const confirm = dialog.querySelector("[data-confirm]"), dismiss = dialog.querySelector("[data-dismiss]");
+  let closed = false, writing = false, resolveChoice = null, resolveClosed;
+  const dismissed = new Promise(resolve => { resolveClosed = resolve; });
+  function close() {
+    if (closed) return;
+    closed = true;
+    resolveClosed(null);
+    const resolve = resolveChoice; resolveChoice = null;
+    if (resolve) resolve(false);
+    if (dialog.open) dialog.close();
+    dialog.remove();
+    if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+  }
+  function render(heading, text, busy = false) {
+    if (closed) return;
+    title.textContent = heading;
+    message.textContent = text;
+    dialog.dataset.busy = String(busy);
+    icon.textContent = busy ? "" : "✓";
+    confirm.hidden = true;
+  }
+  dismiss.addEventListener("click", () => { if (!writing) close(); });
+  dialog.addEventListener("cancel", event => { event.preventDefault(); if (!writing) close(); });
+  confirm.addEventListener("click", () => {
+    if (!resolveChoice || closed || confirm.hidden) return;
+    const resolve = resolveChoice; resolveChoice = null;
+    writing = true; confirm.hidden = true; dismiss.hidden = true;
+    resolve(true);
+  });
+  render("COMPROBANDO CARRERA", "Revisando participantes, recorridos y permisos…\nLa carrera todavía no se ha iniciado.", true);
+  document.body.appendChild(dialog);
+  try { dialog.showModal(); dismiss.focus({ preventScroll: true }); }
+  catch (error) { dialog.remove(); throw new Error("No se pudo abrir la confirmación de inicio. Actualiza la aplicación y vuelve a intentarlo."); }
+  return {
+    get closed() { return closed; }, close, dismissed,
+    progress(heading, text) { writing = true; render(heading, text, true); dismiss.hidden = true; },
+    result(heading, text, allowStart = false, problem = false) {
+      if (closed) return Promise.resolve(false);
+      writing = false;
+      render(heading, text);
+      icon.textContent = problem ? "!" : "✓";
+      confirm.hidden = !allowStart;
+      dismiss.hidden = false; dismiss.textContent = allowStart ? "CANCELAR" : "ENTENDIDO";
+      // El foco inicial se mantiene en la opción no destructiva.
+      dismiss.focus({ preventScroll: true });
+      return new Promise(resolve => { resolveChoice = resolve; });
+    }
+  };
+}
+function rememberStartNotice(token, message) {
+  if (currentContext(token)) state.startNotice = { token, message };
+}
+
+function startReadinessText(report) {
+  const summary = `${report.participantCount} participantes activos · ${report.routeCount} recorridos · ${report.excludedCount} inscripciones excluidas.`;
+  return report.ok ? `COMPROBACIÓN CORRECTA. ${summary} La carrera sigue PUBLICADA; todavía no se ha iniciado.`
+    : `INICIO BLOQUEADO. ${summary} ${report.issues.map(row => row.message).join(" ")}`;
+}
+async function fetchStartReadiness(eventId) {
+  const svc = await services();
+  let timeout;
+  let reply;
+  try {
+    reply = await Promise.race([
+      httpsCallable(svc.functions, "getLiveStartReadiness")({ eventId }),
+      new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error("La comprobación está tardando demasiado. Revisa la conexión y vuelve a intentarlo.")), 30000); })
+    ]);
+  } finally { clearTimeout(timeout); }
+  const report = reply?.data;
+  if (!report || report.eventId !== eventId || typeof report.ok !== "boolean" || !Array.isArray(report.issues) || !/^[a-f0-9]{64}$/.test(report.revision || "")) {
+    throw new Error("Firebase no devolvió una comprobación de inicio válida.");
+  }
+  return report;
+}
+async function inspectLiveStart() {
+  if (state.busy || !navigator.onLine || !canManage()) return;
+  state.busy = true;
+  state.startNotice = null;
+  const token = lifecycleToken();
+  let message = "", dialog;
+  paint("Comprobando participantes y recorridos en Firebase…");
+  try {
+    dialog = createStartDialog();
+    const report = await Promise.race([fetchStartReadiness(token.eventId), dialog.dismissed]);
+    if (!report || !currentContext(token) || dialog.closed) return;
+    message = startReadinessText(report);
+    rememberStartNotice(token, message);
+    await dialog.result(report.ok ? "COMPROBACIÓN CORRECTA" : "INICIO BLOQUEADO", message, false, !report.ok);
+  } catch (error) {
+    message = `No se pudo comprobar el inicio: ${String(error?.message || error)}`;
+    rememberStartNotice(token, message);
+    if (currentContext(token)) await dialog?.result("NO SE PUDO COMPROBAR", message, false, true);
+  } finally {
+    dialog?.close();
+    state.busy = false;
+    paint(currentContext(token) ? message : "");
+  }
+}
+
+function summarizeClose(active, participants, expectedRunId) {
+  if (active?.runId !== expectedRunId || !["active", "finished"].includes(active.status)) {
+    throw new Error("La sesión en directo ha cambiado. Actualiza la carrera antes de cerrar.");
+  }
+  if (participants != null && (typeof participants !== "object" || Array.isArray(participants))) {
+    throw new Error("No se pudo verificar el estado de los corredores.");
+  }
+  const rows = Object.entries(participants || {});
+  if (!Number.isSafeInteger(active.participantCount) || active.participantCount !== rows.length) {
+    throw new Error("La lista de corredores está incompleta. Actualiza la carrera antes de cerrar.");
+  }
+  const counts = { racing: 0, finished: 0, incomplete: 0, notStarted: 0 };
+  const statuses = [];
+  for (const [uid, row] of rows) {
+    const status = String(row?.status || "").toLowerCase();
+    let group;
+    if (status === "racing" || status === "started") group = "racing";
+    else if (status === "finished") group = row.manualFinishIncomplete === true ? "incomplete" : "finished";
+    else if (status === "not_started" || status === "ready") group = "notStarted";
+    else throw new Error("Hay corredores con estado sin confirmar. Actualiza la carrera antes de cerrar.");
+    counts[group]++;
+    statuses.push([uid, status, group]);
+  }
+  statuses.sort(([a], [b]) => a.localeCompare(b));
+  return { runId: expectedRunId, ...counts, revision: JSON.stringify([active.status, statuses]) };
+}
+
+async function readCloseReport(token) {
+  const event = state.event;
+  const ownerUid = String(event?.ownerUid || "");
+  const runId = String(event?.liveRunId || "");
+  if (event?.status !== "live" || !ownerUid || !runId) {
+    throw new Error("No se pudo identificar la sesión en directo de esta carrera.");
+  }
+  const { databaseApi: db } = await services();
+  if (!currentContext(token)) throw new Error("La vista de carrera ha cambiado.");
+  const base = `v2/live/${ownerUid}/${token.eventId}`;
+  let connected = false, stopWatching, timer;
+  try {
+    return await Promise.race([
+      (async () => {
+        await new Promise((resolve, reject) => {
+          stopWatching = db.onValue(db.ref(".info/connected"), snapshot => {
+            connected = snapshot.val() === true;
+            if (connected) resolve();
+          }, reject);
+        });
+        const [active, participants] = await Promise.all([
+          db.get(db.ref(`${base}/activeRun`)),
+          db.get(db.ref(`${base}/runs/${runId}/participants`))
+        ]);
+        if (!connected || !navigator.onLine || !currentContext(token)) {
+          throw new Error("Se interrumpió la comprobación de corredores. Actualiza y vuelve a intentarlo.");
+        }
+        return summarizeClose(active.val(), participants.val(), runId);
+      })(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("No se pudo comprobar a los corredores a tiempo. Revisa la conexión y vuelve a intentarlo.")), 8000);
+      })
+    ]);
+  } finally {
+    connected = false;
+    clearTimeout(timer);
+    stopWatching?.();
+  }
+}
+
+function confirmClose(report) {
+  const summary = [
+    `En carrera: ${report.racing}`,
+    `Finalizados: ${report.finished}`,
+    `Incompletos: ${report.incomplete}`,
+    `Sin salida: ${report.notStarted}`
+  ].join("\n");
+  const warning = report.racing
+    ? "Quienes todavía figuren en carrera pueden quedar como incompletos al cerrar."
+    : "El servidor no muestra corredores en marcha.";
+  return globalThis.MILITOPO_CONFIRM(
+    `${summary}\n\n${warning}\nConfirma que los corredores con mala cobertura han podido enviar su llegada. ¿Finalizar la carrera?`,
+    {title:report.racing?"HAY CORREDORES EN CARRERA":"FINALIZAR CARRERA",
+     confirmText:report.racing?"FINALIZAR DE TODAS FORMAS":"FINALIZAR",danger:true}
+  );
+}
+
+async function confirmTransition(from, to, options = null) {
+  if (from === "prepared" && to === "published") {
+    // El Preflight ya solicita este consentimiento expresamente en el paso 9.
+    // Evita mostrar un segundo diálogo durante la misma publicación guiada.
+    if (options?.publicationOnly === true && options?.publishConsentConfirmed === true) return true;
+    if (typeof globalThis.MILITOPO_CONFIRM !== "function") return false;
+    return globalThis.MILITOPO_CONFIRM(PUBLISH_LOCK_WARNING, {
+      title: "PUBLICACIÓN DEFINITIVA · BLOQUEO DE DISEÑO",
+      confirmText: "SÍ, PUBLICAR Y BLOQUEAR",
+      danger: true
+    });
+  }
+  if (to === "live") {
+    const report = options?.startReadiness;
+    if (!report?.ok) return false;
+    return globalThis.MILITOPO_CONFIRM(`Comprobación correcta: ${report.participantCount} participantes activos, ${report.routeCount} recorridos y ${report.excludedCount} inscripciones excluidas.\n\nVas a iniciar la carrera EN DIRECTO. Hazlo solo cuando vaya a comenzar la actividad. ¿Continuar?`, {title:"INICIAR CARRERA",confirmText:"PONER EN DIRECTO"});
+  }
+  return true;
+}
+// F2.30: el estado leído antes de un modal puede quedarse obsoleto.
+// La transacción revalida estado, propietario y estructura al escribir;
+// Firestore la reintenta si alguien cambia el documento concurrentemente.
+async function commitLifecycleTransition(firestore, eventId, from, to, uid, role, expectedStructureVersion = "") {
+  const eventRef = doc(firestore, "events", eventId);
+  return runTransaction(firestore, async tx => {
+    const snap = await tx.get(eventRef);
+    if (!snap.exists()) throw new Error("La carrera ya no existe en Firebase. Actualiza su estado.");
+    const latest = snap.data() || {};
+    if (String(latest.ownerUid || "") !== String(uid || "") && role !== "super_admin")
+      throw new Error("La carrera ya no pertenece a esta cuenta.");
+    if (!ORDER.includes(String(latest.status || "")) || validStatus(latest.status) !== from)
+      throw new Error("El estado de la carrera ha cambiado en Firebase. Actualiza antes de continuar.");
+    if (!["draft>prepared", "prepared>published"].includes(`${from}>${to}`))
+      throw new Error("Transición de carrera no permitida desde esta pantalla.");
+    if (["prepared", "published"].includes(to) && !structureReady(latest))
+      throw new Error("La estructura ha cambiado: revisa las balizas y los recorridos antes de publicar.");
+    if (to === "published" && (!expectedStructureVersion ||
+        structureVersion(latest.structureUpdatedAt) !== expectedStructureVersion)) {
+      throw new Error("La estructura cambió durante la revisión. Actualiza el Preflight antes de publicar.");
+    }
+    const payload = {
+      status: to, cloudStage: "F2B", lifecycleVersion: 2, updatedAt: serverTimestamp()
+    };
+    if (to === "prepared") payload.preparedAt = serverTimestamp();
+    if (to === "published") payload.publishedAt = serverTimestamp();
+    tx.update(eventRef, payload);
+    return to;
+  });
+}
+
+async function advance(options = null) {
+  if (state.busy) return { ok: false, error: "Ya hay un cambio de estado en curso. Espera a que termine." };
+  // Bloquear antes de la primera espera, también durante lectura y confirmación.
+  state.busy = true;
+  const token = lifecycleToken();
+  const publicationOnly = options?.publicationOnly === true;
+  const intendedFrom = validStatus(state.event?.status);
+  let startDialog = null;
+  let processing = false, ok = false, finalMessage = "";
+  const outcome = () => ({ ok, error: ok ? "" : (finalMessage || "No se confirmó el cambio de estado. Revisa la carrera y tu sesión.") });
+  paint();
+  try {
+    if (!publicationOnly && intendedFrom === "published") {
+      state.startNotice = null;
+      startDialog = createStartDialog();
+    }
+    if (!navigator.onLine) throw new Error("Sin conexión. Recupera Internet y vuelve a comprobar la carrera.");
+    if (!await refresh()) throw new Error("No se pudo actualizar el estado de la carrera.");
+    if (!currentContext(token) || startDialog?.closed) return outcome();
+    const eventId = token.eventId;
+    const from = validStatus(state.event?.status);
+    if (from !== intendedFrom) throw new Error("El estado de la carrera ha cambiado. Revisa el estado actualizado antes de realizar otra acción.");
+    const to = META[from]?.next;
+    if (!to) return outcome();
+    if (publicationOnly && (String(options.eventId || "") !== eventId || options.expectedFrom !== from || !["draft", "prepared"].includes(from))) {
+      finalMessage = "El estado o la carrera ha cambiado. Revisa la publicación antes de continuar.";
+      return outcome();
+    }
+    if (["draft", "prepared"].includes(from) && !structureReady(state.event)) {
+      finalMessage = readinessText(state.event, from);
+      return outcome();
+    }
+    let expectedStructureVersion = "";
+    if (from === "prepared" && to === "published") {
+      const svc = await services();
+      if (!currentContext(token)) return outcome();
+      expectedStructureVersion = await verifyPublicationDesign(svc.firestore, eventId, state.event);
+      if (!currentContext(token)) return outcome();
+    }
+    let startReadiness = null, closeReport = null;
+    if (from === "published" && to === "live") {
+      paint("Comprobando participantes y recorridos antes de iniciar…");
+      startReadiness = await Promise.race([fetchStartReadiness(eventId), startDialog.dismissed]);
+      if (!startReadiness || !currentContext(token) || startDialog.closed) return outcome();
+      const summary = startReadinessText(startReadiness);
+      rememberStartNotice(token, summary);
+      if (!startReadiness.ok) {
+        finalMessage = summary;
+        await startDialog.result("INICIO BLOQUEADO", summary, false, true);
+        return outcome();
+      }
+      const accepted = await startDialog.result("TODO LISTO PARA INICIAR", summary + "\n\n¿Quieres poner la carrera EN DIRECTO ahora?", true);
+      if (!accepted) { finalMessage = "Inicio cancelado. No se ha enviado ninguna solicitud de inicio."; rememberStartNotice(token, finalMessage); return outcome(); }
+    } else if (from === "live" && to === "finished") {
+      paint("Comprobando el estado de los corredores antes de finalizar…");
+      closeReport = await readCloseReport(token);
+      if (!currentContext(token)) return outcome();
+      if (!await confirmClose(closeReport)) {
+        finalMessage = "Cierre cancelado. La carrera sigue en directo.";
+        return outcome();
+      }
+      if (!currentContext(token)) return outcome();
+      const latest = await readCloseReport(token);
+      if (!currentContext(token)) return outcome();
+      if (latest.runId !== closeReport.runId || latest.revision !== closeReport.revision) {
+        throw new Error("El estado de los corredores ha cambiado desde la confirmación. Revisa el nuevo resumen antes de cerrar.");
+      }
+    } else if (!await confirmTransition(from, to, options)) return outcome();
+    if (!currentContext(token)) return outcome();
+    if (!navigator.onLine) throw new Error("Sin conexión. Recupera Internet antes de cambiar el estado.");
+    // El asistente de publicación mantiene una única interfaz durante ambos pasos.
+    processing = !publicationOnly && !startDialog;
+    if (startDialog) startDialog.progress("PONIENDO EN DIRECTO", "Confirmando el inicio con el servidor…\nEspera el resultado antes de volver a intentarlo.");
+    if (processing) showProcessing(from, to);
+    paint(`Cambiando ${META[from].label} → ${META[to].label}…`);
+    const svc = await services();
+    if (!currentContext(token)) return outcome();
+    if (!navigator.onLine) throw new Error("Sin conexión. Recupera Internet antes de cambiar el estado.");
+    const { firestore, functions } = svc;
+    if (from === "published" && to === "live") {
+      const response = await httpsCallable(functions, "startLiveRun")({ eventId, expectedReadinessRevision: startReadiness.revision });
+      const data = response?.data || {};
+      if (data.ok !== true || data.status !== "live" || !data.runId) throw new Error("Firebase no confirmó el inicio de la carrera. Actualiza su estado antes de reintentar.");
+      if (!currentContext(token)) return outcome();
+      await refresh();
+      if (!currentContext(token)) return outcome();
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
+      finalMessage = `Evento EN DIRECTO · ${Number(data.participantCount || 0)} corredor${Number(data.participantCount || 0) === 1 ? "" : "es"} autorizado${Number(data.participantCount || 0) === 1 ? "" : "s"}.`;
+      if (typeof globalThis.toast === "function") globalThis.toast(`Carrera iniciada · ${data.participantCount ?? 0} corredor(es)`);
+      ok = true;
+      await startDialog.result("CARRERA EN DIRECTO", finalMessage);
+      return outcome();
+    }
+    if (from === "live" && to === "finished") {
+      const response = await httpsCallable(functions, "finishLiveRun")({ eventId });
+      const data = response?.data || {};
+      if (data.ok !== true || data.status !== "finished" ||
+          data.eventId !== eventId || data.runId !== closeReport.runId) {
+        throw new Error("Firebase no confirmó el cierre de esta sesión. Actualiza su estado antes de reintentar.");
+      }
+      if (!currentContext(token)) return outcome();
+      await refresh();
+      if (!currentContext(token)) return outcome();
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-live-run-changed", { detail: data }));
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to, runId: data.runId || "" } }));
+      finalMessage = "Evento FINALIZADO · sesión Live V2 cerrada correctamente.";
+      if (typeof globalThis.toast === "function") globalThis.toast("Carrera finalizada en backend Live V2");
+      ok = true;
+      return outcome();
+    }
+    // F2.33: el paso PREPARADA -> PUBLICADA solo se realiza mediante Function.
+    // El navegador sigue haciendo preflight, pero no es la barrera de seguridad.
+    // La Function vuelve a leer y validar los documentos reales dentro de la
+    // transacción de Firestore; las reglas impiden publicar directamente.
+    if (from === "prepared" && to === "published") {
+      const reply = await httpsCallable(functions, "publishPreparedEvent")({
+        eventId, expectedStructureVersion
+      });
+      if (reply?.data?.ok !== true || reply?.data?.status !== "published") {
+        throw new Error("Firebase no confirmó la publicación de la carrera.");
+      }
+    } else {
+      await commitLifecycleTransition(firestore, eventId, from, to, token.uid, token.role, expectedStructureVersion);
+    }
+    if (!currentContext(token)) return outcome();
+    await refresh();
+    if (!currentContext(token)) return outcome();
+    globalThis.dispatchEvent(new CustomEvent("militopo:v2-event-status-changed", { detail: { eventId, from, to } }));
+    finalMessage = `Estado actualizado a ${META[to].label}.`;
+    if (!publicationOnly && typeof globalThis.toast === "function") globalThis.toast(`Estado: ${META[to].label}`);
+    ok = true;
+  } catch (error) {
+    console.error("[MILITOPO F2B] transition", error);
+    finalMessage = `No se pudo cambiar el estado: ${String(error?.message || error)}`;
+    if (startDialog && currentContext(token)) {
+      rememberStartNotice(token, finalMessage);
+      await startDialog.result("INICIO NO CONFIRMADO", finalMessage + "\n\nActualiza el estado de la carrera antes de reintentar.", false, true);
+    }
+  } finally {
+    try {
+      if (processing) await finishProcessing(ok, currentContext(token) ? finalMessage : "La vista ha cambiado. Actualiza el estado de la carrera correspondiente.");
+    } finally {
+      startDialog?.close();
+      state.busy = false;
+      paint(currentContext(token) && !ok ? finalMessage : "");
+    }
+  }
+  return outcome();
+}
+
+function onAuthReady(event) {
+  state.contextEpoch += 1;
+  state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null;
+  setTimeout(() => refresh(), 120);
+}
+function onHeader(event) {
+  const eventId = String(event?.detail?.header?.eventId || "").trim();
+  if (eventId && eventId !== state.eventId) {
+    state.contextEpoch += 1;
+    state.eventId = eventId;
+    state.event = null;
+  }
+  setTimeout(() => refresh(), event?.detail?.reason === "step1-confirmed" ? 900 : 250);
+}
+function init() {
+  ensurePanel();
+  globalThis.addEventListener("militopo:v2-auth-ready", onAuthReady);
+  globalThis.addEventListener("militopo:v2-orientation-header", onHeader);
+  globalThis.addEventListener("militopo:v2-cloud-event-applied", event => {
+    if (event?.detail?.ok) {
+      state.contextEpoch += 1;
+      state.eventId = String(event.detail.eventId || "");
+      setTimeout(() => refresh(), 250);
+    }
+  });
+  globalThis.addEventListener("militopo:v2-auth-signed-out", () => {
+    state.contextEpoch += 1;
+    state.auth = null;
+    state.event = null;
+    paint();
+  });
+  globalThis.addEventListener("online", () => refresh());
+  globalThis.addEventListener("offline", () => paint("Sin conexión. El estado del evento se mantiene, pero no se puede avanzar hasta recuperar Internet."));
+  if (globalThis.MILITOPO_V2_AUTH) onAuthReady({ detail: globalThis.MILITOPO_V2_AUTH });
+
+/* R6B · Permite al centro LIVE reutilizar exactamente la transición oficial EN DIRECTO → FINALIZADO. */
+globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE = advance;
+globalThis.MILITOPO_V2_EVENT_LIFECYCLE_REFRESH = refresh;
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init, { once: true });
+else init();
