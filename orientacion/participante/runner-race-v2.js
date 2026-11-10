@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2.0.18-orientacion";
+  const VERSION="v2.0.19-orientacion";
   const JOIN_TIMEOUT_MS=8000;
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false,classificationEpoch:0,finishWait:null};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
