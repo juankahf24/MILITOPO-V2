@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2.0.16-orientacion";
+  const VERSION="v2.0.17-orientacion";
   const JOIN_TIMEOUT_MS=8000;
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false,finishWait:null};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -653,6 +653,12 @@
     emitLocalSnapshot();
     return true;
   }
+  function paintPendingFinish(){
+    if(state.localArrivalAt){paintPendingArrival();return;}
+    el("m2raceSyncTitle").textContent="Resultado pendiente";
+    el("m2raceSyncText").textContent="Participación finalizada. Recuperando el resultado oficial y sincronizando el track pendiente…";
+  }
+
   async function reconcileLive(){
     if(!navigator.onLine||!state.event?.eventId||!state.auth?.uid)return false;
     if(state.reconnectPromise)return state.reconnectPromise;
@@ -671,9 +677,10 @@
         const cs=controlsApi()?.snapshot?.()||{};
         if(cs.finishValidated)rememberArrival(cs.finishPass?.passedAtMs,joined?.data?.controlProgress?.arrivalAt);
         await bind();if(!isCurrent(token))return false;
-        if(state.localArrivalAt){
+        if(state.localArrivalAt||(String(state.participant?.status||"").toLowerCase()==="finished"&&!state.finishConfirmed)){
           state.offlineRecovered=false;
-          render();paintPendingArrival();
+          render();
+          paintPendingFinish();
           laterForRace(()=>autoFinishFromArrival({pass:cs.finishPass,retry:true}).catch(()=>{}),180);
           return true;
         }
@@ -719,8 +726,8 @@
       rememberArrival(controlSnap.finishValidated?controlSnap.finishPass?.passedAtMs:null,
         controlSnap.finishValidated?joined?.data?.controlProgress?.arrivalAt:null,recovery?.localArrivalAt);
       render();await bind();if(!isCurrent(token))return;
-      if(state.localArrivalAt){
-        paintPendingArrival();
+      if(state.localArrivalAt||(String(state.participant?.status||"").toLowerCase()==="finished"&&!state.finishConfirmed)){
+        paintPendingFinish();
         laterForRace(()=>autoFinishFromArrival({pass:controlSnap.finishPass,retry:true}).catch(()=>{}),120);
       }else{
         el("m2raceSyncTitle").textContent=state.recovered?"Carrera recuperada":"Sincronización activa";
