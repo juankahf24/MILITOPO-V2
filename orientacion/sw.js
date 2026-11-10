@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.7";
+const BUILD_ID="2.0.8";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -60,7 +60,7 @@ const CORE_ASSETS=[
   "../js/v2/data/events.js?v=militopo-f246-recuperacion-20261103",
   "../js/v2/data/orientation-structure.js?v=v2-f246-recuperacion-20261103",
   "../js/v2/data/cloud-recovery.js?v=v2-f246-recuperacion-20261103",
-  "../js/v2/data/event-lifecycle.js?v=v2-f246-recuperacion-20261103",
+  "./js/ui/event-lifecycle.js?v=2.0.8",
   "../js/v2/data/event-edit-lock.js?v=militopo-f231-sin-archivado-20261102",
   "../js/v2/live/realtime-foundation.js?v=militopo-f231-sin-archivado-20261102",
   "../js/v2/live/organizer-monitor.js?v=militopo-f231-sin-archivado-20261102",
