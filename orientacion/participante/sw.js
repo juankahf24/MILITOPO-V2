@@ -1,11 +1,11 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.19";
+const BUILD_ID="2.0.20";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
-  "./runner-home-v4.js?v=2.0.19",
+  "./runner-home-v4.js?v=2.0.20",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
   "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
@@ -17,7 +17,7 @@ const APP_SHELL=[
   "./runner-r9o-final.css?v=r9o-final-20261011",
   "./runner-mode-switch.css?v=militopo-r4-profile-20261019",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
-  "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=2.0.19","./runner-r9m-responsive.js?v=2.0.7",
+  "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=2.0.20","./runner-r9m-responsive.js?v=2.0.7",
   "../../js/v2/firebase-config.js","../../js/v2/firebase-config.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
@@ -35,7 +35,7 @@ const APP_SHELL=[
   "../../js/v2/live/runner-gps-v2.js?v=v2-lote2-gps-20261109",
   "../../js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
   "./runner-controls-v2.js?v=2.0.11",
-  "./runner-race-v2.js?v=2.0.19"
+  "./runner-race-v2.js?v=2.0.20"
 ];
 /* P1.5: dependencias ESM exactas del corredor. La instalación solo termina
    si también está disponible este grafo del SDK; nunca cachear APIs ni datos.
