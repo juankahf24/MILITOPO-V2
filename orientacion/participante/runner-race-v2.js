@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2.0.12-orientacion";
+  const VERSION="v2.0.13-orientacion";
   const JOIN_TIMEOUT_MS=8000;
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -846,8 +846,9 @@
     busy("Terminando carrera","Consolidando balizas, track y resultado…");
     try{
       if(navigator.onLine===false)throw new Error("Sin conexión. La carrera sigue activa; vuelve a intentar terminar cuando recuperes cobertura.");
-      try{await api?.flush?.();}catch(_){}
+      const controlsReady=await api?.flushAndWait?.({timeoutMs:20000,requireArrival:false});
       if(!isCurrent(token))return;
+      if(!controlsReady)throw new Error("No se pudo confirmar la sincronización de las balizas. El cierre queda pendiente.");
       const pendingPasses=api?.pendingPasses?.()||[];
       // Tras una recarga puede haber puntos en IndexedDB aunque el GPS
       // todavía no se haya reanudado y la cola en memoria parezca vacía.
