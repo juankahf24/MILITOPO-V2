@@ -6,7 +6,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2.0.7-orientacion";
+  const VERSION="v2.0.10-orientacion";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -17,7 +17,7 @@
     services:null,context:null,plan:null,raceStatus:"ready",completedCount:0,
     serverCompletedCount:0,queue:[],passes:[],journal:[],lastFix:null,lastAutoAt:0,
     finishValidated:false,serverFinishValidated:false,finishPass:null,serverAttemptIds:new Set(),
-    flushing:false,flushAgain:false,retryTimer:0,storageKey:"",scanner:null,scannerFrame:0,qrLoading:null,
+    flushing:false,flushAgain:false,retryTimer:0,storageKey:"",scanner:null,qrEpoch:0,qrLoading:null,
     epoch:0,runConflict:false,localHydrated:false,lastSyncError:"",syncFailureCount:0,localStorageError:""
   };
 
@@ -164,13 +164,28 @@
     persist();
   }
 
-  async function preloadQrReader(){
-    if("BarcodeDetector" in window||window.jsQR)return true;
+  function createQrDetector(){
+    if(typeof window.BarcodeDetector!=="function")return null;
+    try{return new window.BarcodeDetector({formats:["qr_code"]});}catch(_){return null;}
+  }
+
+  function preloadQrReader(){
+    if(typeof window.jsQR==="function")return Promise.resolve(true);
     if(state.qrLoading)return state.qrLoading;
     state.qrLoading=new Promise(resolve=>{
-      const existing=document.querySelector('script[data-m2-jsqr="1"]');
-      if(existing){if(window.jsQR)return resolve(true);existing.addEventListener("load",()=>resolve(Boolean(window.jsQR)),{once:true});existing.addEventListener("error",()=>resolve(false),{once:true});return;}
-      const script=document.createElement("script");script.src=JSQR_URL;script.async=true;script.dataset.m2Jsqr="1";script.onload=()=>resolve(Boolean(window.jsQR));script.onerror=()=>resolve(false);document.head.appendChild(script);
+      const script=document.createElement("script");
+      script.src=JSQR_URL;
+      script.async=true;
+      const timer=setTimeout(()=>finish(false),5000);
+      function finish(ready){
+        clearTimeout(timer);
+        script.onload=script.onerror=null;
+        if(!ready)script.remove();
+        resolve(ready);
+      }
+      script.onload=()=>finish(typeof window.jsQR==="function");
+      script.onerror=()=>finish(false);
+      document.head.appendChild(script);
     }).finally(()=>{state.qrLoading=null;});
     return state.qrLoading;
   }
@@ -184,7 +199,7 @@
     state.storageKey=contextKey();
     hydrateLocalOnce();
     if(progress&&typeof progress==="object")progressFromServer(progress);else reconcile();
-    preloadQrReader().catch(()=>{});
+    if(!createQrDetector())preloadQrReader().catch(()=>{});
     if(navigator.onLine!==false)flush().catch(()=>{});
     emit("ready");
     return snapshot();
@@ -351,24 +366,212 @@
   function parseQr(raw){const value=String(raw||"").trim().toUpperCase(),parts=value.split("|");if(parts.length<4||parts[0]!=="ORI"||parts[1]!=="CONTROL")return {ok:false,message:"QR no válido de MILITOPO."};if(String(parts[2])!==String(state.context?.eventId||"").toUpperCase())return {ok:false,message:"Este QR pertenece a otra carrera."};const id=canonical(parts[3]);const next=nextTarget();if(!next)return {ok:false,message:"El recorrido y la llegada ya están validados."};if(id!==canonical(next.checkpointId))return {ok:false,message:`QR de ${id==="FINISH"?"LLEGADA":id}. La siguiente validación es ${canonical(next.checkpointId)==="FINISH"?"LLEGADA":next.checkpointId}.`};return {ok:true,id,raw:value};}
   function submitQr(raw){const parsed=parseQr(raw);if(!parsed.ok){emit("qr_error",{message:parsed.message,qrRaw:String(raw||"")});return parsed;}const res=registerLocal(parsed.id,"qr",{passedAtMs:Date.now(),qrRaw:parsed.raw});if(res.ok)closeScanner();return res;}
 
-  async function openScanner({video,canvas,statusEl}={}){
-    if(!video||!canvas)return false;
-    if(!navigator.mediaDevices?.getUserMedia){if(statusEl)statusEl.textContent="Este navegador no permite acceder a la cámara.";emit("qr_error",{message:"Cámara no disponible."});return false;}
-    closeScanner({silent:true});if(statusEl)statusEl.textContent="Solicitando cámara…";
-    let stream=null;
-    try{try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});}catch(_){stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});}video.setAttribute("playsinline","");video.setAttribute("webkit-playsinline","");video.setAttribute("autoplay","");video.muted=true;video.autoplay=true;video.srcObject=stream;await video.play();}
-    catch(error){try{stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}const name=String(error?.name||"");const msg=/NotAllowed|Permission/i.test(name)?"Permiso de cámara denegado. Actívalo para MILITOPO en los ajustes del navegador.":"No se pudo abrir la cámara. Revisa el permiso de cámara.";if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg,detail:String(error?.message||error)});return false;}
-    let detector=null,useJsQr=false;if("BarcodeDetector" in window){try{detector=new BarcodeDetector({formats:["qr_code"]});}catch(_){}}
-    if(!detector){if(statusEl)statusEl.textContent="Cámara activa · preparando lector QR…";const ready=await preloadQrReader();useJsQr=ready&&Boolean(window.jsQR);}
-    if(!detector&&!useJsQr){try{stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}try{video.srcObject=null;}catch(_){}if(statusEl)statusEl.textContent="La cámara funciona, pero no se pudo preparar el lector QR.";emit("qr_error",{message:"Lector QR no disponible."});return false;}
-    state.scanner={stream,video,canvas,statusEl,detector,useJsQr,running:true,lastRaw:"",lastAt:0};const target=nextTarget();if(statusEl)statusEl.textContent=`Cámara activa. Apunta al QR de ${canonical(target?.checkpointId)==="FINISH"?"LLEGADA":target?.checkpointId||"la siguiente baliza"}.`;emit("qr_scanning");setTimeout(()=>{try{video.play();}catch(_){}},250);scanLoop();return true;
+  function stopMedia(stream){
+    for(const track of stream?.getTracks?.()||[]){
+      try{track.stop();}catch(_){}
+    }
   }
 
-  async function scanLoop(){const sc=state.scanner;if(!sc?.running)return;try{let raw="";if(sc.video.readyState>=2){if(sc.detector){const codes=await sc.detector.detect(sc.video);if(codes?.length)raw=String(codes[0].rawValue||"").trim();}else if(sc.useJsQr&&window.jsQR){const w=sc.video.videoWidth||640,h=sc.video.videoHeight||480;if(w&&h){sc.canvas.width=w;sc.canvas.height=h;const ctx=sc.canvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(sc.video,0,0,w,h);const img=ctx.getImageData(0,0,w,h);const code=window.jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});if(code?.data)raw=String(code.data).trim();}}}if(raw){const now=Date.now();if(raw!==sc.lastRaw||now-sc.lastAt>2200){sc.lastRaw=raw;sc.lastAt=now;const result=submitQr(raw);if(sc.statusEl)sc.statusEl.textContent=result.ok?"QR validado correctamente.":result.message;}}else if(sc.statusEl){const target=nextTarget();sc.statusEl.textContent=`Buscando QR de ${canonical(target?.checkpointId)==="FINISH"?"LLEGADA":target?.checkpointId||"la siguiente baliza"}…`;}}catch(_){if(sc.statusEl)sc.statusEl.textContent="Buscando QR…";}if(state.scanner?.running)state.scannerFrame=requestAnimationFrame(scanLoop);}
+  function scannerIsCurrent(sc){
+    return state.scanner===sc && current(sc.token) && document.visibilityState!=="hidden";
+  }
 
-  async function scanImageFile(file,{canvas,statusEl}={}){if(!file)return {ok:false,message:"No se recibió ninguna imagen."};const workCanvas=canvas||document.createElement("canvas");let source=null,revoke="";try{if("createImageBitmap" in window){source=await createImageBitmap(file);}else{revoke=URL.createObjectURL(file);source=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("No se pudo abrir la foto."));img.src=revoke;});}const sw=Number(source.width||source.naturalWidth||0),sh=Number(source.height||source.naturalHeight||0);if(!sw||!sh)throw new Error("La imagen de la cámara no es válida.");const maxSide=1800,scale=Math.min(1,maxSide/Math.max(sw,sh)),w=Math.max(1,Math.round(sw*scale)),h=Math.max(1,Math.round(sh*scale));workCanvas.width=w;workCanvas.height=h;const ctx=workCanvas.getContext("2d",{willReadFrequently:true});ctx.drawImage(source,0,0,w,h);let raw="";if("BarcodeDetector" in window){try{const detector=new BarcodeDetector({formats:["qr_code"]});const codes=await detector.detect(workCanvas);if(codes?.length)raw=String(codes[0].rawValue||"").trim();}catch(_){}}if(!raw){const ready=await preloadQrReader();if(ready&&window.jsQR){const img=ctx.getImageData(0,0,w,h),code=window.jsQR(img.data,w,h,{inversionAttempts:"attemptBoth"});if(code?.data)raw=String(code.data).trim();}}if(!raw){const msg="No se ha detectado ningún QR en la imagen. Acerca más la cámara y vuelve a intentarlo.";if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}const result=submitQr(raw);if(statusEl)statusEl.textContent=result.ok?"QR validado correctamente.":result.message;return result;}catch(error){const msg=String(error?.message||error||"No se pudo leer el QR.");if(statusEl)statusEl.textContent=msg;emit("qr_error",{message:msg});return {ok:false,message:msg};}finally{try{source?.close?.();}catch(_){}if(revoke)try{URL.revokeObjectURL(revoke);}catch(_){}}}
+  function scannerError(sc,message){
+    if(!scannerIsCurrent(sc))return false;
+    if(sc.statusEl)sc.statusEl.textContent=message;
+    closeScanner({silent:true});
+    emit("qr_error",{message});
+    return false;
+  }
 
-  function closeScanner(options={}){const silent=Boolean(options&&options.silent),sc=state.scanner;if(sc){sc.running=false;try{sc.stream?.getTracks?.().forEach(t=>t.stop());}catch(_){}try{sc.video.srcObject=null;}catch(_){}}if(state.scannerFrame)cancelAnimationFrame(state.scannerFrame);state.scannerFrame=0;state.scanner=null;if(!silent)emit("qr_closed");}
+  async function initializeScanner(sc){
+    try{
+      let stream;
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({
+          video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false
+        });
+      }catch(error){
+        if(!scannerIsCurrent(sc))return false;
+        if(!["OverconstrainedError","ConstraintNotSatisfiedError","NotFoundError","DevicesNotFoundError"].includes(error?.name))throw error;
+        stream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+      }
+      if(!scannerIsCurrent(sc)){stopMedia(stream);return false;}
+      sc.stream=stream;
+      for(const track of stream.getVideoTracks?.()||[]){
+        track.addEventListener("ended",()=>{
+          scannerError(sc,"La cámara se ha detenido. Vuelve a abrir el lector QR.");
+        },{once:true});
+      }
+      const {video}=sc;
+      video.setAttribute("playsinline","");
+      video.setAttribute("webkit-playsinline","");
+      video.muted=true;
+      video.autoplay=true;
+      video.srcObject=stream;
+      await video.play();
+      if(!scannerIsCurrent(sc))return false;
+
+      sc.detector=createQrDetector();
+      if(!sc.detector){
+        if(sc.statusEl)sc.statusEl.textContent="Preparando lector QR…";
+        const ready=await preloadQrReader();
+        if(!scannerIsCurrent(sc))return false;
+        if(!ready)return scannerError(sc,"No se pudo cargar el lector QR. Vuelve a intentarlo.");
+      }
+      if(sc.statusEl)sc.statusEl.textContent="Cámara activa. Apunta al QR de la siguiente baliza.";
+      emit("qr_scanning");
+      void scanLoop(sc);
+      return true;
+    }catch(error){
+      const message=/NotAllowed|Permission/i.test(String(error?.name||""))
+        ?"Permiso de cámara denegado. Actívalo en los ajustes del navegador."
+        :"No se pudo abrir la cámara. Vuelve a intentarlo o usa una foto.";
+      return scannerError(sc,message);
+    }
+  }
+
+  function openScanner({video,canvas,statusEl}={}){
+    if(!video||!canvas||document.visibilityState==="hidden")return Promise.resolve(false);
+    closeScanner({silent:true});
+    if(!navigator.mediaDevices?.getUserMedia){
+      const message="Este navegador no permite acceder a la cámara.";
+      if(statusEl)statusEl.textContent=message;
+      emit("qr_error",{message});
+      return Promise.resolve(false);
+    }
+    if(statusEl)statusEl.textContent="Solicitando cámara…";
+    const sc={token:token(),video,canvas,statusEl,stream:null,detector:null,frame:0,lastRaw:"",lastAt:0,cancel:null};
+    const cancelled=new Promise(resolve=>{sc.cancel=()=>resolve(false);});
+    state.scanner=sc;
+    // El permiso puede resolverse después de cerrar el lector. La apertura
+    // visible se cancela al instante y el flujo tardío se libera al llegar.
+    return Promise.race([initializeScanner(sc),cancelled]);
+  }
+
+  function rawQrFromCanvas(canvas,ctx){
+    const image=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const code=window.jsQR(image.data,canvas.width,canvas.height,{inversionAttempts:"attemptBoth"});
+    return String(code?.data||"").trim();
+  }
+
+  async function scanLoop(sc){
+    if(!scannerIsCurrent(sc))return;
+    try{
+      let raw="";
+      if(sc.video.readyState>=2){
+        if(sc.detector){
+          try{
+            const codes=await sc.detector.detect(sc.video);
+            if(!scannerIsCurrent(sc))return;
+            raw=String(codes?.[0]?.rawValue||"").trim();
+          }catch(_){
+            if(!scannerIsCurrent(sc))return;
+            sc.detector=null;
+            const ready=await preloadQrReader();
+            if(!scannerIsCurrent(sc))return;
+            if(!ready){scannerError(sc,"No se pudo leer el QR. Vuelve a abrir el lector o usa una foto.");return;}
+          }
+        }else{
+          const width=sc.video.videoWidth,height=sc.video.videoHeight;
+          if(width&&height){
+            sc.canvas.width=width;sc.canvas.height=height;
+            const ctx=sc.canvas.getContext("2d",{willReadFrequently:true});
+            ctx.drawImage(sc.video,0,0,width,height);
+            raw=rawQrFromCanvas(sc.canvas,ctx);
+          }
+        }
+      }
+      if(raw){
+        const now=Date.now();
+        if(raw!==sc.lastRaw||now-sc.lastAt>2200){
+          sc.lastRaw=raw;sc.lastAt=now;
+          const result=submitQr(raw);
+          if(sc.statusEl)sc.statusEl.textContent=result.ok?"QR validado correctamente.":result.message;
+        }
+      }
+    }catch(_){
+      scannerError(sc,"No se pudo leer el QR. Vuelve a abrir el lector o usa una foto.");
+      return;
+    }
+    if(scannerIsCurrent(sc))sc.frame=requestAnimationFrame(()=>void scanLoop(sc));
+  }
+
+  async function scanImageFile(file,{canvas,statusEl}={}){
+    if(!file)return {ok:false,message:"No se recibió ninguna imagen."};
+    closeScanner({silent:true});
+    const epoch=state.qrEpoch,race=token();
+    const valid=()=>epoch===state.qrEpoch&&current(race);
+    const cancelled={ok:false,message:"Lectura cancelada."};
+    const workCanvas=canvas||document.createElement("canvas");
+    let source=null,revoke="";
+    try{
+      if(typeof window.createImageBitmap==="function"){
+        source=await window.createImageBitmap(file);
+      }else{
+        revoke=URL.createObjectURL(file);
+        source=await new Promise((resolve,reject)=>{
+          const img=new Image();
+          img.onload=()=>resolve(img);
+          img.onerror=()=>reject(new Error("No se pudo abrir la foto."));
+          img.src=revoke;
+        });
+      }
+      if(!valid())return cancelled;
+      const width=Number(source.width||source.naturalWidth||0),height=Number(source.height||source.naturalHeight||0);
+      if(!width||!height)throw new Error("La imagen de la cámara no es válida.");
+      const scale=Math.min(1,1800/Math.max(width,height));
+      workCanvas.width=Math.max(1,Math.round(width*scale));
+      workCanvas.height=Math.max(1,Math.round(height*scale));
+      const ctx=workCanvas.getContext("2d",{willReadFrequently:true});
+      ctx.drawImage(source,0,0,workCanvas.width,workCanvas.height);
+
+      let raw="";
+      const detector=createQrDetector();
+      if(detector){
+        try{raw=String((await detector.detect(workCanvas))?.[0]?.rawValue||"").trim();}catch(_){}
+      }
+      if(!valid())return cancelled;
+      if(!raw){
+        const ready=await preloadQrReader();
+        if(!valid())return cancelled;
+        if(!ready)throw new Error("No se pudo cargar el lector QR. Vuelve a intentarlo.");
+        raw=rawQrFromCanvas(workCanvas,ctx);
+      }
+      if(!raw)throw new Error("No se detectó ningún QR. Acerca más la cámara y vuelve a intentarlo.");
+      const result=submitQr(raw);
+      if(statusEl)statusEl.textContent=result.ok?"QR validado correctamente.":result.message;
+      return result;
+    }catch(error){
+      if(!valid())return cancelled;
+      const message=String(error?.message||"No se pudo leer el QR.");
+      if(statusEl)statusEl.textContent=message;
+      emit("qr_error",{message});
+      return {ok:false,message};
+    }finally{
+      try{source?.close?.();}catch(_){}
+      if(revoke)URL.revokeObjectURL(revoke);
+    }
+  }
+
+  function closeScanner({silent=false}={}){
+    const sc=state.scanner;
+    state.scanner=null;
+    state.qrEpoch++;
+    if(sc){
+      sc.cancel();
+      if(sc.frame)cancelAnimationFrame(sc.frame);
+      stopMedia(sc.stream);
+      if(sc.stream&&sc.video.srcObject===sc.stream)sc.video.srcObject=null;
+    }
+    if(!silent)emit("qr_closed");
+  }
+
+  function pauseScanner(){
+    const status=state.scanner?.statusEl;
+    closeScanner({silent:true});
+    if(status)status.textContent="Cámara pausada. Vuelve a abrir el lector QR cuando regreses.";
+  }
 
   async function flushAndWait({timeoutMs=18000,requireArrival=false}={}){
     const started=Date.now();
@@ -396,7 +599,10 @@
   window.addEventListener("militopo:v2-gps-fix",event=>{const fix=event.detail?.fix;if(fix)handleFix(fix);});
   window.addEventListener("online",()=>{state.flushAgain=true;flush().catch(()=>{});});
   window.addEventListener("militopo:v2-auth-signed-out",()=>{persist();state.epoch+=1;clearRetry();state.flushing=false;state.context=null;closeScanner({silent:true});});
-  window.addEventListener("pagehide",persist);
+  document.addEventListener?.("visibilitychange",()=>{
+    if(document.visibilityState==="hidden")pauseScanner();
+  });
+  window.addEventListener("pagehide",()=>{pauseScanner();persist();});
 
   globalThis.MILITOPO_RUNNER_CONTROLS_V2=Object.freeze({configure,setRaceStatus,flush,flushAndWait,refreshFromServer,openScanner,scanImageFile,closeScanner,submitQr,discardNextControl,snapshot,pendingPasses,stop,version:VERSION});
 })();
