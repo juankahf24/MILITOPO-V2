@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2.0.14-orientacion";
+  const VERSION="v2.0.16-orientacion";
   const JOIN_TIMEOUT_MS=8000;
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false,finishWait:null};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -966,7 +966,20 @@
     updateControlUi(d.status||"status",d);
     if(d.status==="arrival_synced")laterForRace(()=>autoFinishFromArrival(d).catch(()=>{}),40);
   });
-  window.addEventListener("online",()=>{if(state.summaryOpen&&!state.classificationOfficial)setTimeout(()=>refreshFinishClassification({schedule:true}),150);if(state.event&&state.auth&&state.runId&&["racing","started"].includes(String(state.participant?.status||"").toLowerCase()))reconcileLive().catch(()=>{});else{const cs=controlsApi()?.snapshot?.()||{};if(cs.finishValidated&&["racing","started"].includes(String(state.participant?.status||"").toLowerCase()))laterForRace(()=>autoFinishFromArrival({pass:cs.finishPass,retry:true}),350);}});
+  function handleOnline(){
+    if(!state.event?.eventId||!state.auth?.uid||!state.runId||!isCurrent(raceToken()))return;
+    if(state.summaryOpen&&!state.classificationOfficial)laterForRace(()=>refreshFinishClassification({schedule:true}),150);
+    if(state.finishWait||state.autoFinishing)return;
+    const status=String(state.participant?.status||"").toLowerCase();
+    if(status==="finished"&&!state.finishConfirmed){
+      // RTDB puede haber cerrado la participación antes de recibirse el resultado.
+      // Reutilizamos la recuperación oficial, también para cierres manuales sin llegada.
+      laterForRace(()=>autoFinishFromArrival({retry:true}).catch(()=>{}),350);
+    }else if(["racing","started"].includes(status)){
+      reconcileLive().catch(()=>{});
+    }
+  }
+  window.addEventListener("online",handleOnline);
   window.addEventListener("militopo:v2-resilience-status",e=>{const d=e.detail||{},pill=el("m2raceResiliencePill"),text=el("m2raceResilienceText");if(!pill||!text)return;pill.className="m2race-resilience-pill";if(d.status==="awake"){pill.textContent="PANTALLA ACTIVA";pill.classList.add("ok");text.textContent="Wake Lock activo mientras corres. Si cierras o recargas, MILITOPO conserva la carrera.";}else if(d.status==="restoring"||d.status==="restoring_offline"){pill.textContent=d.status==="restoring_offline"?"RECUPERANDO OFFLINE":"RECUPERANDO";pill.classList.add("warn");text.textContent=d.status==="restoring_offline"?"Restaurando cronómetro, recorrido, controles, GPS y track desde el dispositivo…":"Reconectando carrera, GPS y track local…";}else if(d.status==="offline_protected"){pill.textContent="PROTEGIDO OFFLINE";pill.classList.add("ok");text.textContent="La carrera sigue protegida localmente y se reconciliará al volver Internet.";}else if(d.status==="unsupported"){pill.textContent="RECUPERACIÓN ACTIVA";pill.classList.add("ok");text.textContent="La recuperación de carrera está activa. Este navegador no ofrece Wake Lock de pantalla.";}else if(d.status==="released"){pill.textContent="RECUPERACIÓN ACTIVA";pill.classList.add("ok");text.textContent="La sesión queda protegida aunque la pantalla pueda apagarse.";}else{pill.textContent="PROTEGIDO";pill.classList.add("ok");text.textContent=d.message||"MILITOPO puede recuperar esta carrera si recargas la aplicación.";}});
   window.addEventListener("militopo:v2-auth-signed-out",()=>{
     state.epoch+=1;state.reconnectPromise=null;clearListeners();
