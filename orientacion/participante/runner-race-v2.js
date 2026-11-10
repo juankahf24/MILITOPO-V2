@@ -2,7 +2,8 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2-r9n-provisional-classification-20261011";
+  const VERSION="v2.0.11-orientacion";
+  const JOIN_TIMEOUT_MS=8000;
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
@@ -30,6 +31,22 @@
     }
   }
   function laterForRace(fn,ms){const token=raceToken();return setTimeout(()=>{if(isCurrent(token))fn();},ms);}
+  async function joinLive(token){
+    let timer,expired=false;
+    const deadline=new Promise((_,reject)=>{
+      timer=setTimeout(()=>{
+        expired=true;
+        reject(new Error("El servidor tardó demasiado en responder."));
+      },JOIN_TIMEOUT_MS);
+    });
+    const request=(async()=>{
+      const svc=await services();
+      if(expired||!isCurrent(token))return null;
+      return svc.callable("runnerJoinLive",{eventId:token.context.eventId,expectedRunId:token.context.runId,clientVersion:VERSION});
+    })();
+    try{return await Promise.race([request,deadline]);}
+    finally{clearTimeout(timer);}
+  }
   function runnerLogoSrc(){return location.pathname.includes("/orientacion/participante/")?"../../icons/militopo-512.png?v=r6a1-runner-brand-20261006":"icons/militopo-512.png?v=r6a1-runner-brand-20261006";}
   function emitLocalSnapshot(){
     try{window.dispatchEvent(new CustomEvent("militopo:v2-race-local-snapshot",{detail:{event:state.event?{...state.event}:null,auth:state.auth?{...state.auth}:null,runId:state.runId,participant:state.participant?{...state.participant}:null,controlPlan:state.controlPlan?JSON.parse(JSON.stringify(state.controlPlan)):null,localArrivalAt:Number(state.localArrivalAt||0),status:String(state.participant?.status||"")}}));}catch(_){}
@@ -616,9 +633,7 @@
       el("m2raceSyncTitle").textContent="Conexión recuperada";
       el("m2raceSyncText").textContent="Reconciliando carrera, controles y track con Live V2…";
       try{
-        const svc=await services();
-        if(!isCurrent(token))return false;
-        const joined=await svc.callable("runnerJoinLive",{eventId:token.context.eventId,expectedRunId:token.context.runId,clientVersion:VERSION});
+        const joined=await joinLive(token);
         if(!isCurrent(token))return false;assertRun(joined?.data,token);
 
         if(joined?.data?.controlPlan)state.controlPlan=joined.data.controlPlan;
@@ -634,13 +649,10 @@
           laterForRace(()=>autoFinishFromArrival({pass:cs.finishPass,retry:true}).catch(()=>{}),180);
           return true;
         }
-        try{await controlsApi()?.flush?.();}catch(_){}
-        if(!isCurrent(token))return false;
-        try{await trackApi()?.flush?.();}catch(_){}
-        if(!isCurrent(token))return false;
+        trackApi()?.flush?.().catch(()=>{});
         state.offlineRecovered=false;
         render();
-        el("m2raceSyncTitle").textContent="Carrera sincronizada";
+        el("m2raceSyncTitle").textContent="Conexión Live recuperada";
         el("m2raceSyncText").textContent="Conexión Live V2 recuperada. Controles y track pendientes se están sincronizando.";
         emitLocalSnapshot();
         return true;
@@ -666,9 +678,8 @@
       try{await restoreLocalRace(recovery);return;}catch(error){if(!isCurrent(token))return;el("m2raceSyncTitle").textContent="Recuperación local incompleta";el("m2raceSyncText").textContent=String(error?.message||error);}
     }
     try{
-      const svc=await services();if(!isCurrent(token))return false;
-        const joined=await svc.callable("runnerJoinLive",{eventId:token.context.eventId,expectedRunId:token.context.runId,clientVersion:VERSION});
-        if(!isCurrent(token))return false;assertRun(joined?.data,token);
+      const joined=await joinLive(token);
+      if(!isCurrent(token))return false;assertRun(joined?.data,token);
       state.controlPlan=joined?.data?.controlPlan||recovery?.controlPlan||null;state.participant={...(recovery?.participant||{}),...(joined?.data||{})};
       await controlsApi()?.configure?.({context:gpsContext(),plan:state.controlPlan,progress:joined?.data?.controlProgress||null,status:state.participant?.status||"ready"});
       if(!isCurrent(token))return;
@@ -687,7 +698,13 @@
     }catch(error){
       if(!isCurrent(token))return;
       if(state.recovered&&hasUsableRecovery(recovery)&&error?.details?.reason!=="RUN_CHANGED"){
-        try{await restoreLocalRace(recovery);if(!isCurrent(token))return;el("m2raceSyncText").textContent="Live V2 no responde todavía. La carrera continúa protegida con los datos locales.";return;}catch(_){}
+        try{
+          if(!await restoreLocalRace(recovery)||!isCurrent(token))return;
+          if(state.localArrivalAt)paintPendingArrival();
+          else el("m2raceSyncText").textContent="Live V2 no responde todavía. La carrera continúa protegida con los datos locales.";
+          laterForRace(()=>{if(navigator.onLine)reconcileLive().catch(()=>{});},2500);
+          return;
+        }catch(_){}
       }
       el("m2raceSyncTitle").textContent="No se pudo conectar";el("m2raceSyncText").textContent=String(error?.message||error);try{window.dispatchEvent(new CustomEvent("militopo:v2-runner-race-error",{detail:{event:state.event?{...state.event}:null,runId:state.runId,recovered:state.recovered,message:String(error?.message||error)}}));}catch(_){}
     }

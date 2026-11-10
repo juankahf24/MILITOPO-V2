@@ -6,7 +6,7 @@
 (function(){
   "use strict";
 
-  const VERSION="v2.0.10-orientacion";
+  const VERSION="v2.0.11-orientacion";
   const JSQR_URL="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js";
   const PASS_COOLDOWN_MS=4500;
   const GPS_MAX_ACCURACY_M=10;
@@ -574,23 +574,28 @@
   }
 
   async function flushAndWait({timeoutMs=18000,requireArrival=false}={}){
-    const started=Date.now();
-    if(navigator.onLine===false)return false;
-    // Si había un flush de una baliza anterior, esperamos a que termine antes de
-    // lanzar el cierre. Después reconstruimos la cola desde el diario completo.
-    while(state.flushing&&Date.now()-started<timeoutMs){await new Promise(r=>setTimeout(r,90));}
-    while(Date.now()-started<timeoutMs){
-      rebuildPendingQueue();
-      if(!state.queue.length){
-        if(!requireArrival||state.serverFinishValidated)return true;
+    const t=token();
+    const canSync=()=>current(t)&&!state.runConflict&&navigator.onLine!==false;
+    const confirmed=()=>state.queue.length===0&&(!requireArrival||state.serverFinishValidated);
+    if(!canSync())return false;
+    rebuildPendingQueue();
+    if(confirmed())return true;
+
+    // El cierre espera la confirmación sin quedar atado a la duración de la petición.
+    // La cola y sus reintentos siguen bajo el control de flush().
+    return new Promise(resolve=>{
+      const poll=setInterval(()=>{
+        if(!canSync())finish(false);
+        else if(confirmed())finish(true);
+      },120);
+      const deadline=setTimeout(()=>finish(canSync()&&confirmed()),timeoutMs);
+      function finish(ok){
+        clearInterval(poll);
+        clearTimeout(deadline);
+        resolve(ok);
       }
-      if(navigator.onLine===false)return false;
-      if(!state.flushing)await flush();
-      await new Promise(r=>setTimeout(r,120));
-      if(requireArrival&&state.serverFinishValidated&&state.queue.length===0)return true;
-      if(!requireArrival&&state.queue.length===0)return true;
-    }
-    return requireArrival ? (state.serverFinishValidated&&state.queue.length===0) : state.queue.length===0;
+      if(!state.flushing)flush().catch(()=>{});
+    });
   }
   function snapshot(){const stats=courseStats();return {configured:Boolean(state.context&&state.plan),runConflict:state.runConflict,raceStatus:state.raceStatus,completedCount:state.completedCount,serverCompletedCount:state.serverCompletedCount,expectedCount:stats.expected,discardedControlCount:stats.discarded,pendingControlCount:stats.pendingControls,penaltyAccumulatedMs:stats.penaltyAccumulatedMs,penaltyPreviewMs:stats.penaltyPreviewMs,progressPasses:progressPasses(),nextControl:nextTarget()?{...nextTarget()}:null,finishValidated:state.finishValidated,serverFinishValidated:state.serverFinishValidated,finishPass:state.finishPass?{...state.finishPass}:null,pending:state.queue.length,journalCount:state.journal.length,syncing:state.flushing,lastSyncError:state.lastSyncError,syncFailureCount:state.syncFailureCount,lastFix:state.lastFix?{...state.lastFix}:null};}
   function pendingPasses(){return syncPayload().map(item=>({...item}));}
