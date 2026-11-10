@@ -10771,6 +10771,36 @@ function resultMetric(value){
     if(String(value).trim()==="")return null;
     const n=Number(value);return Number.isFinite(n)&&n>=0?n:null;
 }
+function resultCoordinate(value,limit){
+    if(typeof value!=="number"&&typeof value!=="string")return null;
+    if(String(value).trim()==="")return null;
+    const n=Number(value);return Number.isFinite(n)&&Math.abs(n)<=limit?n:null;
+}
+function resultTrackPoint(point){
+    if(!point||typeof point!=="object")return null;
+    const lat=resultCoordinate(point.lat??point.latitude,90),lng=resultCoordinate(point.lng??point.lon??point.longitude,180);
+    return lat===null||lng===null?null:{...point,lat,lng};
+}
+function resultTrackPoints(r){
+    const raw=Array.isArray(r?.track)?r.track:Array.isArray(r?.gpsTrack)?r.gpsTrack:[];
+    return raw.map(resultTrackPoint).filter(Boolean);
+}
+function resultTrackStepM(a,b){
+    a=resultTrackPoint(a);b=resultTrackPoint(b);if(!a||!b)return null;
+    const rad=x=>x*Math.PI/180,lat1=rad(a.lat),lat2=rad(b.lat);
+    const h=Math.sin((lat2-lat1)/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(rad(b.lng-a.lng)/2)**2;
+    return 12742000*Math.asin(Math.sqrt(Math.max(0,Math.min(1,h))));
+}
+function resultTrackDistanceM(r){
+    const raw=Array.isArray(r?.track)?r.track:Array.isArray(r?.gpsTrack)?r.gpsTrack:[];
+    let previous=null,total=0,segments=0;
+    for(const sample of raw){
+        const point=resultTrackPoint(sample);
+        if(previous&&point){const distance=resultTrackStepM(previous,point);if(distance<500){total+=distance;segments++;}}
+        previous=point;
+    }
+    return segments?total:resultMetric(r?.trackDistanceM);
+}
 function resultMs(r){
     const saved=resultMetric(r?.durationMs);if(saved!==null)return saved;
     if(!r||!r.startTime||!r.finishTime)return null;
@@ -12401,9 +12431,9 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
   function penalizedControlsCount(r){return discardedControlIds(r).length+pendingControlIds(r).length}
   function adjustedResultMs(r){return resultOfficialMs(r,discardPenaltyMs()/60000)}
   function analysisPenaltyMs(r){return resultPenaltyMs(r,discardPenaltyMs()/60000)}
-  function trackPoints(r){const t=Array.isArray(r.track)?r.track:(Array.isArray(r.gpsTrack)?r.gpsTrack:[]);return t.filter(p=>Number.isFinite(Number(p.lat??p.latitude))&&Number.isFinite(Number(p.lng??p.lon??p.longitude)))}
-  function haversineM(a,b){const R=6371000,rad=x=>x*Math.PI/180;const lat1=rad(Number(a.lat??a.latitude)),lat2=rad(Number(b.lat??b.latitude));const dlat=lat2-lat1,dlon=rad(Number(b.lng??b.lon??b.longitude)-Number(a.lng??a.lon??a.longitude));const h=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlon/2)**2;return 2*R*Math.asin(Math.min(1,Math.sqrt(h)))}
-  function trackDistanceM(r){const pts=trackPoints(r);let d=0;for(let i=1;i<pts.length;i++){const x=haversineM(pts[i-1],pts[i]);if(Number.isFinite(x)&&x<500)d+=x}if(pts.length>1)return d;const cloud=Number(r?.trackDistanceM);return Number.isFinite(cloud)&&cloud>0?cloud:null}
+  function trackPoints(r){return resultTrackPoints(r)}
+  function haversineM(a,b){return resultTrackStepM(a,b)??NaN}
+  function trackDistanceM(r){return resultTrackDistanceM(r)}
   function routeIdealDistanceM(r){
     const directKm=Number(r?.routeDistanceKm);if(Number.isFinite(directKm)&&directKm>0)return directKm*1000;
     const route=resultRoute(r);if(!route)return null;
@@ -12466,17 +12496,18 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
     const startMs=Math.max(0,Number(row.startedAtMs||0)),finishMs=Math.max(0,Number(row.finishedAtMs||0));
     const routePoints=Array.isArray(row.routePoints)?row.routePoints.map(x=>String(x||"").trim()).filter(Boolean):[];
     const passes=Array.isArray(row.controlPasses)?row.controlPasses:[];
-    const scans=passes.filter(pass=>{const state=String(pass?.state||"").toLowerCase(),source=String(pass?.source||"").toLowerCase(),id=String(pass?.checkpointId||"").toUpperCase();return id&&id!=="FINISH"&&(state==="validated"||state==="discarded"||source==="discard"||["gps","qr","gps_track_recovery"].includes(source));}).map(pass=>{const source=String(pass?.source||"").toLowerCase(),discard=source==="discard"||pass?.discarded===true||String(pass?.state||"").toLowerCase()==="discarded";return {id:String(pass.checkpointId||"").trim(),controlId:String(pass.checkpointId||"").trim(),status:discard?"skipped":"correct",st:discard?"skipped":"correct",timestamp:Math.max(0,Number(pass.passedAtMs||0))||null,time:Math.max(0,Number(pass.passedAtMs||0))||null,source,lat:Number(pass.lat),lon:Number(pass.lng??pass.lon)};});
+    const scans=passes.filter(pass=>{const state=String(pass?.state||"").toLowerCase(),source=String(pass?.source||"").toLowerCase(),id=String(pass?.checkpointId||"").toUpperCase();return id&&id!=="FINISH"&&(state==="validated"||state==="discarded"||source==="discard"||["gps","qr","gps_track_recovery"].includes(source));}).map(pass=>{const source=String(pass?.source||"").toLowerCase(),discard=source==="discard"||pass?.discarded===true||String(pass?.state||"").toLowerCase()==="discarded";return {id:String(pass.checkpointId||"").trim(),controlId:String(pass.checkpointId||"").trim(),status:discard?"skipped":"correct",st:discard?"skipped":"correct",timestamp:Math.max(0,Number(pass.passedAtMs||0))||null,time:Math.max(0,Number(pass.passedAtMs||0))||null,source,lat:resultCoordinate(pass.lat,90),lon:resultCoordinate(pass.lng??pass.lon,180)};});
     const resolved=new Set(scans.map(scan=>String(scan.controlId||scan.id||"").toUpperCase()));
     const pendingFromPasses=passes.filter(pass=>pass?.pending===true||String(pass?.state||"").toLowerCase()==="pending").map(pass=>String(pass?.checkpointId||"").trim()).filter(Boolean);
     const routePending=routePoints.filter(id=>!["START","FINISH"].includes(String(id).toUpperCase())&&!resolved.has(String(id).toUpperCase()));
     const missingControls=[...new Set([...pendingFromPasses,...routePending])];
     const cacheKey=`${String(state.eventId||"")}:${runnerUid}`;
     const loaded=detail||analysisCloudDetailCache.get(cacheKey)||null;
-    const track=Array.isArray(loaded?.track)?loaded.track.map(point=>({lat:Number(point.lat),lng:Number(point.lng),timestamp:Number(point.at),time:Number(point.at),at:Number(point.at),accuracy:Number(point.accuracy),seq:Number(point.seq)})).filter(point=>Number.isFinite(point.lat)&&Number.isFinite(point.lng)&&Number.isFinite(point.timestamp)):[];
+    // Conservar huecos: una muestra inválida no debe unir dos tramos separados.
+    const track=Array.isArray(loaded?.track)?loaded.track.map(point=>{const p=resultTrackPoint(point);if(!p)return null;const timestamp=trackTimeMs(point.at);return {...p,timestamp,time:timestamp,at:timestamp,accuracy:resultMetric(point.accuracy),seq:resultMetric(point.seq)};}):[];
     const username=String(row.username||"").replace(/^@/,"").trim(),display=String(row.displayName||"").trim();
     const participantName=display||(username?`@${username}`:participantId);
-    return {...row,_v2Cloud:true,_cloudRunnerUid:runnerUid,participantId,participantName,routeId:String(row.routeId||""),routePoints,startTime:startMs?new Date(startMs).toISOString():null,finishTime:finishMs?new Date(finishMs).toISOString():null,completed:String(row.status||"").toLowerCase()==="finished",scans,missingControls,track,gpsTrack:track,trackPointCount:Math.max(Number(row.trackPointCount||0),track.length),officialDurationMs:resultMetric(row.officialDurationMs),penaltyMs:resultMetric(row.penaltyMs),trackDistanceM:Number(row.trackDistanceM||0)};
+    return {...row,_v2Cloud:true,_cloudRunnerUid:runnerUid,participantId,participantName,routeId:String(row.routeId||""),routePoints,startTime:startMs?new Date(startMs).toISOString():null,finishTime:finishMs?new Date(finishMs).toISOString():null,completed:String(row.status||"").toLowerCase()==="finished",scans,missingControls,track,gpsTrack:track,trackPointCount:Math.max(Number(row.trackPointCount||0),track.filter(Boolean).length),officialDurationMs:resultMetric(row.officialDurationMs),penaltyMs:resultMetric(row.penaltyMs),trackDistanceM:resultMetric(row.trackDistanceM)};
   }
   function analysisResults(){
     const local=typeof activeImportedResults==="function"?activeImportedResults():(state.importedResults||[]);
@@ -12557,13 +12588,21 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
   let analysisSmartFocusedLeg=null;
   const analysisPlayback={mode:'relative',speed:1,currentMs:0,durationMs:0,playing:false,lastFrame:0,lastVisualFrame:0,lastUiFrame:0,raf:0,prepared:[],inspectionEndMs:null,renderers:new Map(),targetFrameMs:33,uiFrameMs:120};
   const analysisNormalizedTrackCache=new Map();
-  function trackTimeMs(v){if(v==null)return null;if(typeof v==='number'&&Number.isFinite(v))return v<1e12?v*1000:v;const n=new Date(v).getTime();return Number.isFinite(n)?n:null}
+  function trackTimeMs(v){
+    if(v==null||typeof v==='boolean'||String(v).trim()==='')return null;
+    if(typeof v==='number'||(typeof v==='string'&&/^\d+(?:\.\d+)?$/.test(v.trim()))){const n=Number(v);return Number.isFinite(n)&&n>0?(n<1e12?n*1000:n):null;}
+    const n=typeof v==='string'?new Date(v).getTime():NaN;return Number.isFinite(n)&&n>0?n:null;
+  }
   function normalizedTrack(r){
-    const raw=trackPoints(r),pid=String(r?._cloudRunnerUid||r?.runnerUid||r?.participantId||''),first=raw[0],last=raw[raw.length-1],signature=[String(state.eventId||''),pid,raw.length,trackTimeMs(first?.timestamp??first?.time??first?.ts??first?.recordedAt)||'',trackTimeMs(last?.timestamp??last?.time??last?.ts??last?.recordedAt)||''].join(':');
-    const cached=analysisNormalizedTrackCache.get(signature);if(cached)return cached;
-    const fallbackStart=toMs(r.startTime)||Date.now();let previous=fallbackStart;
-    const normalized=raw.map((p,i)=>{let t=trackTimeMs(p.timestamp??p.time??p.ts??p.recordedAt);if(t===null)t=previous+(i?2000:0);if(t<previous)t=previous;previous=t;return {lat:Number(p.lat??p.latitude),lng:Number(p.lng??p.lon??p.longitude),timestamp:t,accuracy:Number(p.accuracy),heading:Number(p.heading??p.course),speed:Number(p.speed)}}).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
-    analysisNormalizedTrackCache.set(signature,normalized);if(analysisNormalizedTrackCache.size>40){const firstKey=analysisNormalizedTrackCache.keys().next().value;analysisNormalizedTrackCache.delete(firstKey)}return normalized;
+    const raw=trackPoints(r),pid=String(r?._cloudRunnerUid||r?.runnerUid||r?.participantId||''),key=JSON.stringify([String(state.eventId||''),pid]);
+    const samples=raw.map(p=>({lat:p.lat,lng:p.lng,timestamp:trackTimeMs(p.timestamp??p.time??p.ts??p.recordedAt??p.at),accuracy:resultMetric(p.accuracy),heading:resultCoordinate(p.heading??p.course,360),speed:resultMetric(p.speed)}));
+    const start=toMs(r.startTime),signature=JSON.stringify([start,samples]);
+    const cached=analysisNormalizedTrackCache.get(key);if(cached?.signature===signature)return cached.points;
+    const fallbackStart=start??samples.find(p=>p.timestamp!==null)?.timestamp??0;let previous=fallbackStart;
+    const normalized=samples.map((p,i)=>{let t=p.timestamp;const estimatedTime=t===null;if(estimatedTime)t=previous+(i?2000:0);if(t<previous)t=previous;previous=t;return {...p,timestamp:t,estimatedTime};});
+    analysisNormalizedTrackCache.set(key,{signature,points:normalized});
+    if(analysisNormalizedTrackCache.size>40)analysisNormalizedTrackCache.delete(analysisNormalizedTrackCache.keys().next().value);
+    return normalized;
   }
   function analysisTrackLayer(key){if(key==='ign')return L.tileLayer('https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg',{maxNativeZoom:20,maxZoom:25});if(key==='pnoa')return L.tileLayer('https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg',{maxNativeZoom:19,maxZoom:25});if(key==='custom'&&orientationGeoTiffRuntime?.ready)return L.imageOverlay(orientationGeoTiffRuntime.url,orientationGeoTiffRuntime.bounds,{opacity:1});return createMapantWmtsLayer({maxZoom:25,maxNativeZoom:19})}
   function ensureAnalysisTrackMap(){const el=document.getElementById('raceAnalysisTrackMap');if(!el||!window.L)return null;if(!analysisTrackMap){analysisTrackMap=L.map(el,{zoomControl:true,maxZoom:25,zoomSnap:.25}).setView([40.4168,-3.7038],7);analysisTrackGroup=L.layerGroup().addTo(analysisTrackMap);analysisTrackAnimationGroup=L.layerGroup().addTo(analysisTrackMap);analysisSmartInspectionGroup=L.layerGroup().addTo(analysisTrackMap);setAnalysisTrackLayer(analysisTrackBaseKey);setTimeout(()=>analysisTrackMap.invalidateSize(),80)}return analysisTrackMap}
@@ -12611,8 +12650,8 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
   function analysisTrackCanLoad(r){return normalizedTrack(r).length>1||(r?._v2Cloud&&analysisResultStatus(r)!=='not_started'&&typeof globalThis.MILITOPO_V2_LOAD_ORGANIZER_PLAYBACK_RESULT==='function')}
   function selectedTrackResults(){return analysisResults().filter(r=>analysisTrackSelected.has(String(r.participantId||''))&&normalizedTrack(r).length>1)}
   function playbackEventTime(v){const n=trackTimeMs(v);return Number.isFinite(n)?n:null}
-  function playbackControlPoint(id){const p=(state.points||{})[id];if(!p)return null;const lat=Number(p.lat??p.latitude),lng=Number(p.lng??p.lon??p.longitude);return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng}:null}
-  function playbackEventsForResult(r,base){const route=resultRoute(r),routePoints=(Array.isArray(r?.routePoints)&&r.routePoints.length?r.routePoints:(route?.points||[])),controls=routePoints.filter(id=>id!=='START'&&id!=='FINISH'),events=[];const st=playbackEventTime(r.startTime);if(st!==null)events.push({type:'start',id:'SALIDA',timestamp:st,playMs:st-base,status:'start'});(r.scans||[]).forEach(scan=>{const status=String(scan.st||scan.status||'').toLowerCase(),id=String(scan.id||scan.controlId||scan.expectedControlId||'').trim(),t=playbackEventTime(scan.timestamp||scan.time||scan.ts);if(id&&t!==null)events.push({type:'control',id,status,timestamp:t,playMs:t-base,point:(Number.isFinite(Number(scan.lat))&&Number.isFinite(Number(scan.lon??scan.lng))?{lat:Number(scan.lat),lng:Number(scan.lon??scan.lng)}:playbackControlPoint(id))})});const ft=playbackEventTime(r.finishTime);if(ft!==null)events.push({type:'finish',id:'LLEGADA',timestamp:ft,playMs:ft-base,status:'finish'});events.sort((a,b)=>a.playMs-b.playMs);return {events,controls}}
+  function playbackControlPoint(id){const p=resultTrackPoint((state.points||{})[id]);return p?{lat:p.lat,lng:p.lng}:null}
+  function playbackEventsForResult(r,base){const route=resultRoute(r),routePoints=(Array.isArray(r?.routePoints)&&r.routePoints.length?r.routePoints:(route?.points||[])),controls=routePoints.filter(id=>id!=='START'&&id!=='FINISH'),events=[];const st=playbackEventTime(r.startTime);if(st!==null)events.push({type:'start',id:'SALIDA',timestamp:st,playMs:st-base,status:'start'});(r.scans||[]).forEach(scan=>{const status=String(scan.st||scan.status||'').toLowerCase(),id=String(scan.id||scan.controlId||scan.expectedControlId||'').trim(),t=playbackEventTime(scan.timestamp||scan.time||scan.ts);if(id&&t!==null)events.push({type:'control',id,status,timestamp:t,playMs:t-base,point:(resultTrackPoint(scan)||playbackControlPoint(id))})});const ft=playbackEventTime(r.finishTime);if(ft!==null)events.push({type:'finish',id:'LLEGADA',timestamp:ft,playMs:ft-base,status:'finish'});events.sort((a,b)=>a.playMs-b.playMs);return {events,controls}}
   function destroyAnalysisPlaybackRenderers(){analysisPlayback.renderers.forEach(runtime=>{try{runtime.objectiveMarker&&analysisTrackAnimationGroup?.removeLayer(runtime.objectiveMarker)}catch(_){} });analysisPlayback.renderers.clear();analysisTrackAnimationGroup?.clearLayers()}
   function prepareAnalysisPlayback(){const rs=selectedTrackResults();const all=rs.map((r,i)=>({r,color:analysisTrackColors[i%analysisTrackColors.length],points:normalizedTrack(r)}));destroyAnalysisPlaybackRenderers();if(!all.length){analysisPlayback.prepared=[];analysisPlayback.durationMs=0;analysisPlayback.currentMs=0;updateAnalysisPlaybackUi();return}
     const globalStart=Math.min(...all.map(x=>x.points[0].timestamp));
@@ -12750,8 +12789,9 @@ async function orientationGeoTiffDataUrlForBounds(bounds,width,height){if(!orien
     return out.sort((a,b)=>a.time-b.time)
   }
   function smartAnalyzeResult(r){
-    const key=String(r.participantId||'')+'|'+String(r.trackLiveUpdatedAt||r.finishTime||'')+'|'+String((r.scans||[]).length);if(smartAnalysisCache.has(key))return smartAnalysisCache.get(key);
-    const pts=normalizedTrack(r),events=smartResultEvents(r),legs=[];if(pts.length<2||events.length<2){const empty={r,legs,totalExtra:0,totalLost:0,totalStopped:0,issues:0,score:null};smartAnalysisCache.set(key,empty);return empty}
+    const pts=normalizedTrack(r),events=smartResultEvents(r),legs=[];
+    const key=JSON.stringify([state.eventId||'',r.participantId||'',r.trackLiveUpdatedAt||r.finishTime||'',events]);
+    const cached=smartAnalysisCache.get(key);if(cached?.pts===pts)return cached;if(pts.length<2||events.length<2){const empty={r,pts,legs,totalExtra:0,totalLost:0,totalStopped:0,issues:0,score:null};smartAnalysisCache.set(key,empty);return empty}
     const movingSpeeds=[];for(let i=1;i<pts.length;i++){const dt=(pts[i].timestamp-pts[i-1].timestamp)/1000,d=haversineM(pts[i-1],pts[i]);if(dt>0&&dt<20&&d>2){const v=d/dt;if(v>.4&&v<8)movingSpeeds.push(v)}}
     const baseSpeed=Math.max(.8,Math.min(4.5,smartMedian(movingSpeeds)||1.5));
     for(let i=1;i<events.length;i++){
