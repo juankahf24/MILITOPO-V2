@@ -1,5 +1,5 @@
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
-import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.17";
+import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.18";
 import "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {

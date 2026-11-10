@@ -2,9 +2,9 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2.0.17-orientacion";
+  const VERSION="v2.0.18-orientacion";
   const JOIN_TIMEOUT_MS=8000;
-  const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false,finishWait:null};
+  const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false,classificationEpoch:0,finishWait:null};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
   const fmtClock=ms=>{const sec=Math.max(0,Math.floor(ms/1000)),h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return h?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;};
@@ -408,22 +408,28 @@
       list.innerHTML=rows.length?rows.map(row=>{const me=String(row.runnerUid||"")===String(state.auth?.uid||""),rank=row.rank==null?"—":`${row.rank}º`,name=classificationRunnerName(row),time=row.officialDurationMs==null?"—":fmtClock(Math.max(0,Number(row.officialDurationMs||0)));return `<div class="m2race-summary-live-row${me?" is-me":""}"><b>${esc(rank)}</b><span>${esc(name)}${me?" · TÚ":""}</span><em>${esc(time)}</em></div>`;}).join(""):'<div class="m2race-summary-live-row"><b>—</b><span>Aún no hay puestos disponibles</span><em>—</em></div>';
     }
   }
-  function stopClassificationUpdates(){if(state.classificationTimer){clearTimeout(state.classificationTimer);state.classificationTimer=null;}state.classificationBusy=false;}
+  function stopClassificationUpdates(){state.classificationEpoch+=1;if(state.classificationTimer){clearTimeout(state.classificationTimer);state.classificationTimer=null;}state.classificationBusy=false;}
   async function refreshFinishClassification({schedule=true}={}){
     if(!state.summaryOpen||!state.event?.eventId||state.classificationBusy)return;
+    const token=raceToken(),generation=state.classificationEpoch;
+    const current=()=>state.summaryOpen&&isCurrent(token)&&generation===state.classificationEpoch;
     state.classificationBusy=true;
     try{
       if(navigator.onLine===false)throw new Error("offline");
-      const svc=await services(),res=await svc.callable("getEventClassification",{eventId:state.event.eventId,clientVersion:VERSION}),data=res?.data||{};
-      paintFinishClassification(data);
+      const svc=await services();if(!current())return;
+      const res=await svc.callable("getEventClassification",{eventId:token.context.eventId,clientVersion:VERSION});
+      if(!current())return;
+      paintFinishClassification(res?.data||{});
     }catch(error){
+      if(!current())return;
       const progress=el("m2sumClassProgress"),note=el("m2sumClassNote");
       if(progress)progress.textContent=navigator.onLine===false?"Sin conexión · esperando":"Actualización pendiente";
       if(note&&!state.classificationData)note.textContent="Tu resultado está guardado. La clasificación se actualizará cuando haya conexión.";
     }finally{
-      state.classificationBusy=false;
-      stopClassificationUpdates();
-      if(schedule&&state.summaryOpen&&!state.classificationOfficial)state.classificationTimer=setTimeout(()=>refreshFinishClassification({schedule:true}),5000);
+      if(current()){
+        stopClassificationUpdates();
+        if(schedule&&!state.classificationOfficial)state.classificationTimer=laterForRace(()=>refreshFinishClassification({schedule:true}),5000);
+      }
     }
   }
 
@@ -448,17 +454,23 @@
     ["m2sumTrack","m2sumSpeed","m2sumPace","m2sumPoints","m2sumGeneralRank","m2sumRouteRank"].forEach(id=>el(id).textContent="—");
     el("m2sumRouteLabel").textContent=basic.routeId?`${basic.routeId} · MI RECORRIDO`:"MI RECORRIDO";
     state.classificationData=null;state.classificationOfficial=false;stopClassificationUpdates();
+    const token=raceToken(),generation=state.classificationEpoch;
+    const current=()=>state.summaryOpen&&isCurrent(token)&&generation===state.classificationEpoch;
+    state.classificationBusy=true;
     const classWrap=el("m2raceSummaryClassification");if(classWrap)classWrap.classList.remove("is-official");
     el("m2sumClassPhase").textContent="CLASIFICACIÓN PROVISIONAL";el("m2sumClassProgress").textContent="Calculando clasificación…";el("m2sumClassNote").textContent="Se actualiza automáticamente conforme terminan los demás corredores.";
     el("m2sumClassList").innerHTML='<div class="m2race-summary-live-row"><b>—</b><span>Calculando puestos…</span><em>—</em></div>';
     panel.classList.add("open");
     try{
-      const svc=await services();
-      const [detailRes,classRes]=await Promise.allSettled([svc.callable("getRunnerResultDetail",{eventId:state.event.eventId}),svc.callable("getEventClassification",{eventId:state.event.eventId})]);
-      if(detailRes.status==="fulfilled"){const r=detailRes.value?.data?.result||{};const raw=r.durationMs==null?null:Math.max(0,Number(r.durationMs||0)),pen=Math.max(0,Number(r.penaltyMs||0)),official=r.officialDurationMs==null?(raw==null?null:raw+pen):Math.max(0,Number(r.officialDurationMs||0));el("m2sumTime").textContent=official==null?el("m2sumTime").textContent:fmtClock(official);el("m2sumRealTime").textContent=raw==null?el("m2sumRealTime").textContent:fmtClock(raw);el("m2sumPenalty").textContent=pen?`+${fmtClock(pen)}`:"—";el("m2sumPending").textContent=String(Math.max(0,Number(r.pendingControlCount??r.controlMissingCount??0)));el("m2sumDiscarded").textContent=String(Math.max(0,Number(r.discardedControlCount||0)));el("m2sumTrack").textContent=fmtTrackKm(r.trackDistanceM);el("m2sumReduced").textContent=r.reducedDistanceKm==null?el("m2sumReduced").textContent:fmtKm(r.reducedDistanceKm);el("m2sumControls").textContent=`${Math.max(0,Number(r.controlDetectedCount||0))} / ${Math.max(0,Number(r.controlExpectedCount||0))}`;el("m2sumSpeed").textContent=r.avgSpeedKmh==null?"—":`${Number(r.avgSpeedKmh).toFixed(2)} km/h`;el("m2sumPace").textContent=fmtPace(r.paceMinKm);el("m2sumPoints").textContent=String(Math.max(0,Number(r.trackPointCount||0)));el("m2sumArrival").textContent=fmtTime(r.finishedAtMs||basic.finishedAt||state.localArrivalAt);}
+      const svc=await services();if(!current())return;
+      const [detailRes,classRes]=await Promise.allSettled([svc.callable("getRunnerResultDetail",{eventId:token.context.eventId}),svc.callable("getEventClassification",{eventId:token.context.eventId})]);
+      if(!current())return;
+      if(detailRes.status==="fulfilled"&&detailRes.value?.data?.result?.runId===token.context.runId){const r=detailRes.value?.data?.result||{};const raw=r.durationMs==null?null:Math.max(0,Number(r.durationMs||0)),pen=Math.max(0,Number(r.penaltyMs||0)),official=r.officialDurationMs==null?(raw==null?null:raw+pen):Math.max(0,Number(r.officialDurationMs||0));el("m2sumTime").textContent=official==null?el("m2sumTime").textContent:fmtClock(official);el("m2sumRealTime").textContent=raw==null?el("m2sumRealTime").textContent:fmtClock(raw);el("m2sumPenalty").textContent=pen?`+${fmtClock(pen)}`:"—";el("m2sumPending").textContent=String(Math.max(0,Number(r.pendingControlCount??r.controlMissingCount??0)));el("m2sumDiscarded").textContent=String(Math.max(0,Number(r.discardedControlCount||0)));el("m2sumTrack").textContent=fmtTrackKm(r.trackDistanceM);el("m2sumReduced").textContent=r.reducedDistanceKm==null?el("m2sumReduced").textContent:fmtKm(r.reducedDistanceKm);el("m2sumControls").textContent=`${Math.max(0,Number(r.controlDetectedCount||0))} / ${Math.max(0,Number(r.controlExpectedCount||0))}`;el("m2sumSpeed").textContent=r.avgSpeedKmh==null?"—":`${Number(r.avgSpeedKmh).toFixed(2)} km/h`;el("m2sumPace").textContent=fmtPace(r.paceMinKm);el("m2sumPoints").textContent=String(Math.max(0,Number(r.trackPointCount||0)));el("m2sumArrival").textContent=fmtTime(r.finishedAtMs||basic.finishedAt||state.localArrivalAt);}
       if(classRes.status==="fulfilled")paintFinishClassification(classRes.value?.data||{});
     }catch(_){}
-    if(state.summaryOpen&&!state.classificationOfficial)state.classificationTimer=setTimeout(()=>refreshFinishClassification({schedule:true}),5000);
+    if(!current())return;
+    stopClassificationUpdates();
+    if(!state.classificationOfficial)state.classificationTimer=laterForRace(()=>refreshFinishClassification({schedule:true}),5000);
   }
   function clearListeners(){state.bindingEpoch+=1;try{state.unsubParticipant?.();}catch(_){}try{state.unsubActive?.();}catch(_){}state.unsubParticipant=null;state.unsubActive=null;state.liveBound=false;if(state.timer){clearInterval(state.timer);state.timer=null;}stopClassificationUpdates();}
   function close(){if(state.busy)return;controlsApi()?.closeScanner?.();ensureRoot().hidden=true;document.body.style.overflow="";window.dispatchEvent(new CustomEvent("militopo:v2-runner-race-closed",{detail:{event:state.event?{...state.event}:null,runId:state.runId,status:String(state.participant?.status||"")}}));}
