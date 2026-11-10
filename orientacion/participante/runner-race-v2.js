@@ -2,7 +2,7 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2.0.11-orientacion";
+  const VERSION="v2.0.12-orientacion";
   const JOIN_TIMEOUT_MS=8000;
   const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
@@ -68,8 +68,8 @@
       ?"Hora conservada en este móvil. La llegada se enviará al recuperar cobertura."
       :"Hora conservada en este móvil. Resultado pendiente de sincronizar.";
   }
-  async function prepareTrackForFinish(token){
-    await gpsApi()?.stop?.("arrival_validated");
+  async function prepareTrackForFinish(token,stopReason="arrival_validated"){
+    await gpsApi()?.stop?.(stopReason);
     if(!isCurrent(token))return false;
     const track=trackApi();
     if(!state.arrivalTrackPrepared){
@@ -85,6 +85,7 @@
     if((track?.snapshot?.().pending||0)>0)await track.flush({force:true});
     if(!isCurrent(token))return false;
     const remaining=track?.snapshot?.();
+    if(!remaining||remaining.storageFailed)throw new Error("No se pudo comprobar el track guardado. Reintenta la sincronización.");
     if(Number(remaining?.pending||0)>0)throw new Error(`Quedan ${remaining.pending} puntos GPS pendientes de sincronizar.`);
     return true;
   }
@@ -848,18 +849,9 @@
       try{await api?.flush?.();}catch(_){}
       if(!isCurrent(token))return;
       const pendingPasses=api?.pendingPasses?.()||[];
-      await gpsApi()?.stop?.("runner_manual_finish");
-      // El cierre manual también crea resultados: no consolidar un track parcial
-      // por un fallo de red. Las muestras permanecen en IndexedDB para reintento.
-      if(!isCurrent(token))return;
-      let trackSnap=trackApi()?.snapshot?.()||{};
-      if(Number(trackSnap.pending||0)>0 && navigator.onLine!==false){
-        await trackApi()?.flush?.({force:true});
-        trackSnap=trackApi()?.snapshot?.()||{};
-      }
-      if(Number(trackSnap.pending||0)>0 || trackSnap.storageFailed){
-        throw new Error(`Track sin sincronizar: ${Number(trackSnap.pending||0)} punto(s) pendientes. La carrera NO se ha finalizado oficialmente.`);
-      }
+      // Tras una recarga puede haber puntos en IndexedDB aunque el GPS
+      // todavía no se haya reanudado y la cola en memoria parezca vacía.
+      if(!await prepareTrackForFinish(token,"runner_manual_finish"))return;
       if(!isCurrent(token))return;const svc=await services();if(!isCurrent(token))return;
       const result=await svc.callable("runnerFinishRace",{eventId:token.context.eventId,expectedRunId:token.context.runId,clientVersion:VERSION,manualFinish:true,pendingPasses});
       const data=result?.data||{};if(!isCurrent(token))return;assertRun(data,token);
