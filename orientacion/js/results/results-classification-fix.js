@@ -11,8 +11,7 @@
     const penaltyMsOf=r=>resultPenaltyMs(r,penaltyMinutes());
     const rawMsOf=resultMs;
     const adjustedMsOf=r=>resultOfficialMs(r,penaltyMinutes());
-    const trackPointsOf=r=>{const t=Array.isArray(r?.track)?r.track:(Array.isArray(r?.gpsTrack)?r.gpsTrack:[]);return t.filter(p=>Number.isFinite(Number(p?.lat??p?.latitude))&&Number.isFinite(Number(p?.lng??p?.lon??p?.longitude)));};
-    const trackDistanceMOf=r=>{const pts=trackPointsOf(r);if(pts.length<2)return null;const R=6371000,rad=x=>x*Math.PI/180;let total=0;for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],lat1=rad(Number(a.lat??a.latitude)),lat2=rad(Number(b.lat??b.latitude)),dLat=lat2-lat1,dLon=rad(Number(b.lng??b.lon??b.longitude)-Number(a.lng??a.lon??a.longitude));const h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;const d=2*R*Math.asin(Math.min(1,Math.sqrt(h)));if(Number.isFinite(d)&&d<500)total+=d;}return total;};
+    const trackDistanceMOf=resultTrackDistanceM;
     const trackDistanceLabel=r=>{const m=trackDistanceMOf(r);return Number.isFinite(m)?`${(m/1000).toFixed(2)} km`:"--";};
     const completedCountOf=r=>typeof resultCompletedControlsCount==="function"?resultCompletedControlsCount(r):(r?.scans||[]).filter(s=>String(s?.st||s?.status||"").toLowerCase()==="correct").length;
     const rankedEntries=()=>resultRankedRows(typeof activeImportedResults==="function"?activeImportedResults():(state.importedResults||[]),penaltyMinutes());
