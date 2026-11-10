@@ -49,4 +49,41 @@
     }
   `;
   document.head.appendChild(style);
+
+  // La vista Live se monta antes que este script. Mostramos la confirmación
+  // del controlador después de que la vista haya actualizado el progreso.
+  window.addEventListener("militopo:v2-control-status",event=>{
+    const detail=event.detail||{};
+    if(!["racing","started"].includes(detail.raceStatus))return;
+    const root=document.getElementById("m2RaceV2");
+    const status=root?.querySelector("#m2raceControlStatus");
+    if(!status||root.hidden)return;
+
+    const pending=Number(detail.pending||0);
+    let message="",warning=false;
+    if(detail.localStorageError){
+      message=detail.localStorageError;warning=true;
+    }else if(detail.status==="arrival_synced"){
+      message="Llegada sincronizada · preparando resultado.";
+    }else if(detail.status==="arrival_local" || (detail.finishValidated && !detail.serverFinishValidated &&
+      ["offline","syncing","gps","ready","status"].includes(detail.status))){
+      message="Llegada guardada en el móvil · pendiente de sincronizar.";warning=true;
+    }else if(detail.status==="passed"||detail.status==="discarded"){
+      const id=detail.pass?.checkpointId||"Baliza";
+      message=detail.status==="discarded"
+        ?`${id} · descarte guardado (+15 min).`
+        :`${id} guardada en el móvil · pendiente de sincronizar.`;
+      warning=true;
+    }else if(pending>0 && ["offline","syncing","gps","ready","status"].includes(detail.status)){
+      message=`${pending} ${pending===1?"validación guardada":"validaciones guardadas"} · pendiente de sincronizar.`;
+      warning=true;
+    }else if(detail.status==="synced" && Number(detail.syncedCount)>0 && !pending){
+      message="Validaciones sincronizadas.";
+    }
+    if(!message)return;
+    status.setAttribute("role","status");
+    status.className=`m2race-control-status ${warning?"warn":"ok"}`;
+    status.textContent=message;
+  });
+
 })();

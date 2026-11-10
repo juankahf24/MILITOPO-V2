@@ -2,9 +2,9 @@
 import "../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006";
 await import("../../js/v2/live/runner-track-v2.js?v=v2-p03-gps-reconciliation-20261023");
 await import("../../js/v2/live/runner-gps-v2.js?v=v2-lote2-gps-20261109");
-await import("../../js/v2/live/runner-controls-v2.js?v=v2-r6f-progress-discard-state-20261007");
+await import("./runner-controls-v2.js?v=2.0.7");
 await import("../../js/v2/live/runner-race-v2.js?v=v2-f29-result-recovery-20261031");
-await import("./runner-r9m-responsive.js?v=v2-r9m-runner-responsive-20261011");
+await import("./runner-r9m-responsive.js?v=2.0.7");
 
 // Cargar el respaldo una vez identificada la sesión local del corredor.
 // El receptor de la carrera ya está listo antes de emitir su reapertura.
