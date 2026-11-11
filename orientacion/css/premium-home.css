@@ -189,3 +189,6 @@ body.r5-premium-tool-open #r1Workspace[data-premium-tool="analysis"] .table-wrap
 .mpp-home .mpp-r3-sort-note{margin:0;color:#526e59;font-size:11px;line-height:1.4;font-weight:650}
 .mpp-home .mpp-r3-created{display:flex;align-items:center;gap:5px;color:#456b51;font-size:11px;font-weight:720;line-height:1.35}
 .mpp-home .mpp-r3-created svg{width:14px;height:14px;flex:0 0 14px}
+
+/* Acciones de la carrera actual reunidas, sin un segundo bloque de gestión. */
+.mpp-r3-current-bottom .mpp-r5-open-flow{margin-top:10px;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.35)}
