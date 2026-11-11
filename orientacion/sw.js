@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.21";
+const BUILD_ID="2.0.22";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -21,7 +21,7 @@ const CORE_ASSETS=[
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./css/r9o-final-polish.css?v=r9o-final-20261011",
   "./css/premium-base.css?v=premium-p0a-20261011",
-  "./css/premium-home.css?v=militopo-f231-sin-archivado-20261102",
+  "./css/premium-home.css?v=2.0.22",
   "./css/orientation-modes.css?v=militopo-r3-fullscreen-20261018",
   "./css/premium-builder.css?v=militopo-f246-recuperacion-20261103",
   "./js/app.js?v=2.0.20",
@@ -31,7 +31,7 @@ const CORE_ASSETS=[
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=militopo-r5a-analisis-comparativo-20261019",
   "./js/premium/premium-builder.js?v=militopo-f246-recuperacion-20261103",
-  "./js/premium/premium-home.js?v=militopo-f231-sin-archivado-20261102",
+  "./js/premium/premium-home.js?v=2.0.22",
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
   "./js/premium/orientation-modes.js?v=militopo-r3-fullscreen-20261018",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
@@ -53,7 +53,7 @@ const CORE_ASSETS=[
   "../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../js/v2/auth/roles.js",
   "../js/v2/auth/auth-ui.css?v=v2-r9j-ajustes-compactos-20261010",
-  "../js/v2/auth/auth-ui.js?v=v2-r9j-ajustes-compactos-20261010",
+  "../js/v2/auth/auth-ui.js?v=2.0.22",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
   "../js/v2/data/invitations.js?v=militopo-f231-sin-archivado-20261102",
   "../js/v2/data/participants-admin.js?v=militopo-f231-sin-archivado-20261102",
