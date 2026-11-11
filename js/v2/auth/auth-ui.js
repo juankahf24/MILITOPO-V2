@@ -430,6 +430,11 @@ function initials(name) {
 function paintAvatar(node, name, photoURL = "") {
   if (!node) return;
   const url = String(photoURL || "").trim();
+  // Mantener intacta la experiencia de Topografía: estabilizar solo Orientación.
+  const stablePhoto = location.pathname.includes("/orientacion/");
+  const existing = node.querySelector("img");
+  if (stablePhoto && url && existing?.getAttribute("src") === url) return;
+  if (stablePhoto && !url && !existing && node.textContent === initials(name)) return;
   node.replaceChildren();
   if (url) {
     const img = document.createElement("img");
@@ -437,7 +442,7 @@ function paintAvatar(node, name, photoURL = "") {
     img.alt = "";
     img.decoding = "async";
     img.referrerPolicy = "no-referrer";
-    img.addEventListener("error", () => { node.textContent = initials(name); }, { once: true });
+    img.addEventListener("error", () => { if (!stablePhoto || img.parentNode === node) node.textContent = initials(name); }, { once: true });
     node.appendChild(img);
   } else node.textContent = initials(name);
 }
@@ -815,6 +820,7 @@ function isFullOwnProfileRole() {
   return ["organizer", "super_admin"].includes(normalizeRole(state.role || "runner"));
 }
 function renderOwnOverview() {
+  const oldPhoto = location.pathname.includes("/orientacion/") ? el("m2SelfAvatar")?.querySelector("img") : null;
   const host = el("m2SelfProfileContent");
   if (!host || !state.currentUser) return;
   const currentName = state.profile?.displayName || state.currentUser.displayName || state.currentUser.email || "Usuario";
@@ -886,6 +892,7 @@ function renderOwnOverview() {
       </div>
       ${state.ownOverviewError ? `<div class="m2-self-inline-error">${profileEsc(state.ownOverviewError)}</div>` : ""}
     </section>`;
+  if (oldPhoto && oldPhoto.getAttribute("src") === String(photoURL || "").trim()) el("m2SelfAvatar")?.appendChild(oldPhoto);
   paintAvatar(el("m2SelfAvatar"), name, photoURL);
   if (el("m2SelfProfileTitle")) el("m2SelfProfileTitle").textContent = name;
   if (el("m2SelfProfileSubtitle")) el("m2SelfProfileSubtitle").textContent = `${username ? `@${username} · ` : ""}${roleLabel(role)}`;
