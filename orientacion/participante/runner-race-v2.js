@@ -2,9 +2,9 @@
    Live V2 es el único flujo activo. El GPS solo se comparte durante la carrera. */
 (function(){
   "use strict";
-  const VERSION="v2.0.20-orientacion";
+  const VERSION="v2.0.21-orientacion";
   const JOIN_TIMEOUT_MS=8000;
-  const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false,classificationEpoch:0,finishWait:null};
+  const state={root:null,services:null,event:null,auth:null,runId:"",participant:null,controlPlan:null,unsubParticipant:null,unsubActive:null,timer:null,busy:false,gpsTried:false,recovered:false,offlineRecovered:false,arrivalTrackPrepared:false,liveBound:false,reconnectPromise:null,epoch:0,bindingEpoch:0,localArrivalAt:0,autoFinishing:false,summaryOpen:false,finishConfirmed:false,finishRetryCount:0,gpsPrepared:false,preStartFix:null,classificationTimer:null,classificationData:null,classificationOfficial:false,classificationBusy:false,classificationEpoch:0,finishWait:null,startWait:null,gpsWait:null};
   const esc=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
   const statusLabel=s=>({not_started:"PREPARADO",ready:"PREPARADO",racing:"EN CARRERA",started:"EN CARRERA",finished:"FINALIZADO"})[String(s||"").toLowerCase()]||String(s||"").toUpperCase();
   const fmtClock=ms=>{const sec=Math.max(0,Math.floor(ms/1000)),h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return h?`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`:`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;};
@@ -762,45 +762,74 @@
   }
 
   async function activateGps(){
-    if(state.finishWait)return false;
-    if(state.localArrivalAt)return false;
-    const api=gpsApi();if(!api)return updateGpsUi("unsupported",{message:"Módulo GPS no disponible."});
-    updateGpsUi("requesting");
-    try{
-      const fix=await api.prepare();
-      if(!fix){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:api.snapshot?.().lastError||"No se pudo obtener una posición GPS."});return false;}
-      state.gpsPrepared=true;state.preStartFix={...fix};state.gpsTried=true;
-      const racing=["racing","started"].includes(String(state.participant?.status||"").toLowerCase());
-      if(racing){const ok=await api.start(gpsContext(),fix);if(!ok){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:"No se pudo mantener activo el GPS de carrera."});return false;}updateGpsUi("active",{fix});}
-      else updateGpsUi("ready",{fix});
-      return true;
-    }catch(error){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:String(error?.message||error)});return false;}
+    const token=raceToken();
+    if(state.finishWait||state.localArrivalAt||!isCurrent(token)||!["ready","not_started","racing","started"].includes(String(state.participant?.status||"").toLowerCase()))return false;
+    if(state.gpsWait&&isCurrent(state.gpsWait.token))return state.gpsWait.promise;
+    const api=gpsApi();if(!api){updateGpsUi("unsupported",{message:"Módulo GPS no disponible."});return false;}
+    const wait={token,promise:null};state.gpsWait=wait;
+    wait.promise=(async()=>{
+      updateGpsUi("requesting");
+      try{
+        const fix=await api.prepare();
+        if(!isCurrent(token)||state.finishWait||state.localArrivalAt||String(state.participant?.status||"").toLowerCase()==="finished")return false;
+        if(!fix){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:api.snapshot?.().lastError||"No se pudo obtener una posición GPS."});return false;}
+        state.gpsPrepared=true;state.preStartFix={...fix};state.gpsTried=true;
+        const racing=["racing","started"].includes(String(state.participant?.status||"").toLowerCase());
+        if(racing){
+          const ok=await api.start(token.context,fix);if(!isCurrent(token)||state.finishWait||state.localArrivalAt||String(state.participant?.status||"").toLowerCase()==="finished")return false;
+          if(!ok){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:"No se pudo mantener activo el GPS de carrera."});return false;}
+          updateGpsUi("active",{fix});
+        }else updateGpsUi("ready",{fix});
+        return true;
+      }catch(error){if(isCurrent(token)){state.gpsPrepared=false;state.preStartFix=null;updateGpsUi("error",{message:String(error?.message||error)});}return false;}
+      finally{if(state.gpsWait===wait)state.gpsWait=null;}
+    })();
+    return wait.promise;
   }
   async function startRace(){
     const token=raceToken();
-    if(state.busy)return;
-    const api=gpsApi(),snap=api?.snapshot?.()||{};
-    if(!state.gpsPrepared&&!snap.active){
-      el("m2raceStartConfirm").classList.remove("open");
-      const ok=await activateGps();if(!ok){el("m2raceControlStatus").className="m2race-control-status warn";el("m2raceControlStatus").textContent="No se puede iniciar: activa el GPS y permite la ubicación.";return;}
-    }
-    const fix=state.preStartFix||api?.snapshot?.().lastSent||null;
-    if(!fix){el("m2raceControlStatus").className="m2race-control-status warn";el("m2raceControlStatus").textContent="No se puede iniciar sin una posición GPS válida.";syncStartGate();return;}
-    state.localArrivalAt=0;state.autoFinishing=false;busy("Preparando salida","GPS validado · registrando tu salida oficial…");
+    if(state.busy||state.finishWait||state.localArrivalAt||!isCurrent(token)||!["ready","not_started","racing","started"].includes(String(state.participant?.status||"").toLowerCase()))return;
+    if(state.startWait&&isCurrent(state.startWait.token))return;
+    const wait={token};state.startWait=wait;let requested=false,registered=false;
+    busy("Preparando salida","Comprobando GPS y almacenamiento local…");
     try{
-      // P0.1: antes de cambiar el estado OFICIAL en el servidor, confirmar que
-      // el teléfono puede escribir y recuperar la cola GPS local.
-      const storageReady=await trackApi()?.start?.(gpsContext());
-      if(storageReady!==true)throw new Error("No se puede iniciar: almacenamiento GPS local no disponible. La salida oficial NO se ha solicitado.");
-      if(!isCurrent(token))return;const svc=await services();if(!isCurrent(token))return;const startResult=await svc.callable("runnerStartRace",{eventId:token.context.eventId,expectedRunId:token.context.runId,clientVersion:VERSION});const startData=startResult?.data||{};if(!isCurrent(token))return;assertRun(startData,token);
-      state.arrivalTrackPrepared=true;
-      state.participant={...(state.participant||{}),status:"racing",startedAt:Number(startData.startedAt||state.participant?.startedAt||Date.now())};controlsApi()?.setRaceStatus?.("racing");
-      const gpsStarted=await api.start(gpsContext(),fix);if(!gpsStarted)throw new Error("La salida se registró, pero el GPS no pudo mantenerse activo. Revisa el permiso de ubicación.");
+      const api=gpsApi(),snap=api?.snapshot?.()||{};
+      if(!state.gpsPrepared&&!snap.active){
+        el("m2raceStartConfirm").classList.remove("open");
+        const ok=await activateGps();if(!isCurrent(token))return;
+        if(!ok)throw new Error("No se puede iniciar: activa el GPS y permite la ubicación.");
+      }
+      if(!isCurrent(token)||state.localArrivalAt||String(state.participant?.status||"").toLowerCase()==="finished")return;
+      const fix=state.preStartFix||api?.snapshot?.().lastSent||null;
+      if(!fix)throw new Error("No se puede iniciar sin una posición GPS válida.");
+      const storageReady=await trackApi()?.start?.(token.context);
       if(!isCurrent(token))return;
+      if(storageReady!==true)throw new Error("No se puede iniciar: almacenamiento GPS local no disponible. La salida oficial NO se ha solicitado.");
+      const svc=await services();if(!isCurrent(token))return;
+      requested=true;
+      const startResult=await svc.callable("runnerStartRace",{eventId:token.context.eventId,expectedRunId:token.context.runId,clientVersion:VERSION});
+      if(!isCurrent(token))return;const startData=startResult?.data||{};assertRun(startData,token);
+      const startedAt=Number(startData.startedAt);
+      if(!Number.isSafeInteger(startedAt)||startedAt<=0)throw new Error("Falta confirmar la hora oficial de salida. Se consultará el estado de la carrera.");
+      registered=true;state.arrivalTrackPrepared=true;
+      // Una respuesta tardía de salida no debe reabrir una llegada ya recibida.
+      if(state.localArrivalAt||state.finishWait||String(state.participant?.status||"").toLowerCase()==="finished")return;
+      state.participant={...(state.participant||{}),status:"racing",startedAt};controlsApi()?.setRaceStatus?.("racing");
+      const gpsStarted=await api.start(token.context,fix);if(!isCurrent(token)||state.finishWait||state.localArrivalAt||String(state.participant?.status||"").toLowerCase()==="finished")return;
+      if(!gpsStarted)throw new Error("La salida está registrada. Revisa el permiso de ubicación y vuelve a activar el GPS.");
       updateGpsUi("active",{fix});render();emitLocalSnapshot();updateControlUi("status");
       el("m2raceBusyTitle").textContent="Salida registrada ✓";el("m2raceBusyText").textContent="TIEMPO OFICIAL en marcha · GPS y track activos.";await new Promise(r=>setTimeout(r,650));
-    }catch(error){if(!isCurrent(token))return;el("m2raceBusyTitle").textContent="No se pudo iniciar";el("m2raceBusyText").textContent=String(error?.message||error);await new Promise(r=>setTimeout(r,1400));}
-    finally{if(isCurrent(token))unbusy();}
+    }catch(error){
+      if(!isCurrent(token))return;
+      if(registered){state.gpsPrepared=false;state.preStartFix=null;state.gpsTried=true;render();emitLocalSnapshot();updateGpsUi("error",{message:String(error?.message||error)});}
+      el("m2raceBusyTitle").textContent=registered?"Salida registrada · revisa GPS":requested?"Salida pendiente de confirmar":"No se pudo iniciar";
+      el("m2raceBusyText").textContent=String(error?.message||error);
+      if(requested&&error?.details?.reason!=="RUN_CHANGED")laterForRace(()=>reconcileLive().catch(()=>{}),1800);
+      await new Promise(r=>setTimeout(r,1400));
+    }finally{
+      if(state.startWait===wait)state.startWait=null;
+      if(isCurrent(token)&&!state.finishWait)unbusy();
+    }
   }
 
   // F2.9: no repetir indefinidamente conflictos irreparables ni gastar llamadas
