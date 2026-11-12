@@ -61,7 +61,8 @@ async function closeRegistration(){
    screen('Cerrando participantes','Aplicando el cierre confirmado…');
    await call('closeOrientationRegistration',{eventId:id,confirmationToken:review.confirmationToken});
   }
-  screen('Participantes cerrados','Las invitaciones pendientes están bloqueadas. Ya puedes descargar el ZIP antes de iniciar la carrera.',{error:true});dialog.querySelector('button').textContent='ENTENDIDO';
+  screen('Participantes cerrados','Descarga el ZIP desde Gestionar carrera. Después abre LIVE para iniciar cuando comience la actividad.',{error:true});dialog.querySelector('button').textContent='VOLVER A LA CARRERA';
+  const live=document.createElement('button');live.textContent='IR A LIVE PARA INICIAR';live.className='mp-live-shortcut';live.onclick=()=>{closeDialog();openLive();};dialog.querySelector('.mp-package-card').appendChild(live);
  }catch(error){screen('No se pudieron cerrar las inscripciones',error?.message||String(error),{error:true});}
 }
 
@@ -83,6 +84,14 @@ async function watchReview(){
   reviewUnsubs.push(onSnapshot(query(collection(firestore,'invitations'),where('eventId','==',id)),snap=>{if(review.id!==id)return;review.invites=snap.docs.map(d=>({...d.data(),id:d.id}));review.invitesReady=true;refreshControls();},failed));
  }catch(_){if(review.id===id){review.error='No se pudo cargar el resumen. Vuelve a abrir esta pestaña.';refreshControls();}}
 }
+function openLive(){
+ globalThis.MILITOPO_PREMIUM?.get?.('event-builder')?.close?.();
+ queueMicrotask(()=>{
+  globalThis.MILITOPO_PREMIUM?.get?.('organizer-home')?.close?.();
+  globalThis.MILITOPO_R1_SHELL?.premiumModule?.('live');
+ });
+ return true;
+}
 function registrationHtml(){
  const closed=header?.registrationClosed===true,loaded=review.id===eventId&&review.membersReady&&review.invitesReady&&!review.error;
  const active=review.members.filter(m=>String(m.status||'active')==='active');
@@ -90,7 +99,7 @@ function registrationHtml(){
  const removed=review.members.length-active.length;
  const name=row=>row.displayName||row.targetDisplayName||(row.username?'@'+row.username:'')||(row.targetUsername?'@'+row.targetUsername:'')||row.email||row.targetEmail||row.uid||row.id;
  return `<header class="mp-close-heading"><small>REVISIÓN FINAL DE INSCRIPCIONES</small><h2>${closed?'Participantes cerrados':'Cerrar participantes'}</h2><p>Comprueba quién correrá y qué recorrido tiene asignado antes de habilitar el paquete del organizador.</p></header>${review.error?`<p role="alert">${esc(review.error)}</p>`:!loaded?'<p role="status">Comprobando participantes e invitaciones…</p>':`<div class="mp-close-stats"><article><strong>${active.length}</strong><span>Participantes confirmados</span></article><article><strong>${pending.length}</strong><span>${closed?'Invitaciones bloqueadas':'Invitaciones pendientes'}</span></article></div><h3>Participantes y recorridos</h3><div class="mp-close-table"><table><thead><tr><th>Participante</th><th>Plaza</th><th>Recorrido</th></tr></thead><tbody>${active.length?active.map(m=>`<tr><td>${esc(name(m))}</td><td>${esc(m.participantId||m.webParticipantId||'Sin asignar')}</td><td>${esc(m.routeId||m.courseId||'Sin asignar')}</td></tr>`).join(''):'<tr><td colspan="3">Todavía no hay participantes confirmados.</td></tr>'}</tbody></table></div><h3>${closed?'Invitaciones bloqueadas':'Invitaciones pendientes'}</h3><div class="mp-close-table"><table><thead><tr><th>Usuario</th><th>Estado</th></tr></thead><tbody>${pending.length?pending.map(i=>`<tr><td>${esc(name(i))}</td><td>${closed?'Bloqueada por cierre':'Sin responder'}</td></tr>`).join(''):'<tr><td colspan="2">No quedan invitaciones pendientes.</td></tr>'}</tbody></table></div>${removed?`<p>${removed} participante(s) retirado(s): quedan fuera del ZIP.</p>`:''}`}
- <div class="mp-close-warning"><strong>${closed?'Inscripciones bloqueadas':'Qué ocurrirá al cerrar'}</strong><p>No se podrán añadir ni retirar participantes. Las invitaciones sin responder ya no podrán aceptarse. El ZIP incluirá a los participantes confirmados con recorrido; la carrera seguirá publicada hasta que la inicies.</p></div><button class="mp-close-danger" data-close-registration ${closed||!loaded||!active.length||header?.status!=='published'||running?'disabled':''}>${closed?'🔒 PARTICIPANTES CERRADOS':'CERRAR PARTICIPANTES'}</button>${closed?'<p>Descarga el ZIP desde Gestionar carrera → Paquete del organizador.</p>':''}`;
+ <div class="mp-close-warning"><strong>${closed?'Inscripciones bloqueadas':'Qué ocurrirá al cerrar'}</strong><p>No se podrán añadir ni retirar participantes. Las invitaciones sin responder ya no podrán aceptarse. El ZIP incluirá a los participantes confirmados con recorrido; la carrera seguirá publicada hasta que la inicies.</p></div><button class="mp-close-danger" data-close-registration ${closed||!loaded||!active.length||header?.status!=='published'||running?'disabled':''}>${closed?'🔒 PARTICIPANTES CERRADOS':'CERRAR PARTICIPANTES'}</button>${closed?'<p>Descarga el ZIP desde Gestionar carrera → Paquete del organizador.</p><button class="mp-live-shortcut" data-open-live>IR A LIVE PARA INICIAR →</button>':''}`;
 }
 function refreshControls(){
  const panel=document.getElementById('m2Invitations');
@@ -98,7 +107,7 @@ function refreshControls(){
   const label=panel.querySelector('.m2-user-picker>label');if(label?.firstChild?.nodeType===3)label.firstChild.textContent='BUSCAR USUARIOS';
   let box=document.getElementById('mpRegistrationReview');if(!box){box=document.createElement('section');box.id='mpRegistrationReview';box.className='mp-registration';}
   if(box.parentNode!==panel.parentNode||box.previousElementSibling!==panel)panel.insertAdjacentElement('afterend',box);
-  const html=registrationHtml();if(box._view!==html){box._view=html;box.innerHTML=html;box.querySelector('[data-close-registration]')?.addEventListener('click',closeRegistration);}
+  const html=registrationHtml();if(box._view!==html){box._view=html;box.innerHTML=html;box.querySelector('[data-close-registration]')?.addEventListener('click',closeRegistration);box.querySelector('[data-open-live]')?.addEventListener('click',openLive);}
   if(header?.registrationClosed===true){panel.querySelectorAll('#m2InviteCreate,#m2InviteSelectedCreate,#m2InviteBulkCreate').forEach(b=>b.disabled=true);const status=panel.querySelector('#m2InviteStatus');if(status)status.textContent='Inscripciones cerradas. Las invitaciones pendientes ya no podrán aceptarse.';}
  }
  document.querySelectorAll('[data-mpp-action="download-package"]').forEach(button=>{
@@ -108,9 +117,9 @@ function refreshControls(){
 }
 
 async function watchEvent(){const id=currentId();if(id===eventId){refreshControls();watchReview();return}unsub?.();unsub=null;eventId=id;header=null;stopReview();refreshControls();if(!id)return;
- try{const {firestore}=await globalThis.MILITOPO_V2.firebase();if(id!==eventId)return;unsub=onSnapshot(doc(firestore,'events',id),snap=>{if(id!==eventId)return;header=snap.exists()?snap.data():null;refreshControls();},()=>{header=null;refreshControls();});}catch(_){header=null;}
+ try{const {firestore}=await globalThis.MILITOPO_V2.firebase();if(id!==eventId)return;unsub=onSnapshot(doc(firestore,'events',id),snap=>{if(id!==eventId)return;header=snap.exists()?snap.data():null;refreshControls();globalThis.dispatchEvent(new Event("militopo:registration-state"));},()=>{header=null;refreshControls();});}catch(_){header=null;}
 }
-globalThis.MILITOPO_PACKAGE=Object.freeze({ready,reason,download,progress,compression,active:()=>running,roster:()=>roster});
+globalThis.MILITOPO_PACKAGE=Object.freeze({ready,reason,openLive,download,progress,compression,active:()=>running,roster:()=>roster});
 installStyle();setInterval(watchEvent,1200);watchEvent();
 
 globalThis.addEventListener("militopo:v2-auth-ready",()=>{unsub?.();unsub=null;eventId="";header=null;stopReview();watchEvent();});
