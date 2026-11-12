@@ -7611,6 +7611,7 @@ function ensureZipProgressUi(){
     return box;
 }
 function updateZipProgress(done,total,label){
+    if(globalThis.MILITOPO_PACKAGE?.active()){globalThis.MILITOPO_PACKAGE.progress(done,total,label);return}
     const box=ensureZipProgressUi();
     const fill=document.getElementById("zipProgressFill");
     const meta=document.getElementById("zipProgressMeta");
@@ -7627,7 +7628,7 @@ function hideZipProgress(){
 
 
 
-async function recorridosPdfBlob(){
+async function recorridosPdfBlob(selectedRoutes=state.routes||[]){
     const jsPDF=await ensureJsPdf();
     const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4",compress:true});
 
@@ -7652,8 +7653,8 @@ async function recorridosPdfBlob(){
         {key:"order",label:"ORDEN",w:115,align:"left"}
     ];
 
-    const rows=(state.routes||[]).map((r,i)=>{
-        const m=(state.metrics||[])[i]||{};
+    const rows=selectedRoutes.map(r=>{
+        const m=(state.metrics||[])[state.routes.indexOf(r)]||{};
         return {
             participantId:String(r.participantId||""),
             routeId:String(r.routeId||""),
@@ -8079,7 +8080,7 @@ function auditParticipantQrAssignmentsAgainstEvent(qrItems,eventData,assignedRou
     return {errors,checked:printed.size};
 }
 
-async function generateZip(verificationFromButton=null){ensureZipProgressUi();updateZipProgress(0,1,'Preparando ZIP');await zipUiYield();syncPlanScaleFromUiNow();
+async function generateZip(verificationFromButton=null){if(!globalThis.MILITOPO_PACKAGE?.active())return globalThis.MILITOPO_PACKAGE?.download()||{ok:false,error:'Cierra participantes antes de descargar'};ensureZipProgressUi();updateZipProgress(0,1,'Preparando ZIP');await zipUiYield();syncPlanScaleFromUiNow();
     const previousButton=document.querySelector('button[onclick="verifyAndGenerateZip()"]');
     try{
         setZipStatus("warn","Preparando ZIP...");
@@ -8102,13 +8103,18 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
             previousButton.textContent="GENERANDO ZIP...";
         }
 
-        const materialRoutes=state.routes||[];
+        const roster=globalThis.MILITOPO_PACKAGE.roster();
+        const materialRoutes=roster.map(member=>{
+            const route=state.routes.find(r=>String(r.participantId)===member.participantId&&String(r.routeId)===member.routeId);
+            if(!route||isRouteSkipped(route)||JSON.stringify(route.points)!==JSON.stringify(member.points))throw new Error("Las asignaciones locales no coinciden con Firebase. Vuelve a cargar la carrera antes de descargar.");
+            return route;
+        });
         const activeMaterialRoutes=materialRoutes.filter(route=>!isRouteSkipped(route));
         if(!materialRoutes.length){
             setZipStatus("warn","No hay recorridos para generar.");
             toast("No hay recorridos");return {ok:false,error:"No hay recorridos"};
         }
-        const skippedMaterialCount=typeof skippedRoutesList==="function"?skippedRoutesList().length:0;
+        const skippedMaterialCount=0;
 
         const totalZipWork=(materialRoutes.length||0)*2+(Object.keys(state.points||{}).length||0)+6;
         let zipWorkDone=0;
@@ -8116,7 +8122,11 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         await zipUiYield();
 
         const zip=new JSZip();
-        const eventData=buildEventData();
+        const eventData=buildEventData(materialRoutes);
+        eventData.config.activeParticipantCount=materialRoutes.length;
+        eventData.config.skippedParticipantCount=0;
+        eventData.participantNames=Object.fromEntries(roster.map(m=>[m.participantId,m.displayName]));
+        zip.file("Participantes/participantes_confirmados.json",JSON.stringify(roster,null,2));
         zip.folder("Otros documentos");
 
         setZipStatus("warn","Añadiendo datos del evento...");
@@ -8126,7 +8136,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
             const premiumDraft=JSON.parse(localStorage.getItem(`militopo_premium_builder_event_draft_v3:${state.eventId}`)||"null");
             if(premiumMeta||premiumDraft)zip.file("Otros documentos/diseno_premium_militopo.json",JSON.stringify({eventId:state.eventId,eventName:state.eventName,meta:premiumMeta,draft:premiumDraft},null,2));
         }catch(premiumExportError){console.warn("MILITOPO Premium · datos extra ZIP",premiumExportError)}
-        zip.file("Otros documentos/recorridos.pdf",await checkedPdfExport(await recorridosPdfBlob(),"recorridos"));
+        zip.file("Otros documentos/recorridos.pdf",await checkedPdfExport(await recorridosPdfBlob(materialRoutes),"recorridos"));
         zip.file("Otros documentos/balizas.pdf",await checkedPdfExport(await balizasPdfBlob(),"balizas"));
         zip.file("Otros documentos/registros_offline_base.json",JSON.stringify({eventId:state.eventId,participantNames:state.participantNames||{},logs:state.participantLogs},null,2));
         if(typeof verificationReportHtml==="function"){
@@ -8279,7 +8289,7 @@ async function generateZip(verificationFromButton=null){ensureZipProgressUi();up
         if(audit.warnings.length)console.warn("MILITOPO · materiales opcionales con incidencias",audit.warnings);
         updateZipProgress(totalZipWork-1,totalZipWork,"Comprimiendo ZIP");
         setZipStatus("warn","Comprimiendo ZIP...");
-        const blob=await zip.generateAsync({type:"blob"});
+        const blob=await zip.generateAsync({type:"blob"},meta=>globalThis.MILITOPO_PACKAGE?.compression(meta.percent));
 
         const eventNameForZip=String(document.getElementById("eventName")?.value||state.eventName||state.eventId||"MILITOPO_ORIENTACION").trim();
         const safeEventNameForZip=eventNameForZip
@@ -8340,9 +8350,9 @@ function safeReadJsonLocalStorage(key,fallback){
         return parsed&&typeof parsed==="object"?parsed:fallback;
     }catch(e){return fallback}
 }
-function buildEventData(){
+function buildEventData(selectedRoutes=state.routes||[]){
     syncPlanScaleFromUiNow();
-    const entries=(state.routes||[]).map((route,i)=>({route,metric:(state.metrics||[])[i]}));
+    const entries=selectedRoutes.map(route=>({route,metric:(state.metrics||[])[state.routes.indexOf(route)]}));
     const now=new Date().toISOString();
     const routes=entries.map(x=>safeJsonClone(x.route,{}));
     const metrics=entries.map(x=>safeJsonClone(x.metric||{},{}));
