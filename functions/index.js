@@ -790,6 +790,7 @@ exports.acceptInvitationV2 = onCall({ enforceAppCheck: false }, async request =>
     if (String(freshEvent.status || "").toLowerCase() !== "published") {
       throw new HttpsError("failed-precondition", "Solo puedes unirte mientras la carrera está PUBLICADA.");
     }
+    if (freshEvent.registrationClosed === true && !memberSnap.exists) throw new HttpsError("failed-precondition", "Las inscripciones están cerradas.");
     const { uidMatches } = assertInvitationRecipient(identity, invite);
     const inviteStatus = String(invite.status || "pending").toLowerCase();
     if (inviteStatus === "revoked") throw new HttpsError("failed-precondition", "La invitación ha sido revocada.");
@@ -3536,4 +3537,32 @@ exports.reconcileGpsOnEventFinishedV2 = onDocumentWritten({
     if (String(result.data()?.runId || "") !== runId) continue;
     await gpsReconciler.reconcile({ ownerUid, eventId, runId, uid: result.id });
   }
+});
+
+// Cierre atómico: la aceptación concurrente también lee el documento del evento.
+exports.closeOrientationRegistration = onCall({ enforceAppCheck: false }, async request => {
+  const identity=requireVerified(request),eventId=cleanEventId(request.data?.eventId),ref=db.collection("events").doc(eventId);
+  return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref),header=snap.data()||{};assertManagerForEvent(identity,header);
+    if(header.registrationClosed===true)return {ok:true,eventId};
+    const report=await readLiveStartReadiness(identity,eventId,tx);requireLiveStartReady(report);
+    const invites=await tx.get(db.collection("invitations").where("eventId","==",eventId));
+    const pendingIds=invites.docs.filter(d=>String(d.data().status||"pending")==="pending").map(d=>d.id).sort();
+    const confirmationToken=createHash("sha256").update(JSON.stringify([report.revision,pendingIds])).digest("hex");
+    if(request.data?.preview===true)return {ok:true,eventId,pendingCount:pendingIds.length,participantCount:report.participantCount,confirmationToken};
+    if(request.data?.confirmationToken!==confirmationToken)throw new HttpsError("failed-precondition","Las invitaciones o los participantes han cambiado. Revisa y confirma de nuevo el cierre.");
+    tx.update(ref,{registrationClosed:true,registrationClosedAt:FieldValue.serverTimestamp(),registrationClosedBy:identity.uid,updatedAt:FieldValue.serverTimestamp()});
+    return {ok:true,eventId,participantCount:report.participantCount};
+  });
+});
+exports.getOrientationPackageRoster = onCall({ enforceAppCheck: false }, async request => {
+  const identity=requireVerified(request),eventId=cleanEventId(request.data?.eventId),ref=db.collection("events").doc(eventId);
+  return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref),header=snap.data()||{};assertManagerForEvent(identity,header);
+    if(header.registrationClosed!==true)throw new HttpsError("failed-precondition","Publica la carrera y cierra participantes antes de descargar el ZIP.");
+    if(header.status!=="published")throw new HttpsError("failed-precondition","Descarga el material antes de iniciar la carrera.");
+    const report=await readLiveStartReadiness(identity,eventId,tx);requireLiveStartReady(report);
+    const members=await tx.get(ref.collection("members"));
+    return {ok:true,eventId,participants:members.docs.filter(d=>String(d.data().status||"active")==="active").map(d=>{const m=d.data();return {participantId:String(m.participantId||m.webParticipantId||""),routeId:String(m.routeId||m.courseId||""),points:m.routePoints,displayName:String(m.displayName||m.username||"")}})};
+  });
 });
