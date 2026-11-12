@@ -485,7 +485,7 @@ function renderReview(){const printing=printPreflight(),items=preflightItems(),d
   <div class="mpb-preflight-list">${items.map(x=>`<article class="${x.ok?"is-ok":"is-pending"}"><span>${x.ok?"✓":"!"}</span><div><strong>${esc(x.label)}</strong><small>${esc(x.detail)}</small></div>${x.ok?`<b>COMPLETO</b>`:`<button type="button" data-mpb-jump="${x.step}">CORREGIR →</button>`}</article>`).join("")}</div>
   <div class="mpb-card mpb-print-settings"><strong>IMPRESIÓN DEL PLANO</strong><p>${esc(printing.detail)}</p><button type="button" class="mpb-btn mpb-btn-ghost" data-mpb-print-review>${printing.ok?"REVISAR ENCUADRE":"AJUSTAR ENCUADRE"}</button></div>
   <div class="mpb-preflight-actions">
-    <article class="mpb-preflight-action-card"><div><small>PAQUETE DEL ORGANIZADOR</small><strong>ZIP COMPLETO DE LA CARRERA</strong><p>Planos PDF, QR, descripciones IOF, GPX, datos del evento y diseño Premium.</p></div><button type="button" data-mpb-download-package ${all&&printing.ok&&!state.packageBusy?"":"disabled"}>${state.packageBusy?"GENERANDO ZIP…":"DESCARGAR ZIP"}</button></article>
+    <article class="mpb-preflight-action-card"><div><small>PAQUETE DEL ORGANIZADOR</small><strong>ZIP COMPLETO DE LA CARRERA</strong><p>Planos PDF, QR, descripciones IOF, GPX, datos del evento y diseño Premium.</p></div><button type="button" data-mpb-download-package ${all&&printing.ok&&globalThis.MILITOPO_PACKAGE?.ready()&&!state.packageBusy?"":"disabled"}>${state.packageBusy?"GENERANDO ZIP…":(globalThis.MILITOPO_PACKAGE?.ready()?"DESCARGAR ZIP":"🔒 CIERRA PARTICIPANTES PARA DESCARGAR")}</button></article>
     <article class="mpb-preflight-action-card is-publish"><div><small>ESTADO · ${esc(lifecycleLabel(status))}</small><strong>${published?"CARRERA PUBLICADA":"PUBLICAR CARRERA"}</strong><p>${published?"Las invitaciones ya están habilitadas.":"MILITOPO gestiona PREPARADO internamente; tú solo confirmas PUBLICAR una vez."}</p></div>${published?`<button type="button" data-mpb-open-participants>INVITAR PARTICIPANTES →</button>`:`<button type="button" data-mpb-publish aria-disabled="${!all||!canPublish||state.publishing||!navigator.onLine}" aria-describedby="mpbPublishAvailability" ${all&&canPublish&&!state.publishing&&navigator.onLine?"":"disabled"}>${state.publishing?"PUBLICANDO…":"PUBLICAR CARRERA"}</button><p id="mpbPublishAvailability" role="status" aria-live="polite">${esc(publicationAvailability(all,canPublish))}</p>`}</article>
   </div>
   ${!all?`<div class="mpb-insight"><span>PUBLICACIÓN BLOQUEADA</span><strong>Completa primero los requisitos pendientes</strong><p>Los botones de ZIP y publicación se habilitan al alcanzar el 100 %.</p></div>`:""}
@@ -757,50 +757,10 @@ async function syncMetadata(eventId,attempt=0,isCurrent=()=>true){if(!isCurrent(
 function applyLegacyBasics(){applyPrintSettings();const name=document.getElementById("eventName"),count=document.getElementById("participantCount"),controls=document.getElementById("controlCount"),per=document.getElementById("controlsPerRoute"),routes=document.getElementById("maxUniqueRoutes");if(name){name.value=state.draft.name.trim();name.dispatchEvent(new Event("input",{bubbles:true}));name.dispatchEvent(new Event("change",{bubbles:true}))}if(count){count.value=String(Math.max(1,Math.min(100,Number(state.draft.participantCount)||1)));count.dispatchEvent(new Event("change",{bubbles:true}))}if(controls){controls.value=String(Math.max(1,Math.min(80,Number(state.draft.controlCount)||legacyControlCount())));controls.dispatchEvent(new Event("change",{bubbles:true}))}if(per)per.value=String(controlsPerRoute());if(routes)routes.value=String(routeTargetCount())}
 function applySelectedPlan(){applyPrintSettings();try{globalThis.MILITOPO_MAP_CONTROL?.switchLayer?.(state.draft.mapLayer)}catch(e){console.warn("[MILITOPO Premium Builder] capa",e)}}
 async function downloadOrganizerPackage(){
-  applyPrintSettings();
-  const frame=printGeometry();
-  if(frame?.outside?.length){notify(`No se puede exportar: ${frame.outside.length} puntos quedan fuera del encuadre. Revísalo en el paso 6.`);return}
-  if(state.packageBusy)return;
-  if(!preflightReady()){showCenterNotice("ZIP NO DISPONIBLE","Completa primero los requisitos de Preflight.",{kind:"error"});return}
-  const fn=globalThis.generateZip;
-  if(typeof fn!=="function"){showCenterNotice("GENERADOR NO DISPONIBLE","No está cargado el exportador del ZIP.",{kind:"error"});return}
-  const eventId=String(state.eventId||bridge()?.shell?.current?.().eventId||"").trim();
-  state.packageBusy=true;
-  showCenterNotice("PREPARANDO ZIP","Comprobando carrera y reuniendo planos, QR, IOF y recorridos…",{busy:true,autoClose:0,icon:"militopo"});
-  renderKeepScroll();
-  try{
-    applyLegacyBasics();r2()?.configureManualRoutes?.(routeTargetCount(),controlsPerRoute());
-    try{bridge()?.event?.saveRules?.()}catch(_){}
-    await syncMetadata(eventId);
-    if(lifecycleStatus()==="draft"){
-      if(!navigator.onLine)throw new Error("Necesitas conexión para preparar el borrador y descargar material");
-      const refresh=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_REFRESH,advance=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;
-      if(typeof refresh!=="function"||typeof advance!=="function")throw new Error("Ciclo de vida no disponible");
-      await new Promise(r=>setTimeout(r,800));
-      for(let attempt=0;attempt<5&&lifecycleStatus()==="draft";attempt++){
-        await refresh();if(lifecycleStatus()!=="draft")break;await advance();await new Promise(r=>setTimeout(r,650));
-      }
-      await refresh();if(lifecycleStatus()==="draft")throw new Error("La carrera todavía no ha podido quedar preparada");
-    }
-    updateCenterNotice("GENERANDO ARCHIVO","Comprimiendo el material. La descarga comenzará cuando termine…",{busy:true,autoClose:0,icon:"militopo"});
-    const prevSuppress=globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__;
-    let outcome;
-    try{
-      globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=true;
-      outcome=await fn();
-    }finally{globalThis.__MILITOPO_SUPPRESS_ZIP_TOAST__=prevSuppress;}
-    if(!outcome?.ok)throw new Error(outcome?.error||"El exportador no ha confirmado la descarga");
-    const issues=Array.isArray(outcome.warnings)?outcome.warnings:[];
-    if(issues.length){
-      updateCenterNotice("ZIP CON AVISOS",`${outcome.filename||"El paquete"} se ha descargado, pero ${issues.length} material(es) tienen incidencias. ${issues.slice(0,2).join(" · ")}. Comprueba los archivos _ERROR.txt.`,{kind:"error",autoClose:0,icon:"militopo"});
-    }else{
-      updateCenterNotice("ZIP LISTO",`${outcome.filename||"El paquete"} se ha enviado a la descarga del navegador. Se han comprobado PDF, GPX y datos disponibles.`,{autoClose:4500,icon:"militopo"});
-    }
-  }catch(error){
-    console.error("[MILITOPO Premium Builder] ZIP",error);
-    updateCenterNotice("ERROR AL GENERAR ZIP",String(error?.message||error),{kind:"error",autoClose:6500,icon:"militopo"});
-  }finally{state.packageBusy=false;renderKeepScroll()}
+  if(!globalThis.MILITOPO_PACKAGE){notify("El gestor de descargas todavía no está disponible.");return}
+  await globalThis.MILITOPO_PACKAGE.download();
 }
+
 function publicationToken(){
   const auth=state.auth||globalThis.MILITOPO_V2_AUTH;
   return {epoch:state.publicationEpoch,eventId:String(state.eventId||""),uid:String(auth?.uid||""),draft:state.draft};
