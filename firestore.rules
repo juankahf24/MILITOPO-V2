@@ -35,7 +35,7 @@ service cloud.firestore {
     }
     function membershipEditable(eventId) {
       let status = eventDoc(eventId).data.status;
-      return status == "prepared" || status == "published";
+      return (status == "prepared" || status == "published") && eventDoc(eventId).data.get("registrationClosed", false) != true;
     }
     function selfJoinFromAcceptedInvite(eventId, uid) {
       let invite = getAfter(/databases/$(database)/documents/invitations/$(request.resource.data.invitationId)).data;
@@ -221,9 +221,11 @@ service cloud.firestore {
                     && !exists(/databases/$(database)/documents/events/$(eventId));
       allow create: if verified() && isOrganizer()
                     && request.resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.status == "draft";
+                    && request.resource.data.status == "draft"
+                    && !request.resource.data.keys().hasAny(["registrationClosed", "registrationClosedAt", "registrationClosedBy"]);
       allow read: if signedIn() && (isSuperAdmin() || resource.data.ownerUid == request.auth.uid || isEventMember(eventId));
       allow update: if verified() && managesEvent(eventId)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["registrationClosed", "registrationClosedAt", "registrationClosedBy"])
                     && request.resource.data.ownerUid == resource.data.ownerUid
                     && request.resource.data.createdAt == resource.data.createdAt
                     && request.resource.data.kind == resource.data.kind
@@ -295,7 +297,8 @@ service cloud.firestore {
                     && !request.resource.data.keys().hasAny(["acceptedAt", "revokedAt"])
                     && validInvitationTarget(request.resource.data)
                     && managesEvent(request.resource.data.eventId)
-                    && eventDoc(request.resource.data.eventId).data.status == "published";
+                    && eventDoc(request.resource.data.eventId).data.status == "published"
+                    && eventDoc(request.resource.data.eventId).data.get("registrationClosed", false) != true;
       allow update: if managerRevokesInvitation() || runnerAcceptsInvitation() || runnerDeclinesInvitation() || managerChangesAcceptedInvitation();
       allow delete: if false;
     }
