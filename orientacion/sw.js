@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.23";
+const BUILD_ID="2.0.24";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -30,7 +30,7 @@ const CORE_ASSETS=[
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=militopo-r5a-analisis-comparativo-20261019",
-  "./js/premium/premium-builder.js?v=2.0.23",
+  "./js/premium/premium-builder.js?v=2.0.24",
   "./js/premium/premium-home.js?v=2.0.22",
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
   "./js/premium/orientation-modes.js?v=militopo-r3-fullscreen-20261018",
