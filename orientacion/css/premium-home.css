@@ -192,3 +192,12 @@ body.r5-premium-tool-open #r1Workspace[data-premium-tool="analysis"] .table-wrap
 
 /* Acciones de la carrera actual reunidas, sin un segundo bloque de gestión. */
 .mpp-r3-current-bottom .mpp-r5-open-flow{margin-top:10px;background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.35)}
+
+/* Orientación: invitación sencilla y revisión separada antes de cerrar. */
+body.r5-premium-tool-open [data-premium-tool="participants"] #m2ParticipantsAdmin{display:none!important}
+body.r5-premium-tool-open #r1WorkspaceBody #m2Invitations .m2-invites-form,
+body.r5-premium-tool-open #r1WorkspaceBody #m2Invitations .m2-invites-bulk{display:none!important}
+body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="invitations"] .mp-registration{display:none!important}
+body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="roster"] .mp-registration{display:block!important}
+.mpp-package-card>small{font-size:11px;font-weight:800;letter-spacing:.08em;color:#9e7726}
+.mpp-package-card #mpp-reason-package{padding:12px;border-radius:12px;background:#edf3eb;color:#264936;line-height:1.5}
