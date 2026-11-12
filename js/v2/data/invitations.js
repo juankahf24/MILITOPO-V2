@@ -215,11 +215,11 @@ function paint(message = "") {
     state.status.textContent = message || "Publica el evento para habilitar las invitaciones."; state.create.disabled = true; state.bulkCreate.disabled = true; state.selectedCreate.disabled = true; return;
   }
   const status = String(state.event.status || "draft"); chip.textContent = eventStatusLabelEs(status);
-  const allowed = ALLOWED_EVENT_STATES.has(status);
+  const allowed = ALLOWED_EVENT_STATES.has(status) && state.event.registrationClosed !== true;
   state.create.disabled = state.busy || !allowed || !navigator.onLine;
   state.bulkCreate.disabled = state.busy || !allowed || !navigator.onLine;
   state.selectedCreate.disabled = state.busy || !allowed || !navigator.onLine || state.selectedUsers.size === 0;
-  state.status.textContent = message || (allowed ? "Busca por @usuario si ya tiene cuenta MILITOPO, o usa su correo si todavía no está registrado." : `Para invitar, la carrera debe estar PUBLICADA. Estado actual: ${eventStatusLabelEs(status)}.`);
+  state.status.textContent = message || (state.event.registrationClosed === true ? "Inscripciones cerradas. Ya puedes descargar el ZIP antes de iniciar la carrera." : allowed ? "Busca por @usuario si ya tiene cuenta MILITOPO, o usa su correo si todavía no está registrado." : `Para invitar, la carrera debe estar PUBLICADA. Estado actual: ${eventStatusLabelEs(status)}.`);
 }
 async function loadEvent({ force = false } = {}) {
   ensurePanel(); const eventId = currentEventId();
