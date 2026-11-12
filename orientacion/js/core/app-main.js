@@ -7046,8 +7046,17 @@ async function ensureHtml2Canvas(){
 function waitMs(ms){return new Promise(r=>setTimeout(r,ms));}
 
 function getSelectedPdfLayerKey(){
+    const allowed=["mapant","ign","pnoa","custom"],eventId=String(state.eventId||"");
+    // La selección del asistente pertenece a la carrera, no al mapa auxiliar visible.
+    const draftLayer=globalThis.MILITOPO_PREMIUM?.get?.("event-builder")?.getExportMapLayer?.(eventId);
+    if(allowed.includes(draftLayer))return draftLayer;
+    if(eventId){
+        try{const meta=JSON.parse(localStorage.getItem("militopo_premium_event_meta_v1:"+eventId)||"null");
+            if(allowed.includes(meta?.mapSelection?.layer))return meta.mapSelection.layer;
+        }catch(_){}
+    }
     const key=String(state.selectedMapLayer||"mapant").toLowerCase();
-    return ["mapant","ign","pnoa","custom"].includes(key)?key:"mapant";
+    return allowed.includes(key)?key:"mapant";
 }
 
 function getPdfBackgroundLayerMeta(layerKey=getSelectedPdfLayerKey()){
