@@ -396,7 +396,7 @@
     const snap=participantsSnapshot(),active=snap?(snap.members||[]).filter(m=>String(m.status||"active")==="active").length:participantHubNumber("#m2RosterActive"),free=Math.max(0,capacity-active),routes=new Set((routePlanSnapshot()?.routeIds||[]).map(String)).size;
     const status=currentLifecycleStatus(),published=status==="published",label=lifecycleLabelEs(status);
     const set=(id,value)=>{const el=$(id,hub);if(el)el.textContent=String(value)};
-    set("#r4PartCapacity",capacity||"—");set("#r4PartActive",active);set("#r4PartFree",free);set("#r4PartRoutes",routes);
+    set("#r4PartCapacity",capacity||"—");set("#r4PartActive",active);set("#r4PartFree",free);set("#r4PartRoutes",routes);set("#r4PartPending",(snap?.invitations||[]).filter(row=>String(row.status||"pending")==="pending").length);
     const chip=$("#r4PartState",hub);if(chip){chip.textContent=label;chip.dataset.status=status}
     const inviteTab=$("[data-r4-part-tab='invites']",hub);if(inviteTab){inviteTab.classList.toggle("is-locked",!published);inviteTab.querySelector("small").textContent=published?"AÑADIR Y COMPARTIR":"REQUIERE PUBLICADO"}
     const notice=$("#r4PartNotice",hub);if(notice){
@@ -427,11 +427,6 @@
     const free=Math.max(0,capacity-members.length);
     const routeIds=(plan?.routeIds||[]).map(String);
     const pending=(snap?.invitations||[]).filter(row=>String(row.status||"pending")==="pending");
-    const metrics=panel.querySelector("[data-r4-assignment-metrics]");if(metrics)metrics.innerHTML=`
-      <div><strong>${capacity}</strong><span>PLAZAS</span></div>
-      <div><strong>${free}</strong><span>PLAZAS LIBRES</span></div>
-      <div><strong>${members.length}</strong><span>PARTICIPANTES CONFIRMADOS</span></div>
-      <div><strong>${routeIds.length}</strong><span>TOTAL DE RECORRIDOS</span></div>`;
     const routes=panel.querySelector("[data-r4-assignment-routes]");if(routes)routes.innerHTML=routeIds.length?routeIds.map(id=>assignmentRouteCard(id,members)).join(""):`<div class="r4-assignment-empty">Todavía no hay recorridos creados.</div>`;
     const list=panel.querySelector("[data-r4-assignment-list]");if(list){
       const rows=members.map(row=>{
@@ -445,7 +440,7 @@
   }
   function selectParticipantsTab(tab){
     const hub=$("#r4ParticipantsHub"),roster=$("#m2ParticipantsAdmin"),invites=$("#m2Invitations"),assignments=$("#r4AssignmentsPanel");if(!hub||!roster||!invites||!assignments)return;
-    state.participantsTab=["invites","assignments"].includes(tab)?tab:"invites";
+    state.participantsTab=["invites","assignments"].includes(tab)?tab:"invites";hub.dataset.participantsTab=state.participantsTab;
     hub.querySelectorAll("[data-r4-part-tab]").forEach(b=>b.classList.toggle("is-active",b.dataset.r4PartTab===state.participantsTab));
     roster.classList.add("r4-panel-hidden");
     invites.classList.toggle("r4-panel-hidden",state.participantsTab!=="invites");
@@ -460,7 +455,7 @@
     if(!hub){
       hub=document.createElement("section");hub.id="r4ParticipantsHub";hub.className="r4-participants-hub";
       hub.innerHTML=`<div class="r4-participants-hero"><div><span>ORGANIZACIÓN · PARTICIPANTES</span><h2>PARTICIPANTES</h2><small>${currentEventName()}</small></div></div>
-        <div class="r4-participants-metrics"><div><strong id="r4PartCapacity">—</strong><span>PLAZAS</span></div><div><strong id="r4PartFree">0</strong><span>PLAZAS LIBRES</span></div><div><strong id="r4PartActive">0</strong><span>PARTICIPANTES CONFIRMADOS</span></div><div><strong id="r4PartRoutes">0</strong><span>TOTAL DE RECORRIDOS</span></div></div>
+        <section class="r4-registration-summary"><div class="r4-capacity-heading"><strong id="r4PartCapacity">—</strong><span>PLAZAS TOTALES</span></div><div class="r4-participants-metrics"><div><strong id="r4PartFree">0</strong><span>PLAZAS LIBRES</span></div><div><strong id="r4PartActive">0</strong><span>PARTICIPANTES CONFIRMADOS</span></div><div><strong id="r4PartPending">0</strong><span>INVITACIONES PENDIENTES</span></div><div><strong id="r4PartRoutes">0</strong><span>TOTAL DE RECORRIDOS</span></div></div></section>
         <div class="r4-participants-tabs"><button type="button" data-r4-part-tab="invites"><strong>INVITACIONES</strong><small>AÑADIR Y COMPARTIR</small></button><button type="button" data-r4-part-tab="assignments"><strong>ASIGNACIONES</strong><small>PLAZAS Y RECORRIDOS</small></button></div>
         <div id="r4PartNotice" class="r4-participants-notice"></div>`;
       stack.parentNode.insertBefore(hub,stack);
@@ -469,7 +464,7 @@
     let assignments=$("#r4AssignmentsPanel",body);
     if(!assignments){
       assignments=document.createElement("section");assignments.id="r4AssignmentsPanel";assignments.className="r4-assignments-panel r4-panel-hidden";
-      assignments.innerHTML=`<div class="r4-assignment-head"><div><strong>ASIGNACIÓN DE RECORRIDOS</strong><span>La plaza y el recorrido se asignan automáticamente al aceptar la invitación.</span></div><button type="button" data-r4-refresh-assignments>ACTUALIZAR</button></div><div class="r4-assignment-metrics" data-r4-assignment-metrics></div><div class="r4-assignment-section"><strong>DISTRIBUCIÓN POR RECORRIDO</strong><div class="r4-assignment-routes" data-r4-assignment-routes></div></div><div class="r4-assignment-section"><strong>PARTICIPANTES</strong><div class="r4-assignment-list" data-r4-assignment-list></div></div>`;
+      assignments.innerHTML=`<div class="r4-assignment-head"><div><strong>ASIGNACIÓN DE RECORRIDOS</strong><span>La plaza y el recorrido se asignan automáticamente al aceptar la invitación.</span></div><button type="button" data-r4-refresh-assignments>ACTUALIZAR</button></div><div class="r4-assignment-section"><strong>DISTRIBUCIÓN POR RECORRIDO</strong><div class="r4-assignment-routes" data-r4-assignment-routes></div></div><div class="r4-assignment-section"><strong>PARTICIPANTES</strong><div class="r4-assignment-list" data-r4-assignment-list></div></div>`;
       stack.parentNode.insertBefore(assignments,stack);
       assignments.addEventListener("click",event=>{if(event.target.closest("[data-r4-refresh-assignments]")){try{window.MILITOPO_V2_PARTICIPANTS_ADMIN?.refresh?.()}catch(_){}setTimeout(refreshAssignmentsHub,180)}});
     }
