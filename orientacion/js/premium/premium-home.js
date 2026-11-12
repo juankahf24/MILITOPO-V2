@@ -123,10 +123,14 @@ function operationAllowed(kind,ctx=current()){
   if(kind==="live")return ["published","live","finished"].includes(s)?{ok:true,action:"launch-live",label:"ABRIR CENTRO LIVE"}:{ok:false,reason:"El seguimiento LIVE solo se habilita tras publicar la carrera."};
   if(kind==="results")return ["published","live","finished"].includes(s)?{ok:true,action:"launch-results",label:"VER RESULTADOS"}:{ok:false,reason:"Los resultados estarán disponibles cuando la carrera se publique y comience a recibir actividad."};
   if(kind==="analysis")return s==="finished"?{ok:true,action:"launch-analysis",label:"COMPARAR PARTICIPANTES"}:{ok:false,reason:"Finaliza la carrera antes de abrir el análisis comparativo. Los tracks GPS y los tiempos deben estar consolidados."};
-  if(kind==="package")return ["published","live","finished"].includes(s)?{ok:true,action:"download-package",label:"DESCARGAR ZIP DEL ORGANIZADOR"}:{ok:false,reason:"Termina el diseño y genera el material desde el Preflight del asistente antes de publicar."};
+  if(kind==="package")return {ok:Boolean(globalThis.MILITOPO_PACKAGE?.ready()),action:"download-package",label:"DESCARGAR ZIP DEL ORGANIZADOR",reason:globalThis.MILITOPO_PACKAGE?.reason()||"Publica la carrera y cierra participantes para habilitar el ZIP."};
   return {ok:false,reason:"Operación no disponible"};
 }
 function managementCard(row,ctx){
+  if(row.kind==="package"){
+    const enabled=globalThis.MILITOPO_PACKAGE?.ready(),reason=globalThis.MILITOPO_PACKAGE?.reason()||"Publica la carrera y cierra participantes para habilitar el ZIP.";
+    return `<article class="mpp-manage-card mpp-package-card" data-management-kind="package"><small>PAQUETE DEL ORGANIZADOR</small><h2>ZIP COMPLETO DE LA CARRERA</h2><p>Planos PDF, QR, descripciones IOF, GPX y datos de los participantes confirmados con sus recorridos.</p><p id="mpp-reason-package" role="status">${esc(reason)}</p><button type="button" data-mpp-action="download-package" aria-describedby="mpp-reason-package" ${enabled?"":"disabled"}>${enabled?"DESCARGAR ZIP":"🔒 ZIP BLOQUEADO"}</button></article>`;
+  }
   const gate=operationAllowed(row.kind,ctx),busy=row.kind==="package"&&state.packageBusy,disabled=!gate.ok||busy;
   const reason=busy?"Preparando el archivo. Espera a que termine.":gate.ok?row.description:gate.reason;
   return `<article class="mpp-manage-card" data-management-kind="${row.kind}"><div class="mpp-manage-card-title">${icon(row.icon)}<h2>${esc(row.label)}</h2></div><p id="mpp-reason-${row.kind}">${esc(reason)}</p><button type="button" data-mpp-action="${gate.action||"unavailable"}" aria-describedby="mpp-reason-${row.kind}" aria-disabled="${disabled}" ${disabled?"disabled":""}>${icon(disabled?"lock":"arrow")}<span>${busy?"Generando ZIP…":!gate.ok?"No disponible":row.kind==="publish"?"Revisar y publicar":row.kind==="package"?"Descargar ZIP":"Abrir"}</span></button></article>`;
