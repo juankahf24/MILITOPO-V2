@@ -15,6 +15,6 @@
     base = current.split("/").slice(0, -1).join("/") + "/";
   }
   for (var i = 0; i < files.length; i++) {
-    document.write('<script src="' + base + files[i].replace(/^js\//, "") + '?v=' + ((files[i] === "js/core/app-main.js" || files[i] === "js/results/results-classification-fix.js") ? "2.0.20" : files[i] === "js/pdf/pdf-professional.js" ? "militopo-f246-recuperacion-20261103" : VERSION) + '"><\/script>');
+    document.write('<script src="' + base + files[i].replace(/^js\//, "") + '?v=' + ((files[i] === "js/core/app-main.js" || files[i] === "js/results/results-classification-fix.js") ? "2.0.23" : files[i] === "js/pdf/pdf-professional.js" ? "militopo-f246-recuperacion-20261103" : VERSION) + '"><\/script>');
   }
 })();
