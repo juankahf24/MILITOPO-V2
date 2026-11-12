@@ -102,6 +102,13 @@ function registrationHtml(){
  <div class="mp-close-warning"><strong>${closed?'Inscripciones bloqueadas':'Qué ocurrirá al cerrar'}</strong><p>No se podrán añadir ni retirar participantes. Las invitaciones sin responder ya no podrán aceptarse. El ZIP incluirá a los participantes confirmados con recorrido; la carrera seguirá publicada hasta que la inicies.</p></div><button class="mp-close-danger" data-close-registration ${closed||!loaded||!active.length||header?.status!=='published'||running?'disabled':''}>${closed?'🔒 PARTICIPANTES CERRADOS':'CERRAR PARTICIPANTES'}</button>${closed?'<p>Descarga el ZIP desde Gestionar carrera → Paquete del organizador.</p><button class="mp-live-shortcut" data-open-live>IR A LIVE PARA INICIAR →</button>':''}`;
 }
 function refreshControls(){
+ const closed=header?.registrationClosed===true&&eventId===currentId();
+ document.querySelectorAll('[data-mpb-registration-cta]').forEach(button=>{
+  button.toggleAttribute('data-mpb-open-live',closed);button.toggleAttribute('data-mpb-open-participants',!closed);
+  button.classList.toggle('mpb-registration-start',closed);button.textContent=closed?'▶ INICIAR CARRERA':'INVITAR PARTICIPANTES →';
+  const note=button.closest('.mpb-preflight-action-card')?.querySelector('p');if(note)note.textContent=closed?'Participantes cerrados. Descarga el ZIP y abre LIVE para iniciar la carrera.':'Las invitaciones ya están habilitadas.';
+ });
+ document.querySelectorAll('.mpb-live-shortcut').forEach(card=>card.hidden=closed);
  const panel=document.getElementById('m2Invitations');
  if(panel){
   const label=panel.querySelector('.m2-user-picker>label');if(label?.firstChild?.nodeType===3)label.firstChild.textContent='BUSCAR USUARIOS';
