@@ -201,3 +201,18 @@ body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="invitations"] .mp-regist
 body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="roster"] .mp-registration{display:block!important}
 .mpp-package-card>small{font-size:11px;font-weight:800;letter-spacing:.08em;color:#9e7726}
 .mpp-package-card #mpp-reason-package{padding:12px;border-radius:12px;background:#edf3eb;color:#264936;line-height:1.5}
+
+/* El cierre no puede ampliar el ancho mínimo del grid en vertical. */
+body.r5-premium-tool-open .r4-participants-view .r1-module-stack{grid-template-columns:minmax(0,1fr)!important;min-width:0;width:100%;max-width:100%}
+#mpRegistrationReview,#mpRegistrationReview *{box-sizing:border-box;min-width:0;max-width:100%}
+#mpRegistrationReview{width:100%;overflow:hidden}
+#mpRegistrationReview .mp-close-table{width:100%;overflow-x:auto}
+#mpRegistrationReview table{table-layout:fixed;width:100%}
+#mpRegistrationReview th,#mpRegistrationReview td{overflow-wrap:anywhere;word-break:normal;padding:10px 8px}
+#mpRegistrationReview .mp-close-table:first-of-type th:first-child{width:44%}
+#mpRegistrationReview h2,#mpRegistrationReview p,#mpRegistrationReview button{overflow-wrap:anywhere}
+#mpRegistrationReview button.mp-live-shortcut,.mp-package-card button.mp-live-shortcut{background:#218849;color:white;min-height:54px;width:100%;margin-top:14px;border-radius:14px;font-weight:850}
+.mpb-live-shortcut button{background:#218849!important;color:white!important}
+
+body.r5-premium-tool-open #r1Workspace[data-premium-tool="participants"] .r1-workspace-shell{grid-template-columns:minmax(0,1fr);min-width:0;max-width:100%}
+body.r5-premium-tool-open #r1Workspace[data-premium-tool="participants"] #r1WorkspaceBody{min-width:0;max-width:100%;width:100%;box-sizing:border-box}

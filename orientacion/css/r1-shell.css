@@ -1785,3 +1785,13 @@ body.r1-shell-active.r1-map-home{width:100%;max-width:100vw;overflow:hidden!impo
 .r1-map-import-progress i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#d49a3b,#f0cc73);transition:width .28s ease}
 .r1-map-import-stage{display:block;margin-top:6px;color:rgba(239,231,208,.72);font:800 10px/1.2 system-ui;letter-spacing:.04em}
 .r1-map-import-notice[data-kind="success"] .r1-map-import-progress i{background:linear-gradient(90deg,#477c52,#7fc58a)}
+
+/* Dos pestañas e indicadores en el mismo orden en móvil y escritorio. */
+.r4-participants-tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.r4-participants-metrics,.r4-assignment-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.r4-participants-notice[hidden]{display:none!important}
+.r4-live-notice.is-ready{border-color:#2caa66;background:#153e2b}
+.r4-live-notice:has(.r4-live-start){display:grid;gap:12px;padding:18px}
+.r4-live-notice button.r4-live-start{display:block;width:100%;min-height:58px;padding:16px;border-radius:14px;background:#e8c170;color:#173323;border:1px solid #efd491;font:900 15px/1.3 system-ui}
+.r4-live-notice.is-ready button.r4-live-start{background:#218849;border-color:#49b96f;color:#fff;box-shadow:0 6px 20px #102b2340}
+.r4-live-notice button.r4-live-start:disabled{opacity:.6;cursor:wait}
