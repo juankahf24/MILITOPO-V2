@@ -393,16 +393,16 @@
   function refreshParticipantsHub(){
     const hub=$("#r4ParticipantsHub");if(!hub)return;
     const capacity=Math.max(0,Number($("#participantCount")?.value)||0);
-    const active=participantHubNumber("#m2RosterActive"),pending=participantHubNumber("#m2RosterPending"),removed=participantHubNumber("#m2RosterRemoved");
+    const snap=participantsSnapshot(),active=snap?(snap.members||[]).filter(m=>String(m.status||"active")==="active").length:participantHubNumber("#m2RosterActive"),free=Math.max(0,capacity-active),routes=new Set((routePlanSnapshot()?.routeIds||[]).map(String)).size;
     const status=currentLifecycleStatus(),published=status==="published",label=lifecycleLabelEs(status);
     const set=(id,value)=>{const el=$(id,hub);if(el)el.textContent=String(value)};
-    set("#r4PartCapacity",capacity||"—");set("#r4PartActive",active);set("#r4PartPending",pending);set("#r4PartRemoved",removed);
+    set("#r4PartCapacity",capacity||"—");set("#r4PartActive",active);set("#r4PartFree",free);set("#r4PartRoutes",routes);
     const chip=$("#r4PartState",hub);if(chip){chip.textContent=label;chip.dataset.status=status}
     const inviteTab=$("[data-r4-part-tab='invites']",hub);if(inviteTab){inviteTab.classList.toggle("is-locked",!published);inviteTab.querySelector("small").textContent=published?"AÑADIR Y COMPARTIR":"REQUIERE PUBLICADO"}
     const notice=$("#r4PartNotice",hub);if(notice){
-      notice.className="r4-participants-notice "+(published?"is-open":"is-locked");
+      notice.className="r4-participants-notice "+(published?"is-open":"is-locked");notice.hidden=published;
       notice.innerHTML=published
-        ? `<strong>PUBLICADO</strong><span>Invitaciones habilitadas.</span>`
+        ? ``
         : `<strong>${label}</strong><span>Para invitar, la carrera debe estar PUBLICADA.</span><button type="button" data-r4-go-lifecycle>IR A ESTADO Y PUBLICACIÓN</button>`;
     }
     refreshAssignmentsHub();
@@ -428,10 +428,10 @@
     const routeIds=(plan?.routeIds||[]).map(String);
     const pending=(snap?.invitations||[]).filter(row=>String(row.status||"pending")==="pending");
     const metrics=panel.querySelector("[data-r4-assignment-metrics]");if(metrics)metrics.innerHTML=`
-      <div><strong>${assigned.length}</strong><span>ASIGNADOS</span></div>
-      <div class="${unassigned.length?"is-warn":""}"><strong>${unassigned.length}</strong><span>SIN RECORRIDO</span></div>
+      <div><strong>${capacity}</strong><span>PLAZAS</span></div>
       <div><strong>${free}</strong><span>PLAZAS LIBRES</span></div>
-      <div><strong>${routeIds.length}</strong><span>RECORRIDOS</span></div>`;
+      <div><strong>${members.length}</strong><span>PARTICIPANTES CONFIRMADOS</span></div>
+      <div><strong>${routeIds.length}</strong><span>TOTAL DE RECORRIDOS</span></div>`;
     const routes=panel.querySelector("[data-r4-assignment-routes]");if(routes)routes.innerHTML=routeIds.length?routeIds.map(id=>assignmentRouteCard(id,members)).join(""):`<div class="r4-assignment-empty">Todavía no hay recorridos creados.</div>`;
     const list=panel.querySelector("[data-r4-assignment-list]");if(list){
       const rows=members.map(row=>{
@@ -445,9 +445,9 @@
   }
   function selectParticipantsTab(tab){
     const hub=$("#r4ParticipantsHub"),roster=$("#m2ParticipantsAdmin"),invites=$("#m2Invitations"),assignments=$("#r4AssignmentsPanel");if(!hub||!roster||!invites||!assignments)return;
-    state.participantsTab=["invites","roster","assignments"].includes(tab)?tab:"invites";
+    state.participantsTab=["invites","assignments"].includes(tab)?tab:"invites";
     hub.querySelectorAll("[data-r4-part-tab]").forEach(b=>b.classList.toggle("is-active",b.dataset.r4PartTab===state.participantsTab));
-    roster.classList.toggle("r4-panel-hidden",state.participantsTab!=="roster");
+    roster.classList.add("r4-panel-hidden");
     invites.classList.toggle("r4-panel-hidden",state.participantsTab!=="invites");
     assignments.classList.toggle("r4-panel-hidden",state.participantsTab!=="assignments");
     const body=$("#r1WorkspaceBody");if(body){body.scrollTop=0;body.scrollLeft=0}
@@ -459,9 +459,9 @@
     let hub=$("#r4ParticipantsHub",body);
     if(!hub){
       hub=document.createElement("section");hub.id="r4ParticipantsHub";hub.className="r4-participants-hub";
-      hub.innerHTML=`<div class="r4-participants-hero"><div><span>ORGANIZACIÓN · PARTICIPANTES</span><h2>PARTICIPANTES</h2><small>${currentEventName()}</small></div><b id="r4PartState">—</b></div>
-        <div class="r4-participants-metrics"><div><strong id="r4PartCapacity">—</strong><span>PLAZAS</span></div><div><strong id="r4PartActive">0</strong><span>UNIDOS</span></div><div><strong id="r4PartPending">0</strong><span>PENDIENTES</span></div><div><strong id="r4PartRemoved">0</strong><span>RETIRADOS</span></div></div>
-        <div class="r4-participants-tabs"><button type="button" data-r4-part-tab="invites"><strong>INVITACIONES</strong><small>AÑADIR Y COMPARTIR</small></button><button type="button" data-r4-part-tab="roster"><strong>CENSO</strong><small>LISTA</small></button><button type="button" data-r4-part-tab="assignments"><strong>ASIGNACIONES</strong><small>PLAZAS Y RECORRIDOS</small></button></div>
+      hub.innerHTML=`<div class="r4-participants-hero"><div><span>ORGANIZACIÓN · PARTICIPANTES</span><h2>PARTICIPANTES</h2><small>${currentEventName()}</small></div></div>
+        <div class="r4-participants-metrics"><div><strong id="r4PartCapacity">—</strong><span>PLAZAS</span></div><div><strong id="r4PartFree">0</strong><span>PLAZAS LIBRES</span></div><div><strong id="r4PartActive">0</strong><span>PARTICIPANTES CONFIRMADOS</span></div><div><strong id="r4PartRoutes">0</strong><span>TOTAL DE RECORRIDOS</span></div></div>
+        <div class="r4-participants-tabs"><button type="button" data-r4-part-tab="invites"><strong>INVITACIONES</strong><small>AÑADIR Y COMPARTIR</small></button><button type="button" data-r4-part-tab="assignments"><strong>ASIGNACIONES</strong><small>PLAZAS Y RECORRIDOS</small></button></div>
         <div id="r4PartNotice" class="r4-participants-notice"></div>`;
       stack.parentNode.insertBefore(hub,stack);
       hub.addEventListener("click",event=>{const lifecycle=event.target.closest("[data-r4-go-lifecycle]");if(lifecycle){openLifecycleFromParticipants();return}const b=event.target.closest("[data-r4-part-tab]");if(b)selectParticipantsTab(b.dataset.r4PartTab)});
@@ -563,7 +563,11 @@
     const note=$("#r4LiveNotice",hub);if(note){
       if(status==="live"){note.className="r4-live-notice is-live";note.innerHTML="<strong>EN DIRECTO</strong><span>Posiciones, progreso y tiempos se actualizan automáticamente.</span><button type=\"button\" class=\"is-danger\" data-r4-live-finish>FINALIZAR CARRERA</button>"}
       else if(status==="finished"||status==="archived"){note.className="r4-live-notice";note.innerHTML=`<strong>${label}</strong><span>Se muestra la última información registrada de la carrera.</span>`}
-      else{note.className="r4-live-notice is-warn";note.innerHTML=`<strong>${label}</strong><span>El seguimiento en directo se activa al iniciar la carrera.</span><button type="button" data-r4-live-lifecycle>ESTADO Y PUBLICACIÓN</button>`}
+      else{
+        const published=status==="published",closed=Boolean(window.MILITOPO_PACKAGE?.ready());
+        note.className="r4-live-notice "+(closed?"is-ready":"is-warn");
+        note.innerHTML=`<strong>${closed?"PARTICIPANTES CERRADOS":label}</strong><span>${closed?"Descarga el ZIP antes de iniciar. Inicia solo cuando vaya a comenzar la actividad.":"Puedes revisar e iniciar la carrera desde este acceso. Se comprobarán participantes y recorridos antes de confirmar."}</span><button type="button" ${published?'data-r4-live-start':'data-r4-live-lifecycle'} class="r4-live-start" ${state.liveStartBusy?"disabled":""}>${state.liveStartBusy?"COMPROBANDO…":published?"▶ INICIAR CARRERA":"REVISAR ESTADO Y PUBLICACIÓN"}</button>`;
+      }
     }
   }
   function decorateLiveModule(){
@@ -574,6 +578,16 @@
       hub=document.createElement("section");hub.id="r4LiveHub";hub.className="r4-live-hub";hub.innerHTML=`<div class="r4-live-hero"><div><span>ORGANIZACIÓN · SEGUIMIENTO</span><h2>LIVE</h2><small>${currentEventName()}</small></div><b id="r4LiveStatus">—</b></div><div class="r4-live-metrics"><div><strong id="r4LiveTotal">0</strong><span>PARTICIPANTES</span></div><div><strong id="r4LivePending">0</strong><span>SIN SALIR</span></div><div><strong id="r4LiveRacing">0</strong><span>EN CARRERA</span></div><div><strong id="r4LiveFinished">0</strong><span>FINALIZADOS</span></div></div><div id="r4LiveNotice" class="r4-live-notice"></div><div class="r4-live-jumps"><button type="button" data-r4-live-jump="map">MAPA</button><button type="button" data-r4-live-jump="table">TABLA DE SEGUIMIENTO</button></div>`;
       stack.parentNode.insertBefore(hub,stack);
       hub.addEventListener("click",event=>{
+        if(event.target.closest("[data-r4-live-start]")){
+          if(state.liveStartBusy)return;state.liveStartBusy=true;refreshLiveHub();
+          (async()=>{try{
+            await window.MILITOPO_V2_EVENT_LIFECYCLE_REFRESH?.();
+            if(currentLifecycleStatus()!=="published")return;
+            const advance=window.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;
+            if(typeof advance!=="function")throw new Error("El inicio todavía se está preparando. Vuelve a intentarlo.");
+            await advance();
+          }catch(error){window.toast?.(String(error?.message||error));}finally{state.liveStartBusy=false;refreshLiveHub();}})();return;
+        }
         if(event.target.closest("[data-r4-live-lifecycle]")){state.managerModuleTitle="ESTADO Y PUBLICACIÓN";openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);return}
         if(event.target.closest("[data-r4-live-finish]")){const fn=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;if(typeof fn==="function"){Promise.resolve(fn()).then(()=>setTimeout(refreshLiveHub,180)).catch(error=>{try{globalThis.toast?.(`No se pudo finalizar: ${String(error?.message||error)}`)}catch(_){}});}else{state.managerModuleTitle="ESTADO Y PUBLICACIÓN";openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);}return}
         const jump=event.target.closest("[data-r4-live-jump]")?.dataset.r4LiveJump;if(!jump)return;const target=jump==="map"?$("#m2OrganizerLiveMap",body):$("#m2OrganizerLiveMonitor",body);target?.scrollIntoView?.({behavior:"smooth",block:"start"});
@@ -945,6 +959,7 @@
     window.addEventListener("militopo:v2-cloud-event-applied",()=>setTimeout(refreshContext,100));
     window.addEventListener("militopo:r4-open-results-after-load",()=>setTimeout(()=>openResultsModule(false),120));
     window.addEventListener("militopo:r3-race-manager-open",event=>{const race=event?.detail?.event||{};setTimeout(()=>openRaceManager(race),80)});
+    window.addEventListener("militopo:registration-state",()=>{refreshLiveHub();refreshParticipantsHub();});
     window.addEventListener("militopo:v2-event-status",event=>{state.eventStatus=event?.detail||null;refreshMaterialAccess();refreshLiveHub();refreshLiveNavState();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))renderRaceManager()});
     window.addEventListener("militopo:v2-event-status-changed",event=>{const to=event?.detail?.to;if(to&&state.managerEvent)state.managerEvent={...state.managerEvent,status:to};refreshMaterialAccess();refreshParticipantsHub();refreshLiveHub();refreshLiveNavState();if(state.managerOpen&&state.workspace?.classList.contains("is-open"))setTimeout(renderRaceManager,120)});
     window.addEventListener("militopo:r1-open-live",()=>{closeMore();openLiveModule(false);});
