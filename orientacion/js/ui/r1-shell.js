@@ -441,11 +441,10 @@
   function selectParticipantsTab(tab){
     const hub=$("#r4ParticipantsHub"),roster=$("#m2ParticipantsAdmin"),invites=$("#m2Invitations"),assignments=$("#r4AssignmentsPanel");if(!hub||!roster||!invites||!assignments)return;
     state.participantsTab=["invites","assignments"].includes(tab)?tab:"invites";hub.dataset.participantsTab=state.participantsTab;
-    hub.querySelectorAll("[data-r4-part-tab]").forEach(b=>b.classList.toggle("is-active",b.dataset.r4PartTab===state.participantsTab));
+    hub.querySelectorAll("[data-r4-part-tab]").forEach(b=>{const selected=b.dataset.r4PartTab===state.participantsTab;b.classList.toggle("is-active",selected);b.setAttribute("aria-pressed",String(selected))});
     roster.classList.add("r4-panel-hidden");
     invites.classList.toggle("r4-panel-hidden",state.participantsTab!=="invites");
     assignments.classList.toggle("r4-panel-hidden",state.participantsTab!=="assignments");
-    const body=$("#r1WorkspaceBody");if(body){body.scrollTop=0;body.scrollLeft=0}
     refreshParticipantsHub();refreshAssignmentsHub();
   }
   function decorateParticipantsModule(){
