@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.22";
+const BUILD_ID="2.0.23";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -23,23 +23,23 @@ const CORE_ASSETS=[
   "./css/premium-base.css?v=premium-p0a-20261011",
   "./css/premium-home.css?v=2.0.22",
   "./css/orientation-modes.css?v=militopo-r3-fullscreen-20261018",
-  "./css/premium-builder.css?v=militopo-f246-recuperacion-20261103",
-  "./js/app.js?v=2.0.20",
+  "./css/premium-builder.css?v=2.0.23",
+  "./js/app.js?v=2.0.23",
   "./js/ui/r1-shell.js?v=militopo-f231-sin-archivado-20261102",
   "./js/ui/r8-super-admin.js?v=militopo-f231-sin-archivado-20261102",
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=militopo-r5a-analisis-comparativo-20261019",
-  "./js/premium/premium-builder.js?v=militopo-f246-recuperacion-20261103",
+  "./js/premium/premium-builder.js?v=2.0.23",
   "./js/premium/premium-home.js?v=2.0.22",
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
   "./js/premium/orientation-modes.js?v=militopo-r3-fullscreen-20261018",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=militopo-r5b-utm-atak-20261019",
-  "./js/core/app-main.js?v=2.0.20",
+  "./js/core/app-main.js?v=2.0.23",
   "./js/pdf/pdf-professional.js?v=militopo-f246-recuperacion-20261103",
   "./js/results/results-v16.js?v=militopo-r5b-utm-atak-20261019",
-  "./js/results/results-classification-fix.js?v=2.0.20",
+  "./js/results/results-classification-fix.js?v=2.0.23",
   "./js/config/plan-assets.js?v=v77-reset-seguro-wakelock-20260919",
   "./js/vendor/qr.js?v=modular-fase2",
   "./maps/index.json",
