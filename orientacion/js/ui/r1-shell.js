@@ -536,7 +536,7 @@
     state.workspace.dataset.premiumTool=kind;
     let hero=body.querySelector(".r5-premium-tool-hero");
     if(!hero){hero=document.createElement("section");hero.className="r5-premium-tool-hero";body.prepend(hero)}
-    hero.innerHTML=`<div><small>MILITOPO · ORGANIZADOR</small><h2>${cfg[0]}</h2><p>${cfg[1]}</p></div><button type="button" data-r5-back-center>← VOLVER AL CENTRO</button>${kind==="participants"?'<nav class="r5-participant-tabs" aria-label="Área de participantes"><button type="button" data-r5-p-tab="invitations">01 · INVITACIONES</button><button type="button" data-r5-p-tab="roster">02 · PARTICIPANTES</button></nav>':""}`;
+    hero.innerHTML=`<div><small>MILITOPO · ORGANIZADOR</small><h2>${cfg[0]}</h2><p>${cfg[1]}</p></div><button type="button" data-r5-back-center>← VOLVER AL CENTRO</button>${kind==="participants"?'<nav class="r5-participant-tabs" aria-label="Área de participantes"><button type="button" data-r5-p-tab="invitations">01 · INVITACIONES</button><button type="button" data-r5-p-tab="roster">02 · CERRAR PARTICIPANTES</button></nav>':""}`;
     if(kind==="participants"){
       const tab=body.dataset.r5Tab||"invitations";body.dataset.r5Tab=tab;
       hero.querySelectorAll("[data-r5-p-tab]").forEach(button=>{button.classList.toggle("is-active",button.dataset.r5PTab===tab);button.setAttribute("aria-pressed",String(button.dataset.r5PTab===tab))});
