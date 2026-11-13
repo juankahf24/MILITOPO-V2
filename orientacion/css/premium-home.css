@@ -250,3 +250,7 @@ body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="roster"] #r4AssignmentsP
 .mpp-home .mpp-r4-identity-main{grid-column:2;grid-row:1;min-width:0}
 .mpp-home .mpp-r4-identity .mpp-r4-role{position:static;grid-column:2;grid-row:2;justify-self:end;margin:0;padding:6px 10px;font-size:9px;max-width:100%}
 @media(max-width:390px){.mpp-home .mpp-r4-identity{grid-template-columns:68px minmax(0,1fr);padding:18px!important;column-gap:12px!important}}
+
+.mpp-action-emblem{display:inline-flex;width:38px;height:38px;flex:0 0 38px;align-items:center;justify-content:center}.mpp-action-emblem svg{width:38px!important;height:38px!important;stroke:none!important;fill:none}
+.mpp-r3-current-bottom .mpp-r5-open-flow{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 16px}.mpp-r3-current-bottom .mpp-r5-open-flow>svg:last-child{margin-left:auto}
+.mpp-r3-main-action>.mpp-action-emblem{flex:0 0 38px}
