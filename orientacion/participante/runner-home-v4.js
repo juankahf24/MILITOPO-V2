@@ -182,6 +182,7 @@ function setMainTab(tab){
   currentMainTab=["home","races","profile"].includes(tab)?tab:"home";
   document.querySelectorAll("[data-runner-tab]").forEach(btn=>btn.classList.toggle("is-active",btn.dataset.runnerTab===currentMainTab));
   document.querySelectorAll("[data-runner-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.runnerPanel===currentMainTab));
+  globalThis.MILITOPO_TRANSITION?.soft(document.querySelector(`[data-runner-panel="${currentMainTab}"]`));
   window.scrollTo({top:0,behavior:"auto"});
 }
 function setRaceTab(tab){
@@ -190,6 +191,7 @@ function setRaceTab(tab){
   document.querySelectorAll("[data-race-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.racePanel===currentRaceTab));
   if(currentRaceTab==="history")hydrateVisibleRanks();
   if(currentRaceTab==="invites")markInvitesSeen();
+  globalThis.MILITOPO_TRANSITION?.soft(document.querySelector(`[data-race-panel="${currentRaceTab}"]`));
 }
 
 async function enterRace(eventId){
@@ -709,6 +711,7 @@ async function prepareRunnerRecovery(user){
 function boot(){
   if(accountClosing)return Promise.resolve(false);
   if(accountRefreshPromise)return accountRefreshPromise;
+  globalThis.MILITOPO_RUNNER_ENTRY_READY=false;globalThis.MILITOPO_RUNNER_OFFLINE_READY=false;
   let generation=accountRecoveryGeneration;
   accountRefreshPromise=(async()=>{
     try{
@@ -731,8 +734,9 @@ function boot(){
         setStatus(canResumeSavedRace()
           ?"Sin cobertura. Puedes reanudar la carrera guardada en este dispositivo."
           :"Sin cobertura. Tus datos se actualizarán al recuperar la conexión.");
-        return false;
+        globalThis.MILITOPO_RUNNER_OFFLINE_READY=true;return false;
       }
+      globalThis.MILITOPO_RUNNER_OFFLINE_READY=false;
       const eventsPromise=loadEvents(app);
       const profileLoaded=await loadProfile(app,user);
       if(accountClosing||auth?.currentUser?.uid!==user.uid)return false;
@@ -742,7 +746,7 @@ function boot(){
       accountRecoveryPending=!profileLoaded||!eventsLoaded||navigator.onLine===false||generation!==accountRecoveryGeneration;
       if(!accountRecoveryPending){accountRecoveryAttempts=0;if(accountRecoveryTimer){clearTimeout(accountRecoveryTimer);accountRecoveryTimer=0;}if(els.retry)els.retry.style.display="none";}
       else if(eventsLoaded&&navigator.onLine!==false){setStatus("El perfil sigue pendiente de actualizar. Puedes volver a intentarlo.");if(els.retry)els.retry.style.display="block";}
-      return !accountRecoveryPending;
+      globalThis.MILITOPO_RUNNER_ENTRY_READY=!accountRecoveryPending;return !accountRecoveryPending;
     }catch(error){
       accountRecoveryPending=true;
       if(!accountClosing){console.error("[MILITOPO runner boot]",error);if(!profile){text(els.name,"No se pudo cargar tu cuenta");text(els.meta,"La sesión o Firebase no respondieron correctamente.");}setStatus(String(error?.message||error),"err");if(els.retry)els.retry.style.display="block";}
@@ -760,7 +764,7 @@ document.getElementById("rhSwitchOrganizer")?.addEventListener("click",()=>{
   if(document.querySelector("#m2RaceV2.m2race-is-racing,[data-militopo-runner-active='true']")){
     setStatus("Finaliza tu carrera antes de cambiar a ORGANIZAR, para no interrumpir el GPS.","err");return;
   }
-  location.assign("../?militopo_mode=organizer");
+  if(globalThis.MILITOPO_TRANSITION)void globalThis.MILITOPO_TRANSITION.navigate("../?militopo_mode=organizer");else location.assign("../?militopo_mode=organizer");
 });
 try{const params=new URLSearchParams(location.search);if(params.get("militopo_tab")==="profile"){
   params.delete("militopo_tab");history.replaceState(history.state,"",location.pathname+(params.toString()?`?${params}`:"")+location.hash);
@@ -802,4 +806,5 @@ window.addEventListener("offline",()=>{updateConnectivity();accountRecoveryPendi
 window.addEventListener("focus",()=>{if(accountRecoveryPending)scheduleAccountRecovery({delay:250});else if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState!=="visible")return;if(accountRecoveryPending)scheduleAccountRecovery({delay:250});else if(currentApp&&Date.now()-lastActiveRefreshAt>4000)scheduleActiveRefresh(currentApp,120);});
 
+globalThis.MILITOPO_RUNNER_PREPARE=boot;
 boot();
