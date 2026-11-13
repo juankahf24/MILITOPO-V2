@@ -1,3 +1,4 @@
+import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.32";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
 import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.21";
 import "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011";
@@ -105,7 +106,12 @@ function openRunnerPhotoMenu(){
   openProfilePhotoMenu({photoURL,name,canChange:true,onSave:saveRunnerPhotoBlob});
 }
 
+async function editRunnerPersonal(){
+ if(!currentUser||!currentApp)return;
+ try{await openPersonalProfileEditor({app:currentApp,firestore:getFirestore(currentApp),user:currentUser,onSaved:()=>loadProfile(currentApp,currentUser)});}catch(error){runnerPhotoMessage(error?.message||String(error),"error");}
+}
 function paintRunnerProfile(user,data={}){
+  const personal=document.getElementById("rhPersonalProfile");if(personal){personal.innerHTML=personalProfileHtml(data,user.email);personal.querySelector("[data-personal-edit]")?.addEventListener("click",editRunnerPersonal);}
   const displayName=String(data.displayName||user.displayName||user.email||"Usuario").trim();
   const username=String(data.usernameKey||data.username||"").trim().toLowerCase().replace(/^@/,"");
   text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);
