@@ -44,7 +44,7 @@ function routeRunnerToParticipant() {
     // a su área después del login.
     window.__MILITOPO_AUTH_NAVIGATING = true;
     try { sessionStorage.setItem("militopo_v2_allow_navigation_once", "1"); } catch (_) {}
-    window.location.replace(RUNNER_HOME_URL);
+    if(globalThis.MILITOPO_TRANSITION){void globalThis.MILITOPO_TRANSITION.navigate(RUNNER_HOME_URL,{replace:true});}else window.location.replace(RUNNER_HOME_URL);
     return true;
   } catch (_) {
     window.__MILITOPO_AUTH_NAVIGATING = true;
@@ -1305,6 +1305,9 @@ async function init() {
       console.error("[MILITOPO V2 Auth] state", error);
       showMainView();
       setMessage("No se ha podido preparar tu sesión. Vuelve a iniciar sesión.", "error");
+    } finally {
+      globalThis.MILITOPO_ENTRY_AUTH_READY=true;
+      globalThis.dispatchEvent(new Event("militopo:auth-ui-ready"));
     }
   });
 
