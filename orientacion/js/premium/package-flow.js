@@ -1,3 +1,4 @@
+import {setRaceInfoContext} from "../../../js/v2/race/race-info-ui.js?v=2.0.34";
 import '../../../js/v2/bootstrap.js';
 import {doc,onSnapshot,collection,query,where} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import {httpsCallable} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js';
@@ -124,7 +125,7 @@ function refreshControls(){
 }
 
 async function watchEvent(){const id=currentId();if(id===eventId){refreshControls();watchReview();return}unsub?.();unsub=null;eventId=id;header=null;stopReview();refreshControls();if(!id)return;
- try{const {firestore}=await globalThis.MILITOPO_V2.firebase();if(id!==eventId)return;unsub=onSnapshot(doc(firestore,'events',id),snap=>{if(id!==eventId)return;header=snap.exists()?snap.data():null;refreshControls();globalThis.dispatchEvent(new Event("militopo:registration-state"));},()=>{header=null;refreshControls();});}catch(_){header=null;}
+ try{const {firestore}=await globalThis.MILITOPO_V2.firebase();if(id!==eventId)return;unsub=onSnapshot(doc(firestore,'events',id),snap=>{if(id!==eventId)return;header=snap.exists()?snap.data():null;if(header)setRaceInfoContext({...header,eventId:id},true);refreshControls();globalThis.dispatchEvent(new Event("militopo:registration-state"));},()=>{header=null;refreshControls();});}catch(_){header=null;}
 }
 globalThis.MILITOPO_PACKAGE=Object.freeze({ready,reason,openLive,download,progress,compression,active:()=>running,roster:()=>roster});
 installStyle();setInterval(watchEvent,1200);watchEvent();
