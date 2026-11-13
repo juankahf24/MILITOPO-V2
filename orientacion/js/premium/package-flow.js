@@ -1,4 +1,4 @@
-import {setRaceInfoContext} from "../../../js/v2/race/race-info-ui.js?v=2.0.34";
+import {setRaceInfoContext} from "../../../js/v2/race/race-info-ui.js?v=2.0.35";
 import '../../../js/v2/bootstrap.js';
 import {doc,onSnapshot,collection,query,where} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import {httpsCallable} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js';
