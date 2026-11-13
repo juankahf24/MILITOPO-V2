@@ -24,10 +24,13 @@
   function show(){if(!eligible())return false;document.body.classList.add("mor-organizer-shell");ensure();root.querySelector("[data-mor-user]").textContent=auth.displayName||"";
     globalThis.MILITOPO_PREMIUM?.get?.("organizer-home")?.close?.();root.hidden=false;document.body.classList.add("mor-choice-open");opened=true;return true}
   function select(mode){if(!eligible())return false;
-    if(mode==="runner"){location.assign("./participante/");return true}
+    if(mode==="runner"){if(globalThis.MILITOPO_TRANSITION)void globalThis.MILITOPO_TRANSITION.navigate("./participante/");else location.assign("./participante/");return true}
     if(mode==="organizer"){
       const home=globalThis.MILITOPO_PREMIUM?.get?.("organizer-home");
       if(!home?.open){show();root.querySelector("[data-mor-user]").textContent="El Centro de Carreras todavía está cargando";return false}
+      if(globalThis.MILITOPO_TRANSITION){
+        void globalThis.MILITOPO_TRANSITION.run(async signal=>{close();document.body.classList.add("mor-organizer-shell");try{const view=await home.prepare();if(signal.aborted)throw signal.reason;return view;}catch(error){show();throw error;}});return true;
+      }
       close();document.body.classList.add("mor-organizer-shell");
       if(home.open()===true)return true;
       show();root.querySelector("[data-mor-user]").textContent="No se pudo abrir el Centro de Carreras";return false;

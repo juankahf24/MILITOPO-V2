@@ -168,8 +168,13 @@ function render(preserve=false){ensure();const body=$('[data-mpp-view]',state.ro
   }
   if(preserve&&scroll)scroll.scrollTop=y;else if(scroll)scroll.scrollTop=0;
 }
-function setScreen(screen){if(screen==="races"&&state.screen!=="races")state.raceLimit=10;state.screen=screen;render();if(screen==="profile"){void loadProfile();void fetchRows(false)}}
-async function fetchRows(force=false){if(!canManage())return state.rows;if(state.busy)return state.rows;
+function setScreen(screen){if(screen==="races"&&state.screen!=="races")state.raceLimit=10;state.screen=screen;render();globalThis.MILITOPO_TRANSITION?.soft($("[data-mpp-view]",state.root));if(screen==="profile"){void loadProfile();void fetchRows(false)}}
+function fetchRows(force=false){
+ if(state.rowsTask)return state.rowsTask;
+ const task=fetchRowsImpl(force);state.rowsTask=task;
+ const clear=()=>{if(state.rowsTask===task)state.rowsTask=null;};void task.then(clear,clear);return task;
+}
+async function fetchRowsImpl(force=false){if(!canManage())return state.rows;if(state.busy)return state.rows;
   if(!navigator.onLine){render(true);message("Sin conexión: puedes continuar la carrera local que ya tengas cargada.");return state.rows}
   if(!force&&Date.now()-state.lastFetch<30000&&state.rows.length)return state.rows;
   state.busy=true;try{const ownerUid=String(state.auth.uid),{firestore}=await globalThis.MILITOPO_V2.firebase();const ref=collection(firestore,"events");const src=query(ref,where("ownerUid","==",ownerUid));const snap=await getDocs(src);const rows=[];snap.forEach(doc=>{const data=doc.data()||{};if(String(data.kind||"orientation")!=="orientation")return;rows.push({eventId:String(data.eventId||doc.id),eventName:String(data.eventName||data.name||"Carrera"),status:status(data.status),createdMs:createdAtMs(data.createdAt)})});rows.sort((a,b)=>b.createdMs-a.createdMs||a.eventName.localeCompare(b.eventName,"es")||a.eventId.localeCompare(b.eventId));if(String(state.auth?.uid||"")!==ownerUid)return state.rows;state.rows=rows;state.rowsLoaded=true;state.rowsError="";state.lastFetch=Date.now();if(state.opened)render(true);return rows}
@@ -228,6 +233,7 @@ function onInput(e){
   }
 }
 function open(screen){if(!canManage())return false;ensure();document.body.classList.add("mor-organizer-shell");globalThis.MILITOPO_V2_ORGANIZER_CENTER?.close?.();if(screen)state.screen=screen;render();state.root.classList.add("is-open");state.root.setAttribute("aria-hidden","false");document.body.classList.add("militopo-premium-home-open");state.opened=true;fetchRows(false);if(state.screen==="profile")void loadProfile();return true}
+async function prepare(){if(open("home")!==true)throw new Error("No se pudo abrir el Centro de Carreras.");await fetchRows(Boolean(state.rowsError));if(state.rowsError&&!state.rowsLoaded)throw new Error(state.rowsError);return state.root;}
 function close(){if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-home-open");state.opened=false}
 function refresh(){if(state.opened)render(true)}
 function onDraftSaved({eventId,eventName}={}){
@@ -238,7 +244,7 @@ function onDraftSaved({eventId,eventName}={}){
   state.lastFetch=0; // la próxima apertura consultará el nombre confirmado en Firebase.
   if(state.opened){render(true);void fetchRows(true);}
 }
-premium.register("organizer-home",Object.freeze({open,close,refresh,onDraftSaved,isOpen:()=>state.opened,showRaces:()=>open("races"),showOperations:(kind)=>{if(kind){state.operationKind=kind;return open("operation")}return open("operations")},showOperation:(kind)=>{state.operationKind=kind||"publish";return open("operation")}}),{version:"r5",purpose:"r5-guided-operations-workspaces-and-official-engines"});
+premium.register("organizer-home",Object.freeze({open,close,prepare,refresh,onDraftSaved,isOpen:()=>state.opened,showRaces:()=>open("races"),showOperations:(kind)=>{if(kind){state.operationKind=kind;return open("operation")}return open("operations")},showOperation:(kind)=>{state.operationKind=kind||"publish";return open("operation")}}),{version:"r5",purpose:"r5-guided-operations-workspaces-and-official-engines"});
 addEventListener("militopo:v2-auth-ready",e=>{const priorUid=String(state.auth?.uid||"");state.auth=e.detail||globalThis.MILITOPO_V2_AUTH||null;if(priorUid!==String(state.auth?.uid||"")){state.profileRequest++;state.profile={uid:"",busy:false,loadedAt:0,user:null,history:null,profileError:"",historyError:""};state.rows=[];state.rowsLoaded=false;state.rowsError="";state.lastFetch=0}if(!canManage())close();else if(state.opened&&state.screen==="profile")render(true)});
 addEventListener("militopo:v2-cloud-event-applied",e=>{const id=String(e.detail?.eventId||"");if(!e.detail?.ok){if(state.pendingRecoveryId)message("No se pudo recuperar la carrera; la anterior permanece guardada.");state.pendingRecoveryId="";return}
   const previousSelection=state.pendingRecoveryId;
