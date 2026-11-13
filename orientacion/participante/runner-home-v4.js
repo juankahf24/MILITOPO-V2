@@ -1,4 +1,4 @@
-import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.34";
+import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.35";
 import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.33";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
 import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.21";
