@@ -1,13 +1,14 @@
+import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.32";
 /* MILITOPO R5 · Centro de carreras, nuevo organizador a pantalla completa.
  * El mapa histórico queda como motor interno; solo se muestran pantallas del nuevo centro.
  * Roles/permisos vienen del auth real de Firebase, no del modo de navegación. */
-import {collection,getDocs,query,where} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {collection,getDocs,getDoc,doc,query,where} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import {fetchOrganizerUnifiedProfile} from "./organizer-profile-data.js?v=militopo-r4-profile-20261019";
 const premium=globalThis.MILITOPO_PREMIUM;
 if(!premium)throw new Error("MILITOPO Premium core no disponible");
 const ROLES=new Set(["organizer","super_admin"]);
 const LABELS={draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADA",live:"EN DIRECTO",finished:"FINALIZADA"};
-const state={auth:globalThis.MILITOPO_V2_AUTH||null,root:null,opened:false,screen:"home",rows:[],rowsLoaded:false,rowsError:"",lastFetch:0,busy:false,pendingRecoveryId:"",filter:"all",search:"",notice:"",profile:{uid:"",busy:false,loadedAt:0,user:null,history:null,profileError:"",historyError:""},profileRequest:0,operationKind:"publish",packageBusy:false};
+const state={auth:globalThis.MILITOPO_V2_AUTH||null,root:null,opened:false,screen:"home",rows:[],rowsLoaded:false,rowsError:"",lastFetch:0,busy:false,pendingRecoveryId:"",filter:"all",search:"",raceLimit:10,notice:"",profile:{uid:"",busy:false,loadedAt:0,user:null,history:null,profileError:"",historyError:""},profileRequest:0,operationKind:"publish",packageBusy:false};
 const $=(sel,root=document)=>root.querySelector(sel);
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const role=()=>String(state.auth?.role||globalThis.MILITOPO_V2_AUTH?.role||"").toLowerCase();
@@ -24,7 +25,7 @@ function ensure(){if(state.root?.isConnected)return state.root;
   const root=document.createElement("section");root.id="militopoPremiumHome";root.className="mpp-home";root.setAttribute("aria-label","Centro de carreras MILITOPO");
   root.innerHTML=`<div class="mpp-home-scroll"><div class="mpp-home-inner">
     <header class="mpp-r3-header"><div class="mpp-r3-identity"><img src="../icons/militopo-512.png" alt="" width="48" height="48"><div><span>ORIENTACIÓN / MILITOPO</span><strong>Centro de carreras</strong></div></div>
-    <div class="mpp-r3-tools"><button type="button" data-mpp-action="profile" aria-label="Perfil y estadísticas">${icon("user")}<span>MI PERFIL</span></button><button type="button" data-mpp-action="mode-choice">CAMBIAR MODO ${icon("arrow")}</button></div></header>
+    <div class="mpp-r3-tools"><button type="button" data-mpp-action="profile" aria-label="Mi perfil y estadísticas" title="Mi perfil">${icon("user")}</button><button type="button" data-mpp-action="mode-choice" aria-label="Cambiar modo" title="Cambiar modo">${icon("users")}</button></div></header>
     <div class="mpp-r3-notice" data-mpp-notice role="status" hidden></div>
     <main data-mpp-view class="mpp-r3-view"></main>
     <footer class="mpp-r3-footer"><span>MILITOPO ORIENTACIÓN</span><span>Una cuenta · Dos experiencias</span></footer>
@@ -36,7 +37,7 @@ function statCards(){const stats=statCounts(),n=value=>state.rowsLoaded?value:"�
 function currentCard(){const ctx=current(),id=String(ctx.eventId||"").trim(),s=status(ctx.status),name=id?ctx.eventName||"Carrera sin nombre":"Todavía no hay carrera activa";const p=primary({eventId:id,status:s});
   return `<article class="mpp-r3-current"><div class="mpp-r3-current-top"><small>CARRERA ACTUAL</small><span class="mpp-r3-status" data-status="${esc(s)}">${id?statusLabel(s):"SIN CARRERA"}</span></div><h2>${esc(name)}</h2><div class="mpp-r3-sub">${id?esc(id):"Tu próxima carrera empieza con un asistente guiado."}</div>
     <div class="mpp-r3-current-bottom"><p>${!id?"Diseña una carrera desde cero. MILITOPO guarda lo que avances.":isEditable(s)?"Diseño en curso · Revisa cada paso antes de publicar.":s==="published"?(p.action==="launch-live"?"Participantes cerrados · Descarga el ZIP y abre LIVE para iniciar la carrera.":"Carrera publicada · Gestiona las invitaciones y participantes."):s==="live"?"Carrera en directo · Prioriza el seguimiento.":"Carrera completada · Consulta resultados e histórico."}</p>
-    <button type="button" class="mpp-r3-main-action ${p.action==="launch-live"?"is-start-ready":""}" data-mpp-action="${p.action}">${icon(p.icon)}<span>${p.label}</span>${icon("arrow")}</button><button type="button" class="mpp-r5-open-flow" data-mpp-action="operations">${icon("flag")} GESTIONAR CARRERA ${icon("arrow")}</button></div></article>`;
+    <button type="button" class="mpp-r3-main-action ${p.action==="launch-live"?"is-start-ready":""}" data-mpp-action="${p.action}">${icon(p.icon)}<span>${p.label}</span>${icon("arrow")}</button>${s==="published"&&p.action!=="launch-live"?`<button type="button" class="mpp-r3-live-entry" data-mpp-action="launch-live">${icon("radio")} IR A LIVE PARA INICIAR ${icon("arrow")}</button>`:""}<button type="button" class="mpp-r5-open-flow" data-mpp-action="operations">${icon("flag")} GESTIONAR CARRERA ${icon("arrow")}</button></div></article>`;
 }
 function homeHtml(){const n=state.rows.length;return `<section class="mpp-r3-intro"><div><span>ESPACIO DEL ORGANIZADOR</span><h1>Todo listo para tu próxima carrera.</h1><p>Desde el diseño hasta los resultados. Una sola pantalla para empezar y cada tarea en su propio paso.</p></div><div class="mpp-r3-intro-accent"><span>01</span><strong>DISEÑA</strong><i>→</i><span>02</span><strong>GESTIONA</strong><i>→</i><span>03</span><strong>ANALIZA</strong></div></section>
   <section class="mpp-r3-main-grid">${currentCard()}<div class="mpp-r3-actions"><div class="mpp-r3-section-kicker">ACCESOS DIRECTOS</div><button class="mpp-r3-action is-gold" type="button" data-mpp-action="create"><span class="mpp-r3-icon">${icon("plus")}</span><span><strong>Crear nueva carrera</strong><small>Abre el asistente desde el primer paso</small></span>${icon("arrow")}</button><button class="mpp-r3-action" type="button" data-mpp-action="races"><span class="mpp-r3-icon">${icon("calendar")}</span><span><strong>Mis carreras</strong><small>${n?n+" carreras disponibles":"Ver, cargar y continuar"}</small></span>${icon("arrow")}</button><button class="mpp-r3-action" type="button" data-mpp-action="profile"><span class="mpp-r3-icon">${icon("chart")}</span><span><strong>Mi perfil y estadísticas</strong><small>Tu actividad en MILITOPO</small></span>${icon("arrow")}</button></div></section>
@@ -56,7 +57,7 @@ function createdAtMs(value){
 }
 function createdLabel(ms){return ms?new Intl.DateTimeFormat("es-ES",{day:"2-digit",month:"short",year:"numeric",timeZone:"Europe/Madrid"}).format(ms):"Fecha de creación no disponible"}
 function filteredRows(){return state.rows.filter(row=>{const q=state.search.toLocaleLowerCase("es"),s=status(row.status);const hit=!q||[row.eventName,row.eventId].join(" ").toLocaleLowerCase("es").includes(q);return hit&&(state.filter==="all"||state.filter==="draft"&&isEditable(s)||s===state.filter||state.filter==="closed"&&s==="finished")})}
-function raceListHtml(){const rows=filteredRows();return rows.length?rows.map(row=>`<article><div><span class="mpp-r3-status" data-status="${esc(status(row.status))}">${statusLabel(row.status)}</span><h3>${esc(row.eventName||"Carrera")}</h3><small>${esc(row.eventId)}</small><span class="mpp-r3-created">${icon("calendar")} Creada: ${esc(createdLabel(row.createdMs))}</span></div><div class="mpp-r5-race-actions"><button type="button" data-mpp-reuse="${esc(row.eventId)}" ${status(row.status)==="live"?"disabled":""}>REUTILIZAR</button><button type="button" data-mpp-load="${esc(row.eventId)}">ABRIR ${icon("arrow")}</button></div></article>`).join(""):`<div class="mpp-r3-empty">${state.busy?"Cargando carreras…":state.rows.length?"No hay carreras con esos filtros.":navigator.onLine?"Aún no hay carreras disponibles. Puedes empezar con el asistente.":"Sin conexión. La carrera cargada localmente sigue disponible."}</div>`}
+function raceListHtml(){const all=filteredRows(),rows=all.slice(0,state.raceLimit);return rows.length?rows.map(row=>`<article><div><span class="mpp-r3-status" data-status="${esc(status(row.status))}">${statusLabel(row.status)}</span><h3>${esc(row.eventName||"Carrera")}</h3><small>${esc(row.eventId)}</small><span class="mpp-r3-created">${icon("calendar")} Creada: ${esc(createdLabel(row.createdMs))}</span></div><div class="mpp-r5-race-actions"><button type="button" data-mpp-reuse="${esc(row.eventId)}" ${status(row.status)==="live"?"disabled":""}>REUTILIZAR</button><button type="button" data-mpp-load="${esc(row.eventId)}">ABRIR ${icon("arrow")}</button></div></article>`).join("")+`<p class="mpp-r3-page-count">Mostrando ${rows.length} de ${all.length} carreras</p>${rows.length<all.length?'<button type="button" class="mpp-r3-show-more" data-mpp-action="more-races">MOSTRAR 10 MÁS</button>':""}`:`<div class="mpp-r3-empty">${state.busy?"Cargando carreras…":state.rows.length?"No hay carreras con esos filtros.":navigator.onLine?"Aún no hay carreras disponibles. Puedes empezar con el asistente.":"Sin conexión. La carrera cargada localmente sigue disponible."}</div>`}
 // Refrescar solo las tarjetas: Firebase, eventos LIVE y guardado del asistente
 // NO pueden sustituir el input enfocado ni cerrar el teclado virtual en Safari.
 function refreshRaceList(){const target=$(".mpp-r3-race-list",state.root);if(target)target.innerHTML=raceListHtml()}
@@ -82,7 +83,8 @@ function profileHtml(){
   const a=state.auth||{},p=state.profile,u=p.user||{},username=String(u.usernameKey||u.username||a.username||"").replace(/^@/,"").trim();
   return `<section class="mpp-r3-page-head"><button type="button" data-mpp-action="home">${icon("back")} VOLVER AL CENTRO</button><small>PERFIL MILITOPO · UNA SOLA CUENTA</small><h1>Tu actividad, en un mismo lugar.</h1><p>Consulta tu rendimiento deportivo y tu actividad como organizador sin cambiar de cuenta.</p></section>
   <section class="mpp-r3-profile mpp-r4-profile">
-    <article class="mpp-r4-identity"><div class="mpp-r4-avatar">${profileAvatar(u,a)}</div><div class="mpp-r4-identity-main"><span>IDENTIDAD MILITOPO</span><h2>${esc(u.displayName||a.displayName||a.email||"Usuario MILITOPO")}</h2>${username?`<strong>@${esc(username)}</strong>`:""}<small>${esc(a.email||"")}</small></div><span class="mpp-r4-role">${role()==="super_admin"?"SÚPER ADMIN":"ORGANIZADOR"}</span></article>
+    <article class="mpp-r4-identity"><button type="button" class="mpp-r4-avatar" data-mpp-action="profile-photo" aria-label="Ver o editar foto">${profileAvatar(u,a)}</button><div class="mpp-r4-identity-main"><h2>${esc(u.displayName||a.displayName||a.email||"Usuario MILITOPO")}</h2>${username?`<strong>@${esc(username)}</strong>`:""}<small>${esc(a.email||"")}</small></div><span class="mpp-r4-role">${role()==="super_admin"?"SÚPER ADMIN":"ORGANIZADOR"}</span></article>
+    ${personalProfileHtml(u,a.email||"")}
     ${p.profileError?`<p class="mpp-r4-inline-note">${esc(p.profileError)}</p>`:""}
     <article class="mpp-r3-section mpp-r4-profile-card"><div class="mpp-r4-section-title"><div class="mpp-r4-section-icon">${icon("chart")}</div><div><small>COMO CORREDOR</small><h2>Mi rendimiento deportivo</h2></div></div>${runnerProfileSection()}<div class="mpp-r4-actions"><button type="button" class="mpp-r4-reload" data-mpp-action="profile-refresh">${icon("refresh")} ACTUALIZAR</button><button type="button" class="mpp-r4-secondary-action" data-mpp-action="runner-profile">VER PERFIL DE CORREDOR ${icon("arrow")}</button></div></article>
     <article class="mpp-r3-section mpp-r4-profile-card"><div class="mpp-r4-section-title"><div class="mpp-r4-section-icon is-gold">${icon("calendar")}</div><div><small>COMO ORGANIZADOR</small><h2>Mis carreras organizadas</h2></div></div>${statCards()}<p class="mpp-r3-muted">${state.rowsLoaded?`${state.rows.length} carreras propias encontradas en MILITOPO. Los estados reflejan la información de Firebase.`:state.rowsError||"Actualizando tus carreras propias desde Firebase…"}</p><button type="button" class="mpp-r4-secondary-action" data-mpp-action="races">VER MIS CARRERAS ${icon("arrow")}</button></article>
@@ -162,7 +164,7 @@ function render(preserve=false){ensure();const body=$('[data-mpp-view]',state.ro
   }
   if(preserve&&scroll)scroll.scrollTop=y;else if(scroll)scroll.scrollTop=0;
 }
-function setScreen(screen){state.screen=screen;render();if(screen==="profile"){void loadProfile();void fetchRows(false)}}
+function setScreen(screen){if(screen==="races"&&state.screen!=="races")state.raceLimit=10;state.screen=screen;render();if(screen==="profile"){void loadProfile();void fetchRows(false)}}
 async function fetchRows(force=false){if(!canManage())return state.rows;if(state.busy)return state.rows;
   if(!navigator.onLine){render(true);message("Sin conexión: puedes continuar la carrera local que ya tengas cargada.");return state.rows}
   if(!force&&Date.now()-state.lastFetch<30000&&state.rows.length)return state.rows;
@@ -177,7 +179,14 @@ async function loadRace(id,options={}){if(!canManage()||!id)return false;const a
   state.pendingRecoveryId=id;message(options.reuse?"Creando una copia nueva en Firebase…":"Preparando la carrera seleccionada…");
   try{const result=await api.recoverDirect(id,options);if(result===false){state.pendingRecoveryId="";message("La selección se ha cancelado o no se ha podido cargar.");return false}return true}
   catch(error){state.pendingRecoveryId="";message(String(error?.message||"No se pudo abrir la carrera"));return false}}
-async function run(action){if(!canManage())return false;
+async function editPersonal(photo=false){
+ try{const services=await globalThis.MILITOPO_V2.firebase();const options={app:services.app,firestore:services.firestore,user:services.auth.currentUser,onSaved:async()=>{const user=services.auth.currentUser;if(!user)return;const fresh=await getDoc(doc(services.firestore,"users",user.uid));if(state.auth?.uid!==user.uid)return;state.profile.user=fresh.data()||{};if(state.opened&&state.screen==="profile")render(true);}};
+ await (photo?openPersonalPhoto(options):openPersonalProfileEditor(options));
+ }catch(error){message(String(error?.message||error));}
+}
+async function run(action){
+  if(action==="profile-photo"){void editPersonal(true);return true}
+  if(action==="more-races"){state.raceLimit+=10;refreshRaceList();return true}if(!canManage())return false;
   if(action==="mode-choice"){close();return globalThis.MILITOPO_ORIENTATION_MODES?.open?.()}
   if(action==="home"){setScreen("home");return true}
   if(action==="races"){setScreen("races");fetchRows(false);return true}
@@ -205,12 +214,12 @@ async function run(action){if(!canManage())return false;
   if(action==="builder"){if(!current().eventId){setScreen("races");message("Selecciona o crea una carrera para continuar.");return false}if(!isEditable(current().status)){setScreen("operations");message("El diseño de una carrera publicada está cerrado. La edición debe respetar sus bloqueos de seguridad.");return false}return openBuilder(false)}
   return false;
 }
-function onClick(e){const op=e.target.closest("[data-mpp-operation]");if(op){if(op.disabled)return;state.operationKind=op.dataset.mppOperation;setScreen("operation");return}const reuse=e.target.closest("[data-mpp-reuse]");if(reuse&&!reuse.disabled){loadRace(reuse.dataset.mppReuse,{reuse:true});return}const load=e.target.closest("[data-mpp-load]");if(load){loadRace(load.dataset.mppLoad);return}const button=e.target.closest("[data-mpp-action]");if(button&&!button.disabled)run(button.dataset.mppAction)}
+function onClick(e){if(e.target.closest("[data-personal-edit]")){void editPersonal(false);return}const op=e.target.closest("[data-mpp-operation]");if(op){if(op.disabled)return;state.operationKind=op.dataset.mppOperation;setScreen("operation");return}const reuse=e.target.closest("[data-mpp-reuse]");if(reuse&&!reuse.disabled){loadRace(reuse.dataset.mppReuse,{reuse:true});return}const load=e.target.closest("[data-mpp-load]");if(load){loadRace(load.dataset.mppLoad);return}const button=e.target.closest("[data-mpp-action]");if(button&&!button.disabled)run(button.dataset.mppAction)}
 function onInput(e){
-  if(e.target.matches("[data-mpp-filter]")){state.filter=e.target.value;render(true);return;}
+  if(e.target.matches("[data-mpp-filter]")){state.filter=e.target.value;state.raceLimit=10;render(true);return;}
   if(e.target.matches("[data-mpp-search]")){
     // Nunca reconstruir el input al teclear: iOS Safari perdería teclado y foco.
-    state.search=e.target.value;
+    state.search=e.target.value;state.raceLimit=10;
     refreshRaceList();
   }
 }
