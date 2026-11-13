@@ -1,4 +1,4 @@
-import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.32";
+import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.33";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
 import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.21";
 import "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011";
@@ -455,12 +455,7 @@ async function hydrateVisibleRanks(){
 }
 
 function renderDashboardHighlights(){
-  const upcoming=activeRows.find(r=>String(r.status||"").toLowerCase()==="live")||activeRows.find(r=>String(r.status||"").toLowerCase()==="published")||null;
   const latest=historyRows[0]||null;
-  if(els.upcomingCard){
-    if(upcoming){const live=String(upcoming.status||"").toLowerCase()==="live";els.upcomingCard.className=`dashboard-highlight ${live?"is-live":"is-upcoming"}`;els.upcomingCard.innerHTML=`<small>${live?"AHORA":"PRÓXIMA CARRERA"}</small><strong>${esc(upcoming.eventName||"Carrera")}</strong><span>${esc([statusES(upcoming.status),upcoming.participantId,upcoming.routeId].filter(Boolean).join(" · "))}</span>`;els.upcomingCard.onclick=()=>{setMainTab("races");setRaceTab("active");};}
-    else{els.upcomingCard.className="dashboard-highlight";els.upcomingCard.innerHTML='<small>PRÓXIMA CARRERA</small><strong>Sin carrera próxima</strong><span>Las carreras aceptadas y publicadas aparecerán aquí.</span>';els.upcomingCard.onclick=()=>{setMainTab("races");setRaceTab("active");};}
-  }
   if(els.recentCard){
     if(latest){const official=latest.officialDurationMs==null?"":formatDuration(latest.officialDurationMs);els.recentCard.className="dashboard-highlight is-recent";els.recentCard.innerHTML=`<small>ÚLTIMA CARRERA</small><strong>${esc(latest.eventName||"Carrera")}</strong><span>${esc(statusES(latest.status))}${official?` · ${esc(official)}`:""}</span>`;els.recentCard.onclick=()=>openResultDetail(latest.eventId,latest.eventName||"Carrera");}
     else{els.recentCard.className="dashboard-highlight";els.recentCard.innerHTML='<small>ÚLTIMA CARRERA</small><strong>Sin resultados todavía</strong><span>Al finalizar una carrera aparecerá aquí automáticamente.</span>';els.recentCard.onclick=()=>{setMainTab("races");setRaceTab("history");};}
