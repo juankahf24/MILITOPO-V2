@@ -1,5 +1,5 @@
 import {raceInfoHtml} from "../../../js/v2/race/race-info-ui.js?v=2.0.35";
-import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.33";
+import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.37";
 /* MILITOPO R5 · Centro de carreras, nuevo organizador a pantalla completa.
  * El mapa histórico queda como motor interno; solo se muestran pantallas del nuevo centro.
  * Roles/permisos vienen del auth real de Firebase, no del modo de navegación. */
@@ -189,7 +189,7 @@ async function loadRace(id,options={}){if(!canManage()||!id)return false;const a
   try{const result=await api.recoverDirect(id,options);if(result===false){state.pendingRecoveryId="";message("La selección se ha cancelado o no se ha podido cargar.");return false}return true}
   catch(error){state.pendingRecoveryId="";message(String(error?.message||"No se pudo abrir la carrera"));return false}}
 async function editPersonal(photo=false){
- try{const services=await globalThis.MILITOPO_V2.firebase();const options={app:services.app,firestore:services.firestore,user:services.auth.currentUser,onSaved:async()=>{const user=services.auth.currentUser;if(!user)return;const fresh=await getDoc(doc(services.firestore,"users",user.uid));if(state.auth?.uid!==user.uid)return;state.profile.user=fresh.data()||{};if(state.opened&&state.screen==="profile")render(true);}};
+ try{const services=await globalThis.MILITOPO_V2.firebase();const options={app:services.app,firestore:services.firestore,user:services.auth.currentUser,onSaved:async saved=>{const user=services.auth.currentUser;if(!user||state.auth?.uid!==user.uid)return;if(saved){const data=state.profile.user||{};state.profile.user={...data,displayName:saved.displayName,preferences:{...data.preferences,personalProfile:saved.personal}};}else{const fresh=await getDoc(doc(services.firestore,"users",user.uid));if(state.auth?.uid!==user.uid)return;state.profile.user=fresh.data()||{};}if(state.opened&&state.screen==="profile")render(true);}};
  await (photo?openPersonalPhoto(options):openPersonalProfileEditor(options));
  }catch(error){message(String(error?.message||error));}
 }
