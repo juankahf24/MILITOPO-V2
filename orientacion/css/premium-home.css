@@ -274,3 +274,11 @@ body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="roster"] #r4AssignmentsP
 .mpp-home .mpp-r3-header .mpp-r3-tools [data-mpp-action="mode-choice"]{grid-column:1;grid-row:1}
 .mpp-home .mpp-r3-header .mpp-r3-tools .mp-power-trigger{grid-column:2;grid-row:2;background:#183d2b;color:#ecf0dc;border-color:#315f42}
 .mpp-home .mpp-r3-header .mpp-r3-tools .mp-power-trigger[aria-expanded="true"]{background:#2b523b;color:#f5dfa7;border-color:#b79f65}
+
+/* Header session controls are icons, never legacy navigation chevrons. */
+#militopoPremiumHome #mppPowerBtn{padding:10px!important;gap:0!important;background:#183d2b;color:#eaf0dd;border:1px solid #98b49155;border-radius:13px!important;box-shadow:inset 0 1px 0 #ffffff12,0 3px 8px #0002}
+#militopoPremiumHome #mppPowerBtn::before,#militopoPremiumHome #mppPowerBtn::after{content:none!important;display:none!important}
+#militopoPremiumHome #mppPowerBtn>svg{display:block!important;width:20px!important;height:20px!important;min-width:20px;flex-shrink:0;visibility:visible!important;opacity:1!important;fill:none;stroke:currentColor}
+#militopoPremiumHome #mppPowerBtn[aria-expanded="true"]{background:#2b523b;color:#f5dfa7;border-color:#cfb87988}
+#militopoPremiumHome .mpp-r3-header .mpp-r3-tools [data-mpp-action="mode-choice"]{background:#e5eadc;color:#425d43;border-color:#b8cab0}
+#militopoPremiumHome .mpp-r3-header .mpp-r3-tools [data-mpp-action="mode-choice"]>svg{width:22px;height:22px;stroke-width:1.9}
