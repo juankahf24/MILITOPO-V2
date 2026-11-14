@@ -38,6 +38,13 @@ html.mp-transition-open{overflow:hidden!important}html.mp-transition-open body{o
 body.mp-transition-host{opacity:1!important}
 
 #mpPremiumTransition .mp-transition-bg{opacity:0;transition:opacity .55s ease}
-#mpPremiumTransition.has-backdrop .mp-transition-bg,#mpPremiumTransition.is-transfer .mp-transition-bg{opacity:1}
-#mpPremiumTransition.is-transfer .mp-transition-bg{transition:none}
+#mpPremiumTransition.has-backdrop .mp-transition-bg{opacity:1}
+
 @media(prefers-reduced-motion:reduce){#mpPremiumTransition .mp-transition-bg{transition:none}}
+
+/* Primero se decodifica y presenta el fondo; después comienza la pareja de letras. */
+#mpPremiumTransition .mp-transition-content{opacity:0;visibility:hidden;transition:opacity .3s ease}
+#mpPremiumTransition.has-content .mp-transition-content,#mpPremiumTransition.has-error .mp-transition-content{opacity:1;visibility:visible}
+#mpPremiumTransition:not(.has-content) .mp-loader-word span{animation-play-state:paused}
+#mpPremiumTransition.has-error:not(.has-content) .mp-mountain-mark,#mpPremiumTransition.has-error:not(.has-content) .mp-loader-brackets{visibility:hidden}
+@media(prefers-reduced-motion:reduce){#mpPremiumTransition .mp-transition-content{transition:none}}
