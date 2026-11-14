@@ -37,7 +37,7 @@
      La pantalla principal de Organizer/Súper Admin conserva su diseño original SIN flechas.
      En módulos, pestañas y accesos que profundizan en otra vista sí mantenemos el chevron naranja. */
   const NAV_TARGET_SELECTOR=[
-    '[data-more-action]','[role="tab"]','button[aria-expanded]',
+    '[data-more-action]','[role="tab"]','button[aria-expanded]:not(.mp-power-trigger)',
     '[data-r3-manager-action]','[data-r3-manager-tab]','[data-r3-back-manager]',
     '[data-r4-part-tab]','[data-r4-live-jump]','[data-r4-analysis-tab]','[data-r4-go-lifecycle]',
     '[data-r3-complete-routes]','[data-r2-route-choice]','[data-r5-race-choice]',
@@ -53,6 +53,7 @@
     try{if(root?.matches?.(NAV_TARGET_SELECTOR))items.push(root)}catch(_){}
     try{items.push(...root.querySelectorAll?.(NAV_TARGET_SELECTOR)||[])}catch(_){}
     items.forEach(el=>{
+      if(el.matches?.('.mp-power-trigger,.mp-power-menu button')){el.classList.remove('militopo-nav-target');return;}
       const locked=el.matches?.('.is-locked,[disabled],[aria-disabled="true"]');
       el.classList.toggle('militopo-nav-target',!locked);
     });
