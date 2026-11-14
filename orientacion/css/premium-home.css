@@ -254,3 +254,15 @@ body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="roster"] #r4AssignmentsP
 .mpp-action-emblem{display:inline-flex;width:38px;height:38px;flex:0 0 38px;align-items:center;justify-content:center}.mpp-action-emblem svg{width:38px!important;height:38px!important;stroke:none!important;fill:none}
 .mpp-r3-current-bottom .mpp-r5-open-flow{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 16px}.mpp-r3-current-bottom .mpp-r5-open-flow>svg:last-child{margin-left:auto}
 .mpp-r3-main-action>.mpp-action-emblem{flex:0 0 38px}
+
+/* Cabecera del organizador: identidad legible y dos acciones simétricas. */
+.mpp-home .mpp-r3-header{padding:14px!important;gap:12px!important;border:1px solid #c9d8c8;border-radius:21px;background:linear-gradient(120deg,#f9fbf5,#e5ede1);box-shadow:0 5px 20px #193c2610;align-items:center!important}
+.mpp-home .mpp-r3-header .mpp-r3-identity{gap:11px;min-width:0}
+.mpp-home .mpp-r3-header .mpp-r3-identity img{width:48px;height:48px;flex:0 0 48px;border-radius:14px;background:#153424;object-fit:contain}
+.mpp-home .mpp-r3-header .mpp-r3-identity span{font-size:9px;line-height:1.5;letter-spacing:.1em;color:#647b64}
+.mpp-home .mpp-r3-header .mpp-r3-identity strong{font-size:clamp(17px,2.8vw,26px);line-height:1.15;letter-spacing:-.035em;text-shadow:none;overflow-wrap:normal}
+.mpp-home .mpp-r3-header .mpp-r3-tools{gap:7px}
+.mpp-home .mpp-r3-header .mpp-r3-tools button{box-shadow:0 2px 7px #1237230c}
+.mpp-home .mpp-r3-header .mpp-r3-tools button:last-child{background:#234d36;color:#f1f5e7;border-color:#234d36}
+.mpp-home .mpp-r3-header .mpp-r3-tools button:focus-visible{outline:3px solid #c4a159;outline-offset:3px}
+@media(max-width:390px){.mpp-home .mpp-r3-header{padding:11px!important;gap:9px!important}.mpp-home .mpp-r3-header .mpp-r3-identity{gap:8px}.mpp-home .mpp-r3-header .mpp-r3-identity img{width:36px;height:36px;flex-basis:36px}.mpp-home .mpp-r3-header .mpp-r3-tools{grid-template-columns:40px 40px;gap:5px}.mpp-home .mpp-r3-header .mpp-r3-tools button{width:40px!important;height:40px!important;min-height:40px!important}.mpp-home .mpp-r3-header .mpp-r3-identity span{font-size:8px}.mpp-home .mpp-r3-header .mpp-r3-identity strong{font-size:17px}}
