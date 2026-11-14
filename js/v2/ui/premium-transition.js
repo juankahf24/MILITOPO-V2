@@ -1,7 +1,7 @@
 /* MILITOPO Premium · único controlador de entrada y navegación pesada. */
 (()=>{
  'use strict';if(globalThis.MILITOPO_TRANSITION)return;
- const CONFIG=Object.freeze({minimumMs:3800,enterMs:300,exitMs:400,timeoutMs:30000});
+ const CONFIG=Object.freeze({minimumMs:3800,enterMs:300,exitMs:400,backgroundMs:550,lettersMs:2750,timeoutMs:30000});
  const base=new URL('../../../',document.currentScript.src),KEY='militopo_transition_handoff_v1';
  let active=null,authSettled=false;const animations=new WeakMap();
  const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -25,15 +25,30 @@
   const block=()=>{for(const node of document.body.children){if(node===root||state.inert.has(node))continue;state.inert.set(node,node.inert);node.inert=true;}};block();state.observer=new MutationObserver(block);state.observer.observe(document.body,{childList:true});root.focus({preventScroll:true});return state;
  }
  function remove(state){clearTimeout(state.navigationTimer);try{sessionStorage.removeItem(KEY);}catch(_){}state.observer.disconnect();for(const [node,value]of state.inert)if(node.isConnected)node.inert=value;state.root.remove();document.documentElement.classList.remove('mp-transition-open');document.body.classList.remove('mp-transition-host');if(active===state)active=null;state.previous?.focus?.({preventScroll:true});}
- async function backdrop(signal){const image=new Image();image.src=new URL('assets/transition/militopo-'+(matchMedia('(orientation: portrait)').matches?'portrait':'landscape')+'.webp',base).href;await new Promise((resolve,reject)=>{const abort=()=>{cleanup();reject(signal.reason||abortError());},cleanup=()=>{image.onload=null;image.onerror=null;signal?.removeEventListener('abort',abort);};image.onload=()=>{cleanup();resolve();};image.onerror=()=>{cleanup();reject(new Error('No se pudo cargar el fondo. Comprueba la conexión o vuelve a intentarlo.'));};signal?.addEventListener('abort',abort,{once:true});if(image.complete&&image.naturalWidth){cleanup();resolve();}else if(signal?.aborted)abort();});if(image.decode)await image.decode();}
+ async function backdrop(signal){
+  const image=new Image(),url=new URL('assets/transition/militopo-'+(matchMedia('(orientation: portrait)').matches?'portrait':'landscape')+'.webp',base).href;
+  await new Promise((resolve,reject)=>{const abort=()=>{cleanup();reject(signal.reason||abortError());},cleanup=()=>{image.onload=null;image.onerror=null;signal?.removeEventListener('abort',abort);};image.onload=()=>{cleanup();resolve();};image.onerror=()=>{cleanup();reject(new Error('No se pudo cargar el fondo. Comprueba la conexión o vuelve a intentarlo.'));};signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted){abort();return;}image.src=url;if(image.complete&&image.naturalWidth){cleanup();resolve();}});
+  if(image.decode)await abortable(image.decode(),signal);return url;
+ }
+ async function showBackdrop(state,signal){
+  const url=await backdrop(signal);if(signal.aborted||active!==state)throw signal.reason||abortError();
+  state.root.querySelector('.mp-transition-bg').style.backgroundImage=`url("${url}")`;
+  state.root.classList.add('has-backdrop');await frame();
+ }
+ async function prepareVisual(state,signal){
+  await showBackdrop(state,signal);await delay(reduced()?0:CONFIG.backgroundMs,signal);
+  if(!state.root.classList.contains('has-content')){
+   state.contentAt=Date.now();state.root.style.setProperty('--mp-elapsed','0ms');state.root.classList.add('has-content');
+  }
+ }
  function errorView(state,error){state.root.classList.add('has-error');state.root.querySelector('.mp-loader-status').textContent=error?.message||'No se pudo preparar la pantalla.';const box=state.root.querySelector('.mp-loader-actions');box.replaceChildren();for(const [label,action]of [['REINTENTAR',()=>attempt(state)],['VOLVER',()=>{state.controller.abort(abortError());remove(state);state.resolve({ok:false,cancelled:true});}]]){const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=action;box.appendChild(button);}box.querySelector('button').focus({preventScroll:true});}
  async function attempt(state){
   clearTimeout(state.navigationTimer);const generation=++state.attempt;state.controller?.abort(abortError());state.controller=new AbortController();const signal=state.controller.signal;
   state.root.classList.remove('has-error');state.root.querySelector('.mp-loader-actions').replaceChildren();state.root.querySelector('.mp-loader-status').textContent='Preparando tu entorno';
   const timer=setTimeout(()=>state.controller.abort(new Error('La carga está tardando más de lo esperado. Puedes reintentar o volver.')),CONFIG.timeoutMs);
   try{
-   const [result]=await abortable(Promise.all([state.task(signal),backdrop(signal)]),signal);if(signal.aborted)throw signal.reason;
-   state.root.classList.add('has-backdrop');await frame();await delay(Math.max(0,(reduced()?0:CONFIG.minimumMs)-(Date.now()-state.startedAt)),signal);if(active!==state||state.attempt!==generation||state.navigating)return;
+   const [result]=await abortable(Promise.all([state.task(signal),prepareVisual(state,signal)]),signal);if(signal.aborted)throw signal.reason;
+   await frame();const readyAt=reduced()?Date.now():Math.max(state.startedAt+CONFIG.minimumMs,(state.contentAt||Date.now())+CONFIG.lettersMs);await delay(Math.max(0,readyAt-Date.now()),signal);if(active!==state||state.attempt!==generation||state.navigating)return;
    state.root.querySelector('.mp-loader-status').textContent='Todo preparado';
    const exit=reduced()?100:CONFIG.exitMs;if(state.root.animate){const animation=state.root.animate([{opacity:1},{opacity:0}],{duration:exit,easing:'ease-in-out',fill:'forwards'});await animation.finished;}else{state.root.style.transition=`opacity ${exit}ms ease`;state.root.style.opacity='0';await delay(exit,signal);}
    if(active===state){remove(state);state.resolve({ok:true,value:result});}
@@ -50,7 +65,7 @@
   let state=active;if(state?.navigating)return false;
   if(!state){state=mount();active=state;state.controller=new AbortController();state.resolve=()=>{};state.promise=Promise.resolve();}
   state.navigating=true;try{sessionStorage.setItem(KEY,JSON.stringify({to:url.pathname+url.search,startedAt:state.startedAt}));}catch(_){}
-  try{await Promise.all([backdrop(state.controller.signal).then(()=>state.root.classList.add('has-backdrop')),delay(reduced()?0:CONFIG.enterMs,state.controller.signal)]);globalThis.__MILITOPO_AUTH_NAVIGATING=true;try{sessionStorage.setItem('militopo_v2_allow_navigation_once','1');}catch(_){}replace?location.replace(url.href):location.assign(url.href);
+  try{await Promise.all([showBackdrop(state,state.controller.signal),delay(reduced()?0:CONFIG.enterMs,state.controller.signal)]);globalThis.__MILITOPO_AUTH_NAVIGATING=true;try{sessionStorage.setItem('militopo_v2_allow_navigation_once','1');}catch(_){}replace?location.replace(url.href):location.assign(url.href);
    state.navigationTimer=setTimeout(()=>{if(active===state){state.navigating=false;state.task=()=>navigate(target,{replace});errorView(state,new Error('No se pudo abrir la siguiente pantalla. Reintenta o vuelve.'));}},CONFIG.timeoutMs);
   }catch(error){state.navigating=false;state.task=()=>navigate(target,{replace});errorView(state,error);}return true;
  }
