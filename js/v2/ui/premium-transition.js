@@ -18,6 +18,8 @@
  const logo='<svg class="mp-mountain-mark" viewBox="0 0 440 150" aria-hidden="true"><defs><linearGradient id="mpMountainLight" x1="0" y1="0" x2="0.6" y2="1"><stop stop-color="#f1ffc8"/><stop offset="1" stop-color="#88b647"/></linearGradient></defs><path d="M3 145 111 52l37 30L223 3l94 94 25-18 95 66-98-35-22 10-94-91-72 79-41-32-72 61Z" fill="url(#mpMountainLight)"/><path d="m223 29-19 58 16-9-30 50 39-24-8 26 72 13-47-55 7 27-30-61 7 12ZM111 76l-14 41 20-12-8 24 37-21-23-13ZM342 101l-7 14 26 20-9-18 38 22Z" fill="#243e1d"/></svg>';
  function mount(startedAt=Date.now()){
   const root=document.createElement('section');root.id='mpPremiumTransition';root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');root.setAttribute('aria-label','Cargando MILITOPO');root.tabIndex=-1;
+  // Freeze the canvas before first paint: mobile browser chrome and focus must not reframe cover.
+  root.style.width=document.documentElement.clientWidth+'px';root.style.height=(window.innerHeight||document.documentElement.clientHeight)+'px';root.style.right='auto';root.style.bottom='auto';
   const elapsed=Math.max(0,Date.now()-startedAt);root.style.setProperty('--mp-elapsed',elapsed+'ms');if(elapsed>250)root.classList.add('is-transfer');
   root.innerHTML=`<div class="mp-transition-bg"></div><div class="mp-transition-light"></div><div class="mp-transition-content">${logo}<div class="mp-loader-brackets"><div class="mp-loader-word" aria-label="MILITOPO">${letters('MILITOPO')}</div><div class="mp-loader-line"></div><div class="mp-loader-word is-loading" aria-label="CARGANDO">${letters('CARGANDO')}</div></div><div class="mp-loader-progress" role="progressbar" aria-label="Preparando pantalla"></div><p class="mp-loader-status" role="status" aria-live="polite">Preparando tu entorno</p><div class="mp-loader-actions"></div></div>`;
   const state={root,startedAt,previous:document.activeElement,inert:new Map(),attempt:0,navigating:false};
@@ -33,7 +35,7 @@
  async function showBackdrop(state,signal){
   const url=await backdrop(signal);if(signal.aborted||active!==state)throw signal.reason||abortError();
   state.root.querySelector('.mp-transition-bg').style.backgroundImage=`url("${url}")`;
-  state.root.classList.add('has-backdrop');await frame();
+  await frame();if(signal.aborted||active!==state)throw signal.reason||abortError();state.root.classList.add('has-backdrop');await frame();
  }
  async function prepareVisual(state,signal){
   await showBackdrop(state,signal);await delay(reduced()?0:CONFIG.backgroundMs,signal);
