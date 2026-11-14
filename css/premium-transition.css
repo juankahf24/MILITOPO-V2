@@ -50,3 +50,6 @@ body.mp-transition-host{opacity:1!important}
 @media(prefers-reduced-motion:reduce){#mpPremiumTransition .mp-transition-content{transition:none}}
 
 #mpPremiumTransition.has-backdrop .mp-transition-bg{animation-play-state:running}
+
+/* Full viewport, including Safari toolbar changes. lvh keeps the cover framing stable. */
+#mpPremiumTransition{inset:0;width:100%;height:100%;min-height:100vh;min-height:100lvh;margin:0;border:0}
