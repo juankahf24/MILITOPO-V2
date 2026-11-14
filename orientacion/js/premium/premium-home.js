@@ -1,5 +1,5 @@
 import {raceInfoHtml} from "../../../js/v2/race/race-info-ui.js?v=2.0.35";
-import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.37";
+import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO R5 · Centro de carreras, nuevo organizador a pantalla completa.
  * El mapa histórico queda como motor interno; solo se muestran pantallas del nuevo centro.
  * Roles/permisos vienen del auth real de Firebase, no del modo de navegación. */
@@ -85,13 +85,13 @@ function runnerProfileSection(){
 }
 function profileHtml(){
   const a=state.auth||{},p=state.profile,u=p.user||{},username=String(u.usernameKey||u.username||a.username||"").replace(/^@/,"").trim();
-  return `<section class="mpp-r3-page-head"><button type="button" data-mpp-action="home">${icon("back")} VOLVER AL CENTRO</button><small>PERFIL MILITOPO · UNA SOLA CUENTA</small><h1>Tu actividad, en un mismo lugar.</h1><p>Consulta tu rendimiento deportivo y tu actividad como organizador sin cambiar de cuenta.</p></section>
+  return `<section class="mpp-r3-page-head mpp-profile-head"><button type="button" data-mpp-action="home">${icon("back")} VOLVER AL CENTRO</button><small>PERFIL MILITOPO · UNA SOLA CUENTA</small><h1>Mi espacio</h1><p>Consulta tu rendimiento deportivo y tu actividad como organizador sin cambiar de cuenta.</p></section>
   <section class="mpp-r3-profile mpp-r4-profile">
     <article class="mpp-r4-identity"><button type="button" class="mpp-r4-avatar" data-mpp-action="profile-photo" aria-label="Ver o editar foto">${profileAvatar(u,a)}</button><div class="mpp-r4-identity-main"><h2>${esc(u.displayName||a.displayName||a.email||"Usuario MILITOPO")}</h2>${username?`<strong>@${esc(username)}</strong>`:""}<small>${esc(a.email||"")}</small></div><span class="mpp-r4-role">${role()==="super_admin"?"SÚPER ADMIN":"ORGANIZADOR"}</span></article>
     ${personalProfileHtml(u,a.email||"")}
     ${p.profileError?`<p class="mpp-r4-inline-note">${esc(p.profileError)}</p>`:""}
-    <article class="mpp-r3-section mpp-r4-profile-card"><div class="mpp-r4-section-title"><div class="mpp-r4-section-icon">${icon("chart")}</div><div><small>COMO CORREDOR</small><h2>Mi rendimiento deportivo</h2></div></div>${runnerProfileSection()}<div class="mpp-r4-actions"><button type="button" class="mpp-r4-reload" data-mpp-action="profile-refresh">${icon("refresh")} ACTUALIZAR</button><button type="button" class="mpp-r4-secondary-action" data-mpp-action="runner-profile">VER PERFIL DE CORREDOR ${icon("arrow")}</button></div></article>
     <article class="mpp-r3-section mpp-r4-profile-card"><div class="mpp-r4-section-title"><div class="mpp-r4-section-icon is-gold">${icon("calendar")}</div><div><small>COMO ORGANIZADOR</small><h2>Mis carreras organizadas</h2></div></div>${statCards()}<p class="mpp-r3-muted">${state.rowsLoaded?`${state.rows.length} carreras propias encontradas en MILITOPO. Los estados reflejan la información de Firebase.`:state.rowsError||"Actualizando tus carreras propias desde Firebase…"}</p><button type="button" class="mpp-r4-secondary-action" data-mpp-action="races">VER MIS CARRERAS ${icon("arrow")}</button></article>
+    <article class="mpp-r3-section mpp-r4-profile-card"><div class="mpp-r4-section-title"><div class="mpp-r4-section-icon">${icon("chart")}</div><div><small>COMO CORREDOR</small><h2>Mi rendimiento deportivo</h2></div></div>${runnerProfileSection()}<div class="mpp-r4-actions"><button type="button" class="mpp-r4-reload" data-mpp-action="profile-refresh">${icon("refresh")} ACTUALIZAR</button><button type="button" class="mpp-r4-secondary-action" data-mpp-action="runner-profile">VER PERFIL DE CORREDOR ${icon("arrow")}</button></div></article>
     <p class="mpp-r4-footnote">Las estadísticas deportivas proceden del histórico de la cuenta autenticada. El perfil es único y mantiene tus datos al cambiar de modo.</p>
   </section>`;
 }
