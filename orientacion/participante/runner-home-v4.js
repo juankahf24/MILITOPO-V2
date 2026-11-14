@@ -1,3 +1,4 @@
+import {bindPowerMenu} from "../../js/v2/ui/power-menu.js?v=2.0.40";
 import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.35";
 import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
@@ -22,7 +23,7 @@ try{clearTimeout(window.__MILITOPO_RUNNER_HOME_V4_WATCHDOG);}catch(_){ }
 
 const els={
   name:document.getElementById("rhName"),meta:document.getElementById("rhMeta"),avatar:document.getElementById("rhAvatar"),roleBadge:document.getElementById("rhRoleBadge"),
-  detailsBtn:document.getElementById("rhDetailsBtn"),logoutBtn:document.getElementById("rhLogoutBtn"),details:document.getElementById("rhDetails"),photoBtn:document.getElementById("rhPhotoBtn"),photoStatus:document.getElementById("rhPhotoStatus"),
+  logoutBtn:document.getElementById("rhPowerBtn"),photoBtn:document.getElementById("rhPhotoBtn"),photoStatus:document.getElementById("rhPhotoStatus"),
   status:document.getElementById("rhStatus"),activeEvents:document.getElementById("rhActiveEvents"),historyEvents:document.getElementById("rhHistoryEvents"),
   activeCount:document.getElementById("rhActiveCount"),historyCount:document.getElementById("rhHistoryCount"),retry:document.getElementById("rhRetry"),
   headerUser:document.getElementById("rhHeaderUser"),headerHandle:document.getElementById("rhHeaderHandle"),hero:document.getElementById("rhDashboardHero"),
@@ -118,8 +119,7 @@ function paintRunnerProfile(user,data={}){
   text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);
   const roleKey=String(data.role||"runner").toLowerCase();const roleLabel=roleKey==="super_admin"?"SÚPER ADMIN":roleKey==="organizer"?"ORGANIZADOR":"CORREDOR";text(els.roleBadge,roleLabel);text(document.getElementById("rhHeaderRole"),roleLabel);
   paintRunnerAvatar(displayName,data.photoURL||user.photoURL||"");
-  if(els.detailsBtn)els.detailsBtn.disabled=false;if(els.logoutBtn)els.logoutBtn.disabled=false;
-  if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> CORREDOR`;
+  if(els.logoutBtn)els.logoutBtn.disabled=false;
 }
 
 async function loadProfile(app,user){
@@ -771,8 +771,17 @@ try{const params=new URLSearchParams(location.search);if(params.get("militopo_ta
   setMainTab("profile");
 }}catch(_){ }
 els.photoBtn?.addEventListener("click",openRunnerPhotoMenu);
-els.detailsBtn?.addEventListener("click",()=>{els.details?.classList.toggle("show");if(els.detailsBtn)els.detailsBtn.textContent=els.details?.classList.contains("show")?"OCULTAR DATOS":"VER DATOS DE CUENTA";});
-els.logoutBtn?.addEventListener("click",async()=>{accountClosing=true;updateResumeRace();if(accountRecoveryTimer)clearTimeout(accountRecoveryTimer);stopInvitationRealtime();stopActiveEventRealtime();try{globalThis.MILITOPO_V2_AUTH={uid:null,role:null};}catch(_){}try{if(auth)await signOut(auth);}catch(_){}location.replace("../../");});
+bindPowerMenu(els.logoutBtn,{onLogout:async()=>{
+  if(!auth)throw new Error("La sesión todavía se está preparando. Vuelve a intentarlo.");
+  accountClosing=true;
+  try{
+    await signOut(auth);
+    if(accountRecoveryTimer)clearTimeout(accountRecoveryTimer);
+    stopInvitationRealtime();stopActiveEventRealtime();
+    globalThis.MILITOPO_V2_AUTH={uid:null,role:null};
+    location.replace("../../");
+  }catch(error){accountClosing=false;scheduleAccountRecovery({reset:true,delay:250});throw error;}
+},onError:error=>setStatus("No se pudo cerrar sesión. "+String(error?.message||error),"err")});
 els.retry?.addEventListener("click",()=>scheduleAccountRecovery({reset:true,delay:0}));
 els.resumeRace?.addEventListener("click",()=>{
   if(canResumeSavedRace())globalThis.MILITOPO_RUNNER_RESILIENCE_V2.restore();

@@ -175,11 +175,11 @@
     #rhResumeRace[hidden]{display:none}
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=r9o-final-20261011">
-  <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.37">
+  <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.40">
 <link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)">
 <link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)">
-<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.39">
-<script src="../../js/v2/ui/premium-transition.js?v=2.0.39"></script>
+<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.40">
+<script src="../../js/v2/ui/premium-transition.js?v=2.0.40"></script>
 </head>
 <body>
 <script>window.MILITOPO_TRANSITION?.bootEntry("runner");</script>
@@ -188,7 +188,7 @@
     <header class="runner-head">
       <div class="runner-logo"><img src="../../icons/militopo-512.png?v=r6a1-runner-brand-20261006" alt="MILITOPO"></div>
       <div class="brand"><h1>MILITOPO</h1></div>
-      <button type="button" class="mor-runner-return" id="rhSwitchOrganizer" hidden aria-label="Cambiar al modo organizador">ORGANIZAR ↗</button>
+      <div class="runner-header-tools"><button type="button" class="mor-runner-return" id="rhSwitchOrganizer" hidden aria-label="Cambiar al modo organizador">ORGANIZAR ↗</button><button type="button" id="rhPowerBtn" class="mp-power-trigger" aria-label="Opciones de sesión" disabled><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3v9M6.3 5.7a9 9 0 1 0 11.4 0"/></svg></button></div>
       <div class="runner-account">
         <strong class="runner-user" id="rhHeaderUser">Cargando…</strong>
         <div class="runner-account-meta"><span class="runner-handle" id="rhHeaderHandle"></span><span class="runner-header-role" id="rhHeaderRole">CORREDOR</span></div>
@@ -270,10 +270,10 @@
           </div>
         </div>
         <div id="rhPersonalProfile"></div>
-        <nav class="profile-tabs profile-tabs-3" aria-label="Perfil del corredor">
+        <div class="profile-photo-status" id="rhPhotoStatus" role="status"></div>
+        <nav class="profile-tabs" aria-label="Perfil del corredor">
           <button type="button" class="is-active" data-profile-tab="summary">RESUMEN</button>
           <button type="button" data-profile-tab="performance">RENDIMIENTO</button>
-          <button type="button" data-profile-tab="account">CUENTA</button>
         </nav>
         <div class="profile-panel is-active" data-profile-panel="summary">
           <div class="profile-stats">
@@ -317,17 +317,7 @@
           </section>
           <button class="btn secondary performance-history-btn" type="button" id="rhProfileHistoryBtn">VER HISTÓRICO COMPLETO</button>
         </div>
-        <div class="profile-panel" data-profile-panel="account">
-          <div class="profile-account-card">
-            <div class="profile-photo-info"><strong>FOTO DE PERFIL</strong><small>Pulsa tu foto superior para verla o cambiarla y ajustar el encuadre.</small></div>
-            <div class="profile-photo-status" id="rhPhotoStatus"></div>
-            <div class="account-actions">
-              <button class="btn secondary" id="rhDetailsBtn" type="button" disabled>VER DATOS DE CUENTA</button>
-              <button class="btn danger" id="rhLogoutBtn" type="button" disabled>CERRAR SESIÓN</button>
-            </div>
-            <div class="details" id="rhDetails"></div>
-          </div>
-        </div>
+
       </div>
     </section>
   </main>
@@ -359,8 +349,8 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=2.0.38"></script>
+  <script type="module" src="./runner-home-v4.js?v=2.0.40"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.39" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.40" data-sw="./sw.js"></script>
 </body>
 </html>
