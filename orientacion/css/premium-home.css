@@ -282,3 +282,13 @@ body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="roster"] #r4AssignmentsP
 #militopoPremiumHome #mppPowerBtn[aria-expanded="true"]{background:#2b523b;color:#f5dfa7;border-color:#cfb87988}
 #militopoPremiumHome .mpp-r3-header .mpp-r3-tools [data-mpp-action="mode-choice"]{background:#e5eadc;color:#425d43;border-color:#b8cab0}
 #militopoPremiumHome .mpp-r3-header .mpp-r3-tools [data-mpp-action="mode-choice"]>svg{width:22px;height:22px;stroke-width:1.9}
+
+/* Enabled design actions use the same visual language as the other available tools. */
+.mpp-home .mpp-design-heading{display:flex;align-items:center;gap:10px}
+.mpp-home .mpp-design-heading>svg{width:23px;height:23px;flex:0 0 23px;color:#35684c}
+#militopoPremiumHome .mpp-manage-design>button:not(:disabled){background:#204e36;color:#f2f5e9;border-color:#3d7452;box-shadow:inset 0 1px 0 #ffffff12}
+#militopoPremiumHome .mpp-manage-design>button:not(:disabled):hover{background:#2d6346}
+#militopoPremiumHome .mpp-manage-design>button:disabled{background:#e6eae3;color:#849081;border-color:#d2dbce;box-shadow:none;cursor:not-allowed}
+
+#militopoPremiumHome #mppPowerBtn{background:transparent!important;color:#a94c48!important;border-color:#a94c4838!important;box-shadow:none!important}
+#militopoPremiumHome #mppPowerBtn:hover,#militopoPremiumHome #mppPowerBtn[aria-expanded="true"]{background:#b550490c!important;color:#b34943!important;border-color:#b5504959!important}
