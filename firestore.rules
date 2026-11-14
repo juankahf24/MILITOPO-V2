@@ -193,6 +193,20 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Append-only evidence: a user may record their own acceptance, never rewrite it.
+    match /users/{uid}/legalAcceptances/{version} {
+      allow read: if signedIn() && (request.auth.uid == uid || isSuperAdmin());
+      allow create: if signedIn() && request.auth.uid == uid
+        && version == "2026-11-14"
+        && request.resource.data.keys().hasOnly(["version", "acceptedAt", "termsAccepted", "privacyInformed", "adultConfirmed"])
+        && request.resource.data.version == version
+        && request.resource.data.acceptedAt == request.time
+        && request.resource.data.termsAccepted == true
+        && request.resource.data.privacyInformed == true
+        && request.resource.data.adultConfirmed == true;
+      allow update, delete: if false;
+    }
+
     match /usernames/{usernameKey} {
       allow get: if validUsernameKey(usernameKey);
       allow list: if verified() && isOrganizer();
