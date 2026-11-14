@@ -1,5 +1,4 @@
 import {bindPowerMenu,powerIcon} from "../../../js/v2/ui/power-menu.js?v=2.0.42";
-import {signOut} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {raceInfoHtml} from "../../../js/v2/race/race-info-ui.js?v=2.0.35";
 import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO R5 · Centro de carreras, nuevo organizador a pantalla completa.
@@ -198,10 +197,10 @@ async function editPersonal(photo=false){
 }
 async function run(action){
   if(action==="logout"){
-    if(state.busy)return false;state.busy=true;
-    try{const services=await globalThis.MILITOPO_V2.firebase();await signOut(services.auth);close();}
+    if(state.logoutBusy)return false;state.logoutBusy=true;
+    try{if(typeof globalThis.MILITOPO_V2_LOGOUT!=="function")throw new Error("El acceso todavía está cargando. Vuelve a intentarlo.");if(await globalThis.MILITOPO_V2_LOGOUT())close();}
     catch(error){message("No se pudo cerrar sesión. "+String(error?.message||error));}
-    finally{state.busy=false;}return true;
+    finally{state.logoutBusy=false;}return true;
   }
   if(action==="profile-photo"){void editPersonal(true);return true}
   if(action==="more-races"){state.raceLimit+=10;refreshRaceList();return true}if(!canManage())return false;
