@@ -30,6 +30,10 @@ export function personalProfileHtml(data={},email=''){
  const row=(label,value)=>`<div><dt>${label}</dt><dd>${escape(value===null||value===undefined||value===''?'Sin indicar':value)}</dd></div>`;
  return `<section class="mp-personal"><h2>Datos del perfil</h2><dl>${row('NOMBRE',data.displayName)}${row('BIOGRAFÍA',p.bio)}${row('CIUDAD',p.city)}${row('PAÍS',p.country)}${row('EDAD',p.age==null?'':p.age+' años')}${row('GÉNERO',p.gender)}${row('PESO',p.weightKg==null?'':p.weightKg+' kg')}${row('ALTURA',p.heightCm==null?'':p.heightCm+' cm')}${row('CORREO',email||data.email)}</dl><button type="button" data-personal-edit>EDITAR PERFIL</button></section>`;
 }
+const PROFILE_SAVE_TIMEOUT_MS=15000;
+function profileWithin(promise,ms,message){
+ return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error(message)),Math.max(1,ms));Promise.resolve(promise).then(value=>{clearTimeout(timer);resolve(value);},error=>{clearTimeout(timer);reject(error);});});
+}
 function verifySession(app,user){if(!user?.uid||getAuth(app).currentUser?.uid!==user.uid)throw Error('La sesión ha cambiado. Vuelve a abrir el perfil.');if(!navigator.onLine)throw Error('Necesitas conexión para guardar el perfil.');}
 export async function openPersonalPhoto({app,firestore,user,onSaved}){
  verifySession(app,user);const snap=await getDoc(doc(firestore,'users',user.uid)),data=snap.data()||{};
@@ -49,9 +53,9 @@ function showPersonalSaved(overlay,message){
 }
 export async function openPersonalProfileEditor(options){
  const {app,firestore,user,onSaved}=options;verifySession(app,user);styles();if(document.querySelector('.mp-personal-modal'))return;
- const snap=await getDoc(doc(firestore,'users',user.uid));verifySession(app,user);const data=snap.data()||{},p=data.preferences?.personalProfile||{},previous=document.activeElement;
+ const snap=await profileWithin(getDoc(doc(firestore,'users',user.uid)),8000,'No se pudo cargar el perfil. Comprueba la conexión e inténtalo de nuevo.');verifySession(app,user);const data=snap.data()||{},p=data.preferences?.personalProfile||{},previous=document.activeElement;
  const overlay=document.createElement('div');overlay.className='mp-personal-modal';overlay.innerHTML=`<section class="mp-personal-editor" role="dialog" aria-modal="true" aria-labelledby="mp-personal-title"><h2 id="mp-personal-title">Editar perfil</h2><p>El mismo perfil para organizar y correr.</p><button type="button" class="mp-personal-photo" data-photo aria-label="Ver o editar foto de perfil">${editorPhotoHtml(data,user)}</button><form><div class="mp-personal-form"><label>NOMBRE<input name="displayName" maxlength="80" required value="${escape(data.displayName||user.displayName||'')}"></label>${fields.map(([key,label,type,max])=>`<label>${label}${type==='select'?`<select name="${key}">${['','Hombre','Mujer','No binario','Prefiero no indicarlo'].map(v=>`<option value="${v}" ${p[key]===v?'selected':''}>${v||'Sin indicar'}</option>`).join('')}</select>`:`<input name="${key}" type="${type}" ${type==='number'?`step="${key==='age'?1:'.1'}" min="${key==='age'?0:key==='heightCm'?50:1}" max="${max}"`:`maxlength="${max}"`} value="${escape(p[key]??'')}">`}</label>`).join('')}</div><p role="status" aria-live="polite"></p><div class="mp-personal-actions"><button type="button" class="mp-personal-cancel">CANCELAR</button><button type="submit">GUARDAR CAMBIOS</button></div></form></section>`;
- let busy=false;const close=()=>{if(busy)return;document.removeEventListener('keydown',key);overlay.remove();previous?.focus?.();};const key=e=>{if(document.querySelector('.m2-photo-ui,.m2-photo-viewer'))return;if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){const nodes=[...overlay.querySelectorAll('button:not(:disabled),input,select')],first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}};
+ let busy=false,closed=false;const close=()=>{closed=true;document.removeEventListener('keydown',key);overlay.remove();previous?.focus?.();};const key=e=>{if(document.querySelector('.m2-photo-ui,.m2-photo-viewer'))return;if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){const nodes=[...overlay.querySelectorAll('button:not(:disabled),input,select')],first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}};
  document.body.appendChild(overlay);document.addEventListener('keydown',key);overlay.querySelector('input').focus();overlay.querySelector('.mp-personal-cancel').onclick=close;
  const status=overlay.querySelector('[role=status]');
  const photo=overlay.querySelector('[data-photo]');
@@ -60,11 +64,17 @@ export async function openPersonalProfileEditor(options){
   await onSaved?.();const fresh=await getDoc(doc(firestore,'users',user.uid));verifySession(app,user);photo.innerHTML=editorPhotoHtml(fresh.data()||{},user);bindPhotoFallback();
  }}).catch(e=>status.textContent=e.message);
  overlay.querySelector('form').onsubmit=async e=>{e.preventDefault();if(busy)return;const values=Object.fromEntries(new FormData(e.currentTarget));try{
-  const {displayName,personal}=validatePersonalProfile(values);verifySession(app,user);busy=true;overlay.querySelectorAll('button').forEach(b=>b.disabled=true);status.textContent='Guardando…';
-  const latest=await getDoc(doc(firestore,'users',user.uid));verifySession(app,user);const source=latest.data()||{},username=String(source.usernameKey||source.username||'').replace(/^@/,'');const batch=writeBatch(firestore);
+  const {displayName,personal}=validatePersonalProfile(values);verifySession(app,user);busy=true;overlay.querySelectorAll('button').forEach(b=>b.disabled=!b.classList?.contains('mp-personal-cancel'));overlay.querySelector('.mp-personal-cancel').textContent='CERRAR';status.textContent='Guardando…';
+  const deadline=Date.now()+PROFILE_SAVE_TIMEOUT_MS;let committing=false;const wait=promise=>profileWithin(promise,deadline-Date.now(),committing?'Firebase aún no ha confirmado el guardado. Puedes cerrar y comprobar el perfil al recuperar la conexión.':'No se pudo contactar con Firebase. Comprueba la conexión e inténtalo de nuevo.');
+  const latest=await wait(getDoc(doc(firestore,'users',user.uid)));verifySession(app,user);const source=latest.data()||{},username=String(source.usernameKey||source.username||'').replace(/^@/,'');const batch=writeBatch(firestore);
   batch.update(doc(firestore,'users',user.uid),{displayName,'preferences.personalProfile':personal,updatedAt:serverTimestamp()});
-  if(username){const directory=doc(firestore,'usernames',username),d=await getDoc(directory);if(d.exists()){if(d.data().uid!==user.uid)throw Error('No se pudo comprobar tu usuario.');batch.update(directory,{displayName,updatedAt:serverTimestamp()});}}
-  verifySession(app,user);await batch.commit();let authWarning='';try{await updateProfile(user,{displayName});}catch(_){authWarning=' El nombre de sesión se sincronizará al volver a entrar.';}
-  let refreshWarning='';try{await onSaved?.();}catch(_){refreshWarning=' Vuelve a abrir el perfil para ver los cambios.';}busy=false;status.textContent='Perfil guardado.'+authWarning+refreshWarning;showPersonalSaved(overlay,'Configuración guardada correctamente.'+authWarning+refreshWarning);overlay.querySelectorAll('button').forEach(b=>b.disabled=false);overlay.querySelector('button[type=submit]').textContent='GUARDADO';overlay.querySelector('.mp-personal-cancel').textContent='CERRAR';
- }catch(error){busy=false;status.textContent=error?.message||String(error);overlay.querySelectorAll('button').forEach(b=>b.disabled=false);}};
+  if(username){const directory=doc(firestore,'usernames',username),d=await wait(getDoc(directory));if(d.exists()){if(d.data().uid!==user.uid)throw Error('No se pudo comprobar tu usuario.');batch.update(directory,{displayName,updatedAt:serverTimestamp()});}}
+  verifySession(app,user);committing=true;await wait(batch.commit());
+  if(!closed){status.textContent='Perfil guardado. Los cambios se han confirmado en Firebase.';showPersonalSaved(overlay,'Configuración guardada correctamente.');overlay.querySelector('button[type=submit]').textContent='GUARDADO';}
+  // La confirmación del servidor no depende de refrescar otras vistas o de Auth.
+  const warn=message=>{if(!closed)status.textContent='Perfil guardado. '+message;};
+  void profileWithin(Promise.resolve().then(()=>{verifySession(app,user);return updateProfile(user,{displayName});}),5000,'Sin sincronización de sesión').catch(()=>warn('El nombre de sesión se actualizará al volver a entrar.'));
+  void profileWithin(Promise.resolve().then(()=>{verifySession(app,user);return onSaved?.({displayName,personal});}),5000,'Sin actualización de vista').catch(()=>warn('Vuelve a abrir el perfil para ver los cambios.'));
+
+ }catch(error){if(!closed)status.textContent=error?.message||String(error);}finally{busy=false;if(!closed)overlay.querySelectorAll('button').forEach(b=>b.disabled=false);}};
 }
