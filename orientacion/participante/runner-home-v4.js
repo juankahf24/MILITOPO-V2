@@ -1,4 +1,5 @@
-import {bindPowerMenu} from "../../js/v2/ui/power-menu.js?v=2.0.40";
+import {itineraryAnalysisHtml} from "../../js/v2/race/itinerary-analysis-ui.js?v=2.0.42";
+import {bindPowerMenu} from "../../js/v2/ui/power-menu.js?v=2.0.42";
 import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.35";
 import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
@@ -523,7 +524,7 @@ async function openResultDetail(eventId,eventName){
         ["RITMO",Number.isFinite(Number(r.paceMinKm))?`${Number(r.paceMinKm).toFixed(2)} min/km`:"—"],
         ["VELOCIDAD MEDIA",Number.isFinite(Number(r.avgSpeedKmh))?`${Number(r.avgSpeedKmh).toFixed(2)} km/h`:"—"]
       ];
-      els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>${esc(statusES(state))}</strong></div><div class="detail-general"><small>GENERAL</small><strong class="detail-rank">${esc(generalRank)}</strong></div></div><div class="detail-grid">${boxes.map(([a,b])=>`<div class="detail-box"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join("")}</div>${replayReady?`<button class="btn replay result-replay-btn" type="button" data-open-result-replay>▶ MAPA Y REPRODUCTOR GPS</button>`:`<div class="detail-note">Este resultado no contiene un track GPS reproducible.</div>`}${renderHistoricalClassification(classRes)}`;
+      els.resultBody.innerHTML=`<div class="detail-status"><div class="detail-state"><small>RESULTADO</small><strong>${esc(statusES(state))}</strong></div><div class="detail-general"><small>GENERAL</small><strong class="detail-rank">${esc(generalRank)}</strong></div></div><div class="detail-grid">${boxes.map(([a,b])=>`<div class="detail-box"><small>${esc(a)}</small><strong>${esc(b)}</strong></div>`).join("")}</div>${replayReady?`<button class="btn replay result-replay-btn" type="button" data-open-result-replay>▶ MAPA Y REPRODUCTOR GPS</button>`:`<div class="detail-note">Este resultado no contiene un track GPS reproducible.</div>`}${itineraryAnalysisHtml(d.itineraryAnalysis)}${renderHistoricalClassification(classRes)}`;
       els.resultBody.querySelector("[data-open-result-replay]")?.addEventListener("click",async()=>{closeResultModal();await globalThis.MILITOPO_RUNNER_HISTORY_V2?.open?.({detail:d,classification:classRes,eventName:eventName||d.event?.eventName||"Carrera"});});
       bindHistoricalClassification(els.resultBody,classRes);
     }

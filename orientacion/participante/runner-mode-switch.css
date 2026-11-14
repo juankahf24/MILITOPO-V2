@@ -30,3 +30,6 @@ html body .runner-head .runner-header-tools{grid-area:mode;display:flex;align-it
 html body .runner-head .runner-header-tools .mp-power-trigger{flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:10px;border-radius:13px;background:#183d2b;color:#eaf0dd;border:1px solid #98b49155}
 html body .runner-head .runner-header-tools .mp-power-trigger[aria-expanded="true"]{background:#2b523b;color:#f5dfa7;border-color:#cfb87988}
 @media(max-width:390px){html body .runner-head .runner-header-tools{gap:5px}html body .runner-head .runner-header-tools .mor-runner-return{font-size:8px!important;padding:8px 6px!important}html body .runner-head .runner-header-tools .mp-power-trigger{width:40px;height:44px;flex-basis:40px}}
+
+html body .runner-head .runner-header-tools .mp-power-trigger{background:transparent;color:#d4776e;border-color:#ce756633;box-shadow:none}
+html body .runner-head .runner-header-tools .mp-power-trigger:hover,html body .runner-head .runner-header-tools .mp-power-trigger[aria-expanded="true"]{background:#ca675509;color:#e39689;border-color:#d4776e55}
