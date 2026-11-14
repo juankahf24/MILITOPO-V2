@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.37";
+const BUILD_ID="2.0.38";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
   "../../css/premium-transition.css?v=2.0.37",
@@ -9,7 +9,7 @@ const APP_SHELL=[
   "../../assets/transition/militopo-landscape.webp",
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
-  "./runner-home-v4.js?v=2.0.37",
+  "./runner-home-v4.js?v=2.0.38",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
   "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
@@ -28,7 +28,7 @@ const APP_SHELL=[
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",
   "../../js/v2/ui/confirm-dialog.js?v=v2-r6a-carrera-activa-20261006",
   "../../js/v2/race/race-info-ui.js?v=2.0.35",
-  "../../js/v2/profile/personal-profile-ui.js?v=2.0.37",
+  "../../js/v2/profile/personal-profile-ui.js?v=2.0.38",
   "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
   // Dependencias exactas de runner.html para iniciar y reanudar offline.
   "../../js/v2/auth/auth-ui.css?v=v2-r8l-profile-photo-square-20261009",

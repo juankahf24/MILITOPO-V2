@@ -98,95 +98,18 @@
     @media(max-width:365px){.runner-head{grid-template-columns:58px minmax(0,1fr) 78px}.runner-logo{width:58px;height:58px}.runner-logo img{width:55px;height:55px}.brand h1{font-size:.96rem}.runner-user{max-width:76px}.online{min-width:76px}.history-metrics{grid-template-columns:1fr 1fr}}
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
-    /* R7F · Señal de navegación: flecha naranja solo en controles que abren/cambian vista.
-       Las acciones directas (aceptar, rechazar, cerrar sesión, guardar, GPS, etc.) quedan sin flecha. */
-    :is(
-      .runner-tabs button,
-      .race-tabs button,
-      .profile-tabs button,
-      .history-filters button,
-      .dashboard-action,
-      .hero-btn,
-      #rhHistoryMore,
-      #rhProfileHistoryBtn,
-      #rhDetailsBtn,
-      [data-active-detail],
-      [data-result-detail],
-      [data-result-replay],
-      [data-modal-enter],
-      [data-enter-event],
-      [data-hero-enter],
-      [data-hero-races],
-      [data-hero-invite],
-      [data-hero-result],
-      [data-open-result-replay],
-      #m2raceRouteToggle,
-      #m2raceSummaryClose,
-      #m2raceSummaryDone
-    ){position:relative}
-
-    :is(
-      .runner-tabs button,
-      .race-tabs button,
-      .profile-tabs button,
-      .history-filters button,
-      .dashboard-action,
-      .hero-btn,
-      #rhHistoryMore,
-      #rhProfileHistoryBtn,
-      #rhDetailsBtn,
-      [data-active-detail],
-      [data-result-detail],
-      [data-result-replay],
-      [data-modal-enter],
-      [data-enter-event],
-      [data-hero-enter],
-      [data-hero-races],
-      [data-hero-invite],
-      [data-hero-result],
-      [data-open-result-replay],
-      #m2raceRouteToggle,
-      #m2raceSummaryClose,
-      #m2raceSummaryDone
-    )::after{
-      content:"›";position:absolute;right:9px;top:50%;transform:translateY(-52%);
-      color:var(--orange);font-size:1.18rem;font-weight:1000;line-height:1;
-      pointer-events:none;text-shadow:0 0 10px rgba(226,154,82,.18);
-    }
-
-    .runner-tabs button{padding-right:18px}
-    .race-tabs button,.profile-tabs button{padding-left:6px;padding-right:18px}
-    .history-filters button{padding-right:24px}
-    .dashboard-action{padding-right:31px}
-    .hero-btn{padding-right:29px}
-    #rhHistoryMore,#rhProfileHistoryBtn,#rhDetailsBtn,
-    [data-active-detail],[data-result-detail],[data-result-replay],
-    [data-modal-enter],[data-enter-event],[data-open-result-replay],
-    #m2raceRouteToggle,#m2raceSummaryClose,#m2raceSummaryDone{padding-right:30px!important}
-
-    /* Las tarjetas de Inicio también son accesos, aunque visualmente no sean botones. */
-    #rhUpcomingCard,#rhRecentCard{position:relative;padding-right:34px}
-    #rhUpcomingCard::after,#rhRecentCard::after{
-      content:"›";position:absolute;right:12px;top:50%;transform:translateY(-52%);
-      color:var(--orange);font-size:1.55rem;font-weight:1000;line-height:1;pointer-events:none
-    }
-
-    /* Mantener el mismo lenguaje en FORMA RECIENTE. */
-    .performance-row.is-action::after{color:var(--orange)}
-
-    /* El botón de capas sí despliega más opciones: indicador compacto sin tapar el icono. */
-    #r7hLayerToggle{position:relative}
-    #r7hLayerToggle::after{
-      content:"›";position:absolute;right:3px;bottom:2px;color:var(--orange);
-      font-size:.82rem;font-weight:1000;line-height:1;pointer-events:none
-    }
-
-    @media(max-width:390px){
-      .runner-tabs button{padding-right:15px}
-      .runner-tabs button::after{right:5px;font-size:.98rem}
-      .race-tabs button,.profile-tabs button{padding-right:15px}
-      .race-tabs button::after,.profile-tabs button::after{right:5px;font-size:.98rem}
-    }
+    /* Accesos táctiles: relieve, contorno y respuesta; sin flechas decorativas. */
+    :is(.runner-tabs button,.race-tabs button,.profile-tabs button,.history-filters button,.dashboard-action,.hero-btn,#rhHistoryMore,#rhProfileHistoryBtn,#rhDetailsBtn,[data-active-detail],[data-result-detail],[data-result-replay],[data-modal-enter],[data-enter-event],[data-hero-enter],[data-hero-races],[data-hero-invite],[data-hero-result],[data-open-result-replay],#m2raceRouteToggle,#m2raceSummaryClose,#m2raceSummaryDone,#rhUpcomingCard,#rhRecentCard,.performance-row.is-action,#r7hLayerToggle){cursor:pointer;touch-action:manipulation;transition:background-color .18s ease,border-color .18s ease,box-shadow .18s ease;box-shadow:inset 0 1px 0 #ffffff12,0 3px 9px #00000018}
+    :is(.runner-tabs button,.race-tabs button,.profile-tabs button,.history-filters button,.dashboard-action,.hero-btn,#rhHistoryMore,#rhProfileHistoryBtn,#rhDetailsBtn,[data-active-detail],[data-result-detail],[data-result-replay],[data-modal-enter],[data-enter-event],[data-hero-enter],[data-hero-races],[data-hero-invite],[data-hero-result],[data-open-result-replay],#m2raceRouteToggle,#m2raceSummaryClose,#m2raceSummaryDone,#rhUpcomingCard,#rhRecentCard,.performance-row.is-action,#r7hLayerToggle)::after{content:none!important}
+    :is(.runner-tabs button,.race-tabs button,.profile-tabs button,.history-filters button,.dashboard-action,.hero-btn,#rhHistoryMore,#rhProfileHistoryBtn,#rhDetailsBtn,[data-active-detail],[data-result-detail],[data-result-replay],[data-modal-enter],[data-enter-event],[data-hero-enter],[data-hero-races],[data-hero-invite],[data-hero-result],[data-open-result-replay],#m2raceRouteToggle,#m2raceSummaryClose,#m2raceSummaryDone,#rhUpcomingCard,#rhRecentCard,.performance-row.is-action,#r7hLayerToggle):focus-visible{outline:2px solid #b6d298;outline-offset:3px}
+    :is(.runner-tabs button,.race-tabs button,.profile-tabs button,.history-filters button,.dashboard-action,.hero-btn,#rhHistoryMore,#rhProfileHistoryBtn,#rhDetailsBtn,[data-active-detail],[data-result-detail],[data-result-replay],[data-modal-enter],[data-enter-event],[data-hero-enter],[data-hero-races],[data-hero-invite],[data-hero-result],[data-open-result-replay],#m2raceRouteToggle,#m2raceSummaryClose,#m2raceSummaryDone,#rhUpcomingCard,#rhRecentCard,.performance-row.is-action,#r7hLayerToggle):active{box-shadow:inset 0 2px 7px #0004}
+    .dashboard-action,#rhUpcomingCard,#rhRecentCard,.performance-row.is-action{border:1px solid #8dac8066!important;background-image:linear-gradient(125deg,#86b3770c,transparent);padding-right:14px}
+    .runner-tabs button,.race-tabs button,.profile-tabs button,.history-filters button{padding-left:8px;padding-right:8px}
+    .runner-tabs button:not(.is-active),.race-tabs button:not(.is-active),.profile-tabs button:not(.is-active),.history-filters button:not(.is-active){border:1px solid #78947238;background-color:#35533a25}
+    .runner-tabs button.is-active,.race-tabs button.is-active,.profile-tabs button.is-active{box-shadow:inset 0 -3px 0 #6f9560,0 3px 10px #0002}
+    .runner-tabs button .runner-nav-art{width:30px;height:30px;stroke:none;stroke-width:0;filter:drop-shadow(0 2px 2px #0002)}
+    @media(hover:hover){:is(.runner-tabs button,.race-tabs button,.profile-tabs button,.history-filters button,.dashboard-action,.hero-btn,#rhHistoryMore,#rhProfileHistoryBtn,#rhDetailsBtn,[data-active-detail],[data-result-detail],[data-result-replay],[data-modal-enter],[data-enter-event],[data-hero-enter],[data-hero-races],[data-hero-invite],[data-hero-result],[data-open-result-replay],#m2raceRouteToggle,#m2raceSummaryClose,#m2raceSummaryDone,#rhUpcomingCard,#rhRecentCard,.performance-row.is-action,#r7hLayerToggle):not(:disabled):hover{box-shadow:inset 0 0 0 1px #9dbe8188,0 4px 12px #0002}}
+    @media(prefers-reduced-motion:reduce){:is(.runner-tabs button,.race-tabs button,.profile-tabs button,.history-filters button,.dashboard-action,.hero-btn,#rhHistoryMore,#rhProfileHistoryBtn,#rhDetailsBtn,[data-active-detail],[data-result-detail],[data-result-replay],[data-modal-enter],[data-enter-event],[data-hero-enter],[data-hero-races],[data-hero-invite],[data-hero-result],[data-open-result-replay],#m2raceRouteToggle,#m2raceSummaryClose,#m2raceSummaryDone,#rhUpcomingCard,#rhRecentCard,.performance-row.is-action,#r7hLayerToggle){transition:none}}
 
   </style>
 
@@ -275,14 +198,14 @@
 
     <nav class="runner-tabs" aria-label="MILITOPO">
       <button type="button" class="is-active" data-runner-tab="home" aria-label="Inicio">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span>INICIO</span>
+        <svg class="runner-nav-art" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="10" fill="#c9e0bb"/><path d="m5 15 11-9 11 9-3 3-8-7-8 7Z" fill="#2f7854"/><path d="M9 15v11h14V15l-7-6Z" fill="#f4f4dc"/><path d="M14 20h5v6h-5Z" fill="#4c8d68"/><rect x="10" y="17" width="3" height="3" rx="1" fill="#dfb65f"/></svg><span>INICIO</span>
       </button>
       <button type="button" data-runner-tab="races" aria-label="Mis carreras">
         <i class="runner-tab-notice" id="rhRaceNotice" hidden aria-label="Invitación nueva"></i>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 4v16"/><path d="M5 5h11l-2 4 2 4H5"/></svg><span>CARRERAS</span>
+        <svg class="runner-nav-art" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="10" fill="#f0dfac"/><path d="M8 7h2v20H8Z" fill="#355a48"/><path d="M10 7h15l-3 6 3 6H10Z" fill="#499b7b"/><path d="M10 7h7v6h-7ZM17 13h8l-3 6h-5Z" fill="#f6f1d5"/><circle cx="23" cy="25" r="4" fill="#d4a34f"/></svg><span>CARRERAS</span>
       </button>
       <button type="button" data-runner-tab="profile" aria-label="Mi perfil">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg><span>PERFIL</span>
+        <svg class="runner-nav-art" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="10" fill="#cbdedb"/><circle cx="16" cy="12" r="5" fill="#e8bc74"/><path d="M7 27v-3a9 9 0 0 1 18 0v3Z" fill="#326d65"/><path d="m12 19 4 5 4-5" fill="#f1edda"/></svg><span>PERFIL</span>
       </button>
     </nav>
 
@@ -436,8 +359,8 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=2.0.37"></script>
+  <script type="module" src="./runner-home-v4.js?v=2.0.38"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.37" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.38" data-sw="./sw.js"></script>
 </body>
 </html>
