@@ -1,3 +1,4 @@
+import {signOut} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {raceInfoHtml} from "../../../js/v2/race/race-info-ui.js?v=2.0.35";
 import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO R5 · Centro de carreras, nuevo organizador a pantalla completa.
@@ -92,6 +93,7 @@ function profileHtml(){
     ${p.profileError?`<p class="mpp-r4-inline-note">${esc(p.profileError)}</p>`:""}
     <article class="mpp-r3-section mpp-r4-profile-card"><div class="mpp-r4-section-title"><div class="mpp-r4-section-icon is-gold">${icon("calendar")}</div><div><small>COMO ORGANIZADOR</small><h2>Mis carreras organizadas</h2></div></div>${statCards()}<p class="mpp-r3-muted">${state.rowsLoaded?`${state.rows.length} carreras propias encontradas en MILITOPO. Los estados reflejan la información de Firebase.`:state.rowsError||"Actualizando tus carreras propias desde Firebase…"}</p><button type="button" class="mpp-r4-secondary-action" data-mpp-action="races">VER MIS CARRERAS ${icon("arrow")}</button></article>
     <article class="mpp-r3-section mpp-r4-profile-card"><div class="mpp-r4-section-title"><div class="mpp-r4-section-icon">${icon("chart")}</div><div><small>COMO CORREDOR</small><h2>Mi rendimiento deportivo</h2></div></div>${runnerProfileSection()}<div class="mpp-r4-actions"><button type="button" class="mpp-r4-reload" data-mpp-action="profile-refresh">${icon("refresh")} ACTUALIZAR</button><button type="button" class="mpp-r4-secondary-action" data-mpp-action="runner-profile">VER PERFIL DE CORREDOR ${icon("arrow")}</button></div></article>
+    <button type="button" class="mpp-r4-secondary-action" data-mpp-action="logout">CERRAR SESIÓN</button>
     <p class="mpp-r4-footnote">Las estadísticas deportivas proceden del histórico de la cuenta autenticada. El perfil es único y mantiene tus datos al cambiar de modo.</p>
   </section>`;
 }
@@ -194,6 +196,12 @@ async function editPersonal(photo=false){
  }catch(error){message(String(error?.message||error));}
 }
 async function run(action){
+  if(action==="logout"){
+    if(state.busy)return false;state.busy=true;
+    try{const services=await globalThis.MILITOPO_V2.firebase();await signOut(services.auth);close();}
+    catch(error){message("No se pudo cerrar sesión. "+String(error?.message||error));}
+    finally{state.busy=false;}return true;
+  }
   if(action==="profile-photo"){void editPersonal(true);return true}
   if(action==="more-races"){state.raceLimit+=10;refreshRaceList();return true}if(!canManage())return false;
   if(action==="mode-choice"){close();return globalThis.MILITOPO_ORIENTATION_MODES?.open?.()}
