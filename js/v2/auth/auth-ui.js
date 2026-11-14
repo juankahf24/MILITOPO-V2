@@ -53,6 +53,8 @@ const POST_LOGIN_SELECTOR_KEY = "militopo_v2_post_login_selector";
 const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
 const LAST_ROLE_KEY = "militopo_v2_last_role";
 let enterAppInFlight = null;
+let explicitLogoutInProgress = false;
+let logoutInFlight = null;
 let enterAppInFlightUid = "";
 const RUNNER_HOME_URL = new URL("../../../orientacion/participante/", import.meta.url).href;
 function routeRunnerToParticipant() {
@@ -531,6 +533,34 @@ function setMode(mode) {
   if (reset) reset.hidden = register;
   setMessage("");
 }
+
+// Explicit sign-out bypasses the iOS hydration grace period and prepares login under the loader.
+async function logoutToLogin(){
+  if(logoutInFlight)return logoutInFlight;
+  const task=async()=>{
+    explicitLogoutInProgress=true;
+    try{
+      if(!state.services?.auth)throw new Error("El acceso todavía está cargando. Vuelve a intentarlo.");
+      await signOut(state.services.auth);
+      clearRunnerRestoreHint({clearSnapshot:true});clearPostLoginSelector();
+      state.currentUser=null;state.profile=null;
+      globalThis.MILITOPO_V2_AUTH=null;
+      closeAccountPanel();
+      if(el("militopoV2AccountBadge"))el("militopoV2AccountBadge").hidden=true;
+      setMode("login");showMainView();
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-signed-out"));
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-ready",{detail:null}));
+      return true;
+    }finally{explicitLogoutInProgress=false;}
+  };
+  logoutInFlight=(async()=>{
+    const transition=globalThis.MILITOPO_TRANSITION;
+    if(transition?.run){const outcome=await transition.run(task);return outcome?.ok!==false;}
+    return task();
+  })().finally(()=>{logoutInFlight=null;});
+  return logoutInFlight;
+}
+globalThis.MILITOPO_V2_LOGOUT=logoutToLogin;
 
 function showMainView() {
   if (el("m2AuthMainView")) el("m2AuthMainView").hidden = false;
@@ -1264,8 +1294,7 @@ async function init() {
     if (state.busy) return;
     setBusy(true);
     try {
-      closeAccountPanel();
-      await signOut(state.services.auth);
+      await logoutToLogin();
     } finally { setBusy(false); }
   });
 
@@ -1290,7 +1319,7 @@ async function init() {
         // I2.1/I5.4: Firebase Auth puede tardar en rehidratarse en iOS standalone.
         // Mantener visualmente el badge/snapshot durante una ventana corta NO concede
         // permisos: organizer-guard/Firestore/Functions siguen dependiendo de Auth real.
-        if (hasOfflineRunnerSnapshot() || (isStandaloneMode() && hasCachedAuthSnapshot())) {
+        if (!explicitLogoutInProgress && (hasOfflineRunnerSnapshot() || (isStandaloneMode() && hasCachedAuthSnapshot()))) {
           restoreAccountBadgeVisual();
           closeAccountPanel();
           if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
