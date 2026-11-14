@@ -268,3 +268,9 @@ body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="roster"] #r4AssignmentsP
 @media(max-width:390px){.mpp-home .mpp-r3-header{padding:11px!important;gap:9px!important}.mpp-home .mpp-r3-header .mpp-r3-identity{gap:8px}.mpp-home .mpp-r3-header .mpp-r3-identity img{width:36px;height:36px;flex-basis:36px}.mpp-home .mpp-r3-header .mpp-r3-tools{grid-template-columns:40px 40px;gap:5px}.mpp-home .mpp-r3-header .mpp-r3-tools button{width:40px!important;height:40px!important;min-height:40px!important}.mpp-home .mpp-r3-header .mpp-r3-identity span{font-size:8px}.mpp-home .mpp-r3-header .mpp-r3-identity strong{font-size:17px}}
 
 .mpp-home .mpp-profile-head h1{font:850 clamp(25px,6vw,34px)/1.15 system-ui!important;color:#193f2b!important;-webkit-text-fill-color:#193f2b!important;text-shadow:none!important;letter-spacing:-.03em!important;white-space:nowrap;margin:14px 0 10px!important}
+
+/* Power control directly below the profile icon, within the header. */
+.mpp-home .mpp-r3-header .mpp-r3-tools [data-mpp-action="profile"]{grid-column:2;grid-row:1}
+.mpp-home .mpp-r3-header .mpp-r3-tools [data-mpp-action="mode-choice"]{grid-column:1;grid-row:1}
+.mpp-home .mpp-r3-header .mpp-r3-tools .mp-power-trigger{grid-column:2;grid-row:2;background:#183d2b;color:#ecf0dc;border-color:#315f42}
+.mpp-home .mpp-r3-header .mpp-r3-tools .mp-power-trigger[aria-expanded="true"]{background:#2b523b;color:#f5dfa7;border-color:#b79f65}
