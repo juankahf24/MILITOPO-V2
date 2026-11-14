@@ -26,6 +26,26 @@ import {
 import { normalizeRole } from "./roles.js";
 import { openProfilePhotoMenu } from "../profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
+// Complete these public controller details before opening registration to the public.
+const LEGAL = Object.freeze({version:"2026-11-14", controller:"", contact:"", address:""});
+const legalReady = () => Boolean(LEGAL.controller.trim() && LEGAL.contact.trim() && LEGAL.address.trim());
+const legalEscape = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function legalHtml(){return `<div id="m2AuthLegalField" hidden>
+<p class="m2-auth-legal-summary">Responsable: ${legalEscape(LEGAL.controller||"pendiente de identificar")}. Usamos tus datos para gestionar tu cuenta y las carreras en las que participas. Puedes ejercer tus derechos de protección de datos en ${legalEscape(LEGAL.contact||"el contacto pendiente de completar")}. Consulta los detalles antes de aceptar.</p>
+<details class="m2-auth-legal"><summary>Condiciones de uso y privacidad · ${LEGAL.version}</summary>
+<p><b>Responsable:</b> ${legalEscape(LEGAL.controller||"Pendiente de identificar por el titular de MILITOPO")}. <b>Contacto:</b> ${legalEscape(LEGAL.contact||"Pendiente de completar")}. <b>Dirección:</b> ${legalEscape(LEGAL.address||"Pendiente de completar")}.</p>
+<p><b>Cuenta y uso:</b> facilita datos veraces, protege tu contraseña y no compartas cuentas ni accedas a datos ajenos. No introduzcas información clasificada ni datos que no tengas autorización para tratar. La aplicación apoya la orientación y la gestión deportiva; respeta las instrucciones del organizador y las condiciones del terreno.</p>
+<p><b>Datos y finalidad:</b> nombre, usuario y correo para crear y gestionar la cuenta; credenciales gestionadas por Firebase Authentication. Según las funciones utilizadas, se tratan foto y datos de perfil, inscripciones, tiempos, controles, resultados y ubicación/track de carrera para organizar y registrar la actividad. Los permisos de ubicación y cámara se solicitan cuando se necesitan.</p>
+<p><b>Base jurídica:</b> ejecución del servicio solicitado para la cuenta y la participación; consentimiento para funciones opcionales que lo requieran y cumplimiento de obligaciones legales cuando proceda. La aceptación no autoriza publicidad.</p>
+<p><b>Destinatarios:</b> Google Firebase presta servicios de autenticación y alojamiento; los organizadores acceden a los datos necesarios de sus carreras. Las clasificaciones pueden mostrarse a los participantes de acuerdo con la actividad. Si se realizan transferencias fuera del EEE deben aplicarse las garantías previstas en el RGPD; el titular debe informar de su configuración y proveedores antes de abrir el servicio.</p>
+<p><b>Conservación:</b> durante la vigencia de la cuenta y el tiempo necesario para prestar el servicio, gestionar los históricos solicitados y atender responsabilidades legales. Al solicitar la supresión se eliminarán o anonimizarán los datos que no deban conservarse por obligación legal.</p>
+<p><b>Derechos:</b> puedes solicitar acceso, rectificación, supresión, oposición, limitación y portabilidad en el contacto indicado, y retirar los consentimientos opcionales sin afectar al tratamiento previo. Puedes reclamar ante la Agencia Española de Protección de Datos (www.aepd.es).</p>
+<p>La cuenta no tiene coste de alta. Cualquier servicio de pago requerirá información y contratación previa. Esta versión del registro se dirige a mayores de 18 años. Versión de las condiciones: ${LEGAL.version}.</p>
+</details>
+${legalReady()?"":'<p role="status">El titular debe completar la información del responsable antes de habilitar nuevas cuentas.</p>'}
+<label class="m2-auth-check"><input id="m2AuthLegalAccept" type="checkbox"><span>He leído y acepto las condiciones de uso y he sido informado del tratamiento de mis datos.</span></label>
+<label class="m2-auth-check"><input id="m2AuthAdult" type="checkbox"><span>Confirmo que tengo 18 años o más.</span></label></div>`;}
+
 const ROOT_ICON_URL = new URL("../../../icons/militopo-512.png", import.meta.url).href;
 const TRUSTED_DEVICE_KEY = "militopo_v2_trusted_device";
 const KEEP_SESSION_KEY = "militopo_v2_keep_session";
@@ -280,6 +300,7 @@ function buildUi() {
               <label for="m2AuthPasswordConfirm">Repite la contraseña</label>
               <input id="m2AuthPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Repite la contraseña">
             </div>
+            ${legalHtml()}
             <label class="m2-auth-check">
               <input id="m2AuthRemember" type="checkbox">
               <span>Mantener la sesión iniciada en este dispositivo</span>
@@ -296,7 +317,7 @@ function buildUi() {
           <div style="font-size:2rem">✉️</div>
           <h3>Verifica tu correo</h3>
           <p>Hemos enviado un enlace de verificación a <strong id="m2AuthVerifyEmail"></strong>.</p>
-          <p>Abre el correo, pulsa el enlace y vuelve aquí.</p>
+          <p>Abre el correo, pulsa el enlace y vuelve aquí. <strong>Revisa también SPAM o correo no deseado.</strong></p>
           <div class="m2-auth-verify-actions">
             <button id="m2AuthVerifiedBtn" class="m2-auth-primary" type="button">YA LO HE VERIFICADO</button>
             <button id="m2AuthResendBtn" class="m2-auth-secondary" type="button">REENVIAR CORREO</button>
@@ -501,6 +522,7 @@ function setMode(mode) {
   if (el("m2AuthNameField")) el("m2AuthNameField").hidden = !register;
   if (el("m2AuthUsernameField")) el("m2AuthUsernameField").hidden = !register;
   if (el("m2AuthConfirmField")) el("m2AuthConfirmField").hidden = !register;
+  if (el("m2AuthLegalField")) el("m2AuthLegalField").hidden = !register;
   const password = el("m2AuthPassword");
   if (password) password.autocomplete = register ? "new-password" : "current-password";
   const submit = el("m2AuthSubmit");
@@ -548,7 +570,7 @@ async function usernameAvailable(raw, ownUid = "") {
   const snap = await getDoc(ref);
   return !snap.exists() || String(snap.data()?.uid || "") === String(ownUid || "");
 }
-async function claimUsername(user, raw, displayName) {
+async function claimUsername(user, raw, displayName, acceptLegal = false) {
   const key = normalizeUsername(raw);
   if (!validUsername(key)) {
     throw usernameError("username/invalid", "El usuario debe tener entre 3 y 24 caracteres y solo puede usar letras, números, punto, guion o guion bajo.");
@@ -568,6 +590,9 @@ async function claimUsername(user, raw, displayName) {
       throw usernameError("username/locked", `Tu cuenta ya tiene el usuario @${currentKey}.`);
     }
     const now = serverTimestamp();
+    if (acceptLegal) transaction.set(doc(firestore,"users",user.uid,"legalAcceptances",LEGAL.version), {
+      version:LEGAL.version, acceptedAt:now, termsAccepted:true, privacyInformed:true, adultConfirmed:true
+    });
     transaction.set(directoryRef, {
       uid: user.uid,
       username: key,
@@ -1012,6 +1037,8 @@ async function handleSubmit(event) {
   if (!email || !password) return setMessage("Introduce correo y contraseña.", "error");
 
   if (state.mode === "register") {
+    if (!legalReady()) return setMessage("El registro está pendiente de completar la información legal del responsable.", "error");
+    if (!el("m2AuthLegalAccept")?.checked || !el("m2AuthAdult")?.checked) return setMessage("Debes aceptar las condiciones y confirmar que tienes 18 años o más.", "error");
     const name = String(el("m2AuthName")?.value || "").trim();
     const username = normalizeUsername(el("m2AuthUsername")?.value || "");
     const confirm = String(el("m2AuthPasswordConfirm")?.value || "");
@@ -1044,11 +1071,11 @@ async function handleSubmit(event) {
       const name = String(el("m2AuthName")?.value || "").trim();
       const username = normalizeUsername(el("m2AuthUsername")?.value || "");
       if (name) await updateProfile(credential.user, { displayName: name });
-      await claimUsername(credential.user, username, name);
+      await claimUsername(credential.user, username, name, true);
       showVerifyView(credential.user);
       try {
         await sendVerification(credential.user);
-        setVerifyMessage("Correo de verificación enviado. Abre el enlace del correo y después pulsa YA LO HE VERIFICADO.", "ok");
+        setVerifyMessage("Correo de verificación enviado. Revisa también SPAM o correo no deseado. Abre el enlace del correo y después pulsa YA LO HE VERIFICADO.", "ok");
       } catch (verificationError) {
         console.error("[MILITOPO V2 Auth] verification email", verificationError);
         setVerifyMessage(`${friendlyError(verificationError)} Puedes pulsar REENVIAR CORREO para intentarlo otra vez.`, "error");
