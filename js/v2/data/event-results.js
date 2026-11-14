@@ -1,3 +1,4 @@
+import {classificationExcel,classificationPdf,exportFilename,saveBlob} from "./classification-export.js?v=2.0.39";
 /* MILITOPO V2 · H6.1 · resultados persistentes + validación de balizas GPS/QR para el organizador.
    Fuente exclusiva: Firestore events/{eventId}/results. No depende del Live RTDB. */
 import "../bootstrap.js";
@@ -38,6 +39,7 @@ const state = {
   classError: "",
   classView: "general",
   classToken: 0,
+  exportBusy: false,
   mainView: "results"
 };
 const organizerPlaybackCache = new Map();
@@ -146,7 +148,11 @@ function ensurePanel() {
     </section>
     <section id="m2R4ClassView" class="m2-r4-view" hidden>
       <section class="m2-h5"><div class="m2-h5-head"><div class="m2-h5-title">CLASIFICACIÓN</div><div id="m2H5Chip" class="m2-h2-chip">SIN DATOS</div></div><div id="m2H5Note" class="m2-h5-note">GENERAL incluye a todos los participantes. POR RECORRIDO compara únicamente corredores con el mismo recorrido.</div><div id="m2H5Tabs" class="m2-h5-tabs"></div><div class="m2-h5-table-wrap"><table class="m2-h5-table"><thead><tr><th>PUESTO</th><th>PARTICIPANTE</th><th>PLAZA</th><th>RECORRIDO</th><th>DISTANCIA</th><th>PENALIZACIÓN</th><th>DESC./PEND.</th><th>TIEMPO OFICIAL</th><th>DIF. LÍDER</th><th>ESTADO</th></tr></thead><tbody id="m2H5Body"><tr><td colspan="10" class="m2-h2-empty">Sin clasificación cargada.</td></tr></tbody></table></div></section>
-    </section>`;
+    </section>
+    <div class="m2-h2-tools" style="margin-top:20px" aria-label="Exportar clasificación">
+      <p id="m2ExportNote" class="m2-h5-note" role="status">🔒 Las exportaciones estarán disponibles cuando se finalice la carrera.</p>
+      <div class="m2-h5-tabs"><button type="button" class="m2-h2-refresh" data-class-export="xlsx" disabled>🔒 EXCEL</button><button type="button" class="m2-h2-refresh" data-class-export="pdf" disabled>🔒 PDF</button></div>
+    </div>`;
   if (mapPanel?.parentNode) mapPanel.insertAdjacentElement("afterend", panel);
   else if (monitor?.parentNode) monitor.insertAdjacentElement("afterend", panel);
   else {
@@ -155,6 +161,8 @@ function ensurePanel() {
   }
   panel.querySelector("#m2H2Refresh")?.addEventListener("click", () => { bindResults(true); loadClassification(true); });
   panel.addEventListener("click", event => {
+    const download = event.target.closest("[data-class-export]");
+    if(download){void downloadClassification(download.dataset.classExport);return;}
     const main = event.target.closest("[data-r4-results-view]");
     if (main) { state.mainView = String(main.dataset.r4ResultsView || "results"); renderMainView(); return; }
     const btn = event.target.closest("[data-h5-view]");
@@ -254,6 +262,7 @@ function formatDistance(value) {
   return `${(m / 1000).toFixed(2)} km`;
 }
 function formatGap(value) {
+  if (value === null || value === undefined || String(value).trim() === "") return "—";
   const ms = Number(value);
   if (!Number.isFinite(ms) || ms < 0) return "—";
   if (ms === 0) return "LÍDER";
@@ -268,6 +277,7 @@ function renderClassification() {
   ensurePanel();
   renderMainView();
   if (!state.panel) return;
+  renderExportControls();
   const tabs = state.panel.querySelector("#m2H5Tabs");
   const body = state.panel.querySelector("#m2H5Body");
   const chip = state.panel.querySelector("#m2H5Chip");
@@ -292,6 +302,7 @@ function renderClassification() {
     note.textContent = `${state.classView}: ${route.participantCount || 0} participantes · ${distance} · FINALIZADOS primero e INCOMPLETOS después, con puesto solo si existe tiempo oficial. NO SALIÓ queda sin puesto.`;
   }
 
+  renderExportControls();
   if (state.classLoading) { body.innerHTML = '<tr><td colspan="10" class="m2-h2-empty">Calculando clasificación…</td></tr>'; return; }
   const rows = classRows();
   if (!rows.length) { body.innerHTML = `<tr><td colspan="10" class="m2-h2-empty">${state.classError ? "No se pudo cargar la clasificación." : "Todavía no hay participantes clasificables."}</td></tr>`; return; }
@@ -299,6 +310,36 @@ function renderClassification() {
     const status = ["finished","incomplete","not_started"].includes(String(row.status)) ? String(row.status) : "not_started";
     return `<tr class="${row.runnerUid === state.auth?.uid ? "m2-h5-own" : ""}"><td class="m2-h5-rank">${row.rank ?? "—"}</td><td><strong>${esc(runnerName(row))}</strong></td><td>${esc(row.participantId || "—")}</td><td>${esc(row.routeId || "—")}</td><td>${row.routeDistanceKm == null ? "—" : `${esc(Number(row.routeDistanceKm).toFixed(2))} km`}</td><td class="m2-h2-penalty">${status === "not_started" || storedPenalty(row) === null ? "—" : `+${esc(formatDuration(penaltyMs(row)))}`}</td><td>${status === "not_started" ? "—" : `${esc(countOrDash(row.discardedControlCount))} / ${esc(countOrDash(row.pendingControlCount))}`}</td><td><strong>${esc(formatDuration(officialDurationMs(row)))}</strong></td><td class="m2-h5-gap">${esc(formatGap(row.gapToLeaderMs))}</td><td><span class="m2-h2-state ${esc(status)}">${esc(RESULT_ES[status])}</span></td></tr>`;
   }).join("");
+}
+function exportReady(){
+  const data=state.classification;
+  return canManage() && ["finished","archived"].includes(state.eventStatus)
+    && data?.event?.eventId===currentEventId() && ["finished","archived"].includes(data.event.status)
+    && !state.classLoading && !state.classError && !state.exportBusy && classRows().length>0;
+}
+function renderExportControls(){
+  if(!state.panel)return;
+  const finished=["finished","archived"].includes(state.eventStatus),ready=exportReady();
+  state.panel.querySelectorAll("[data-class-export]").forEach(btn=>{btn.disabled=!ready;btn.textContent=`${finished?"↓":"🔒"} ${btn.dataset.classExport==="xlsx"?"EXCEL":"PDF"}`;});
+  setText("m2ExportNote",!finished?"🔒 Las exportaciones estarán disponibles cuando se finalice la carrera.":state.exportBusy?"Preparando descarga…":ready?`Exportar clasificación ${state.classView==="general"?"general":"del recorrido "+state.classView}. Selecciona GENERAL o un recorrido en Clasificación.`:"Actualiza la clasificación para disponer de resultados oficiales exportables.");
+}
+function classificationExportRows(rows){
+  return rows.map(row=>{
+    const status=["finished","incomplete","not_started"].includes(row.status)?row.status:"not_started";
+    return [row.rank??"—",runnerName(row),row.participantId||"—",row.routeId||"—",row.routeDistanceKm==null?"—":`${Number(row.routeDistanceKm).toFixed(2)} km`,status==="not_started"||storedPenalty(row)===null?"—":`+${formatDuration(penaltyMs(row))}`,status==="not_started"?"—":`${countOrDash(row.discardedControlCount)} / ${countOrDash(row.pendingControlCount)}`,formatDuration(officialDurationMs(row)),formatGap(row.gapToLeaderMs),RESULT_ES[status]];
+  });
+}
+async function downloadClassification(format){
+  if(!exportReady())return;
+  const eventId=currentEventId(),view=state.classView,data=state.classification,uid=state.auth.uid;
+  let exportError="";
+  const rows=classificationExportRows(classRows());state.exportBusy=true;renderExportControls();
+  try{
+    const blob=format==="xlsx"?await classificationExcel(rows):await classificationPdf(rows,data.event.eventName||eventId,view==="general"?"general":"del recorrido "+view);
+    if(eventId!==currentEventId()||uid!==state.auth?.uid||!canManage()||!["finished","archived"].includes(state.eventStatus))return;
+    saveBlob(blob,exportFilename(eventId,view,format));
+  }catch(error){exportError=String(error?.message||"No se pudo descargar la clasificación.");}
+  finally{state.exportBusy=false;renderExportControls();if(exportError)setText("m2ExportNote",exportError);}
 }
 async function loadClassification(force = false) {
   const eventId = currentEventId();
@@ -346,6 +387,7 @@ function sortedRows() {
 function render() {
   ensurePanel();
   if (!state.panel) return;
+  renderExportControls();
   const eventId = currentEventId();
   const body = state.panel.querySelector("#m2H2Body");
   const refresh = state.panel.querySelector("#m2H2Refresh");
@@ -454,6 +496,8 @@ function updateFromHeader(event) {
   const next = String(event?.detail?.header?.eventId || document.getElementById("eventId")?.value || "").trim();
   if (next !== state.eventId) {
     state.eventId = next;
+    state.eventStatus = "";
+    ++state.classToken;state.classLoading=false;
     state.rows = [];
     state.error = "";
     state.classification = null; state.classError = ""; state.classView = "general";
@@ -472,7 +516,7 @@ function init() {
     setTimeout(() => bindResults(true), 160);
   });
   addEventListener("militopo:v2-auth-signed-out", () => {
-    state.auth = null; state.rows = []; state.eventId = ""; state.eventStatus = ""; state.classification = null; state.classError = ""; state.classView = "general"; organizerPlaybackCache.clear(); stopResults(); publishOrganizerResults(); render(); renderClassification();
+    state.auth = null; state.rows = []; state.eventId = ""; state.eventStatus = ""; ++state.classToken;state.classLoading=false; state.classification = null; state.classError = ""; state.classView = "general"; organizerPlaybackCache.clear(); stopResults(); publishOrganizerResults(); render(); renderClassification();
   });
   addEventListener("militopo:v2-orientation-header", updateFromHeader);
   addEventListener("militopo:v2-cloud-event-applied", event => {
