@@ -5,6 +5,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onValueWritten } = require("firebase-functions/v2/database");
 const { createReconciler } = require("./p03-track-reconcile");
+const { analyzeItinerary } = require("./itinerary-analysis");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -3116,6 +3117,17 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
     const avgSpeedKmh = hours > 0 ? Math.round(((distanceM / 1000) / hours) * 100) / 100 : null;
     const paceMinKm = durationMs && distanceM > 0 ? Math.round(((durationMs / 60000) / (distanceM / 1000)) * 100) / 100 : null;
 
+    const itineraryAnalysis = ["finished", "archived"].includes(String(eventData.status || "").toLowerCase())
+      ? (selectedCourse && (!explicitCourseId || explicitCourseId === selectedCourse.courseId)
+        ? analyzeItinerary({
+            itinerary: eventData.premiumItineraries?.[selectedCourse.courseId],
+            track, routePointIds: effectiveRoutePoints, startedAtMs, finishedAtMs,
+            resultStatus: result.status,
+            controlExpectedCount: controlAnalysis.expectedCount, controlDetectedCount: controlAnalysis.detectedCount
+          })
+        : {version:1,available:false,reason:"No se pudo identificar de forma inequívoca tu recorrido."})
+      : {version:1,available:false,reason:"El análisis del itinerario estará disponible cuando finalice la carrera."};
+
     return {
       ok: true,
       event: {
@@ -3163,6 +3175,7 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
         controlTrackRecoveryCount: Math.max(0, Number(result.controlTrackRecoveryCount || 0)),
         source: String(result.source || "").slice(0, 80)
       },
+      itineraryAnalysis,
       controlPasses: controlAnalysis.passes,
       checkpoints,
       courses,
