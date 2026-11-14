@@ -252,11 +252,11 @@
     #rhResumeRace[hidden]{display:none}
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=r9o-final-20261011">
-  <link rel="stylesheet" href="./runner-mode-switch.css?v=militopo-r4-profile-20261019">
+  <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.37">
 <link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)">
 <link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)">
-<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.36">
-<script src="../../js/v2/ui/premium-transition.js?v=2.0.36"></script>
+<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.37">
+<script src="../../js/v2/ui/premium-transition.js?v=2.0.37"></script>
 </head>
 <body>
 <script>window.MILITOPO_TRANSITION?.bootEntry("runner");</script>
@@ -268,7 +268,7 @@
       <button type="button" class="mor-runner-return" id="rhSwitchOrganizer" hidden aria-label="Cambiar al modo organizador">ORGANIZAR ↗</button>
       <div class="runner-account">
         <strong class="runner-user" id="rhHeaderUser">Cargando…</strong>
-        <span class="runner-handle" id="rhHeaderHandle"></span>
+        <div class="runner-account-meta"><span class="runner-handle" id="rhHeaderHandle"></span><span class="runner-header-role" id="rhHeaderRole">CORREDOR</span></div>
         <span class="online"><i></i>EN LÍNEA</span>
       </div>
     </header>
@@ -436,8 +436,8 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=2.0.36"></script>
+  <script type="module" src="./runner-home-v4.js?v=2.0.37"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.36" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.37" data-sw="./sw.js"></script>
 </body>
 </html>

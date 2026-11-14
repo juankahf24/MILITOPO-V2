@@ -1,5 +1,5 @@
 import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.35";
-import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.33";
+import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.37";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
 import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.21";
 import "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011";
@@ -109,14 +109,14 @@ function openRunnerPhotoMenu(){
 
 async function editRunnerPersonal(){
  if(!currentUser||!currentApp)return;
- try{await openPersonalProfileEditor({app:currentApp,firestore:getFirestore(currentApp),user:currentUser,onSaved:()=>loadProfile(currentApp,currentUser)});}catch(error){runnerPhotoMessage(error?.message||String(error),"error");}
+ try{await openPersonalProfileEditor({app:currentApp,firestore:getFirestore(currentApp),user:currentUser,onSaved:saved=>{if(!saved)return loadProfile(currentApp,currentUser);profile={...profile,displayName:saved.displayName,preferences:{...profile?.preferences,personalProfile:saved.personal}};paintRunnerProfile(currentUser,profile);publishRunnerAuth();}});}catch(error){runnerPhotoMessage(error?.message||String(error),"error");}
 }
 function paintRunnerProfile(user,data={}){
   const personal=document.getElementById("rhPersonalProfile");if(personal){personal.innerHTML=personalProfileHtml(data,user.email);personal.querySelector("[data-personal-edit]")?.addEventListener("click",editRunnerPersonal);}
   const displayName=String(data.displayName||user.displayName||user.email||"Usuario").trim();
   const username=String(data.usernameKey||data.username||"").trim().toLowerCase().replace(/^@/,"");
   text(els.name,displayName);text(els.headerUser,displayName);text(els.headerHandle,username?`@${username}`:"");text(els.meta,`${username?`@${username} · `:""}${user.email||""}`);
-  const roleKey=String(data.role||"runner").toLowerCase();const roleLabel=roleKey==="super_admin"?"SÚPER ADMIN":roleKey==="organizer"?"ORGANIZADOR":"CORREDOR";text(els.roleBadge,roleLabel);
+  const roleKey=String(data.role||"runner").toLowerCase();const roleLabel=roleKey==="super_admin"?"SÚPER ADMIN":roleKey==="organizer"?"ORGANIZADOR":"CORREDOR";text(els.roleBadge,roleLabel);text(document.getElementById("rhHeaderRole"),roleLabel);
   paintRunnerAvatar(displayName,data.photoURL||user.photoURL||"");
   if(els.detailsBtn)els.detailsBtn.disabled=false;if(els.logoutBtn)els.logoutBtn.disabled=false;
   if(els.details)els.details.innerHTML=`<strong>Nombre:</strong> ${esc(displayName)}<br><strong>Usuario:</strong> ${username?`@${esc(username)}`:"Sin usuario"}<br><strong>Correo:</strong> ${esc(user.email||"")}<br><strong>Rol:</strong> CORREDOR`;

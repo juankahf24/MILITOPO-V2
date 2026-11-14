@@ -1,15 +1,15 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.36";
+const BUILD_ID="2.0.37";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
-  "../../css/premium-transition.css?v=2.0.36",
-  "../../js/v2/ui/premium-transition.js?v=2.0.36",
+  "../../css/premium-transition.css?v=2.0.37",
+  "../../js/v2/ui/premium-transition.js?v=2.0.37",
   "../../assets/transition/militopo-portrait.webp",
   "../../assets/transition/militopo-landscape.webp",
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
-  "./runner-home-v4.js?v=2.0.36",
+  "./runner-home-v4.js?v=2.0.37",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
   "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
@@ -19,7 +19,7 @@ const APP_SHELL=[
   "../../js/v2/ui/pwa-update.js?v=2.0.3",
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=r9o-final-20261011",
-  "./runner-mode-switch.css?v=militopo-r4-profile-20261019",
+  "./runner-mode-switch.css?v=2.0.37",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
   "./runner-history-v2.js?v=v2-r9m-overzoom-persistente-20261011","./runner-live-loader.js?v=2.0.21","./runner-r9m-responsive.js?v=2.0.7",
   "../../js/v2/firebase-config.js","../../js/v2/firebase-config.js?v=v2-f3a-runner-homefix2-20260923",
@@ -28,7 +28,7 @@ const APP_SHELL=[
   "../../js/v2/ui/confirm-dialog.js?v=v2-r5e-runner-confirmaciones-20261006",
   "../../js/v2/ui/confirm-dialog.js?v=v2-r6a-carrera-activa-20261006",
   "../../js/v2/race/race-info-ui.js?v=2.0.35",
-  "../../js/v2/profile/personal-profile-ui.js?v=2.0.33",
+  "../../js/v2/profile/personal-profile-ui.js?v=2.0.37",
   "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
   // Dependencias exactas de runner.html para iniciar y reanudar offline.
   "../../js/v2/auth/auth-ui.css?v=v2-r8l-profile-photo-square-20261009",
