@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.39";
+const BUILD_ID="2.0.40";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -7,8 +7,9 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
 
 /* Rutas EXACTAS cargadas por orientacion/index.html y js/app.js. */
 const CORE_ASSETS=[
-  "../css/premium-transition.css?v=2.0.39",
-  "../js/v2/ui/premium-transition.js?v=2.0.39",
+  "../css/premium-transition.css?v=2.0.40",
+  "../js/v2/ui/premium-transition.js?v=2.0.40",
+  "../js/v2/ui/power-menu.js?v=2.0.40",
   "../assets/transition/militopo-portrait.webp",
   "../assets/transition/militopo-landscape.webp",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
@@ -27,7 +28,7 @@ const CORE_ASSETS=[
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./css/r9o-final-polish.css?v=r9o-final-20261011",
   "./css/premium-base.css?v=premium-p0a-20261011",
-  "./css/premium-home.css?v=2.0.38",
+  "./css/premium-home.css?v=2.0.40",
   "./css/orientation-modes.css?v=militopo-r3-fullscreen-20261018",
   "./css/premium-builder.css?v=2.0.25",
   "./js/app.js?v=2.0.26",
@@ -38,7 +39,7 @@ const CORE_ASSETS=[
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=militopo-r5a-analisis-comparativo-20261019",
   "./js/premium/premium-builder.js?v=2.0.30",
-  "./js/premium/premium-home.js?v=2.0.39",
+  "./js/premium/premium-home.js?v=2.0.40",
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
   "./js/premium/orientation-modes.js?v=2.0.36",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
