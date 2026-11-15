@@ -818,3 +818,105 @@ body.m2-account-settings-open #m2AccountReload[hidden]{display:none!important}
     min-height:38px!important;height:38px!important
   }
 }
+
+/* 2.0.44 · Access redesign, scoped to the login/register/verification surface. */
+#militopoV2AuthOverlay{
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  padding:max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));
+  background:radial-gradient(ellipse at 90% 0,#c5ad6224,transparent 46%),radial-gradient(ellipse at 0 100%,#39704b40,transparent 52%),repeating-radial-gradient(ellipse at 85% 110%,transparent 0 37px,#8da77a12 38px,transparent 39px 68px),#091b12;
+  color:#213b2b;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;box-sizing:border-box;color-scheme:light;
+}
+#militopoV2AuthOverlay *,#militopoV2AuthOverlay *::before,#militopoV2AuthOverlay *::after{box-sizing:border-box}
+#militopoV2AuthOverlay .m2-auth-card{
+  position:relative;isolation:isolate;display:grid;grid-template-columns:260px minmax(0,1fr);align-items:stretch;
+  width:min(760px,100%);min-width:0;min-height:460px;flex-shrink:0;padding:0;margin:auto 0;
+  background:#f7f9f2;border:1px solid #d5e0c951;border-radius:28px;
+  box-shadow:0 30px 100px #0007,0 0 0 7px #b0c78b06;overflow:hidden;
+}
+#militopoV2AuthOverlay .m2-auth-brand{
+  position:relative;grid-column:1;grid-row:1;display:flex;flex-direction:column;align-items:flex-start;gap:26px;
+  min-width:0;padding:34px 28px;margin:0;text-align:left;color:#f0f1de;
+  background:radial-gradient(ellipse at 0 0,#87aa5130,transparent 55%),repeating-radial-gradient(ellipse at 0 120%,transparent 0 30px,#adc08613 31px,transparent 32px 50px),linear-gradient(150deg,#234d34,#123323 70%,#143426);
+  border-right:1px solid #b4c69629;
+}
+#militopoV2AuthOverlay .m2-auth-brand-mark{position:relative;width:85px;height:85px;flex:0 0 auto;border:1px solid #d8bf7c7d;border-radius:25px;padding:6px;background:#08170d;box-shadow:0 10px 23px #0003,inset 0 1px 0 #fff1}
+#militopoV2AuthOverlay .m2-auth-brand-mark>img{display:block;width:100%;height:100%;border-radius:19px;object-fit:contain}
+#militopoV2AuthOverlay .m2-auth-brand-mark>span{position:absolute;right:-7px;bottom:-5px;width:27px;height:27px;padding:3px;border:1px solid #d6c18b66;border-radius:10px;background:#1b432e;transform:rotate(14deg)}
+#militopoV2AuthOverlay .m2-auth-brand-mark svg{width:100%;height:100%;display:block}
+#militopoV2AuthOverlay .m2-auth-brand-copy{min-width:0}
+#militopoV2AuthOverlay .m2-auth-eyebrow{display:block;color:#e0c88a;font:800 9px/1.5 system-ui;letter-spacing:.14em}
+#militopoV2AuthOverlay .m2-auth-brand h2{display:block;margin:8px 0 11px;font:850 31px/1.08 system-ui;letter-spacing:-.03em;color:#f3f4e6;text-shadow:none;background:none;-webkit-text-fill-color:currentColor}
+#militopoV2AuthOverlay .m2-auth-brand h2>span{color:#ddbb70}
+#militopoV2AuthOverlay .m2-auth-brand p{max-width:22ch;margin:0;font:450 14px/1.65 system-ui;color:#c0d1b7}
+#militopoV2AuthOverlay .m2-auth-brand-note{display:flex;align-items:center;gap:10px;width:100%;margin-top:auto;padding-top:24px;border-top:1px solid #c2d3ab26;color:#c7d6b5;font:500 10px/1.6 system-ui}
+#militopoV2AuthOverlay .m2-auth-brand-note svg{width:27px;height:27px;flex:0 0 27px;color:#e3c47a}
+#militopoV2AuthOverlay #m2AuthMainView,#militopoV2AuthOverlay #m2AuthVerifyView{grid-column:2;grid-row:1;min-width:0;padding:30px 28px}
+#militopoV2AuthOverlay .m2-auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:0 0 24px;padding:5px;background:#e8eee2;border:1px solid #dce5d3;border-radius:15px}
+#militopoV2AuthOverlay .m2-auth-tab{appearance:none;min-width:0;min-height:44px;margin:0;padding:10px 8px;border:1px solid transparent;border-radius:10px;background:transparent;color:#5b705b;font:800 11px/1.3 system-ui;letter-spacing:.02em;box-shadow:none;cursor:pointer;touch-action:manipulation;transition:background .16s,color .16s,box-shadow .16s}
+#militopoV2AuthOverlay .m2-auth-tab.is-active{background:#234f35;color:#f6f7eb;border-color:#2e6143;box-shadow:0 3px 8px #24482e24,inset 0 1px 0 #ffffff18}
+#militopoV2AuthOverlay .m2-auth-form{display:grid;gap:16px;min-width:0}
+#militopoV2AuthOverlay .m2-auth-field{display:grid;gap:7px;min-width:0}
+#militopoV2AuthOverlay .m2-auth-field label{display:block;color:#435e47;font:750 12px/1.4 system-ui;letter-spacing:0}
+#militopoV2AuthOverlay .m2-auth-field small{color:#77856c;font:450 10px/1.5 system-ui}
+#militopoV2AuthOverlay .m2-auth-field input{
+  appearance:none;min-width:0;width:100%;min-height:51px;padding:13px 14px;border:1px solid #ccd9c5;border-radius:13px;
+  background-color:#fff;color:#1c3f2a;font:450 16px/1.4 system-ui;outline:none;box-shadow:0 2px 3px #24482e03;
+  caret-color:#28553a;transition:border-color .16s,box-shadow .16s;
+}
+#militopoV2AuthOverlay .m2-auth-field input::placeholder{color:#93a18b;opacity:1}
+#militopoV2AuthOverlay .m2-auth-field input:focus{border-color:#628854;box-shadow:0 0 0 3px #6d97541b;background-color:#fff}
+#militopoV2AuthOverlay #m2AuthEmail{padding-left:43px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2379916f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='3'/%3E%3Cpath d='m4 7 8 6 8-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:19px;background-position:14px center}
+#militopoV2AuthOverlay #m2AuthPassword,#militopoV2AuthOverlay #m2AuthPasswordConfirm{padding-left:43px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2379916f' stroke-width='1.6' stroke-linecap='round'%3E%3Crect x='5' y='10' width='14' height='11' rx='3'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3m-4 4v3'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:19px;background-position:14px center}
+#militopoV2AuthOverlay .m2-auth-field input:-webkit-autofill,#militopoV2AuthOverlay .m2-auth-field input:-webkit-autofill:hover,#militopoV2AuthOverlay .m2-auth-field input:-webkit-autofill:focus{-webkit-text-fill-color:#1c3f2a!important;-webkit-box-shadow:0 0 0 1000px #f0f5e8 inset!important;caret-color:#28553a;border-color:#b4c6a5}
+#militopoV2AuthOverlay .m2-auth-check{display:flex;align-items:center;gap:10px;min-height:38px;margin:0;color:#65765d;font:450 11px/1.55 system-ui;cursor:pointer;letter-spacing:0}
+#militopoV2AuthOverlay .m2-auth-check input{appearance:auto;-webkit-appearance:checkbox;flex:0 0 18px;width:18px;height:18px;margin:0;accent-color:#326b43}
+#militopoV2AuthOverlay .m2-auth-primary{display:flex;justify-content:center;align-items:center;gap:12px;min-width:0;width:100%;min-height:51px;padding:13px 17px;border:1px solid #245037;border-radius:13px;background:linear-gradient(115deg,#285b3d,#1d4630);color:#f5f6e8;font:850 13px/1.5 system-ui;letter-spacing:.055em;box-shadow:0 7px 16px #254a2d24,inset 0 1px 0 #ffffff12;touch-action:manipulation;transition:background .16s,box-shadow .16s}
+#militopoV2AuthOverlay .m2-auth-primary::after{content:"";display:block;flex:0 0 23px;width:23px;height:23px;border-radius:50%;background:#e6c982 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23264c32' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14m-6-6 6 6-6 6'/%3E%3C/svg%3E") center/15px no-repeat;pointer-events:none}
+#militopoV2AuthOverlay .m2-auth-primary:disabled{opacity:.5;box-shadow:none;cursor:wait}
+#militopoV2AuthOverlay .m2-auth-primary:not(:disabled):active{box-shadow:inset 0 3px 8px #0003}
+#militopoV2AuthOverlay .m2-auth-actions-row{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:0}
+#militopoV2AuthOverlay .m2-auth-link{min-height:40px;padding:8px 2px;background:none;border:0;color:#42663c;font:650 11px/1.5 system-ui;text-decoration:underline;text-decoration-color:#9ab38788;text-underline-offset:4px;letter-spacing:0}
+#militopoV2AuthOverlay .m2-auth-secondary{min-height:47px;padding:12px;border:1px solid #c8d7bf;border-radius:12px;background:#edf2e6;color:#2f5533;font:750 11px/1.5 system-ui}
+#militopoV2AuthOverlay :is(button,input,summary):focus-visible{outline:3px solid #ad934b;outline-offset:3px}
+#militopoV2AuthOverlay #m2AuthMessage,#militopoV2AuthOverlay #m2AuthVerifyMessage{min-height:0;margin:0;padding:10px 12px;border-radius:10px;background:#e9f0df;color:#45603c;font:500 11px/1.6 system-ui;overflow-wrap:anywhere}
+#militopoV2AuthOverlay #m2AuthMessage:empty,#militopoV2AuthOverlay #m2AuthVerifyMessage:empty{display:none}
+#militopoV2AuthOverlay #m2AuthMessage.is-error,#militopoV2AuthOverlay #m2AuthVerifyMessage.is-error{color:#a23f35;background:#faeae3}
+#militopoV2AuthOverlay #m2AuthMessage.is-ok,#militopoV2AuthOverlay #m2AuthVerifyMessage.is-ok{color:#37613a;background:#e7efdc}
+#militopoV2AuthOverlay #m2AuthLegalField{padding:12px;border:1px solid #d9e3ce;border-radius:13px;background:#eef3e7;color:#586c51;font:450 11px/1.6 system-ui;overflow-wrap:anywhere}
+#militopoV2AuthOverlay .m2-auth-legal-summary{margin:0 0 8px}
+#militopoV2AuthOverlay .m2-auth-legal summary{min-height:36px;color:#365d36;cursor:pointer;font-weight:750;line-height:1.6}
+#militopoV2AuthOverlay .m2-auth-legal p{font:450 11px/1.6 system-ui;color:#586c51}
+#militopoV2AuthOverlay #m2AuthLegalField .m2-auth-check{font-size:11px;padding-top:7px}
+#militopoV2AuthOverlay .m2-auth-verify{display:flex;flex-direction:column;justify-content:center;text-align:left;gap:12px}
+#militopoV2AuthOverlay .m2-auth-verify h3{margin:0;color:#254b31;font:850 25px/1.2 system-ui;letter-spacing:-.035em}
+#militopoV2AuthOverlay .m2-auth-verify p{margin:0;color:#6a7c61;font:450 12px/1.65 system-ui;overflow-wrap:anywhere}
+#militopoV2AuthOverlay .m2-auth-verify p strong{color:#3c623c}
+#militopoV2AuthOverlay .m2-auth-verify-actions{display:grid;gap:9px;margin-top:8px}
+@media(hover:hover){#militopoV2AuthOverlay .m2-auth-primary:not(:disabled):hover{background:#326b47;box-shadow:0 8px 19px #254a2d33}#militopoV2AuthOverlay .m2-auth-tab:not(.is-active):hover{background:#dfe8d5;color:#3d623d}}
+@media(max-width:640px){
+ #militopoV2AuthOverlay{padding:max(20px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+ #militopoV2AuthOverlay .m2-auth-card{display:grid;grid-template-columns:minmax(0,1fr);width:min(430px,100%);min-height:0;border-radius:25px}
+ #militopoV2AuthOverlay .m2-auth-brand{grid-column:1;grid-row:1;display:grid;grid-template-columns:64px minmax(0,1fr);gap:15px;padding:24px 23px 19px;border-right:0;border-bottom:1px solid #a8bd8c33}
+ #militopoV2AuthOverlay .m2-auth-brand-mark{width:64px;height:64px;border-radius:21px;padding:4px;align-self:center}
+ #militopoV2AuthOverlay .m2-auth-brand-mark>img{border-radius:16px}
+ #militopoV2AuthOverlay .m2-auth-brand-mark>span{width:23px;height:23px;border-radius:8px;right:-5px;bottom:-4px}
+ #militopoV2AuthOverlay .m2-auth-brand h2{font-size:27px;margin:6px 0}
+ #militopoV2AuthOverlay .m2-auth-eyebrow{font-size:8px;letter-spacing:.1em}
+ #militopoV2AuthOverlay .m2-auth-brand p{font-size:11px;line-height:1.5;max-width:none}
+ #militopoV2AuthOverlay .m2-auth-brand-note{grid-column:1/-1;gap:8px;padding-top:12px;margin-top:1px;font-size:9px;line-height:1.4}
+ #militopoV2AuthOverlay .m2-auth-brand-note svg{width:20px;height:20px;flex-basis:20px}
+ #militopoV2AuthOverlay #m2AuthMainView,#militopoV2AuthOverlay #m2AuthVerifyView{grid-column:1;grid-row:2;padding:23px}
+ #militopoV2AuthOverlay .m2-auth-tabs{margin-bottom:21px}
+ #militopoV2AuthOverlay .m2-auth-form{gap:14px}
+}
+@media(max-width:350px){
+ #militopoV2AuthOverlay{padding-left:12px;padding-right:12px}
+ #militopoV2AuthOverlay .m2-auth-brand{grid-template-columns:54px minmax(0,1fr);padding:20px 18px 17px;gap:12px}
+ #militopoV2AuthOverlay .m2-auth-brand-mark{width:54px;height:54px;border-radius:18px}
+ #militopoV2AuthOverlay .m2-auth-brand h2{font-size:24px}
+ #militopoV2AuthOverlay .m2-auth-eyebrow{font-size:7px}
+ #militopoV2AuthOverlay #m2AuthMainView,#militopoV2AuthOverlay #m2AuthVerifyView{padding:20px 18px}
+ #militopoV2AuthOverlay .m2-auth-tab{font-size:10px;padding:9px 4px}
+}
+@media(prefers-reduced-motion:reduce){#militopoV2AuthOverlay button,#militopoV2AuthOverlay input{transition:none}}

@@ -269,9 +269,9 @@ function buildUi() {
     <div id="militopoV2AuthOverlay" aria-live="polite">
       <section class="m2-auth-card" role="dialog" aria-modal="true" aria-labelledby="m2AuthTitle">
         <div class="m2-auth-brand">
-          <img src="${ROOT_ICON_URL}" alt="MILITOPO">
-          <h2 id="m2AuthTitle">MILITOPO</h2>
-          <p>Acceso seguro · V2</p>
+          <div class="m2-auth-brand-mark"><img src="${ROOT_ICON_URL}" alt="MILITOPO"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 4 9-4 9-4-9Z" fill="#dbbd76"/><path d="m12 3 4 9H8Z" fill="#fff1c2"/></svg></span></div>
+          <div class="m2-auth-brand-copy"><span class="m2-auth-eyebrow">TU PUNTO DE PARTIDA</span><h2 id="m2AuthTitle">MILITOPO<span aria-hidden="true">.</span></h2><p>Tu cuenta. Todos tus recorridos.</p></div>
+          <div class="m2-auth-brand-note"><svg viewBox="0 0 30 30" fill="none" aria-hidden="true"><circle cx="7" cy="6" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="23" cy="24" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 9v7a5 5 0 0 0 5 5h8M13 8h7a4 4 0 0 1 0 8h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Una cuenta · Correr y organizar</span></div>
         </div>
 
         <div id="m2AuthMainView">
