@@ -292,3 +292,14 @@ body.r5-premium-tool-open #r1WorkspaceBody[data-r5-tab="roster"] #r4AssignmentsP
 
 #militopoPremiumHome #mppPowerBtn{background:transparent!important;color:#a94c48!important;border-color:#a94c4838!important;box-shadow:none!important}
 #militopoPremiumHome #mppPowerBtn:hover,#militopoPremiumHome #mppPowerBtn[aria-expanded="true"]{background:#b550490c!important;color:#b34943!important;border-color:#b5504959!important}
+
+/* 2.0.44 · Compact race identity; status stays aligned to the top right. */
+#militopoPremiumHome .mpp-manage-header{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px 12px;padding:16px 18px;border-radius:16px}
+#militopoPremiumHome .mpp-manage-header>.mpp-manage-title{display:contents}
+#militopoPremiumHome .mpp-manage-header>.mpp-manage-title>small{grid-column:1;grid-row:1;align-self:center;font-size:9px;line-height:1.5;letter-spacing:.09em}
+#militopoPremiumHome .mpp-manage-header>.mpp-r3-status{grid-column:2;grid-row:1;align-self:start;justify-self:end;margin:0;padding:5px 8px;font-size:8px;line-height:1.4;max-width:100%}
+#militopoPremiumHome .mpp-manage-header h1{grid-column:1/-1;grid-row:2;margin:0!important;font-size:clamp(20px,3vw,27px);line-height:1.18;letter-spacing:-.025em;overflow-wrap:anywhere}
+#militopoPremiumHome .mpp-manage-header .mpp-manage-identity{grid-column:1/-1;grid-row:3;display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:6px 9px;margin:2px 0 0;padding:8px 10px;border-radius:10px;border:1px solid #dae4d5;background:#f1f6ed;min-width:0}
+#militopoPremiumHome .mpp-manage-header .mpp-manage-identity>strong{font-size:8px;line-height:1.4;letter-spacing:.06em;flex:0 0 auto}
+#militopoPremiumHome .mpp-manage-header .mpp-manage-identity>code{font-size:11px;line-height:1.5;padding:2px 5px;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word}
+@media(max-width:350px){#militopoPremiumHome .mpp-manage-header{padding:13px 14px;gap:8px}#militopoPremiumHome .mpp-manage-header>.mpp-manage-title>small{font-size:8px}#militopoPremiumHome .mpp-manage-header>.mpp-r3-status{font-size:7px;padding:5px 6px}}
