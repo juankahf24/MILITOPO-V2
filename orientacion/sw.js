@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.45";
+const BUILD_ID="2.0.46";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -60,7 +60,7 @@ const CORE_ASSETS=[
   "../js/v2/ui/connectivity-status.js?v=v2-j1a-connectivity-no-spam-20261001",
   "../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../js/v2/auth/roles.js",
-  "../js/v2/auth/auth-ui.css?v=2.0.44",
+  "../js/v2/auth/auth-ui.css?v=2.0.46",
   "../js/v2/data/classification-export.js?v=2.0.39",
   "../js/v2/auth/auth-ui.js?v=2.0.44",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
