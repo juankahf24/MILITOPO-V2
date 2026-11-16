@@ -920,3 +920,17 @@ body.m2-account-settings-open #m2AccountReload[hidden]{display:none!important}
  #militopoV2AuthOverlay .m2-auth-tab{font-size:10px;padding:9px 4px}
 }
 @media(prefers-reduced-motion:reduce){#militopoV2AuthOverlay button,#militopoV2AuthOverlay input{transition:none}}
+
+/* 2.0.46 · Explicit WebKit text fill keeps registration hints readable on light inputs. */
+#militopoV2AuthOverlay #m2AuthForm .m2-auth-field input{
+  color:#1C3F2A!important;-webkit-text-fill-color:#1C3F2A!important;
+  caret-color:#1C3F2A!important;text-shadow:none!important;opacity:1!important;
+}
+#militopoV2AuthOverlay #m2AuthForm .m2-auth-field input::placeholder{
+  color:#5C6D55!important;-webkit-text-fill-color:#5C6D55!important;
+  opacity:1!important;text-shadow:none!important;
+}
+#militopoV2AuthOverlay #m2AuthForm .m2-auth-field input::-webkit-input-placeholder{
+  color:#5C6D55!important;-webkit-text-fill-color:#5C6D55!important;
+  opacity:1!important;text-shadow:none!important;
+}
