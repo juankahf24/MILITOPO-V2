@@ -3719,7 +3719,7 @@ html[data-militopo-theme="tactical-gold"] body :is(.mpb-field label,.mpb-field>s
  html[data-militopo-theme] :where(body) .dashboard-hero::after {content:none!important}
  html[data-militopo-theme] :where(body) .hero-title {font-size:clamp(21px,5.3vw,32px)!important;line-height:1.08!important;max-width:19ch!important}
  html[data-militopo-theme] :where(body) .hero-sub {font-size:clamp(12px,3.3vw,15px)!important;max-width:40ch!important;line-height:1.38!important}
- html[data-militopo-theme] :where(body) :is(.dashboard-highlight,.mpp-r3-section,.mpb-card,.mpp-manage-card,.profile-panel,.result-sheet,.mp-package-card,.militopo-confirm-card,.mp-personal-editor,.m2-auth-card) {
+ html[data-militopo-theme] :where(body) :is(.dashboard-highlight,.mpp-r3-section,.mpb-card,.mpp-manage-card,.result-sheet,.mp-package-card,.militopo-confirm-card,.mp-personal-editor,.m2-auth-card) {
   background:linear-gradient(90deg,#242a1aef,#242a1a80),var(--tg-contours) 80% 42%/470px repeat,var(--field-card)!important;
   border:var(--field-rim)!important;box-shadow:var(--field-depth)!important;
  }
@@ -3764,6 +3764,180 @@ html[data-militopo-theme="tactical-gold"] body :is(.mpb-field label,.mpb-field>s
  @media (min-width: 761px) {
   html[data-militopo-theme] :where(body) .m2-auth-brand {
    background-position: 80% center !important;
+  }
+ }
+}
+
+/* Explicit card boundaries and equal treatment of the race list actions. */
+@layer fieldFinish {
+ html[data-militopo-theme] body .mp-personal > button[data-personal-edit],
+ html[data-militopo-theme] body .mpp-r5-race-actions > button {
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 12px 16px;
+  border: 1px solid #c5ac70 !important;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #41452c, #293120) !important;
+  color: #f7efd9 !important;
+  box-shadow: inset 0 1px 0 #f4d78a25, 0 4px 12px #05090440 !important;
+  font-weight: 800;
+ }
+ html[data-militopo-theme] body .mp-personal > button[data-personal-edit]:not(:disabled):hover,
+ html[data-militopo-theme] body .mpp-r5-race-actions > button:not(:disabled):hover {
+  background: linear-gradient(135deg, #4d5134, #333c27) !important;
+  border-color: #e3c682 !important;
+ }
+ html[data-militopo-theme] body .mp-personal {
+  background: linear-gradient(140deg, #333a26, #20291b) !important;
+  border: 1px solid #a89662 !important;
+  border-radius: 22px;
+  box-shadow: 0 8px 22px #03070250, inset 0 1px 0 #e9cd8b16 !important;
+ }
+ /* The summary/performance containers have no square frame. Each child card
+    owns its single rounded border, including while a different tab is active. */
+ html[data-militopo-theme] body .profile-panel {
+  background: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  padding: 0;
+ }
+ html[data-militopo-theme] body :is(.profile-stat, .performance-kpi, .performance-record, .performance-section, .performance-hero, .mpp-r4-kpis article, .mpp-r4-runner-secondary article) {
+  background: linear-gradient(140deg, #3b402a, #242e1e) !important;
+  border: 1px solid #a18e5e !important;
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 #efd99c1c, 0 4px 12px #03080240 !important;
+ }
+ html[data-militopo-theme] body :is(.profile-stat, .performance-kpi, .performance-record) small {
+  color: #e2d8b8 !important;
+  line-height: 1.5;
+ }
+ html[data-militopo-theme] body :is(.profile-stat, .performance-kpi, .performance-record) strong {
+  color: #faf4df !important;
+ }
+ /* A full-screen backdrop and a padded export card also accommodate the final
+    confirmation and error screens. The native progress value remains live. */
+ html[data-militopo-theme] body .mp-package-dialog {
+  box-sizing: border-box;
+  padding: max(22px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background: radial-gradient(ellipse at 50% 20%, #4b492231, transparent 60%), var(--field-ground) !important;
+  color: #f6f1e3 !important;
+ }
+ html[data-militopo-theme] body .mp-package-dialog::backdrop {
+  background: #0a1009 !important;
+ }
+ html[data-militopo-theme] body .mp-package-dialog .mp-package-card {
+  box-sizing: border-box;
+  width: min(100%, 540px);
+  padding: clamp(24px, 5vw, 40px);
+  border: 1px solid #b8a16a !important;
+  border-radius: 28px;
+  background: linear-gradient(145deg, #3b4028f2, #121d10f5), var(--tg-contours) center / 480px repeat !important;
+  box-shadow: inset 0 1px 0 #f4da9b33, 0 24px 70px #0007 !important;
+ }
+ html[data-militopo-theme] body .mp-package-export {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+ }
+ html[data-militopo-theme] body .mp-package-export > small {
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.6;
+  letter-spacing: .12em;
+  color: #e2ca8f !important;
+ }
+ html[data-militopo-theme] body .mp-package-export h1 {
+  margin: 0;
+  font-size: clamp(25px, 5.6vw, 35px);
+  line-height: 1.12;
+  letter-spacing: -.025em;
+  color: #fbf4de !important;
+ }
+ html[data-militopo-theme] body .mp-package-export p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #d8ddca !important;
+ }
+ html[data-militopo-theme] body .mp-package-export [role="status"] {
+  min-height: 3.2em;
+  display: grid;
+  align-content: center;
+ }
+ html[data-militopo-theme] body .mp-package-export .mp-package-spinner {
+  box-sizing: border-box;
+  width: 62px;
+  height: 62px;
+  margin: 0 0 4px;
+  border: 2px solid #d9c18026 !important;
+  border-top-color: #efd18a !important;
+  border-right-color: #b29451 !important;
+  box-shadow: 0 0 0 9px #d5ba6d08, 0 0 24px #e9bb4820 !important;
+ }
+ html[data-militopo-theme] body .mp-package-export .mp-package-percent {
+  margin-top: 4px;
+  font-size: clamp(48px, 13vw, 70px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.055em;
+  line-height: 1;
+  color: #f2d38a !important;
+ }
+ html[data-militopo-theme] body .mp-package-export progress {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: 11px;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid #a68f53;
+  border-radius: 999px;
+  background: #11180e !important;
+  color: #e9b84e !important;
+ }
+ html[data-militopo-theme] body .mp-package-export progress::-webkit-progress-bar {
+  background: #11180e;
+  border-radius: 999px;
+ }
+ html[data-militopo-theme] body .mp-package-export progress::-webkit-progress-value {
+  background: linear-gradient(90deg, #be8f37, #efd18a);
+  border-radius: 999px;
+ }
+ html[data-militopo-theme] body .mp-package-export progress::-moz-progress-bar {
+  background: linear-gradient(90deg, #be8f37, #efd18a);
+  border-radius: 999px;
+ }
+ html[data-militopo-theme] body .mp-package-export.is-complete {
+  border-color: #c7c58a !important;
+ }
+ html[data-militopo-theme] body .mp-package-export.is-error {
+  border-color: #c08070 !important;
+ }
+ html[data-militopo-theme] body .mp-package-export.is-error [role="status"] {
+  color: #f3beb1 !important;
+ }
+ html[data-militopo-theme] body .mp-package-export button {
+  background: var(--field-gold) !important;
+  color: #201b0d !important;
+  border: 1px solid #e9ce8a !important;
+  font-size: 13px;
+  line-height: 1.45;
+ }
+ @media (max-height: 500px) and (orientation: landscape) {
+  html[data-militopo-theme] body .mp-package-export {
+   gap: 9px;
+   padding: 22px;
+  }
+  html[data-militopo-theme] body .mp-package-export .mp-package-spinner {
+   width: 38px;
+   height: 38px;
+  }
+  html[data-militopo-theme] body .mp-package-export .mp-package-percent {
+   font-size: 44px;
   }
  }
 }
