@@ -1,9 +1,20 @@
 <!DOCTYPE html>
 <html data-militopo-theme="tactical-gold" lang="es" style="background:#0a0e0a;">
 <head>
-<link rel="preload" as="style" href="css/tactical-gold.css?v=2.0.51" media="screen" fetchpriority="high">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+<!-- First paint matches the transition before the external controller arrives. -->
+<script>document.documentElement.classList.add('mp-entry-pending');</script>
+<style>
+html.mp-entry-pending::before{content:"";position:fixed;inset:-1%;z-index:2147483600;pointer-events:none;background:#07110B url("assets/transition/militopo-landscape.webp") center/cover no-repeat;filter:hue-rotate(-18deg) sepia(.65) saturate(1.15)}
+@media(orientation:portrait){html.mp-entry-pending::before{background-image:url("assets/transition/militopo-portrait.webp")}}
+</style>
+<link rel="preload" as="image" href="assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
+<link rel="preload" as="image" href="assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
+
+<link rel="preload" as="style" href="css/tactical-gold.css?v=2.0.52" media="screen" fetchpriority="high">
+    
+    
     <title>MILITOPO | Sistema de Recorridos Topográficos</title>
     <meta name="theme-color" content="#08140D">
     <meta name="color-scheme" content="dark">
@@ -69,11 +80,9 @@
     <script defer src="js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928"></script>
     <script defer src="js/v2/live/runner-controls-v2.js?v=v2-k3a-discard-race-guard-20261001"></script>
     <script defer src="js/v2/live/runner-race-v2.js?v=v2-f29-result-recovery-20261031"></script>
-<link rel="preload" as="image" href="assets/transition/militopo-portrait.webp" media="(orientation: portrait)">
-<link rel="preload" as="image" href="assets/transition/militopo-landscape.webp" media="(orientation: landscape)">
-<link rel="stylesheet" href="css/premium-transition.css?v=2.0.45">
-<script src="js/v2/ui/premium-transition.js?v=2.0.40"></script>
-<link rel="stylesheet" href="css/tactical-gold.css?v=2.0.51" media="screen">
+<link rel="stylesheet" href="css/premium-transition.css?v=2.0.52">
+<script src="js/v2/ui/premium-transition.js?v=2.0.52" onerror="document.documentElement.classList.remove('mp-entry-pending')"></script>
+<link rel="stylesheet" href="css/tactical-gold.css?v=2.0.52" media="screen">
 <script defer src="js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body class="militopo-booting" style="background:#0a0e0a;">
@@ -669,6 +678,6 @@ BRAVO 1"></textarea>
 </div>
 
 
-<script defer src="js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.51" data-sw="./sw.js"></script>
+<script defer src="js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.52" data-sw="./sw.js"></script>
 </body>
 </html>
