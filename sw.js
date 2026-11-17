@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="2.0.54";
+const BUILD_ID="2.0.55";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -39,7 +39,7 @@ async function activeRaceUpdateLock(){
 
 /* Rutas EXACTAS que carga index.html o sus imports directos. No mezclar queries de otras fases. */
 const APP_SHELL=[
-  "./css/tactical-gold.css?v=2.0.52",
+  "./css/tactical-gold.css?v=2.0.55",
   "./js/v2/ui/tactical-gold.js?v=2.0.50",
   "./assets/tactical-gold/terrain-orienteer.webp",
   "./assets/tactical-gold/race-ridgeline.webp",
@@ -71,7 +71,7 @@ const APP_SHELL=[
   "./js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
   "./js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "./js/v2/auth/roles.js",
-  "./js/v2/auth/auth-ui.css?v=2.0.46",
+  "./js/v2/auth/auth-ui.css?v=2.0.55",
   "./js/v2/data/classification-export.js?v=2.0.39",
   "./js/v2/auth/auth-ui.js?v=2.0.47",
   "./js/v2/data/invitation-inbox.js?v=v2-r5e4-rechazo-servidor-20261006",
