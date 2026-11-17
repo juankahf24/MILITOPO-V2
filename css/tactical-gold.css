@@ -957,7 +957,19 @@ html[data-militopo-theme="tactical-gold"] :where(body) #rhPersonalProfile .mp-pe
 html[data-militopo-theme="tactical-gold"] :where(body) #rhPersonalProfile .mp-personal dt{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #rhPersonalProfile .mp-personal>button{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
 /* js/v2/profile/profile-photo-ui.js */
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-photo-ui{background:var(--tg-material-surface-deep)!important;color:var(--tg-text)!important}
+html[data-militopo-theme="tactical-gold"] :where(body) .m2-photo-ui{
+  --photo-space-y:max(12px,env(safe-area-inset-top),env(safe-area-inset-bottom));
+  --photo-space-x:max(10px,env(safe-area-inset-left),env(safe-area-inset-right));
+  align-items:center;
+  padding:var(--photo-space-y) var(--photo-space-x);
+  background:var(--tg-material-surface-deep)!important;color:var(--tg-text)!important
+}
+html[data-militopo-theme="tactical-gold"] body .m2-photo-ui .m2-photo-sheet{
+  max-height:calc(100dvh - 2 * var(--photo-space-y));
+  overflow:auto;
+  overscroll-behavior:contain;
+  border-radius:22px
+}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-photo-sheet{border:1px solid var(--tg-line)!important;background:linear-gradient(165deg,var(--tg-surface),var(--tg-surface-deep))!important;box-shadow:0 30px 90px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-photo-head{border-bottom:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-photo-head small{color:var(--tg-gold-light)!important}
@@ -2907,7 +2919,7 @@ html[data-militopo-theme="tactical-gold"] :where(body) .rank-line b{color:var(--
 html[data-militopo-theme="tactical-gold"] :where(body) .history-filters button{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface)!important;color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .history-filters button.is-active{background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important;border-color:var(--tg-line)!important;box-shadow:0 6px 14px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .history-filters button span{background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .history-filters button.is-active span{background:var(--tg-material-surface)!important}
+html[data-militopo-theme="tactical-gold"] :where(body) .history-filters button.is-active span{background:#19180e!important;color:#f5df9d!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .detail-state small,html[data-militopo-theme="tactical-gold"] :where(body) .detail-general small{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .detail-general .detail-rank{color:var(--tg-gold-light)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .profile-tabs button{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface)!important;color:var(--tg-muted)!important}
@@ -3586,7 +3598,7 @@ html[data-militopo-theme="tactical-gold"] :where(body) :is(.btn,.mpp-btn,.mpp-r3
 html[data-militopo-theme="tactical-gold"] :where(body) :is(.btn.primary,.btn.green,.btn.gold,.btn.orange,.mpp-r3-btn.is-primary,.mpb-btn.is-primary,.mpp-btn.primary,.mpp-btn.is-primary,.r1-nav-btn.is-primary,.hero-btn,.m2-auth-submit,.m2-auth-primary,.militopo-confirm-ok,.mor-organizer-summary-go,.mor-runner-return) {background:linear-gradient(145deg,#EBD193,#EDB047)!important;color:#0A1009!important;border-color:#EBD193!important;text-shadow:none!important;box-shadow:inset 0 1px 0 #fff7,0 5px 16px #0003!important}
 html[data-militopo-theme="tactical-gold"] :where(body) :is(.btn.red,.btn.danger,.is-danger,.militopo-confirm-ok.is-danger) {background:#371F20!important;color:#F5A29A!important;border-color:#b468615e!important}
 html[data-militopo-theme="tactical-gold"] :where(body) :is(.runner-tabs,.race-tabs,.profile-tabs,.mpp-r3-tabs,.mpb-steps,.m2-auth-tabs) {background:#0b1009bd!important;border:1px solid var(--tg-line)!important;border-radius:18px;padding:5px;gap:6px}
-html[data-militopo-theme="tactical-gold"] :where(body) :is(.runner-tabs,.race-tabs,.profile-tabs,.mpp-r3-tabs,.mpb-steps,.m2-auth-tabs) :is(button.is-active,button.active,button[aria-selected="true"]) {background:linear-gradient(135deg,#EBD193,#D8B767)!important;color:#0A1009!important;border-color:#EBD193!important;box-shadow:inset 0 1px 0 #fff7,0 3px 10px #0004!important}
+html[data-militopo-theme="tactical-gold"] :where(body) :is(.runner-tabs,.race-tabs,.history-filters,.profile-tabs,.mpp-r3-tabs,.mpb-steps,.m2-auth-tabs) :is(button.is-active,button.active,button[aria-selected="true"]) {background:linear-gradient(135deg,#EBD193,#D8B767)!important;color:#0A1009!important;border-color:#EBD193!important;box-shadow:inset 0 1px 0 #fff7,0 3px 10px #0004!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .runner-home {gap:12px;max-width:900px}
 html[data-militopo-theme="tactical-gold"] :where(body) .runner-tabs button {min-height:60px;font-size:12px;gap:6px}
 html[data-militopo-theme="tactical-gold"] :where(body) .runner-tabs button svg {width:25px;height:25px;stroke:currentColor!important;filter:none!important}
@@ -3706,10 +3718,10 @@ html[data-militopo-theme="tactical-gold"] body :is(.mpb-field label,.mpb-field>s
  html[data-militopo-theme] :where(body) .tg-header :is(.mp-power-trigger,#mppPowerBtn,#rhPowerBtn) {color:#df8773!important;background:#12180c66!important;border-color:#946948!important}
  html[data-militopo-theme] :where(body) .tg-header :is(.mor-runner-return,[data-mpp-action="mode-choice"]) {background:var(--field-gold)!important;color:#201b0a!important}
  html[data-militopo-theme] :where(body) [data-runner-panel="home"]>.panel-shell {padding:0!important;background:none!important;border:0!important;box-shadow:none!important}
- html[data-militopo-theme] :where(body) .runner-tabs {border:var(--field-rim)!important;background:#090e09!important;padding:4px!important;gap:4px!important}
- html[data-militopo-theme] :where(body) .runner-tabs button {background:var(--field-card)!important;color:#eee5c8!important;border:1px solid #7c7554!important;box-shadow:var(--field-depth)!important;min-height:51px!important}
+ html[data-militopo-theme] :where(body) .runner-tabs {border:var(--field-rim)!important;background:#090e09!important;padding:3px!important;gap:4px!important;border-radius:15px}
+ html[data-militopo-theme] :where(body) .runner-tabs button {background:var(--field-card)!important;color:#eee5c8!important;border:1px solid #7c7554!important;box-shadow:var(--field-depth)!important;min-height:44px!important;padding-block:3px;gap:2px}
  html[data-militopo-theme] :where(body) .runner-tabs button.is-active {background:linear-gradient(130deg,#f2db9f,#d8b875)!important;color:#181a10!important;border-color:#f2dba3!important}
- html[data-militopo-theme] :where(body) .runner-tabs .runner-nav-art {width:23px!important;height:23px!important;stroke:currentColor!important;stroke-width:1.8!important}
+ html[data-militopo-theme] :where(body) .runner-tabs .runner-nav-art {width:20px!important;height:20px!important;stroke:currentColor!important;stroke-width:1.8!important}
  html[data-militopo-theme] :where(body) :is(.dashboard-hero,.mpp-r3-current) {
   background:linear-gradient(90deg,#10170df2 0%,#182013bf 37%,#1820131a 85%),
    url('../assets/tactical-gold/race-ridgeline.webp') center 58%/cover no-repeat,#202819!important;
