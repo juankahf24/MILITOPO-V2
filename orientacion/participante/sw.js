@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.46";
+const BUILD_ID="2.0.47";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
   "../../css/premium-transition.css?v=2.0.45",
@@ -34,7 +34,7 @@ const APP_SHELL=[
   "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
   // Dependencias exactas de runner.html para iniciar y reanudar offline.
   "../../js/v2/auth/auth-ui.css?v=2.0.46",
-  "../../js/v2/auth/auth-ui.js?v=2.0.44",
+  "../../js/v2/auth/auth-ui.js?v=2.0.47",
   "../../js/v2/data/invitation-inbox.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/live/runner-session-v2.js?v=v2-f210-close-presence-20261031",
   "../js/live/live-phase2.js?v=v2-f231-sin-archivado-20261102",
