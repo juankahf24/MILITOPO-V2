@@ -3,7 +3,7 @@
  'use strict';if(globalThis.MILITOPO_TRANSITION)return;
  const CONFIG=Object.freeze({minimumMs:3800,enterMs:300,exitMs:400,backgroundMs:550,lettersMs:2750,timeoutMs:30000});
  const base=new URL('../../../',document.currentScript.src),KEY='militopo_transition_handoff_v1';
- let active=null,authSettled=false;const animations=new WeakMap();
+ let active=null,authSettled=false,departure=null;const animations=new WeakMap();
  const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
  const abortError=()=>Object.assign(new Error('Carga cancelada'),{name:'AbortError'});
  function delay(ms,signal){return new Promise((resolve,reject)=>{if(signal?.aborted){reject(signal.reason||abortError());return}const done=()=>{signal?.removeEventListener('abort',abort);resolve();};const timer=setTimeout(done,Math.max(0,ms)),abort=()=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);reject(signal.reason||abortError());};signal?.addEventListener('abort',abort,{once:true});});}
@@ -18,23 +18,37 @@
  const logo='<svg class="mp-mountain-mark" viewBox="0 0 440 150" aria-hidden="true"><defs><linearGradient id="mpMountainLight" x1="0" y1="0" x2="0.6" y2="1"><stop stop-color="#f1ffc8"/><stop offset="1" stop-color="#88b647"/></linearGradient></defs><path d="M3 145 111 52l37 30L223 3l94 94 25-18 95 66-98-35-22 10-94-91-72 79-41-32-72 61Z" fill="url(#mpMountainLight)"/><path d="m223 29-19 58 16-9-30 50 39-24-8 26 72 13-47-55 7 27-30-61 7 12ZM111 76l-14 41 20-12-8 24 37-21-23-13ZM342 101l-7 14 26 20-9-18 38 22Z" fill="#243e1d"/></svg>';
  function mount(startedAt=Date.now()){
   const root=document.createElement('section');root.id='mpPremiumTransition';root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');root.setAttribute('aria-label','Cargando MILITOPO');root.tabIndex=-1;
-  const elapsed=Math.max(0,Date.now()-startedAt);root.style.setProperty('--mp-elapsed',elapsed+'ms');if(elapsed>250)root.classList.add('is-transfer');
-  root.innerHTML=`<div class="mp-transition-bg"></div><div class="mp-transition-light"></div><div class="mp-transition-content">${logo}<div class="mp-loader-brackets"><div class="mp-loader-word" aria-label="MILITOPO">${letters('MILITOPO')}</div><div class="mp-loader-line"></div><div class="mp-loader-word is-loading" aria-label="CARGANDO">${letters('CARGANDO')}</div></div><div class="mp-loader-progress" role="progressbar" aria-label="Preparando pantalla"></div><p class="mp-loader-status" role="status" aria-live="polite">Preparando tu entorno</p><div class="mp-loader-actions"></div></div>`;
+  const elapsed=Math.max(0,Date.now()-startedAt);root.style.setProperty('--mp-elapsed',elapsed+'ms');
+  const background=document.createElement('div');background.className='mp-transition-bg';
+  const light=document.createElement('div');light.className='mp-transition-light';root.append(background,light);
+  const content=document.createElement('div');content.className='mp-transition-content';
+  content.innerHTML=`${logo}<div class="mp-loader-brackets"><div class="mp-loader-word" aria-label="MILITOPO">${letters('MILITOPO')}</div><div class="mp-loader-line"></div><div class="mp-loader-word is-loading" aria-label="CARGANDO">${letters('CARGANDO')}</div></div><div class="mp-loader-progress" role="progressbar" aria-label="Preparando pantalla"></div><p class="mp-loader-status" role="status" aria-live="polite">Preparando tu entorno</p><div class="mp-loader-actions"></div>`;
+  root.appendChild(content);
   const state={root,startedAt,previous:document.activeElement,inert:new Map(),attempt:0,navigating:false};
-  // Mount outside body transforms and padding, including the organizer profile.
-  document.documentElement.appendChild(root);document.body.classList.add('mp-transition-host');document.documentElement.classList.add('mp-transition-open');
-  document.documentElement.classList.remove('mp-entry-pending');
-  const block=()=>{for(const node of document.body.children){if(node===root||state.inert.has(node))continue;state.inert.set(node,node.inert);node.inert=true;}};block();state.observer=new MutationObserver(block);state.observer.observe(document.body,{childList:true});root.focus({preventScroll:true});return state;
+  // The single loading surface is created in head, before body exists. Keep
+  // it outside body transforms and lock each app node as the parser adds it.
+  document.documentElement.appendChild(root);
+  document.documentElement.classList.add('mp-transition-open');
+  const block=()=>{
+   if(!document.body)return;
+   for(const node of document.body.children){
+    if(state.inert.has(node))continue;
+    state.inert.set(node,node.inert);node.inert=true;
+   }
+   if(!state.focused){root.focus({preventScroll:true});state.focused=true;}
+  };
+  state.observer=new MutationObserver(block);
+  state.observer.observe(document.documentElement,{childList:true,subtree:true});
+  block();return state;
  }
- function remove(state){clearTimeout(state.navigationTimer);try{sessionStorage.removeItem(KEY);}catch(_){}state.observer.disconnect();for(const [node,value]of state.inert)if(node.isConnected)node.inert=value;state.root.remove();document.documentElement.classList.remove('mp-transition-open');document.body.classList.remove('mp-transition-host');if(active===state)active=null;state.previous?.focus?.({preventScroll:true});}
+ function remove(state){clearTimeout(state.navigationTimer);try{sessionStorage.removeItem(KEY);}catch(_){}state.observer.disconnect();for(const [node,value]of state.inert)if(node.isConnected)node.inert=value;state.root.remove();document.documentElement.classList.remove('mp-transition-open');if(active===state)active=null;state.previous?.focus?.({preventScroll:true});}
  async function backdrop(signal){
   const image=new Image(),url=new URL('assets/transition/militopo-'+(matchMedia('(orientation: portrait)').matches?'portrait':'landscape')+'.webp',base).href;
   await new Promise((resolve,reject)=>{const abort=()=>{cleanup();reject(signal.reason||abortError());},cleanup=()=>{image.onload=null;image.onerror=null;signal?.removeEventListener('abort',abort);};image.onload=()=>{cleanup();resolve();};image.onerror=()=>{cleanup();reject(new Error('No se pudo cargar el fondo. Comprueba la conexión o vuelve a intentarlo.'));};signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted){abort();return;}image.src=url;if(image.complete&&image.naturalWidth){cleanup();resolve();}});
   if(image.decode)await abortable(image.decode(),signal);return url;
  }
  async function showBackdrop(state,signal){
-  const url=await backdrop(signal);if(signal.aborted||active!==state)throw signal.reason||abortError();
-  state.root.querySelector('.mp-transition-bg').style.backgroundImage=`url("${url}")`;
+  await backdrop(signal);if(signal.aborted||active!==state)throw signal.reason||abortError();
   await frame();if(signal.aborted||active!==state)throw signal.reason||abortError();state.root.classList.add('has-backdrop');await frame();
  }
  async function prepareVisual(state,signal){
@@ -57,6 +71,7 @@
   }catch(error){if(active===state&&state.attempt===generation&&!state.navigating)errorView(state,error);}finally{clearTimeout(timer);}
  }
  function run(task,{startedAt=Date.now()}={}){
+  if(departure)return Promise.resolve({ok:false,cancelled:true});
   if(active)return Promise.resolve().then(()=>task(active.controller.signal));
   const state=mount(startedAt);active=state;state.task=task;state.promise=new Promise(resolve=>state.resolve=resolve);void attempt(state);return state.promise;
  }
@@ -64,8 +79,27 @@
  async function navigate(target,{replace=false}={}){
   const url=new URL(target,location.href);if(url.origin!==location.origin)throw Error('La transición solo admite pantallas internas.');
   if(document.querySelector('#m2RaceV2.m2race-is-racing,[data-militopo-runner-active="true"]'))return false;
-  let state=active;if(state?.navigating)return false;
-  if(!state){state=mount();active=state;state.controller=new AbortController();state.resolve=()=>{};state.promise=Promise.resolve();}
+  let state=active;if(state?.navigating||departure)return false;
+  // A new document owns its loading animation. Keep the current view stable
+  // instead of displaying a first cover and replacing it again on arrival.
+  if(!state){
+   const pending={timer:null,startedAt:Date.now()};departure=pending;
+   const fail=error=>{
+    if(departure!==pending)return;
+    clearTimeout(pending.timer);departure=null;globalThis.__MILITOPO_AUTH_NAVIGATING=false;
+    const failed=mount(pending.startedAt);active=failed;failed.controller=new AbortController();
+    failed.resolve=()=>{};failed.promise=Promise.resolve();failed.task=()=>navigate(target,{replace});
+    errorView(failed,error);
+   };
+   try{
+    try{sessionStorage.setItem(KEY,JSON.stringify({to:url.pathname+url.search,startedAt:pending.startedAt}));}catch(_){}
+    globalThis.__MILITOPO_AUTH_NAVIGATING=true;
+    try{sessionStorage.setItem('militopo_v2_allow_navigation_once','1');}catch(_){}
+    pending.timer=setTimeout(()=>fail(new Error('No se pudo abrir la siguiente pantalla. Reintenta o vuelve.')),CONFIG.timeoutMs);
+    replace?location.replace(url.href):location.assign(url.href);
+   }catch(error){fail(error);}
+   return true;
+  }
   state.navigating=true;try{sessionStorage.setItem(KEY,JSON.stringify({to:url.pathname+url.search,startedAt:state.startedAt}));}catch(_){}
   try{await Promise.all([showBackdrop(state,state.controller.signal),delay(reduced()?0:CONFIG.enterMs,state.controller.signal)]);globalThis.__MILITOPO_AUTH_NAVIGATING=true;try{sessionStorage.setItem('militopo_v2_allow_navigation_once','1');}catch(_){}replace?location.replace(url.href):location.assign(url.href);
    state.navigationTimer=setTimeout(()=>{if(active===state){state.navigating=false;state.task=()=>navigate(target,{replace});errorView(state,new Error('No se pudo abrir la siguiente pantalla. Reintenta o vuelve.'));}},CONFIG.timeoutMs);
@@ -91,6 +125,7 @@
  function soft(node){if(!node||reduced()||!node.animate)return;animations.get(node)?.cancel();animations.set(node,node.animate([{opacity:.55,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:240,easing:'cubic-bezier(.2,.65,.3,1)'}));}
  globalThis.MILITOPO_TRANSITION=Object.freeze({config:CONFIG,run,navigate,waitFor,bootEntry,soft,active:()=>Boolean(active)});
  addEventListener('militopo:auth-ui-ready',()=>{authSettled=true;});
- addEventListener('pageshow',event=>{if(event.persisted&&active){clearTimeout(active.navigationTimer);active.controller.abort(abortError());const state=active;remove(state);state.resolve({ok:false,cancelled:true});}});
+ addEventListener('pagehide',()=>{clearTimeout(departure?.timer);departure=null;});
+ addEventListener('pageshow',event=>{if(event.persisted)globalThis.__MILITOPO_AUTH_NAVIGATING=false;if(event.persisted&&active){clearTimeout(active.navigationTimer);active.controller.abort(abortError());const state=active;remove(state);state.resolve({ok:false,cancelled:true});}});
  document.addEventListener('click',event=>{if(event.defaultPrevented)return;const button=event.target.closest?.('#startupOriBtn,#startupOriCard');if(!button||button.disabled||active)return;event.preventDefault();event.stopImmediatePropagation();void navigate(new URL(globalThis.MILITOPO_V2_AUTH?.role==='runner'?'orientacion/participante/':'orientacion/',base).href);},true);
 })();
