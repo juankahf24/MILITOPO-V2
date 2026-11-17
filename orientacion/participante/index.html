@@ -1,9 +1,20 @@
 <!doctype html>
 <html data-militopo-theme="tactical-gold" lang="es">
 <head>
-<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.51" media="screen" fetchpriority="high">
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- First paint matches the transition before the external controller arrives. -->
+<script>document.documentElement.classList.add('mp-entry-pending');</script>
+<style>
+html.mp-entry-pending::before{content:"";position:fixed;inset:-1%;z-index:2147483600;pointer-events:none;background:#07110B url("../../assets/transition/militopo-landscape.webp") center/cover no-repeat;filter:hue-rotate(-18deg) sepia(.65) saturate(1.15)}
+@media(orientation:portrait){html.mp-entry-pending::before{background-image:url("../../assets/transition/militopo-portrait.webp")}}
+</style>
+<link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
+<link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
+
+<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.52" media="screen" fetchpriority="high">
+  
+  
   <meta name="theme-color" content="#08140D">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -177,11 +188,9 @@
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=r9o-final-20261011">
   <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.42">
-<link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)">
-<link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)">
-<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.45">
-<script src="../../js/v2/ui/premium-transition.js?v=2.0.40"></script>
-<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.51" media="screen">
+<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.52">
+<script src="../../js/v2/ui/premium-transition.js?v=2.0.52" onerror="document.documentElement.classList.remove('mp-entry-pending')"></script>
+<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.52" media="screen">
 <script defer src="../../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body>
@@ -354,6 +363,6 @@
   </script>
   <script type="module" src="./runner-home-v4.js?v=2.0.42"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.51" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.52" data-sw="./sw.js"></script>
 </body>
 </html>
