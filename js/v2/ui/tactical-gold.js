@@ -4,7 +4,7 @@
  const script = document.currentScript;
  const logo = new URL('../../../icons/militopo-512.png', script.src).href;
  const headers = '.runner-head,.mpp-r3-header,.r6-appbar,#militopoR1Topbar,.header-clean-topografia';
- let queued = false;
+
  function text(node, value) { if (node && node.textContent !== value) node.textContent = value; }
  function paintAccount(header) {
   const row = header.querySelector('.tg-account');
@@ -18,8 +18,7 @@
   network.classList.toggle('is-offline', !navigator.onLine);
   text(network, navigator.onLine ? 'EN LÍNEA' : 'SIN CONEXIÓN');
  }
- function setup() {
-  document.querySelectorAll(headers).forEach(header => {
+ function setupHeader(header) {
    if (header.classList.contains('tg-header')) return;
    header.classList.add('tg-header');
    if (header.matches('.runner-head')) return; // Existing profile bindings are retained.
@@ -35,15 +34,21 @@
    const row = document.createElement('div');row.className = 'tg-account';
    row.innerHTML = '<strong class="tg-account-name"></strong><span class="tg-account-meta"><span class="tg-account-handle"></span><span class="tg-account-role"></span></span><span class="tg-network"></span>';
    header.append(row);paintAccount(header);
-  });
  }
- function schedule() {
-  if (queued) return;
-  queued = true;
-  requestAnimationFrame(() => { queued = false;setup(); });
+ function setup() {
+  document.querySelectorAll(headers).forEach(setupHeader);
  }
  setup();
- new MutationObserver(schedule).observe(document.body, {childList:true,subtree:true});
+ // Initialise newly inserted headers in the mutation microtask, before paint.
+ new MutationObserver(records => {
+  for (const record of records) {
+   for (const node of record.addedNodes) {
+    if (node.nodeType !== 1) continue;
+    if (node.matches(headers)) setupHeader(node);
+    else node.querySelectorAll(headers).forEach(setupHeader);
+   }
+  }
+ }).observe(document.body, {childList:true,subtree:true});
  function refresh() { setup();document.querySelectorAll('.tg-header').forEach(paintAccount); }
  addEventListener('militopo:v2-auth-ready', refresh);
  addEventListener('online', refresh);addEventListener('offline', refresh);
