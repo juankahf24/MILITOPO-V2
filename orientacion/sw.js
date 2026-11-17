@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.54";
+const BUILD_ID="2.0.55";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -7,7 +7,7 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
 
 /* Rutas EXACTAS cargadas por orientacion/index.html y js/app.js. */
 const CORE_ASSETS=[
-  "../css/tactical-gold.css?v=2.0.52",
+  "../css/tactical-gold.css?v=2.0.55",
   "../js/v2/ui/tactical-gold.js?v=2.0.50",
   "../assets/tactical-gold/terrain-orienteer.webp",
   "../assets/tactical-gold/race-ridgeline.webp",
@@ -65,7 +65,7 @@ const CORE_ASSETS=[
   "../js/v2/ui/connectivity-status.js?v=v2-j1a-connectivity-no-spam-20261001",
   "../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
   "../js/v2/auth/roles.js",
-  "../js/v2/auth/auth-ui.css?v=2.0.46",
+  "../js/v2/auth/auth-ui.css?v=2.0.55",
   "../js/v2/data/classification-export.js?v=2.0.39",
   "../js/v2/auth/auth-ui.js?v=2.0.47",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
