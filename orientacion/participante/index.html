@@ -1,6 +1,7 @@
 <!doctype html>
 <html data-militopo-theme="tactical-gold" lang="es">
 <head>
+<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.50" media="screen" fetchpriority="high">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#08140D">
@@ -180,14 +181,14 @@
 <link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)">
 <link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.45">
 <script src="../../js/v2/ui/premium-transition.js?v=2.0.40"></script>
-<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.49" media="screen">
-<script defer src="../../js/v2/ui/tactical-gold.js?v=2.0.48"></script>
+<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.50" media="screen">
+<script defer src="../../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body>
 <script>window.MILITOPO_TRANSITION?.bootEntry("runner");</script>
 
   <main class="runner-home">
-    <header class="runner-head">
+    <header class="runner-head tg-header">
       <div class="runner-logo"><img src="../../icons/militopo-512.png?v=r6a1-runner-brand-20261006" alt="MILITOPO"></div>
       <div class="brand"><h1>MILITOPO</h1></div>
       <div class="runner-header-tools"><button type="button" class="mor-runner-return" id="rhSwitchOrganizer" hidden aria-label="Cambiar al modo organizador">ORGANIZAR ↗</button><button type="button" id="rhPowerBtn" class="mp-power-trigger" aria-label="Opciones de sesión" disabled><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 3v9M6.3 5.7a9 9 0 1 0 11.4 0"/></svg></button></div>
@@ -353,6 +354,6 @@
   </script>
   <script type="module" src="./runner-home-v4.js?v=2.0.42"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.49" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.50" data-sw="./sw.js"></script>
 </body>
 </html>
