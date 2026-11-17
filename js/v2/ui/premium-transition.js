@@ -23,6 +23,7 @@
   const state={root,startedAt,previous:document.activeElement,inert:new Map(),attempt:0,navigating:false};
   // Mount outside body transforms and padding, including the organizer profile.
   document.documentElement.appendChild(root);document.body.classList.add('mp-transition-host');document.documentElement.classList.add('mp-transition-open');
+  document.documentElement.classList.remove('mp-entry-pending');
   const block=()=>{for(const node of document.body.children){if(node===root||state.inert.has(node))continue;state.inert.set(node,node.inert);node.inert=true;}};block();state.observer=new MutationObserver(block);state.observer.observe(document.body,{childList:true});root.focus({preventScroll:true});return state;
  }
  function remove(state){clearTimeout(state.navigationTimer);try{sessionStorage.removeItem(KEY);}catch(_){}state.observer.disconnect();for(const [node,value]of state.inert)if(node.isConnected)node.inert=value;state.root.remove();document.documentElement.classList.remove('mp-transition-open');document.body.classList.remove('mp-transition-host');if(active===state)active=null;state.previous?.focus?.({preventScroll:true});}
