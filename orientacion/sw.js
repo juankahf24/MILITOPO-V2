@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.49";
+const BUILD_ID="2.0.50";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -7,9 +7,10 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
 
 /* Rutas EXACTAS cargadas por orientacion/index.html y js/app.js. */
 const CORE_ASSETS=[
-  "../css/tactical-gold.css?v=2.0.49",
-  "../js/v2/ui/tactical-gold.js?v=2.0.48",
+  "../css/tactical-gold.css?v=2.0.50",
+  "../js/v2/ui/tactical-gold.js?v=2.0.50",
   "../assets/tactical-gold/terrain-orienteer.webp",
+  "../assets/tactical-gold/race-ridgeline.webp",
   "../assets/tactical-gold/field-contours.webp",
   "../css/premium-transition.css?v=2.0.45",
   "../js/v2/ui/premium-transition.js?v=2.0.40",
