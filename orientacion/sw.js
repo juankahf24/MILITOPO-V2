@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.46";
+const BUILD_ID="2.0.47";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -62,7 +62,7 @@ const CORE_ASSETS=[
   "../js/v2/auth/roles.js",
   "../js/v2/auth/auth-ui.css?v=2.0.46",
   "../js/v2/data/classification-export.js?v=2.0.39",
-  "../js/v2/auth/auth-ui.js?v=2.0.44",
+  "../js/v2/auth/auth-ui.js?v=2.0.47",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
   "../js/v2/data/invitations.js?v=2.0.26",
   "../js/v2/data/participants-admin.js?v=militopo-f231-sin-archivado-20261102",
