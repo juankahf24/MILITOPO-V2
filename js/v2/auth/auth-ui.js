@@ -26,14 +26,14 @@ import {
 import { normalizeRole } from "./roles.js";
 import { openProfilePhotoMenu } from "../profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
-// Complete these public controller details before opening registration to the public.
-const LEGAL = Object.freeze({version:"2026-11-14", controller:"", contact:"", address:""});
-const legalReady = () => Boolean(LEGAL.controller.trim() && LEGAL.contact.trim() && LEGAL.address.trim());
+// Public controller details supplied by the MILITOPO owner.
+const LEGAL = Object.freeze({version:"2026-11-14", controller:"Juan Carlos Hurtado Fernández", contact:"Juanka.hf.24@gmail.com"});
+const legalReady = () => Boolean(LEGAL.controller.trim() && LEGAL.contact.trim());
 const legalEscape = value => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function legalHtml(){return `<div id="m2AuthLegalField" hidden>
 <p class="m2-auth-legal-summary">Responsable: ${legalEscape(LEGAL.controller||"pendiente de identificar")}. Usamos tus datos para gestionar tu cuenta y las carreras en las que participas. Puedes ejercer tus derechos de protección de datos en ${legalEscape(LEGAL.contact||"el contacto pendiente de completar")}. Consulta los detalles antes de aceptar.</p>
 <details class="m2-auth-legal"><summary>Condiciones de uso y privacidad · ${LEGAL.version}</summary>
-<p><b>Responsable:</b> ${legalEscape(LEGAL.controller||"Pendiente de identificar por el titular de MILITOPO")}. <b>Contacto:</b> ${legalEscape(LEGAL.contact||"Pendiente de completar")}. <b>Dirección:</b> ${legalEscape(LEGAL.address||"Pendiente de completar")}.</p>
+<p><b>Responsable:</b> ${legalEscape(LEGAL.controller||"Pendiente de identificar por el titular de MILITOPO")}. <b>Contacto:</b> ${legalEscape(LEGAL.contact||"Pendiente de completar")}.</p>
 <p><b>Cuenta y uso:</b> facilita datos veraces, protege tu contraseña y no compartas cuentas ni accedas a datos ajenos. No introduzcas información clasificada ni datos que no tengas autorización para tratar. La aplicación apoya la orientación y la gestión deportiva; respeta las instrucciones del organizador y las condiciones del terreno.</p>
 <p><b>Datos y finalidad:</b> nombre, usuario y correo para crear y gestionar la cuenta; credenciales gestionadas por Firebase Authentication. Según las funciones utilizadas, se tratan foto y datos de perfil, inscripciones, tiempos, controles, resultados y ubicación/track de carrera para organizar y registrar la actividad. Los permisos de ubicación y cámara se solicitan cuando se necesitan.</p>
 <p><b>Base jurídica:</b> ejecución del servicio solicitado para la cuenta y la participación; consentimiento para funciones opcionales que lo requieran y cumplimiento de obligaciones legales cuando proceda. La aceptación no autoriza publicidad.</p>
