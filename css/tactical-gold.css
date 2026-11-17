@@ -3696,7 +3696,7 @@ html[data-militopo-theme="tactical-gold"] body :is(.mpb-field label,.mpb-field>s
  }
  html[data-militopo-theme] body::before {background:none!important}
  html[data-militopo-theme] :where(body) .mor-mode-panel {
-  background:var(--tg-contours) right 18%/410px repeat,linear-gradient(100deg,#11190de6,#202814ad 45%,#5a502b4a),var(--tg-art) center 52%/cover!important;
+  background:linear-gradient(110deg,#11190dba,#11190d30),var(--tg-art) right center/cover no-repeat!important;
   border:var(--field-rim)!important;box-shadow:var(--field-depth)!important;
  }
  html[data-militopo-theme] :where(body) :is(.runner-head,.mpp-r3-header).tg-header {min-height:0!important;padding:11px 14px!important;gap:8px 10px!important;border-radius:19px!important}
@@ -3939,5 +3939,19 @@ html[data-militopo-theme="tactical-gold"] body :is(.mpb-field label,.mpb-field>s
   html[data-militopo-theme] body .mp-package-export .mp-package-percent {
    font-size: 44px;
   }
+ }
+}
+
+/* The mode selector uses one photograph without a contour overlay. */
+@layer fieldFinish {
+ html[data-militopo-theme] body #militopoOrientationModes {
+  background: #0b120a !important;
+ }
+ html[data-militopo-theme] body #militopoOrientationModes .mor-mode-panel {
+  background: linear-gradient(110deg, #11190dc4, #11190d3d), url('../assets/tactical-gold/terrain-orienteer.webp') 72% center / cover no-repeat !important;
+ }
+ html[data-militopo-theme] body #militopoOrientationModes .mor-mode-panel::before,
+ html[data-militopo-theme] body #militopoOrientationModes .mor-mode-panel::after {
+  content: none !important;
  }
 }

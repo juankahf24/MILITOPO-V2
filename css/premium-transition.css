@@ -1,6 +1,6 @@
 /* MILITOPO · transición única. Diseño independiente de las vistas de la aplicación. */
 #militopoV2AccountBadge{display:none!important}
-#mpPremiumTransition{position:fixed;inset:0;z-index:2147483600;isolation:isolate;overflow:hidden;background:#07110B;color:#F5F1E6;display:grid;place-items:center;opacity:1;box-sizing:border-box;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);font-family:Arial,Helvetica,system-ui,sans-serif;animation:mp-transition-in .3s ease both;--mp-elapsed:0ms}
+#mpPremiumTransition{position:fixed;inset:0;z-index:2147483600;isolation:isolate;overflow:hidden;background:#07110B;color:#F5F1E6;display:grid;place-items:center;opacity:1;box-sizing:border-box;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);font-family:Arial,Helvetica,system-ui,sans-serif;animation:none;--mp-elapsed:0ms}
 #mpPremiumTransition.is-transfer{animation:none}
 #mpPremiumTransition *{box-sizing:border-box;text-shadow:none}
 #mpPremiumTransition .mp-transition-bg{position:absolute;inset:-1%;z-index:-3;background:#07110B center/cover no-repeat;animation:mp-landscape-breathe 18s ease-in-out infinite alternate;animation-play-state:paused;will-change:transform}
@@ -25,7 +25,6 @@
 #mpPremiumTransition.has-error .mp-loader-progress:after{animation-play-state:paused}
 #mpPremiumTransition.has-error .mp-loader-status{color:#F3D787!important}
 html.mp-transition-open{overflow:hidden!important}html.mp-transition-open body{overflow:hidden!important}
-@keyframes mp-transition-in{from{opacity:0}to{opacity:1}}
 @keyframes mp-paired-letter{from{opacity:0;transform:translateY(8px);filter:blur(2px)}to{opacity:1;transform:translateY(0);filter:blur(0);text-shadow:0 0 15px #F3D78722}}
 @keyframes mp-real-activity{0%{transform:translateX(-110%)}100%{transform:translateX(340%)}}
 @keyframes mp-line-shine{0%,100%{left:8%;opacity:.25}50%{left:78%;opacity:.9}}
@@ -37,10 +36,12 @@ html.mp-transition-open{overflow:hidden!important}html.mp-transition-open body{o
 
 body.mp-transition-host{opacity:1!important}
 
-#mpPremiumTransition .mp-transition-bg{opacity:0;transition:opacity .55s ease}
+/* The cover is opaque from its first frame. Decoding still gates the letters,
+   while the photograph is already the same one used by the startup cover. */
+#mpPremiumTransition .mp-transition-bg{opacity:1;background-image:url('../assets/transition/militopo-landscape.webp')}
+@media(orientation:portrait){#mpPremiumTransition .mp-transition-bg{background-image:url('../assets/transition/militopo-portrait.webp')}}
 #mpPremiumTransition.has-backdrop .mp-transition-bg{opacity:1}
 
-@media(prefers-reduced-motion:reduce){#mpPremiumTransition .mp-transition-bg{transition:none}}
 
 /* Primero se decodifica y presenta el fondo; después comienza la pareja de letras. */
 #mpPremiumTransition .mp-transition-content{opacity:0;visibility:hidden;transition:opacity .3s ease}
