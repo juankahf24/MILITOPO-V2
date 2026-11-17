@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<!-- First paint matches the transition before the external controller arrives. -->
-<script>document.documentElement.classList.add('mp-entry-pending');</script>
-<style>
-html.mp-entry-pending::before{content:"";position:fixed;inset:-1%;z-index:2147483600;pointer-events:none;background:#07110B url("../../assets/transition/militopo-landscape.webp") center/cover no-repeat;filter:hue-rotate(-18deg) sepia(.65) saturate(1.15)}
-@media(orientation:portrait){html.mp-entry-pending::before{background-image:url("../../assets/transition/militopo-portrait.webp")}}
-</style>
 <link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
 <link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
+<!-- One transition controller starts before the application is parsed. -->
+<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.54">
+<script src="../../js/v2/ui/premium-transition.js?v=2.0.54"></script>
+<script>window.MILITOPO_TRANSITION?.bootEntry("runner");</script>
+
+
+
 
 <link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.52" media="screen" fetchpriority="high">
   
@@ -188,15 +189,11 @@ html.mp-entry-pending::before{content:"";position:fixed;inset:-1%;z-index:214748
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=r9o-final-20261011">
   <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.42">
-<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.52">
-<script src="../../js/v2/ui/premium-transition.js?v=2.0.52" onerror="document.documentElement.classList.remove('mp-entry-pending')"></script>
 <link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.52" media="screen">
 <script defer src="../../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body>
-<script>window.MILITOPO_TRANSITION?.bootEntry("runner");</script>
-
-  <main class="runner-home">
+<main class="runner-home">
     <header class="runner-head tg-header">
       <div class="runner-logo"><img src="../../icons/militopo-512.png?v=r6a1-runner-brand-20261006" alt="MILITOPO"></div>
       <div class="brand"><h1>MILITOPO</h1></div>
@@ -363,6 +360,6 @@ html.mp-entry-pending::before{content:"";position:fixed;inset:-1%;z-index:214748
   </script>
   <script type="module" src="./runner-home-v4.js?v=2.0.42"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.52" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.54" data-sw="./sw.js"></script>
 </body>
 </html>
