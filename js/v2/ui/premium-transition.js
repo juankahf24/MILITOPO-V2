@@ -19,16 +19,21 @@
  function mount(startedAt=Date.now(), fadeIn=false){
   const root=document.createElement('section');root.id='mpPremiumTransition';if(fadeIn)root.style.opacity='0';root.setAttribute('role','dialog');root.setAttribute('aria-modal','true');root.setAttribute('aria-label','Cargando MILITOPO');root.tabIndex=-1;
   const elapsed=Math.max(0,Date.now()-startedAt);root.style.setProperty('--mp-elapsed',elapsed+'ms');
-  const background=document.createElement('div');background.className='mp-transition-bg';
+  const background=document.createElement('picture');background.className='mp-transition-bg';
+  const portrait=document.createElement('source');portrait.media='(orientation: portrait)';
+  portrait.srcset=new URL('assets/transition/militopo-portrait.webp',base).href;
+  const image=document.createElement('img');image.alt='';image.fetchPriority='high';
+  background.append(portrait,image);
+  image.src=new URL('assets/transition/militopo-landscape.webp',base).href;
   const light=document.createElement('div');light.className='mp-transition-light';root.append(background,light);
   const content=document.createElement('div');content.className='mp-transition-content';
   content.innerHTML=`${logo}<div class="mp-loader-brackets"><div class="mp-loader-word" aria-label="MILITOPO">${letters('MILITOPO')}</div><div class="mp-loader-line"></div><div class="mp-loader-word is-loading" aria-label="CARGANDO">${letters('CARGANDO')}</div></div><div class="mp-loader-progress" role="progressbar" aria-label="Preparando pantalla"></div><p class="mp-loader-status" role="status" aria-live="polite">Preparando tu entorno</p><div class="mp-loader-actions"></div>`;
   root.appendChild(content);
-  const state={root,startedAt,previous:document.activeElement,inert:new Map(),attempt:0,navigating:false};
+  const state={root,image,startedAt,previous:document.activeElement,inert:new Map(),attempt:0,navigating:false};
   // The single loading surface is created in head, before body exists. Keep
   // it outside body transforms and lock each app node as the parser adds it.
   document.documentElement.appendChild(root);
-  document.documentElement.classList.add('mp-transition-open');
+  root.addEventListener('wheel',event=>event.preventDefault(),{passive:false});
   const block=()=>{
    if(!document.body)return;
    if(state.body!==document.body){
@@ -46,14 +51,24 @@
   state.observer.observe(document.documentElement,{childList:true});
   block();return state;
  }
- function remove(state){clearTimeout(state.navigationTimer);try{sessionStorage.removeItem(KEY);}catch(_){}state.observer.disconnect();for(const [node,value]of state.inert)if(node.isConnected)node.inert=value;state.root.remove();document.documentElement.classList.remove('mp-transition-open');if(active===state)active=null;state.previous?.focus?.({preventScroll:true});}
- async function backdrop(signal){
-  const image=new Image(),url=new URL('assets/transition/militopo-'+(matchMedia('(orientation: portrait)').matches?'portrait':'landscape')+'.webp',base).href;
-  await new Promise((resolve,reject)=>{const abort=()=>{cleanup();reject(signal.reason||abortError());},cleanup=()=>{image.onload=null;image.onerror=null;signal?.removeEventListener('abort',abort);};image.onload=()=>{cleanup();resolve();};image.onerror=()=>{cleanup();reject(new Error('No se pudo cargar el fondo. Comprueba la conexión o vuelve a intentarlo.'));};signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted){abort();return;}image.src=url;if(image.complete&&image.naturalWidth){cleanup();resolve();}});
-  if(image.decode)await abortable(image.decode(),signal);return url;
- }
+ function remove(state){clearTimeout(state.navigationTimer);try{sessionStorage.removeItem(KEY);}catch(_){}state.observer.disconnect();for(const [node,value]of state.inert)if(node.isConnected)node.inert=value;state.root.remove();if(active===state)active=null;state.previous?.focus?.({preventScroll:true});}
  async function reveal(state,signal){
-  await backdrop(signal);
+  // Decode the responsive image actually painted by this document.
+  const image=state.image;
+  if(image.complete&&!image.naturalWidth)image.src=image.src;
+  if(image.decode){
+   try{await abortable(image.decode(),signal);}
+   catch(error){
+    if(signal.aborted)throw error;
+    await abortable(image.decode(),signal);
+   }
+  }else if(!image.complete){
+   await abortable(new Promise((resolve,reject)=>{
+    image.addEventListener('load',resolve,{once:true});
+    image.addEventListener('error',reject,{once:true});
+   }),signal);
+  }
+  if(!image.naturalWidth)throw new Error('No se pudo cargar el paisaje de MILITOPO.');
   if(signal.aborted||active!==state)throw signal.reason||abortError();
   if(state.root.style.opacity==='0'){
    const animation=!reduced()&&state.root.animate?.([{opacity:0},{opacity:1}],{duration:CONFIG.enterMs,easing:'ease-out'});
@@ -139,8 +154,14 @@
    return waitFor(()=>{if(document.body.classList.contains('militopo-booting'))return null;const visible=node=>node&&!node.hidden&&getComputedStyle(node).display!=='none'&&getComputedStyle(node).visibility!=='hidden';const access=document.getElementById('militopoV2AuthOverlay');if(visible(access))return access;const selector=document.getElementById('startupModeOverlay'),button=document.getElementById('startupOriBtn');if(visible(selector)&&button&&!button.disabled)return selector;const runner=document.getElementById('m2RunnerDashboard');return visible(runner)?runner:null;},signal);
   }
   
-  const auth=globalThis.MILITOPO_V2_AUTH;
-  if(!auth?.uid||!auth.emailVerified)return document.getElementById('militopoV2AuthOverlay');
+  const destination=await waitFor(()=>{
+   const form=document.getElementById('militopoV2AuthOverlay');
+   if(form&&!form.hidden)return form;
+   const session=globalThis.MILITOPO_V2_AUTH;
+   return session?.emailVerified&&session.uid?session:null;
+  },signal);
+  if(destination.id==='militopoV2AuthOverlay')return destination;
+  const auth=destination;
   if(!['organizer','super_admin'].includes(auth.role)){await navigate(new URL('orientacion/participante/',base).href,{replace:true});return null;}
   const target=await waitFor(()=>{const home=globalThis.MILITOPO_PREMIUM?.get?.('organizer-home');const choice=document.getElementById('militopoOrientationModes');return home?.isOpen?.()?home:choice&&!choice.hidden?choice:null;},signal);
   if(target.prepare)return target.prepare();return target;
