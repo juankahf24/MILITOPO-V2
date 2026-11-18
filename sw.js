@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="2.0.60";
+const BUILD_ID="2.0.61";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -45,8 +45,8 @@ const APP_SHELL=[
   "./assets/tactical-gold/race-ridgeline.webp",
   "./assets/tactical-gold/field-contours.webp",
 
-  "./css/premium-transition.css?v=2.0.60",
-  "./js/v2/ui/premium-transition.js?v=2.0.60",
+  "./css/premium-transition.css?v=2.0.61",
+  "./js/v2/ui/premium-transition.js?v=2.0.61",
   "./assets/transition/militopo-portrait.webp",
   "./assets/transition/militopo-landscape.webp",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
@@ -73,7 +73,9 @@ const APP_SHELL=[
   "./js/v2/auth/roles.js",
   "./js/v2/auth/auth-ui.css?v=2.0.55",
   "./js/v2/data/classification-export.js?v=2.0.39",
-  "./js/v2/auth/auth-ui.js?v=2.0.59",
+  "./js/v2/auth/end-session.js",
+  "./acceso.html",
+  "./js/v2/auth/auth-ui.js?v=2.0.61",
   "./js/v2/data/invitation-inbox.js?v=v2-r5e4-rechazo-servidor-20261006",
   "./js/v2/maps/race-plan-history.js?v=v2-h4-1-runner-map-parity-20260925",
   "./js/v2/live/runner-dashboard.js?v=v2-f231-sin-archivado-20261102",
