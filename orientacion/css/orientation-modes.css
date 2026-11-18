@@ -65,7 +65,8 @@ body.mor-choice-open{overflow:hidden!important}
 @media(max-height:680px) and (min-width:641px){#militopoOrientationModes{place-items:start center}.mor-mode-panel{padding:23px;gap:18px}.mor-choice-symbol{width:90px;height:90px}#militopoOrientationModes .mor-mode-choice{gap:12px;padding:17px}}
 @media(prefers-reduced-motion:reduce){#militopoOrientationModes .mor-mode-choice{transition:none;transform:none}}
 /* The existing organizer workspace remains mounted and isolated. */
-body.mor-organizer-shell{padding-top:0!important;overflow:hidden!important}
+body.mor-organizer-shell{padding-top:0!important}
+body.mor-organizer-shell:not(.militopo-premium-home-open){overflow:hidden!important}
 body.mor-organizer-shell>.app{pointer-events:none!important}
 body.mor-organizer-shell::after{content:"";position:fixed;inset:0;z-index:99950;background:#11271a;pointer-events:none}
 body.mor-organizer-shell #militopoR1Topbar,body.mor-organizer-shell .r1-compass,body.mor-organizer-shell .r1-map-dock,body.mor-organizer-shell .r1-layer-pop,body.mor-organizer-shell #r1More{display:none!important}
