@@ -313,7 +313,7 @@
       </main>
       <footer class="m2race-bottom">
         <section class="m2race-gpsbar"><div class="m2race-gps-icon">◎</div><div><div class="m2race-gps-title">GPS OBLIGATORIO</div><div id="m2raceGpsText" class="m2race-gps-text">Actívalo antes de iniciar el recorrido.</div></div><span id="m2raceGpsPill" class="m2race-gps-pill">SIN ACTIVAR</span><button id="m2raceGpsActivate" class="m2race-gps-btn" type="button">ACTIVAR GPS</button></section>
-        <div class="m2race-actions-row"><button id="m2raceRouteToggle" class="m2race-route-toggle" type="button">VER RECORRIDO</button><section id="m2raceActionCard"><button id="m2raceStart" class="m2race-action m2race-start" type="button" disabled>ACTIVA GPS PARA INICIAR</button><button id="m2raceFinish" class="m2race-action m2race-finish" type="button" hidden>TERMINAR CARRERA</button><div id="m2raceConfirm" class="m2race-confirm"><p>¿Quieres terminar la carrera ahora? Si faltan balizas o LLEGADA, el resultado quedará INCOMPLETO.</p><div class="m2race-confirm-actions"><button id="m2raceCancelFinish" class="m2race-mini" type="button">SEGUIR</button><button id="m2raceConfirmFinish" class="m2race-mini primary" type="button">SÍ · TERMINAR</button></div></div><div id="m2raceActionNote" class="m2race-note m2race-action-note"></div></section></div>
+        <div class="m2race-actions-row"><button id="m2raceRouteToggle" class="m2race-route-toggle" type="button">VER RECORRIDO</button><section id="m2raceActionCard"><button id="m2raceStart" class="m2race-action m2race-start" type="button" disabled>ACTIVA GPS PARA INICIAR</button><button id="m2raceFinish" class="m2race-action m2race-finish" type="button" hidden>TERMINAR CARRERA</button><div id="m2raceConfirm" class="m2race-confirm"><p>¿Quieres terminar la carrera ahora? Sin validar LLEGADA se registrará un ABANDONO. Para terminar con penalización, escanea el QR de LLEGADA.</p><div class="m2race-confirm-actions"><button id="m2raceCancelFinish" class="m2race-mini" type="button">SEGUIR</button><button id="m2raceConfirmFinish" class="m2race-mini primary" type="button">SÍ · TERMINAR</button></div></div><div id="m2raceActionNote" class="m2race-note m2race-action-note"></div></section></div>
         <div class="m2race-system-strip"><div class="m2race-system-chip"><span id="m2raceTrackPill" class="m2race-track-pill">LISTO</span><strong>TRACK</strong><span id="m2raceTrackText" class="m2race-track-text">Listo</span></div><div class="m2race-system-chip"><span id="m2raceResiliencePill" class="m2race-resilience-pill">PROTEGIDO</span><strong>OFFLINE</strong><span id="m2raceResilienceText" class="m2race-resilience-text">Protegido</span></div><div class="m2race-system-chip"><div class="m2race-sync"><span class="m2race-sync-dot"></span><div><strong id="m2raceSyncTitle">SINCRONIZANDO</strong><br><span id="m2raceSyncText">Live V2</span></div></div></div></div>
       </footer>
       <section id="m2raceRouteCard" class="m2race-route-sheet" hidden><div class="m2race-route-sheet-head"><div class="m2race-route-title">🧭 MI RECORRIDO ASIGNADO</div><button id="m2raceRouteClose" class="m2race-route-close" type="button">×</button></div><div class="m2race-route-grid"><div class="m2race-route-stat"><span>DISTANCIA</span><strong id="m2raceRouteDistance">—</strong></div><div class="m2race-route-stat"><span>BALIZAS</span><strong id="m2raceRouteControls">—</strong></div><div class="m2race-route-stat"><span>DESNIVEL +</span><strong id="m2raceRouteClimb">—</strong></div><div class="m2race-route-stat"><span>DIFICULTAD</span><strong id="m2raceRouteDifficulty">—</strong></div></div><div id="m2raceRouteSequence" class="m2race-route-seq">Esperando recorrido…</div><div class="m2race-route-times"><div><span>SALIDA</span><strong id="m2raceStartAt">—</strong></div><div><span>LLEGADA</span><strong id="m2raceFinishAt">—</strong></div></div></section>
@@ -435,8 +435,8 @@
 
   async function showFinishSummary({incomplete=false}={}){
     const panel=el("m2raceSummary");if(!panel)return;state.summaryOpen=true;
-    el("m2raceSummaryTitle").textContent=incomplete?"Carrera terminada · INCOMPLETA":"Carrera terminada ✓";
-    el("m2raceSummarySub").textContent=incomplete?"La carrera se ha cerrado y sincronizado, pero faltaban controles o LLEGADA.":"Balizas, llegada, track y resultado están sincronizados con el organizador.";
+    el("m2raceSummaryTitle").textContent=incomplete?"Carrera terminada · ABANDONO":"Carrera terminada ✓";
+    el("m2raceSummarySub").textContent=incomplete?"Has finalizado manualmente sin validar LLEGADA. El resultado se registra como abandono.":"Balizas, llegada, track y resultado están sincronizados con el organizador.";
     const basic=state.participant||{};
     const rawFallback=basic.startedAt&&basic.finishedAt?Math.max(0,Number(basic.finishedAt)-Number(basic.startedAt)):null;
     const cs=controlsApi()?.snapshot?.()||{};
@@ -551,7 +551,7 @@
       nodes.push(`<span class="m2race-progress-node ${cls}" data-progress-node="${esc(id)}" aria-label="${esc(label)}">${esc(id)}</span>`);
     });
     const finishCurrent=started&&!finished&&completed>=controls.length&&!finishValidated;
-    nodes.push(`<span class="m2race-progress-node finish ${finishValidated||finished?"done":finishCurrent?"current":""}" data-progress-node="finish" aria-label="${finishValidated||finished?"Llegada completada":finishCurrent?"Llegada siguiente":"Llegada pendiente"}">L</span>`);
+    nodes.push(`<span class="m2race-progress-node finish ${finishValidated?"done":finishCurrent?"current":""}" data-progress-node="finish" aria-label="${finishValidated?"Llegada completada":finishCurrent?"Llegada siguiente":"Llegada pendiente"}">L</span>`);
     host.innerHTML=nodes.join("");
     const current=host.querySelector(".m2race-progress-node.current");if(current)requestAnimationFrame(()=>{try{current.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})}catch(_){}});
   }
@@ -562,7 +562,7 @@
     const expected=Math.max(0,Number(detail.expectedCount??snap.expectedCount??state.participant?.routeControlCount??0));
     const completed=Math.min(expected,Math.max(0,Number(detail.completedCount??snap.completedCount??0))),next=detail.nextControl??snap.nextControl??null,finishValidated=Boolean(detail.finishValidated??snap.finishValidated),pending=Math.max(0,Number(detail.pending??snap.pending??0));
     const progressLabel=el("m2raceProgressLabel"),progressFill=el("m2raceProgressFill");
-    const pct=finishValidated||finished?100:(expected?Math.min(100,(completed/expected)*100):0);
+    const pct=finishValidated?100:(expected?Math.min(100,(completed/expected)*100):0);
     if(progressEl)progressEl.textContent=`${completed} DE ${expected}`;if(progressLabel)progressLabel.textContent=`${completed} DE ${expected}`;if(progressFill)progressFill.style.width=`${pct}%`;
     renderProgressSequence(completed,finished,finishValidated,detail);
     updatePenaltyPreview({...detail,completedCount:completed,expectedCount:expected});
@@ -609,7 +609,7 @@
   function closeQrScanner(){controlsApi()?.closeScanner?.();const panel=el("m2raceQrPanel");if(panel)panel.hidden=true;}
 
   function render(){
-    const row=state.participant||{},st=String(row.status||"ready").toLowerCase(),label=statusLabel(st),pill=el("m2raceState");
+    const row=state.participant||{},st=String(row.status||"ready").toLowerCase(),label=row.manualFinishIncomplete?"ABANDONO":statusLabel(st),pill=el("m2raceState");
     ensureRoot().classList.toggle("m2race-is-racing",["racing","started"].includes(st));
     pill.textContent=label;pill.className="m2race-state"+(st==="racing"||st==="started"?" racing":st==="finished"?" finished":"");
     el("m2raceStartAt").textContent=fmtTime(row.startedAt);el("m2raceFinishAt").textContent=fmtTime(row.finishedAt||state.localArrivalAt);
@@ -619,7 +619,7 @@
     start.hidden=!["ready","not_started"].includes(st);finish.hidden=!["racing","started"].includes(st)&&!pendingResult;
     finish.textContent=pendingResult?"REINTENTAR RESULTADO":state.localArrivalAt?"REINTENTAR SINCRONIZACIÓN":"TERMINAR CARRERA";finish.disabled=Boolean(state.autoFinishing||state.finishWait);syncStartGate();
     const hasFinishTarget=Boolean(state.controlPlan?.finish);el("m2raceActionNote").textContent=pendingResult?"Participación finalizada, pero el resultado oficial aún no está confirmado. Puedes reintentarlo sin borrar el track.":state.localArrivalAt?"Llegada guardada. Puedes reintentar la sincronización.":hasFinishTarget?"LLEGADA finaliza automáticamente por GPS/QR.":"Puedes terminar manualmente cuando lo necesites.";
-    const resultText=el("m2raceResultText");if(resultText)resultText.textContent=row.manualFinishIncomplete?"Carrera terminada manualmente como INCOMPLETA.":"Llegada y resultado sincronizados con el organizador.";
+    const resultText=el("m2raceResultText");if(resultText)resultText.textContent=row.manualFinishIncomplete?"Carrera terminada manualmente como ABANDONO.":"Llegada y resultado sincronizados con el organizador.";
     el("m2raceResult").hidden=st!=="finished"||!state.finishConfirmed;if(st==="finished")el("m2raceConfirm").classList.remove("open");updateTimer();controlsApi()?.setRaceStatus?.(st);updateControlUi("status");
     try{window.dispatchEvent(new CustomEvent("militopo:v2-race-participant",{detail:{event:state.event?{...state.event}:null,auth:state.auth?{...state.auth}:null,runId:state.runId,participant:{...row},controlPlan:state.controlPlan?JSON.parse(JSON.stringify(state.controlPlan)):null,localArrivalAt:Number(state.localArrivalAt||0),status:st}}));}catch(_){}emitLocalSnapshot();
     if(st==="finished"){gpsApi()?.stop?.("finished").catch?.(()=>{});controlsApi()?.stop?.();}
@@ -945,9 +945,9 @@
       endFinishWait(wait);
       state.participant={...(state.participant||{}),status:"finished",finishedAt:Number(data.finishedAt||Date.now()),manualFinish:true,manualFinishIncomplete:Boolean(data.manualFinishIncomplete)};
       render();
-      el("m2raceBusyTitle").textContent=data.manualFinishIncomplete?"Carrera terminada · INCOMPLETA":"Carrera terminada";
+      el("m2raceBusyTitle").textContent=data.manualFinishIncomplete?"Carrera terminada · ABANDONO":"Carrera terminada";
       el("m2raceBusyText").textContent=data.manualFinishIncomplete
-        ? "Se ha cerrado cuando lo has solicitado. El resultado queda INCOMPLETO porque faltaban balizas o LLEGADA."
+        ? "Se ha cerrado cuando lo has solicitado. El resultado queda como ABANDONO porque no se validó LLEGADA."
         : trackApi()?.snapshot?.().hasStorageGap
           ? "Resultado sincronizado, pero el track GPS puede ser parcial por errores de almacenamiento."
           : "Resultado y recorrido sincronizados correctamente.";

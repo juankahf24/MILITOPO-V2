@@ -1,23 +1,23 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.62";
+const BUILD_ID="2.0.64";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
-  "../../css/tactical-gold.css?v=2.0.60",
+  "../../css/tactical-gold.css?v=2.0.64",
   "../../js/v2/ui/tactical-gold.js?v=2.0.50",
   "../../assets/tactical-gold/terrain-orienteer.webp",
   "../../assets/tactical-gold/race-ridgeline.webp",
   "../../assets/tactical-gold/field-contours.webp",
 
-  "../../css/premium-transition.css?v=2.0.62",
-  "../../js/v2/ui/premium-transition.js?v=2.0.62",
+  "../../css/premium-transition.css?v=2.0.64",
+  "../../js/v2/ui/premium-transition.js?v=2.0.64",
   "../../js/v2/ui/power-menu.js?v=2.0.42",
   "../../js/v2/race/itinerary-analysis-ui.js?v=2.0.42",
   "../../assets/transition/militopo-portrait.webp",
   "../../assets/transition/militopo-landscape.webp",
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
-  "./runner-home-v4.js?v=2.0.62",
+  "./runner-home-v4.js?v=2.0.64",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
   "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
@@ -49,8 +49,8 @@ const APP_SHELL=[
   "../../js/v2/live/runner-track-v2.js?v=v2-p03-gps-reconciliation-20261023",
   "../../js/v2/live/runner-gps-v2.js?v=v2-lote2-gps-20261109",
   "../../js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
-  "./runner-controls-v2.js?v=2.0.11",
-  "./runner-race-v2.js?v=2.0.21"
+  "./runner-controls-v2.js?v=2.0.64",
+  "./runner-race-v2.js?v=2.0.64"
 ];
 /* P1.5: dependencias ESM exactas del corredor. La instalación solo termina
    si también está disponible este grafo del SDK; nunca cachear APIs ni datos.

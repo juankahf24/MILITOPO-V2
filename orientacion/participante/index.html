@@ -6,14 +6,14 @@
 <link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
 <link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
 <!-- Load the controller before the first body element. -->
-<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.62">
-<script src="../../js/v2/ui/premium-transition.js?v=2.0.62"></script>
+<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.64">
+<script src="../../js/v2/ui/premium-transition.js?v=2.0.64"></script>
 
 
 
 
 
-<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.60" media="screen" fetchpriority="high">
+<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.64" media="screen" fetchpriority="high">
   
   
   <meta name="theme-color" content="#08140D">
@@ -189,7 +189,7 @@
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=2.0.55">
   <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.42">
-<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.60" media="screen">
+<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.64" media="screen">
 <script defer src="../../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body>
@@ -256,7 +256,7 @@
           <nav class="history-filters" aria-label="Filtrar histórico">
             <button type="button" class="is-active" data-history-filter="all">TODAS <span id="rhHistAll">0</span></button>
             <button type="button" data-history-filter="finished">FINALIZADAS <span id="rhHistFinished">0</span></button>
-            <button type="button" data-history-filter="incomplete">INCOMPLETAS <span id="rhHistIncomplete">0</span></button>
+            <button type="button" data-history-filter="incomplete">ABANDONOS <span id="rhHistIncomplete">0</span></button>
             <button type="button" data-history-filter="not_started">NO SALIÓ <span id="rhHistNotStarted">0</span></button>
           </nav>
           <div class="events" id="rhHistoryEvents"></div>
@@ -289,7 +289,7 @@
           <div class="profile-stats">
             <div class="profile-stat"><small>PARTICIPACIONES</small><strong id="rhProfileParticipations">—</strong></div>
             <div class="profile-stat"><small>FINALIZADAS</small><strong id="rhProfileFinished">—</strong></div>
-            <div class="profile-stat"><small>INCOMPLETAS</small><strong id="rhProfileIncomplete">—</strong></div>
+            <div class="profile-stat"><small>ABANDONOS</small><strong id="rhProfileIncomplete">—</strong></div>
             <div class="profile-stat"><small>KM TOTALES</small><strong id="rhProfileKm">—</strong></div>
             <div class="profile-stat"><small>CONTROLES</small><strong id="rhProfileControls">—</strong></div>
             <div class="profile-stat"><small>DESNIVEL +</small><strong id="rhProfileElevation">—</strong></div>
@@ -359,8 +359,8 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=2.0.62"></script>
+  <script type="module" src="./runner-home-v4.js?v=2.0.64"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.62" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.64" data-sw="./sw.js"></script>
 </body>
 </html>
