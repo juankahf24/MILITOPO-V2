@@ -286,7 +286,7 @@ function render() {
   body.innerHTML = rows.map(row => {
     const st = normalizedStatus(row);
     const cls = st === "finished" ? "finished" : st === "racing" ? "racing" : "pending";
-    const label = PARTICIPANT_STATUS_ES[st] || st.toUpperCase();
+    const label = row.manualFinishIncomplete ? "ABANDONO" : (PARTICIPANT_STATUS_ES[st] || st.toUpperCase());
     const name = String(row.displayName || row.username || row.email || row.uid || "Corredor");
     const sub = row.username ? `@${String(row.username).replace(/^@/,"")}` : String(row.email || row.uid || "");
     const signal = liveSignal(row, st, state.runStatus, state.eventStatus, state.runId);

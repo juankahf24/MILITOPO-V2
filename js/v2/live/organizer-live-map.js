@@ -334,7 +334,7 @@ function participantStatus(row = {}) {
 }
 function participantStatusLabel(row = {}) {
   const key = participantStatus(row);
-  return PARTICIPANT_STATUS_ES[key] || "SIN SALIR";
+  return row.manualFinishIncomplete ? "ABANDONO" : (PARTICIPANT_STATUS_ES[key] || "SIN SALIR");
 }
 function runnerColor(uid = "") {
   const key=String(uid||"");if(state.runnerColors.has(key))return state.runnerColors.get(key);

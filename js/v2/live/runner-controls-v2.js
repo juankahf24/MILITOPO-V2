@@ -12,6 +12,26 @@
   const GPS_CAPTURE_RADIUS_M=10;
   const CONTROL_PENALTY_MS=15*60*1000;
 
+  let captureAudio=null;
+  function unlockCaptureAudio(){
+    try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+      if(!captureAudio||captureAudio.state==='closed')captureAudio=new C();
+      if(captureAudio.state==='suspended')void captureAudio.resume().catch(()=>{});
+    }catch(_){}
+  }
+  document.addEventListener('pointerdown',unlockCaptureAudio,{passive:true});
+  document.addEventListener('keydown',unlockCaptureAudio);
+  function captureSignal(){
+    try{navigator.vibrate?.([350,100,350,100,500]);}catch(_){}
+    try{if(!captureAudio||captureAudio.state!=='running')return;
+      const t=captureAudio.currentTime;
+      [880,1175,1568].forEach((hz,i)=>{const o=captureAudio.createOscillator(),g=captureAudio.createGain();
+        o.type='sine';o.frequency.value=hz;g.gain.setValueAtTime(0,t+i*.24);
+        g.gain.linearRampToValueAtTime(.65,t+i*.24+.015);g.gain.exponentialRampToValueAtTime(.001,t+i*.24+.22);
+        o.connect(g);g.connect(captureAudio.destination);o.start(t+i*.24);o.stop(t+i*.24+.23);
+        o.onended=()=>{o.disconnect();g.disconnect();};});
+    }catch(_){}
+  }
   const state={
     services:null,context:null,plan:null,raceStatus:"ready",completedCount:0,
     serverCompletedCount:0,queue:[],passes:[],journal:[],lastFix:null,lastAutoAt:0,
@@ -29,7 +49,7 @@
   function controlList(){return Array.isArray(state.plan?.controls)?state.plan.controls:[];}
   function expectedCount(){return Math.max(0,Number(state.plan?.expectedCount||controlList().length||0));}
   function finishTarget(){const f=state.plan?.finish;if(f&&typeof f==="object")return {...f,kind:"finish",checkpointId:"FINISH"};return null;}
-  function nextTarget(){if(state.completedCount<expectedCount())return {...controlList()[state.completedCount],kind:"control"};if(!state.finishValidated)return finishTarget();return null;}
+  function nextTarget(){if(state.finishValidated)return null;if(state.completedCount<expectedCount())return {...controlList()[state.completedCount],kind:"control"};return finishTarget();}
   function makeAttemptId(){try{return crypto.randomUUID().replace(/-/g,"");}catch(_){return `a_${Date.now()}_${Math.random().toString(36).slice(2,10)}`;}}
   function contextKey(ctx=state.context){if(!ctx?.uid||!ctx?.eventId||!ctx?.runId)return "";return `militopo_v2_controls_${ctx.uid}_${ctx.eventId}_${ctx.runId}`;}
   function courseStats(){
@@ -268,7 +288,7 @@
     if(!["racing","started"].includes(state.raceStatus))return {ok:false,message:"La carrera todavía no está iniciada."};
     const target=nextTarget();const id=canonical(checkpointId);
     if(!target)return {ok:false,message:"El recorrido y la llegada ya están validados."};
-    if(id!==canonical(target.checkpointId))return {ok:false,message:`La siguiente validación es ${canonical(target.checkpointId)==="FINISH"?"LLEGADA":target.checkpointId}.`};
+    if(id!==canonical(target.checkpointId)&&!(id==="FINISH"&&source==="qr"&&finishTarget()))return {ok:false,message:`La siguiente validación es ${canonical(target.checkpointId)==="FINISH"?"LLEGADA":target.checkpointId}.`};
     const now=Math.max(0,Number(meta.passedAtMs||Date.now()));
     const previous=state.passes[state.passes.length-1]||null;
     const startedAt=Math.max(0,Number(meta.startedAt||0));
@@ -278,7 +298,7 @@
     else{state.passes.push(pass);state.completedCount=Math.min(expectedCount(),state.completedCount+1);}
     journalAdd(pass);
     state.queue.push({...pass});state.lastAutoAt=Date.now();persist();
-    try{if(navigator.vibrate)navigator.vibrate(isFinish?[220,80,220,80,320]:[120,70,180]);}catch(_){}
+    if(source!=="discard")captureSignal();
     emit(isFinish?"arrival_local":(source==="discard"?"discarded":"passed"),{pass,nextAfter:nextTarget()?{...nextTarget()}:null});
     // H6.9: las balizas normales siguen sincronizando en segundo plano. LLEGADA no
     // arranca otra petición paralela: runner-race-v2 coordina un único cierre
@@ -320,7 +340,7 @@
     if(accuracyOk&&distanceM<=GPS_CAPTURE_RADIUS_M)registerLocal(next.checkpointId,"gps",{passedAtMs:state.lastFix.updatedAt,distanceM,allowedRadiusM:GPS_CAPTURE_RADIUS_M,accuracy,lat,lng});
   }
 
-  function parseQr(raw){const value=String(raw||"").trim().toUpperCase(),parts=value.split("|");if(parts.length<4||parts[0]!=="ORI"||parts[1]!=="CONTROL")return {ok:false,message:"QR no válido de MILITOPO."};if(String(parts[2])!==String(state.context?.eventId||"").toUpperCase())return {ok:false,message:"Este QR pertenece a otra carrera."};const id=canonical(parts[3]);const next=nextTarget();if(!next)return {ok:false,message:"El recorrido y la llegada ya están validados."};if(id!==canonical(next.checkpointId))return {ok:false,message:`QR de ${id==="FINISH"?"LLEGADA":id}. La siguiente validación es ${canonical(next.checkpointId)==="FINISH"?"LLEGADA":next.checkpointId}.`};return {ok:true,id,raw:value};}
+  function parseQr(raw){const value=String(raw||"").trim().toUpperCase(),parts=value.split("|");if(parts.length<4||parts[0]!=="ORI"||parts[1]!=="CONTROL")return {ok:false,message:"QR no válido de MILITOPO."};if(String(parts[2])!==String(state.context?.eventId||"").toUpperCase())return {ok:false,message:"Este QR pertenece a otra carrera."};const id=canonical(parts[3]);const next=nextTarget();if(!next)return {ok:false,message:"El recorrido y la llegada ya están validados."};if(id!==canonical(next.checkpointId)&&!(id==="FINISH"&&finishTarget()))return {ok:false,message:`QR de ${id==="FINISH"?"LLEGADA":id}. La siguiente validación es ${canonical(next.checkpointId)==="FINISH"?"LLEGADA":next.checkpointId}.`};return {ok:true,id,raw:value};}
   function submitQr(raw){const parsed=parseQr(raw);if(!parsed.ok){emit("qr_error",{message:parsed.message,qrRaw:String(raw||"")});return parsed;}const res=registerLocal(parsed.id,"qr",{passedAtMs:Date.now(),qrRaw:parsed.raw});if(res.ok){emit(parsed.id==="FINISH"?"arrival_qr":"qr_passed",{pass:res.pass});closeScanner();}return res;}
 
   async function openScanner({video,canvas,statusEl}={}){
