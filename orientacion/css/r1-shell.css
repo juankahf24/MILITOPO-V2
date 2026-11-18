@@ -253,9 +253,8 @@ html.militopo-ios-pwa body{
 html.militopo-ios-pwa body.r1-shell-active.r1-map-home{
   position:fixed!important;
   inset:0!important;
-  width:100%!important;
-  height:100dvh!important;
-  min-height:100dvh!important;
+  height:auto!important;
+  min-height:0!important;
   overflow:hidden!important;
 }
 html.militopo-ios-pwa body.r1-shell-active.r1-map-home *,
