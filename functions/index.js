@@ -2437,7 +2437,7 @@ exports.runnerRegisterControlPass = onCall({ enforceAppCheck: false }, async req
 
     const completedCount = Math.max(0, Number(progress.completedCount || 0));
     if (isFinish) {
-      if (completedCount < plan.expectedCount) {
+      if (completedCount < plan.expectedCount && source !== "qr") {
         transactionReason = "out_of_order";
         return;
       }
@@ -2670,7 +2670,7 @@ exports.runnerFinishRace = onCall({ enforceAppCheck: false }, async request => {
   if (plan?.finish && !progress.finishValidated && !manualFinish) {
     throw new HttpsError("aborted", "La validación de llegada cambió al cerrarse. Los controles se conservan; vuelve a intentarlo.");
   }
-  const manualFinishIncomplete = manualFinish && (!progress.finishValidated || Math.max(0, Number(progress.completedCount || 0)) < Math.max(0, Number(plan.expectedCount || 0)));
+  const manualFinishIncomplete = manualFinish && !progress.finishValidated;
   const now = Date.now();
   const arrivalAt = Math.max(0, Number(progress.arrivalAt || progress.finishPass?.passedAtMs || 0));
   const startedAt = Math.max(0, Number(ctx.participant.startedAt || 0));
