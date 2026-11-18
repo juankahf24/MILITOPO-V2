@@ -15,7 +15,7 @@
       <div class="mor-mode-choices" role="group" aria-label="Seleccionar modo">
         <button type="button" class="mor-mode-choice" data-mor-choice="runner"><span class="mor-choice-symbol" aria-hidden="true">${runnerSvg}</span><span class="mor-choice-copy"><small class="mor-choice-kicker">TU PRÓXIMO RETO</small><strong>Correr</strong><span>Mis carreras, GPS, clasificación y rendimiento.</span><span class="mor-choice-tags" aria-hidden="true"><em>GPS</em><em>RESULTADOS</em></span></span><b>ENTRAR COMO CORREDOR <i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></i></b></button>
         <button type="button" class="mor-mode-choice is-organizer" data-mor-choice="organizer"><span class="mor-choice-symbol" aria-hidden="true">${organizerSvg}</span><span class="mor-choice-copy"><small class="mor-choice-kicker">DE LA IDEA A LA META</small><strong>Organizar</strong><span>Diseñar, gestionar y seguir una carrera paso a paso.</span><span class="mor-choice-tags" aria-hidden="true"><em>RECORRIDOS</em><em>GESTIÓN</em></span></span><b>ABRIR CENTRO DE CARRERAS <i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></i></b></button>
-      </div><div class="mor-mode-foot"><span><i aria-hidden="true">✓</i> Una cuenta. Tu actividad siempre contigo.</span><small data-mor-user></small></div>
+      </div><p data-mor-error role="status"></p><div class="mor-mode-foot"><span><i aria-hidden="true">✓</i> Una cuenta. Tu actividad siempre contigo.</span><small data-mor-user></small></div>
     </div>`;
     root.addEventListener("click",e=>{const action=e.target.closest("[data-mor-choice]")?.dataset.morChoice;if(action)select(action)});
     document.body.appendChild(root);return root;
@@ -30,9 +30,9 @@
     const transition=globalThis.MILITOPO_TRANSITION;
     const home=getHome() || await transition?.waitFor(getHome,signal);
     if(!eligible() || !home)throw new Error("No se pudo abrir el Centro de Carreras.");
-    close();
     try {
       const view=await home.prepare();
+      if(signal && transition?.settleView)await transition.settleView(view,signal);
       if(signal?.aborted)throw signal.reason;
       if(!eligible())throw new Error("La sesión ha cambiado.");
       if(directed()){
@@ -40,6 +40,7 @@
         url.searchParams.delete("militopo_mode");
         history.replaceState(history.state,"",url);
       }
+      close();
       window.scrollTo({top:0,behavior:"instant"});
       return view;
     } catch(error) {
@@ -50,16 +51,29 @@
 
   function select(mode) {
     if(!eligible())return false;
+    const button=root?.querySelector(`[data-mor-choice="${mode}"]`);
     const transition=globalThis.MILITOPO_TRANSITION;
+    const status=root?.querySelector("[data-mor-error]");
+    if(status)status.textContent="";
     if(mode==="runner"){
-      if(transition)void transition.navigate("./participante/");
+      if(transition)void transition.navigate("./participante/", {button}).catch(reportSelectionError);
       else location.assign("./participante/");
       return true;
     }
     if(mode!=="organizer")return false;
-    if(transition)void transition.run(openOrganizer);
-    else void openOrganizer().catch(()=>show());
+    const prepare=async signal=>{
+      const view=await openOrganizer(signal);
+      transition?.soft(view?.querySelector(".mpp-r3-header"));
+      return view;
+    };
+    if(button && transition?.runInline)void transition.runInline(button,prepare).catch(reportSelectionError);
+    else void prepare().catch(reportSelectionError);
     return true;
+  }
+
+  function reportSelectionError(error) {
+    const status=root?.querySelector("[data-mor-error]");
+    if(status)status.textContent=error?.message || "No se pudo abrir la pantalla. Vuelve a intentarlo.";
   }
 
   function prepareEntry(signal) {

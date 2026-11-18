@@ -206,7 +206,9 @@ async function run(action){
   if(action==="more-races"){state.raceLimit+=10;refreshRaceList();return true}if(!canManage())return false;
   if(action==="mode-choice"){
     const choose=()=>{close();return globalThis.MILITOPO_ORIENTATION_MODES?.open?.()};
-    return globalThis.MILITOPO_TRANSITION?.run ? globalThis.MILITOPO_TRANSITION.run(choose) : choose();
+    const opened=choose();
+    if(opened)globalThis.MILITOPO_TRANSITION?.soft(document.querySelector(".mor-mode-panel"));
+    return opened;
   }
   if(action==="home"){setScreen("home");return true}
   if(action==="races"){setScreen("races");fetchRows(false);return true}
