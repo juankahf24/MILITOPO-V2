@@ -266,7 +266,7 @@ function roleLabel(role) {
 function buildUi() {
   if (document.getElementById("militopoV2AuthOverlay")) return;
   document.body.insertAdjacentHTML("afterbegin", `
-    <div id="militopoV2AuthOverlay" aria-live="polite">
+    <div id="militopoV2AuthOverlay" hidden aria-live="polite">
       <section class="m2-auth-card" role="dialog" aria-modal="true" aria-labelledby="m2AuthTitle">
         <div class="m2-auth-brand">
           <div class="m2-auth-brand-mark"><img src="${ROOT_ICON_URL}" alt="MILITOPO"><span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m12 3 4 9-4 9-4-9Z" fill="#dbbd76"/><path d="m12 3 4 9H8Z" fill="#fff1c2"/></svg></span></div>
@@ -1198,6 +1198,8 @@ async function init() {
     console.error("[MILITOPO V2 Auth] Firebase init", error);
     showMainView();
     setMessage("Firebase no está disponible. Revisa la configuración V2.", "error");
+    globalThis.MILITOPO_ENTRY_AUTH_READY=true;
+    globalThis.dispatchEvent(new Event("militopo:auth-ui-ready"));
     return;
   }
 
