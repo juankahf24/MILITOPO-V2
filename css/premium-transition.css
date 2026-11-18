@@ -6,8 +6,10 @@
 #mpPremiumTransition {
   position: fixed;
   inset: 0;
-  z-index: 2147483600;
+  z-index: 2147483647;
   isolation: isolate;
+  touch-action: none;
+  overscroll-behavior: contain;
   overflow: hidden;
   background: #07110B;
   color: #F5F1E6;
@@ -37,7 +39,7 @@
   animation-play-state: paused;
   will-change: transform;
   opacity: 1;
-  background-image: url('../assets/transition/militopo-landscape.webp');
+
   filter: hue-rotate(-18deg) sepia(.65) saturate(1.15);
 }
 
@@ -214,14 +216,6 @@
   color: #F3D787!important;
 }
 
-html.mp-transition-open {
-  overflow: hidden!important;
-}
-
-html.mp-transition-open body {
-  overflow: hidden!important;
-}
-
 @keyframes mp-paired-letter {
   from {
     opacity: 0;
@@ -357,10 +351,12 @@ html.mp-transition-open body {
   }
 }
 
-@media(orientation:portrait) {
-  #mpPremiumTransition .mp-transition-bg {
-    background-image: url('../assets/transition/militopo-portrait.webp');
-  }
+#mpPremiumTransition .mp-transition-bg img {
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  max-width:none;
 }
 
 #mpPremiumTransition.has-backdrop .mp-transition-bg {
