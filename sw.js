@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="2.0.61";
+const BUILD_ID="2.0.62";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -45,8 +45,8 @@ const APP_SHELL=[
   "./assets/tactical-gold/race-ridgeline.webp",
   "./assets/tactical-gold/field-contours.webp",
 
-  "./css/premium-transition.css?v=2.0.61",
-  "./js/v2/ui/premium-transition.js?v=2.0.61",
+  "./css/premium-transition.css?v=2.0.62",
+  "./js/v2/ui/premium-transition.js?v=2.0.62",
   "./assets/transition/militopo-portrait.webp",
   "./assets/transition/militopo-landscape.webp",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
@@ -58,7 +58,7 @@ const APP_SHELL=[
   "./index.html",
   "./js/v2/ui/pwa-update.js?v=2.0.3",
   "./styles.css?v=v2-a1-backend-20260919",
-  "./app.js?v=2.0.58",
+  "./app.js?v=2.0.62",
   "./manifest.webmanifest",
   "./icons/militopo-192.png",
   "./icons/militopo-512.png",

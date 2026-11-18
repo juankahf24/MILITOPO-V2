@@ -4545,7 +4545,8 @@ function openMapModal() {
         if (mode === "orientacion") {
             const target = isRunnerSessionContext() ? "orientacion/participante/" : "orientacion/";
             if (globalThis.MILITOPO_TRANSITION) {
-                void globalThis.MILITOPO_TRANSITION.navigate(target);
+                void globalThis.MILITOPO_TRANSITION.navigate(target, {button:document.getElementById("startupOriBtn")})
+                    .catch(error => console.error("No se pudo abrir Orientación.", error));
             } else {
                 window.location.assign(target);
             }
