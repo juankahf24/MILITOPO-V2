@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.58";
+const BUILD_ID="2.0.59";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -7,13 +7,13 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
 
 /* Rutas EXACTAS cargadas por orientacion/index.html y js/app.js. */
 const CORE_ASSETS=[
-  "../css/tactical-gold.css?v=2.0.56",
+  "../css/tactical-gold.css?v=2.0.59",
   "../js/v2/ui/tactical-gold.js?v=2.0.50",
   "../assets/tactical-gold/terrain-orienteer.webp",
   "../assets/tactical-gold/race-ridgeline.webp",
   "../assets/tactical-gold/field-contours.webp",
-  "../css/premium-transition.css?v=2.0.56",
-  "../js/v2/ui/premium-transition.js?v=2.0.58",
+  "../css/premium-transition.css?v=2.0.59",
+  "../js/v2/ui/premium-transition.js?v=2.0.59",
   "../js/v2/ui/power-menu.js?v=2.0.42",
   "../assets/transition/militopo-portrait.webp",
   "../assets/transition/militopo-landscape.webp",
@@ -67,7 +67,7 @@ const CORE_ASSETS=[
   "../js/v2/auth/roles.js",
   "../js/v2/auth/auth-ui.css?v=2.0.55",
   "../js/v2/data/classification-export.js?v=2.0.39",
-  "../js/v2/auth/auth-ui.js?v=2.0.47",
+  "../js/v2/auth/auth-ui.js?v=2.0.59",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
   "../js/v2/data/invitations.js?v=2.0.26",
   "../js/v2/data/participants-admin.js?v=militopo-f231-sin-archivado-20261102",
