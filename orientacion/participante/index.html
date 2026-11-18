@@ -1,19 +1,19 @@
 <!doctype html>
-<html data-militopo-theme="tactical-gold" lang="es">
+<html data-militopo-theme="tactical-gold" lang="es" style="background:#07110b">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
 <link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
-<!-- One transition controller starts before the application is parsed. -->
-<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.59">
-<script src="../../js/v2/ui/premium-transition.js?v=2.0.59"></script>
-<script>window.MILITOPO_TRANSITION?.bootEntry("runner");</script>
+<!-- Load the controller before the first body element. -->
+<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.60">
+<script src="../../js/v2/ui/premium-transition.js?v=2.0.60"></script>
 
 
 
 
-<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.59" media="screen" fetchpriority="high">
+
+<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.60" media="screen" fetchpriority="high">
   
   
   <meta name="theme-color" content="#08140D">
@@ -189,10 +189,11 @@
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=2.0.55">
   <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.42">
-<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.59" media="screen">
+<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.60" media="screen">
 <script defer src="../../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body>
+<script>window.MILITOPO_TRANSITION?.bootEntry("runner");</script>
 <main class="runner-home">
     <header class="runner-head tg-header">
       <div class="runner-logo"><img src="../../icons/militopo-512.png?v=r6a1-runner-brand-20261006" alt="MILITOPO"></div>
@@ -360,6 +361,6 @@
   </script>
   <script type="module" src="./runner-home-v4.js?v=2.0.42"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.59" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.60" data-sw="./sw.js"></script>
 </body>
 </html>
