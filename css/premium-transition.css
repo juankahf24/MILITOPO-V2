@@ -392,7 +392,7 @@
   animation-play-state: running;
 }
 
-#mpPremiumTransition.mp-handoff .mp-mountain-mark,
+
 #mpPremiumTransition.has-content .mp-mountain-mark,
 #mpPremiumTransition.has-content .mp-loader-copy,
 #mpPremiumTransition.has-error .mp-loader-copy {
