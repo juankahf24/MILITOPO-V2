@@ -4242,7 +4242,6 @@ function openMapModal() {
     const STARTUP_CONTENT_REVEAL_DELAY_MS = 96;
     const STARTUP_SEQUENCE_READY_MS = 2140;
     const STARTUP_GUIDE_POST_REVEAL_DELAY_MS = 90;
-    const PAGE_EXIT_FADE_MS = 340;
     const STARTUP_ASSET_SOURCES = [
         "icons/militopo-startup-premium-2048x3072.jpg",
         "icons/militopo-startup-1536.png",
@@ -4343,20 +4342,6 @@ function openMapModal() {
             });
         }, revealDelay);
         appContainer.dataset.enterTimer = String(timerId);
-    }
-
-    function beginPageExitTransition(onComplete) {
-        const finish = () => {
-            document.body.classList.remove("startup-transition-lock");
-            disableStartupTransitionFocusLock();
-            if (typeof onComplete === "function") onComplete();
-        };
-        if (document.body.classList.contains("page-exit")) return;
-        document.body.classList.add("startup-transition-lock", "page-exit");
-        enableStartupTransitionFocusLock();
-        const focusedEl = document.activeElement;
-        if (focusedEl && typeof focusedEl.blur === "function") focusedEl.blur();
-        window.setTimeout(finish, prefersReducedMotion() ? 0 : PAGE_EXIT_FADE_MS);
     }
 
     function setStartupVisualState(startupActive) {
@@ -4557,17 +4542,13 @@ function openMapModal() {
     }
 
     function enterStartupMode(mode) {
-        if (mode === "orientacion" && isRunnerSessionContext()) {
-            returnToRunnerShell();
-            return;
-        }
         if (mode === "orientacion") {
-            const overlay = document.getElementById("startupModeOverlay");
-            overlay?.querySelectorAll(".startup-seq-btn").forEach(btn => { btn.disabled = true; });
-            if (overlay && "inert" in overlay) overlay.inert = true;
-            beginPageExitTransition(() => {
-                window.location.href = "orientacion/";
-            });
+            const target = isRunnerSessionContext() ? "orientacion/participante/" : "orientacion/";
+            if (globalThis.MILITOPO_TRANSITION) {
+                void globalThis.MILITOPO_TRANSITION.navigate(target);
+            } else {
+                window.location.assign(target);
+            }
             return;
         }
         applyTopografiaNightTheme();
