@@ -154,7 +154,7 @@ function showPackageNotice(title,message,{busy=false,error=false}={}){document.b
 async function exportPackage(){return globalThis.MILITOPO_PACKAGE?.download();}
 
 let renderedView="",renderedScreen="";
-function render(preserve=false){ensure();const body=$('[data-mpp-view]',state.root),scroll=$('.mpp-home-scroll',state.root),y=scroll?.scrollTop||0;
+function render(preserve=false){ensure();const body=$('[data-mpp-view]',state.root),scroll=document.scrollingElement,y=scroll?.scrollTop||0;
   // La red puede responder segundos después de abrir el buscador. Nunca desmontar
   // los filtros si seguimos en "Mis carreras"; solo actualizar las tarjetas.
   if(state.screen==="races"&&body.querySelector("[data-mpp-races-head]")&&body.querySelector(".mpp-r3-race-list")){
@@ -240,7 +240,7 @@ function onInput(e){
     refreshRaceList();
   }
 }
-function open(screen){if(!canManage())return false;ensure();document.body.classList.add("mor-organizer-shell");globalThis.MILITOPO_V2_ORGANIZER_CENTER?.close?.();if(screen)state.screen=screen;render();state.root.classList.add("is-open");state.root.setAttribute("aria-hidden","false");document.body.classList.add("militopo-premium-home-open");state.opened=true;fetchRows(false);if(state.screen==="profile")void loadProfile();return true}
+function open(screen){if(!canManage())return false;ensure();document.body.classList.add("mor-organizer-shell");globalThis.MILITOPO_V2_ORGANIZER_CENTER?.close?.();if(screen)state.screen=screen;state.root.classList.add("is-open");state.root.setAttribute("aria-hidden","false");document.body.classList.add("militopo-premium-home-open");render();state.opened=true;fetchRows(false);if(state.screen==="profile")void loadProfile();return true}
 async function prepare(){if(open("home")!==true)throw new Error("No se pudo abrir el Centro de Carreras.");await fetchRows(Boolean(state.rowsError));if(state.rowsError&&!state.rowsLoaded)throw new Error(state.rowsError);return state.root;}
 function close(){state.powerMenu?.close();if(!state.root)return;state.root.classList.remove("is-open");state.root.setAttribute("aria-hidden","true");document.body.classList.remove("militopo-premium-home-open");state.opened=false}
 function refresh(){if(state.opened)render(true)}
