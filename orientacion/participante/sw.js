@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.61";
+const BUILD_ID="2.0.62";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
   "../../css/tactical-gold.css?v=2.0.60",
@@ -9,15 +9,15 @@ const APP_SHELL=[
   "../../assets/tactical-gold/race-ridgeline.webp",
   "../../assets/tactical-gold/field-contours.webp",
 
-  "../../css/premium-transition.css?v=2.0.61",
-  "../../js/v2/ui/premium-transition.js?v=2.0.61",
+  "../../css/premium-transition.css?v=2.0.62",
+  "../../js/v2/ui/premium-transition.js?v=2.0.62",
   "../../js/v2/ui/power-menu.js?v=2.0.42",
   "../../js/v2/race/itinerary-analysis-ui.js?v=2.0.42",
   "../../assets/transition/militopo-portrait.webp",
   "../../assets/transition/militopo-landscape.webp",
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
-  "./runner-home-v4.js?v=2.0.61",
+  "./runner-home-v4.js?v=2.0.62",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
   "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",

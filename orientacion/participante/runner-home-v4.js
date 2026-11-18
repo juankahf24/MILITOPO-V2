@@ -761,12 +761,15 @@ function boot(){
   return accountRefreshPromise;
 }
 
-document.getElementById("rhSwitchOrganizer")?.addEventListener("click",()=>{
+document.getElementById("rhSwitchOrganizer")?.addEventListener("click",event=>{
   /* Bloquear cambio si hay una carrera realmente en marcha: nunca cortar GPS por navegar. */
   if(document.querySelector("#m2RaceV2.m2race-is-racing,[data-militopo-runner-active='true']")){
     setStatus("Finaliza tu carrera antes de cambiar a ORGANIZAR, para no interrumpir el GPS.","err");return;
   }
-  if(globalThis.MILITOPO_TRANSITION)void globalThis.MILITOPO_TRANSITION.navigate("../?militopo_mode=organizer");else location.assign("../?militopo_mode=organizer");
+  if(globalThis.MILITOPO_TRANSITION){
+    void globalThis.MILITOPO_TRANSITION.navigate("../",{button:event.currentTarget})
+      .catch(error=>setStatus(error.message,"err"));
+  }else location.assign("../");
 });
 try{const params=new URLSearchParams(location.search);if(params.get("militopo_tab")==="profile"){
   params.delete("militopo_tab");history.replaceState(history.state,"",location.pathname+(params.toString()?`?${params}`:"")+location.hash);
