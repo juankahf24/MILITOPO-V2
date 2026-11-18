@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   if (globalThis.MILITOPO_TRANSITION) return;
-  const CONFIG = Object.freeze({minimumMs:3800, enterMs:300, exitMs:400, backgroundMs:550, lettersMs:2750, timeoutMs:30000});
+  const CONFIG = Object.freeze({minimumMs:3800, exitMs:400, backgroundMs:550, lettersMs:2750, timeoutMs:30000});
   const base = new URL('../../../', document.currentScript.src);
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const animations = new WeakMap();
@@ -62,26 +62,26 @@
  const letters=word=>[...word].map((letter,index)=>`<span style="--letter:${index}" aria-hidden="true">${letter}</span>`).join('');
  const logo='<svg class="mp-mountain-mark" viewBox="0 0 440 150" aria-hidden="true"><defs><linearGradient id="mpMountainLight" x1="0" y1="0" x2="0.6" y2="1"><stop stop-color="#F3D787"/><stop offset="1" stop-color="#D8B45F"/></linearGradient></defs><path d="M3 145 111 52l37 30L223 3l94 94 25-18 95 66-98-35-22 10-94-91-72 79-41-32-72 61Z" fill="url(#mpMountainLight)"/><path d="m223 29-19 58 16-9-30 50 39-24-8 26 72 13-47-55 7 27-30-61 7 12ZM111 76l-14 41 20-12-8 24 37-21-23-13ZM342 101l-7 14 26 20-9-18 38 22Z" fill="#283525"/></svg>';
 
-  function mount({kind, handoff, entering}) {
+  function mount({kind, splash=false, entering=false}) {
     const root = document.createElement('dialog');
     root.id = 'mpPremiumTransition';
-    root.setAttribute('aria-label', 'Cargando MILITOPO');
+    root.setAttribute('aria-label', splash ? 'Cargando MILITOPO' : 'Cambio de pantalla');
     root.setAttribute('aria-modal', 'true');
     root.tabIndex = -1;
-    root.classList.toggle('mp-handoff', handoff);
+
     root.style.opacity = entering ? '0' : '1';
     const scene = document.createElement('div');
     scene.className = 'mp-transition-scene';
     scene.setAttribute('aria-hidden', 'true');
     const content = document.createElement('div');
     content.className = 'mp-transition-content';
-    content.innerHTML = `${logo}<div class="mp-loader-copy"><div class="mp-loader-brackets"><div class="mp-loader-word" aria-label="MILITOPO">${letters('MILITOPO')}</div><div class="mp-loader-line"></div><div class="mp-loader-word is-loading" aria-label="CARGANDO">${letters('CARGANDO')}</div></div><div class="mp-loader-progress" role="progressbar" aria-label="Preparando pantalla"></div><p class="mp-loader-status" role="status" aria-live="polite">Preparando tu entorno</p><div class="mp-loader-actions"></div></div>`;
-    if (!handoff) scene.style.opacity = '1';
-    root.append(scene, content);
+    content.innerHTML = splash ? `${logo}<div class="mp-loader-copy"><div class="mp-loader-brackets"><div class="mp-loader-word" aria-label="MILITOPO">${letters('MILITOPO')}</div><div class="mp-loader-line"></div><div class="mp-loader-word is-loading" aria-label="CARGANDO">${letters('CARGANDO')}</div></div><div class="mp-loader-progress" role="progressbar" aria-label="Preparando pantalla"></div><p class="mp-loader-status" role="status" aria-live="polite">Preparando tu entorno</p><div class="mp-loader-actions"></div></div>` : '<div class="mp-loader-copy"><p class="mp-loader-status" role="status"></p><div class="mp-loader-actions"></div></div>';
+    if (splash) { scene.style.opacity = '1'; root.append(scene); }
+    root.append(content);
     document.body.append(root);
     root.addEventListener('cancel', event => event.preventDefault());
     root.addEventListener('wheel', event => event.preventDefault(), {passive:false});
-    const state = {root, scene, content, kind, promise:null, resolve:null, controller:null, timer:0, leaving:false, entryPending:Boolean(kind)};
+    const state = {root, scene, content, kind, splash, promise:null, resolve:null, controller:null, timer:0, leaving:false, entryPending:Boolean(kind)};
     state.promise = new Promise(resolve => { state.resolve = resolve; });
     active = state;
     if (root.showModal) {
@@ -171,7 +171,7 @@
       } else if (!image.complete) {
         await untilAborted(signal, new Promise((resolve,reject) => { image.onload = resolve; image.onerror = reject; }));
       }
-      if (image.naturalWidth) await fade(scene, 1, root.classList.contains('mp-handoff') ? CONFIG.enterMs : 0, signal);
+      if (image.naturalWidth) await fade(scene, 1, 0, signal);
     } catch (error) {
       if (signal.aborted) throw error;
       // Artwork is optional offline. Keep the same mark and progress animation over the solid surface.
@@ -211,26 +211,22 @@
     state.entryPending = Boolean(state.kind);
     state.root.querySelector('.mp-loader-copy').style.removeProperty('opacity');
     try {
-      if (state.root.classList.contains('mp-handoff')) {
-        await fade(state.root, 1, CONFIG.enterMs, signal);
+      if (!state.splash) {
+        await fade(state.root, 1, 120, signal);
         await painted(signal);
       }
+      state.intro = state.splash ? Promise.all([
+        playScene(state, signal), delay(reduced() ? 0 : CONFIG.minimumMs, signal)
+      ]) : Promise.resolve();
       const ready = Promise.resolve().then(() => task(signal)).then(async view => {
         if (signal.aborted) throw signal.reason;
         state.entryPending = false;
         await settleView(view, signal);
         return view;
       });
-      const minimum = reduced() ? 0 : CONFIG.minimumMs;
-      const [view] = await untilAborted(signal, Promise.all([ready, playScene(state, signal), delay(minimum, signal)]));
-      state.root.querySelector('.mp-loader-status').textContent = 'Todo preparado';
-      // Retire the lettering while the landscape is still opaque. Two screens of text never crossfade.
-      if (state.kind === 'root') {
-        await fade(state.root, 0, CONFIG.exitMs, signal);
-      } else {
-        await fade(state.content, 0, CONFIG.exitMs * .35, signal);
-        await fade(state.root, 0, CONFIG.exitMs * .65, signal);
-      }
+      const [view] = await untilAborted(signal, Promise.all([ready, state.intro]));
+      if (state.leaving) return;
+      await fade(state.root, 0, state.splash ? CONFIG.exitMs : 150, signal);
       release(state, {ok:true, value:view});
     } catch (error) {
       if (active === state && state.controller.signal === signal && !state.leaving && !state.suspended) {
@@ -243,27 +239,31 @@
 
   function run(task) {
     if (active) return active.promise;
-    const state = mount({handoff:true, entering:true});
+    const state = mount({entering:true});
     void present(state, task);
     return state.promise;
   }
 
-  async function navigate(target, {replace=false}={}) {
+  async function navigate(target, {replace=false, beforeLeave}={}) {
     const url = new URL(target, location.href);
     if (url.origin !== location.origin) throw new Error('La transición solo admite pantallas internas.');
     if (active?.leaving || document.querySelector('#m2RaceV2.m2race-is-racing,[data-militopo-runner-active="true"]')) return false;
-    const state = active || mount({handoff:true, entering:true});
+    const state = active || mount({entering:true});
     state.leaving = true;
+    if (state.splash && state.intro) {
+      try {
+        await state.intro;
+        await Promise.all([state.content, state.scene].map(node => fade(node, 0, 150, state.controller.signal)));
+      } catch (_) {}
+    }
     const signal = newAttempt(state);
-    state.root.classList.add('mp-handoff');
     try {
-      // The outgoing and incoming documents share this fixed opaque frame. Only its existing gold mark is visible.
-      await Promise.all([
-        fade(state.root, 1, CONFIG.enterMs, signal),
-        fade(state.scene, 0, CONFIG.enterMs, signal),
-        fade(state.root.querySelector('.mp-loader-copy'), 0, CONFIG.enterMs, signal)
-      ]);
+      await fade(state.root, 1, 120, signal);
       await painted(signal);
+      if (beforeLeave) await untilAborted(signal, beforeLeave());
+      try {
+        sessionStorage.setItem('militopo_screen_handoff', JSON.stringify({url:url.href, time:Date.now()}));
+      } catch (_) {}
       globalThis.__MILITOPO_AUTH_NAVIGATING = true;
       try { sessionStorage.setItem('militopo_v2_allow_navigation_once', '1'); } catch (_) {}
       if (replace) location.replace(url.href); else location.assign(url.href);
@@ -277,7 +277,7 @@
       state.leaving = false;
       globalThis.__MILITOPO_AUTH_NAVIGATING = false;
       try { sessionStorage.removeItem('militopo_v2_allow_navigation_once'); } catch (_) {}
-      showError(state, error, () => { void navigate(url.href, {replace}); });
+      showError(state, error, () => { void navigate(url.href, {replace, beforeLeave}); });
     }
   }
 
@@ -293,6 +293,7 @@
     }
     await waitFor(() => globalThis.MILITOPO_ENTRY_AUTH_READY, signal);
     const login = () => document.getElementById('militopoV2AuthOverlay');
+    if (kind === 'access') return waitFor(() => visible(login()) && login(), signal);
     if (kind === 'root') {
       return waitFor(() => {
         if (document.body.classList.contains('militopo-booting')) return null;
@@ -323,7 +324,18 @@
 
   function bootEntry(kind) {
     if (active) return active.promise;
-    const state = mount({kind, handoff:kind !== 'root', entering:false});
+    let internal = false;
+    try {
+      const handoff = JSON.parse(sessionStorage.getItem('militopo_screen_handoff'));
+      sessionStorage.removeItem('militopo_screen_handoff');
+      internal = handoff?.url === location.href && Date.now() - handoff.time < 60000;
+    } catch (_) {}
+    const navType = performance.getEntriesByType('navigation')[0]?.type;
+    if (navType !== 'reload' && document.referrer) {
+      const source = new URL(document.referrer);
+      internal ||= source.origin === base.origin && source.pathname.startsWith(base.pathname);
+    }
+    const state = mount({kind, splash:!internal});
     void present(state, signal => entryTask(kind, signal));
     return state.promise;
   }
