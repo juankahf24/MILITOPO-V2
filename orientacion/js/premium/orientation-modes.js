@@ -23,28 +23,63 @@
   function close(){if(root)root.hidden=true;document.body.classList.remove("mor-choice-open");opened=false}
   function show(){if(!eligible())return false;document.body.classList.add("mor-organizer-shell");ensure();root.querySelector("[data-mor-user]").textContent=auth.displayName||"";
     globalThis.MILITOPO_PREMIUM?.get?.("organizer-home")?.close?.();root.hidden=false;document.body.classList.add("mor-choice-open");opened=true;return true}
-  function select(mode){if(!eligible())return false;
-    if(mode==="runner"){if(globalThis.MILITOPO_TRANSITION)void globalThis.MILITOPO_TRANSITION.navigate("./participante/");else location.assign("./participante/");return true}
-    if(mode==="organizer"){
-      const home=globalThis.MILITOPO_PREMIUM?.get?.("organizer-home");
-      if(!home?.open){show();root.querySelector("[data-mor-user]").textContent="El Centro de Carreras todavía está cargando";return false}
-      if(globalThis.MILITOPO_TRANSITION){
-        void globalThis.MILITOPO_TRANSITION.run(async signal=>{close();document.body.classList.add("mor-organizer-shell");try{const view=await home.prepare();if(signal.aborted)throw signal.reason;return view;}catch(error){show();throw error;}});return true;
+  const getHome=()=>globalThis.MILITOPO_PREMIUM?.get?.("organizer-home");
+  const directed=()=>new URLSearchParams(location.search).get("militopo_mode")==="organizer";
+
+  async function openOrganizer(signal) {
+    const transition=globalThis.MILITOPO_TRANSITION;
+    const home=getHome() || await transition?.waitFor(getHome,signal);
+    if(!eligible() || !home)throw new Error("No se pudo abrir el Centro de Carreras.");
+    close();
+    try {
+      const view=await home.prepare();
+      if(signal?.aborted)throw signal.reason;
+      if(!eligible())throw new Error("La sesión ha cambiado.");
+      if(directed()){
+        const url=new URL(location.href);
+        url.searchParams.delete("militopo_mode");
+        history.replaceState(history.state,"",url);
       }
-      close();document.body.classList.add("mor-organizer-shell");
-      if(home.open()===true)return true;
-      show();root.querySelector("[data-mor-user]").textContent="No se pudo abrir el Centro de Carreras";return false;
+      window.scrollTo({top:0,behavior:"instant"});
+      return view;
+    } catch(error) {
+      if(!signal?.aborted)show();
+      throw error;
     }
-    return false;
   }
-  function onAuth(candidate){auth=candidate||globalThis.MILITOPO_V2_AUTH||null;
-    if(!eligible()){close();document.body.classList.remove("mor-organizer-shell");lastUid="";return}
-    document.body.classList.add("mor-organizer-shell");if(lastUid===auth.uid)return;lastUid=auth.uid;
-    const params=new URLSearchParams(location.search),directed=params.get("militopo_mode")==="organizer";
-    if(directed){params.delete("militopo_mode");history.replaceState(history.state,"",location.pathname+(params.toString()?`?${params}`:"")+location.hash)}
-    setTimeout(()=>{if(!eligible()||globalThis.MILITOPO_PREMIUM?.get?.("organizer-home")?.isOpen?.())return;if(directed)select("organizer");else show()},180);
+
+  function select(mode) {
+    if(!eligible())return false;
+    const transition=globalThis.MILITOPO_TRANSITION;
+    if(mode==="runner"){
+      if(transition)void transition.navigate("./participante/");
+      else location.assign("./participante/");
+      return true;
+    }
+    if(mode!=="organizer")return false;
+    if(transition)void transition.run(openOrganizer);
+    else void openOrganizer().catch(()=>show());
+    return true;
   }
-  globalThis.MILITOPO_ORIENTATION_MODES=Object.freeze({open:show,close,select,isOpen:()=>opened,canOrganize:eligible});
+
+  function prepareEntry(signal) {
+    if(directed())return openOrganizer(signal);
+    if(!show())throw new Error("No se pudo abrir el selector de experiencia.");
+    root.scrollTop=0;
+    return root;
+  }
+
+  function onAuth(candidate) {
+    auth=candidate||globalThis.MILITOPO_V2_AUTH||null;
+    if(!eligible()){close();document.body.classList.remove("mor-organizer-shell");lastUid="";return;}
+    document.body.classList.add("mor-organizer-shell");
+    if(lastUid===auth.uid)return;
+    lastUid=auth.uid;
+    // On entry the controller alone opens and awaits the requested screen.
+    if(globalThis.MILITOPO_TRANSITION?.isEntering("orientation"))return;
+    if(directed())select("organizer");else show();
+  }
+  globalThis.MILITOPO_ORIENTATION_MODES=Object.freeze({open:show,close,select,prepareEntry,isOpen:()=>opened,canOrganize:eligible});
   addEventListener("militopo:v2-auth-ready",e=>onAuth(e.detail));
   if(globalThis.MILITOPO_V2_AUTH)onAuth(globalThis.MILITOPO_V2_AUTH);
 })();
