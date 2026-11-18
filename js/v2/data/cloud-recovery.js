@@ -599,7 +599,7 @@ function renderHistoryList(rows = state.historyRows) {
     <div class="m2-cloud-history-summary">
       <div class="m2-cloud-history-stat"><strong>${filtered.length}</strong><span>CARRERAS</span></div>
       <div class="m2-cloud-history-stat"><strong>${aggregate.finished}</strong><span>CLASIFICADOS</span></div>
-      <div class="m2-cloud-history-stat"><strong>${aggregate.incomplete}</strong><span>INCOMPLETOS</span></div>
+      <div class="m2-cloud-history-stat"><strong>${aggregate.incomplete}</strong><span>ABANDONOS</span></div>
       <div class="m2-cloud-history-stat"><strong>${aggregate.notStarted}</strong><span>NO SALIERON</span></div>
     </div>` + (filtered.length ? filtered.map(row => {
       const counts = row.counts || { total:0, finished:0, incomplete:0, notStarted:0 };
@@ -612,7 +612,7 @@ function renderHistoryList(rows = state.historyRows) {
           <div class="m2-cloud-history-metrics">
             <div class="m2-cloud-history-metric"><strong>${counts.total}</strong><span>RESULTADOS</span></div>
             <div class="m2-cloud-history-metric"><strong>${counts.finished}</strong><span>FINALIZADOS</span></div>
-            <div class="m2-cloud-history-metric"><strong>${counts.incomplete}</strong><span>INCOMPLETOS</span></div>
+            <div class="m2-cloud-history-metric"><strong>${counts.incomplete}</strong><span>ABANDONOS</span></div>
             <div class="m2-cloud-history-metric"><strong>${counts.notStarted}</strong><span>NO SALIERON</span></div>
             <div class="m2-cloud-history-metric"><strong>${row.participantCount}</strong><span>PLAZAS</span></div>
           </div>

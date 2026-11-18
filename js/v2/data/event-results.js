@@ -21,7 +21,7 @@ const STATUS_ES = {
 };
 const RESULT_ES = {
   finished: "FINALIZADO",
-  incomplete: "INCOMPLETO",
+  incomplete: "ABANDONO",
   not_started: "NO SALIÓ"
 };
 const state = {
@@ -135,7 +135,7 @@ function ensurePanel() {
     <div class="m2-h2-metrics">
       <div class="m2-h2-metric"><strong id="m2H2Total">0</strong><span>RESULTADOS</span></div>
       <div class="m2-h2-metric"><strong id="m2H2Finished">0</strong><span>FINALIZADOS</span></div>
-      <div class="m2-h2-metric"><strong id="m2H2Incomplete">0</strong><span>INCOMPLETOS</span></div>
+      <div class="m2-h2-metric"><strong id="m2H2Incomplete">0</strong><span>ABANDONOS</span></div>
       <div class="m2-h2-metric"><strong id="m2H2NotStarted">0</strong><span>NO SALIERON</span></div>
     </div>
     <div class="m2-h2-tools"><div class="m2-h2-source">Resultados persistentes de la carrera</div><button id="m2H2Refresh" class="m2-h2-refresh" type="button">ACTUALIZAR</button></div>
@@ -295,11 +295,11 @@ function renderClassification() {
   tabs.innerHTML = `<button class="m2-h5-tab ${state.classView === "general" ? "active" : ""}" type="button" data-h5-view="general">GENERAL</button>` + routes.map(route => `<button class="m2-h5-tab ${state.classView === route.routeId ? "active" : ""}" type="button" data-h5-view="${esc(route.routeId)}">${esc(route.routeId)} · ${esc(route.participantCount)} corredores</button>`).join("");
 
   if (state.classError) note.textContent = `⚠️ ${state.classError}`;
-  else if (state.classView === "general") note.textContent = "GENERAL asigna puesto cuando existe tiempo oficial verificable: FINALIZADOS primero e INCOMPLETOS después. Dentro de cada estado se ordena por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.";
+  else if (state.classView === "general") note.textContent = "GENERAL asigna puesto cuando existe tiempo oficial verificable: FINALIZADOS primero e ABANDONOS después. Dentro de cada estado se ordena por TIEMPO OFICIAL. NO SALIÓ queda sin puesto.";
   else {
     const route = routes.find(row => row.routeId === state.classView) || {};
     const distance = Number.isFinite(Number(route.routeDistanceKm)) ? `${Number(route.routeDistanceKm).toFixed(2)} km` : "distancia —";
-    note.textContent = `${state.classView}: ${route.participantCount || 0} participantes · ${distance} · FINALIZADOS primero e INCOMPLETOS después, con puesto solo si existe tiempo oficial. NO SALIÓ queda sin puesto.`;
+    note.textContent = `${state.classView}: ${route.participantCount || 0} participantes · ${distance} · FINALIZADOS primero e ABANDONOS después, con puesto solo si existe tiempo oficial. NO SALIÓ queda sin puesto.`;
   }
 
   renderExportControls();
@@ -408,7 +408,7 @@ function render() {
       const live = state.eventStatus === "live";
       setText("m2H2Message", live ? "La carrera está EN DIRECTO. Los participantes aparecerán aquí cuando su resultado se consolide." : "Todavía no hay resultados guardados para esta carrera.");
     } else if (state.eventStatus === "live") {
-      setText("m2H2Message", "Resultados parciales. Al FINALIZAR la carrera se consolidarán también incompletos y participantes que no salieron.");
+      setText("m2H2Message", "Resultados parciales. Al FINALIZAR la carrera se consolidarán también abandonos y participantes que no salieron.");
     } else {
       setText("m2H2Message", "Resultados consolidados y disponibles para consulta permanente.");
     }
