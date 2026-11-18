@@ -1,6 +1,6 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.56";
+const BUILD_ID="2.0.57";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
   "../../css/tactical-gold.css?v=2.0.56",
