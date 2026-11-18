@@ -6,6 +6,10 @@
 #mpPremiumTransition {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100%;
+  max-width: none;
+  max-height: none;
   z-index: 2147483647;
   isolation: isolate;
   touch-action: none;
@@ -18,11 +22,27 @@
   opacity: 1;
   box-sizing: border-box;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  font-family: Arial,Helvetica,system-ui,sans-serif;
+  font: 16px/1.2 Arial,Helvetica,system-ui,sans-serif;
   animation: none;
   --mp-elapsed: 0ms;
   margin: 0;
   border: 0;
+  outline: 0;
+}
+
+#mpPremiumTransition::backdrop {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+#mpPremiumTransition .mp-transition-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 #mpPremiumTransition * {
@@ -33,20 +53,18 @@
 #mpPremiumTransition .mp-transition-bg {
   position: absolute;
   inset: -1%;
-  z-index: -3;
+  z-index: 0;
   background: #07110B center/cover no-repeat;
   animation: mp-landscape-breathe 18s ease-in-out infinite alternate;
   animation-play-state: paused;
   will-change: transform;
   opacity: 1;
-
-  filter: hue-rotate(-18deg) sepia(.65) saturate(1.15);
 }
 
 #mpPremiumTransition .mp-transition-light {
   position: absolute;
   inset: 0;
-  z-index: -2;
+  z-index: 1;
   pointer-events: none;
   background: radial-gradient(ellipse at 50% 76%,#D8B45F18,transparent 38%);
   animation: mp-light-breathe 8s ease-in-out infinite alternate;
@@ -60,9 +78,18 @@
   width: min(84vw,970px);
   max-width: calc(100% - 2*max(20px,env(safe-area-inset-left)));
   text-align: center;
+  z-index: 1;
+}
+
+#mpPremiumTransition .mp-mountain-mark,
+#mpPremiumTransition .mp-loader-copy {
   opacity: 0;
-  visibility: hidden;
   transition: opacity .3s ease;
+}
+
+#mpPremiumTransition .mp-loader-copy {
+  display: flow-root;
+  visibility: hidden;
 }
 
 #mpPremiumTransition .mp-mountain-mark {
@@ -356,6 +383,7 @@
   width:100%;
   height:100%;
   object-fit:cover;
+  filter:hue-rotate(-18deg) sepia(.65) saturate(1.15);
   max-width:none;
 }
 
@@ -364,7 +392,10 @@
   animation-play-state: running;
 }
 
-#mpPremiumTransition.has-content .mp-transition-content,#mpPremiumTransition.has-error .mp-transition-content {
+#mpPremiumTransition.mp-handoff .mp-mountain-mark,
+#mpPremiumTransition.has-content .mp-mountain-mark,
+#mpPremiumTransition.has-content .mp-loader-copy,
+#mpPremiumTransition.has-error .mp-loader-copy {
   opacity: 1;
   visibility: visible;
 }
@@ -378,19 +409,7 @@
 }
 
 @media(prefers-reduced-motion:reduce) {
-  #mpPremiumTransition .mp-transition-content {
+  #mpPremiumTransition .mp-mountain-mark, #mpPremiumTransition .mp-loader-copy {
     transition: none;
   }
-}
-
-#mpPremiumTransition .mp-mountain-mark #mpMountainLight stop:first-child {
-  stop-color: #F3D787;
-}
-
-#mpPremiumTransition .mp-mountain-mark #mpMountainLight stop:last-child {
-  stop-color: #D8B45F;
-}
-
-#mpPremiumTransition .mp-mountain-mark>path:last-child {
-  fill: #283525;
 }

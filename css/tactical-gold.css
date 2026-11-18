@@ -3954,26 +3954,39 @@ html[data-militopo-theme="tactical-gold"] body :is(.mpb-field label,.mpb-field>s
  }
 }
 
-@layer fieldFinish {
- @media (max-width:640px), (orientation:landscape) and (pointer:coarse) {
-  html[data-militopo-theme] body #militopoOrientationModes {padding:0!important;place-items:stretch!important}
-  html[data-militopo-theme] body #militopoOrientationModes .mor-mode-panel {
-   width:100%!important;margin:0!important;min-height:inherit;align-content:center;
-   border:0!important;border-radius:0!important;box-shadow:none!important;
-   padding:max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))!important;
-  }
- }
-}
-/* The mode selector uses one photograph without a contour overlay. */
+/* The selector owns the viewport. Only the content uses safe-area padding. */
 @layer fieldFinish {
  html[data-militopo-theme] body #militopoOrientationModes {
-  background: #0b120a !important;
+  --mor-photo:linear-gradient(110deg,#11190dc4,#11190d3d),url('../assets/tactical-gold/terrain-orienteer.webp') 72% center / cover no-repeat;
+  background:#0b120a!important;
  }
  html[data-militopo-theme] body #militopoOrientationModes .mor-mode-panel {
-  background: linear-gradient(110deg, #11190dc4, #11190d3d), url('../assets/tactical-gold/terrain-orienteer.webp') 72% center / cover no-repeat !important;
+  background:var(--mor-photo)!important;
  }
  html[data-militopo-theme] body #militopoOrientationModes .mor-mode-panel::before,
  html[data-militopo-theme] body #militopoOrientationModes .mor-mode-panel::after {
-  content: none !important;
+  content:none!important;
+ }
+ @media (max-width:640px), (pointer:coarse) {
+  html[data-militopo-theme] body #militopoOrientationModes {
+   display:flex;
+   flex-direction:column;
+   align-items:stretch;
+   justify-content:flex-start;
+   padding:0!important;
+   background:var(--mor-photo) #0b120a!important;
+  }
+  html[data-militopo-theme] body #militopoOrientationModes .mor-mode-panel {
+   flex:1 0 auto;
+   min-height:0;
+   width:100%!important;
+   margin:0!important;
+   align-content:center;
+   border:0!important;
+   border-radius:0!important;
+   box-shadow:none!important;
+   background:transparent!important;
+   padding:max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))!important;
+  }
  }
 }
