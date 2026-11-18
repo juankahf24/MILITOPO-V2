@@ -1,16 +1,16 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.58";
+const BUILD_ID="2.0.59";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
-  "../../css/tactical-gold.css?v=2.0.56",
+  "../../css/tactical-gold.css?v=2.0.59",
   "../../js/v2/ui/tactical-gold.js?v=2.0.50",
   "../../assets/tactical-gold/terrain-orienteer.webp",
   "../../assets/tactical-gold/race-ridgeline.webp",
   "../../assets/tactical-gold/field-contours.webp",
 
-  "../../css/premium-transition.css?v=2.0.56",
-  "../../js/v2/ui/premium-transition.js?v=2.0.58",
+  "../../css/premium-transition.css?v=2.0.59",
+  "../../js/v2/ui/premium-transition.js?v=2.0.59",
   "../../js/v2/ui/power-menu.js?v=2.0.42",
   "../../js/v2/race/itinerary-analysis-ui.js?v=2.0.42",
   "../../assets/transition/militopo-portrait.webp",
@@ -40,7 +40,7 @@ const APP_SHELL=[
   "../../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
   // Dependencias exactas de runner.html para iniciar y reanudar offline.
   "../../js/v2/auth/auth-ui.css?v=2.0.55",
-  "../../js/v2/auth/auth-ui.js?v=2.0.47",
+  "../../js/v2/auth/auth-ui.js?v=2.0.59",
   "../../js/v2/data/invitation-inbox.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/live/runner-session-v2.js?v=v2-f210-close-presence-20261031",
   "../js/live/live-phase2.js?v=v2-f231-sin-archivado-20261102",
