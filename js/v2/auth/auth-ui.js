@@ -839,7 +839,7 @@ function profilePenalty(ms) {
   return h ? `+${h} h ${String(m).padStart(2,"0")} min` : `+${m} min`;
 }
 function profileResultLabel(value) {
-  return ({ finished:"FINALIZADA", incomplete:"INCOMPLETA", not_started:"NO SALIÓ" }[String(value || "not_started").toLowerCase()] || String(value || "—").toUpperCase());
+  return ({ finished:"FINALIZADA", incomplete:"ABANDONO", not_started:"NO SALIÓ" }[String(value || "not_started").toLowerCase()] || String(value || "—").toUpperCase());
 }
 function profileIcon(name) {
   const paths = {
@@ -903,7 +903,7 @@ function renderOwnOverview() {
     profileLine("target", "CONTROLES", Number(runner.controlDetectedCount || 0)),
     profileLine("discard", "DESCARTES", Number(runner.discardedControlCount || 0)),
     profileLine("flag", "CARRERAS INICIADAS", Number(runner.started || 0)),
-    profileLine("activity", "INCOMPLETAS", Number(runner.incomplete || 0), "", "is-warn"),
+    profileLine("activity", "ABANDONOS", Number(runner.incomplete || 0), "", "is-warn"),
     profileLine("alert", "NO SALIÓ", Number(runner.notStarted || 0), "", "is-muted"),
     profileLine("trophy", "TASA DE FINALIZACIÓN", completion, "", "is-good"),
     profileLine("penalty", "PENALIZACIÓN ACUMULADA", profilePenalty(runner.penaltyMs), "", "is-warn")
