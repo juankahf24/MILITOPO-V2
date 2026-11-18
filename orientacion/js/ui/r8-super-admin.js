@@ -18,7 +18,7 @@ const searchKey=value=>String(value??"").toLocaleLowerCase("es").normalize("NFD"
 const cleanRole=value=>["runner","organizer","super_admin"].includes(String(value||""))?String(value):"runner";
 const roleLabel=value=>({runner:"CORREDOR",organizer:"ORGANIZADOR",super_admin:"SÚPER ADMIN"}[cleanRole(value)]||"CORREDOR");
 const statusLabel=value=>({draft:"BORRADOR",prepared:"PREPARADO",published:"PUBLICADO",live:"EN DIRECTO",finished:"FINALIZADO",archived:"FINALIZADO"}[String(value||"draft").toLowerCase()]||String(value||"BORRADOR").toUpperCase());
-const resultStatusLabel=value=>({finished:"FINALIZADA",incomplete:"INCOMPLETA",not_started:"NO SALIÓ"}[String(value||"not_started").toLowerCase()]||String(value||"—").toUpperCase());
+const resultStatusLabel=value=>({finished:"FINALIZADA",incomplete:"ABANDONO",not_started:"NO SALIÓ"}[String(value||"not_started").toLowerCase()]||String(value||"—").toUpperCase());
 const tsMs=value=>{try{if(Number.isFinite(Number(value))&&Number(value)>0)return Number(value);if(typeof value?.toMillis==="function")return value.toMillis();if(value?.seconds)return Number(value.seconds)*1000;const n=Date.parse(value);return Number.isFinite(n)?n:0}catch(_){return 0}};
 const statusKeys=["draft","prepared","published","live","finished"];
 const eventStatus = value => String(value || "draft").toLowerCase() === "archived" ? "finished" : String(value || "draft").toLowerCase();
@@ -165,7 +165,7 @@ function renderUserDetail(){
     detailLine("target","CONTROLES",Number(runner.controlDetectedCount||0)),
     detailLine("discard","DESCARTES",Number(runner.discardedControlCount||0)),
     detailLine("flag","CARRERAS INICIADAS",Number(runner.started||0)),
-    detailLine("activity","INCOMPLETAS",Number(runner.incomplete||0),"","is-warn"),
+    detailLine("activity","ABANDONOS",Number(runner.incomplete||0),"","is-warn"),
     detailLine("alert","NO SALIÓ",Number(runner.notStarted||0),"","is-muted"),
     detailLine("trophy","TASA DE FINALIZACIÓN",completion,"","is-good"),
     detailLine("penalty","PENALIZACIÓN ACUMULADA",formatPenalty(runner.penaltyMs),"","is-warn")

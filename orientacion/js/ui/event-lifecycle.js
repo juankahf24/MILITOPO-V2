@@ -776,7 +776,7 @@ function confirmClose(report) {
   const summary = [
     `En carrera: ${report.racing}`,
     `Finalizados: ${report.finished}`,
-    `Incompletos: ${report.incomplete}`,
+    `Abandonos: ${report.incomplete}`,
     `Sin salida: ${report.notStarted}`
   ].join("\n");
   const warning = report.racing
