@@ -1,5 +1,5 @@
 import {bindPowerMenu,powerIcon} from "../../../js/v2/ui/power-menu.js?v=2.0.42";
-import {raceInfoHtml} from "../../../js/v2/race/race-info-ui.js?v=2.0.35";
+import {raceInfoHtml} from "../../../js/v2/race/race-info-ui.js?v=2.0.61";
 import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO R5 · Centro de carreras, nuevo organizador a pantalla completa.
  * El mapa histórico queda como motor interno; solo se muestran pantallas del nuevo centro.
@@ -198,13 +198,16 @@ async function editPersonal(photo=false){
 async function run(action){
   if(action==="logout"){
     if(state.logoutBusy)return false;state.logoutBusy=true;
-    try{if(typeof globalThis.MILITOPO_V2_LOGOUT!=="function")throw new Error("El acceso todavía está cargando. Vuelve a intentarlo.");if(await globalThis.MILITOPO_V2_LOGOUT())close();}
+    try{if(typeof globalThis.MILITOPO_V2_LOGOUT!=="function")throw new Error("El acceso todavía está cargando. Vuelve a intentarlo.");await globalThis.MILITOPO_V2_LOGOUT();}
     catch(error){message("No se pudo cerrar sesión. "+String(error?.message||error));}
     finally{state.logoutBusy=false;}return true;
   }
   if(action==="profile-photo"){void editPersonal(true);return true}
   if(action==="more-races"){state.raceLimit+=10;refreshRaceList();return true}if(!canManage())return false;
-  if(action==="mode-choice"){close();return globalThis.MILITOPO_ORIENTATION_MODES?.open?.()}
+  if(action==="mode-choice"){
+    const choose=()=>{close();return globalThis.MILITOPO_ORIENTATION_MODES?.open?.()};
+    return globalThis.MILITOPO_TRANSITION?.run ? globalThis.MILITOPO_TRANSITION.run(choose) : choose();
+  }
   if(action==="home"){setScreen("home");return true}
   if(action==="races"){setScreen("races");fetchRows(false);return true}
   if(action==="operations"){setScreen("operations");return true}
