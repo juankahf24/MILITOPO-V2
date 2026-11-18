@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.60";
+const BUILD_ID="2.0.61";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -12,14 +12,14 @@ const CORE_ASSETS=[
   "../assets/tactical-gold/terrain-orienteer.webp",
   "../assets/tactical-gold/race-ridgeline.webp",
   "../assets/tactical-gold/field-contours.webp",
-  "../css/premium-transition.css?v=2.0.60",
-  "../js/v2/ui/premium-transition.js?v=2.0.60",
+  "../css/premium-transition.css?v=2.0.61",
+  "../js/v2/ui/premium-transition.js?v=2.0.61",
   "../js/v2/ui/power-menu.js?v=2.0.42",
   "../assets/transition/militopo-portrait.webp",
   "../assets/transition/militopo-landscape.webp",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
-  "../js/v2/race/race-info-ui.js?v=2.0.35",
+  "../js/v2/race/race-info-ui.js?v=2.0.61",
   "../js/v2/profile/personal-profile-ui.js?v=2.0.38",
   "../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009",
   "../js/v2/profile/profile-photo-ui.js?v=v2-r8l-profile-lines-20261009",
@@ -37,14 +37,14 @@ const CORE_ASSETS=[
   "./css/orientation-modes.css?v=2.0.60",
   "./css/premium-builder.css?v=2.0.25",
   "./js/app.js?v=2.0.43",
-  "./js/premium/package-flow.js?v=2.0.51",
+  "./js/premium/package-flow.js?v=2.0.61",
   "./js/ui/r1-shell.js?v=2.0.41",
   "./js/ui/r8-super-admin.js?v=militopo-f231-sin-archivado-20261102",
   "./js/ui/r2-map-workspace.js?v=r6e-editar-recorridos-20261007",
   "./js/premium/premium-core.js?v=premium-p0a-20261011",
   "./js/premium/premium-bridge.js?v=militopo-r5a-analisis-comparativo-20261019",
   "./js/premium/premium-builder.js?v=2.0.42",
-  "./js/premium/premium-home.js?v=2.0.57",
+  "./js/premium/premium-home.js?v=2.0.61",
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
   "./js/premium/orientation-modes.js?v=2.0.60",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
@@ -67,7 +67,8 @@ const CORE_ASSETS=[
   "../js/v2/auth/roles.js",
   "../js/v2/auth/auth-ui.css?v=2.0.55",
   "../js/v2/data/classification-export.js?v=2.0.39",
-  "../js/v2/auth/auth-ui.js?v=2.0.59",
+  "../js/v2/auth/end-session.js",
+  "../js/v2/auth/auth-ui.js?v=2.0.61",
   "../js/v2/auth/organizer-guard.js?v=v2-r5a1-runner-routing-20261005",
   "../js/v2/data/invitations.js?v=2.0.26",
   "../js/v2/data/participants-admin.js?v=militopo-f231-sin-archivado-20261102",
