@@ -1,6 +1,7 @@
+import { endSession } from "../../js/v2/auth/end-session.js";
 import {itineraryAnalysisHtml} from "../../js/v2/race/itinerary-analysis-ui.js?v=2.0.42";
 import {bindPowerMenu} from "../../js/v2/ui/power-menu.js?v=2.0.42";
-import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.35";
+import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.61";
 import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
 import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.21";
@@ -776,11 +777,13 @@ bindPowerMenu(els.logoutBtn,{onLogout:async()=>{
   if(!auth)throw new Error("La sesión todavía se está preparando. Vuelve a intentarlo.");
   accountClosing=true;
   try{
-    await signOut(auth);
-    if(accountRecoveryTimer)clearTimeout(accountRecoveryTimer);
-    stopInvitationRealtime();stopActiveEventRealtime();
-    globalThis.MILITOPO_V2_AUTH={uid:null,role:null};
-    location.replace("../../");
+    const leaving = await endSession(async () => {
+      await signOut(auth);
+      if(accountRecoveryTimer) clearTimeout(accountRecoveryTimer);
+      stopInvitationRealtime();
+      stopActiveEventRealtime();
+    });
+    if (!leaving) accountClosing = false;
   }catch(error){accountClosing=false;scheduleAccountRecovery({reset:true,delay:250});throw error;}
 },onError:error=>setStatus("No se pudo cerrar sesión. "+String(error?.message||error),"err")});
 els.retry?.addEventListener("click",()=>scheduleAccountRecovery({reset:true,delay:0}));
