@@ -7,6 +7,46 @@
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const animations = new WeakMap();
   let active = null;
+  let pendingButton = null;
+
+  function buttonProgress(button) {
+    const label = document.createElement('span');
+    label.className = 'mp-button-wait';
+    label.textContent = 'Espera';
+    label.setAttribute('role', 'status');
+    button.setAttribute('aria-busy', 'true');
+    button.append(label);
+    return () => {
+      label.remove();
+      button.removeAttribute('aria-busy');
+    };
+  }
+
+  async function runInline(button, task) {
+    if (active || pendingButton) return false;
+    const stop = buttonProgress(button);
+    pendingButton = {stop};
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error('La carga está tardando demasiado. Vuelve a intentarlo.')), CONFIG.timeoutMs);
+    try {
+      await painted(controller.signal);
+      await untilAborted(controller.signal, task(controller.signal));
+      return true;
+    } finally {
+      clearTimeout(timer);
+      stop();
+      pendingButton = null;
+    }
+  }
+
+  // Cross-document navigation can retain the source snapshot while the destination starts.
+  addEventListener('pageswap', event => {
+    if (!pendingButton?.leaving || reduced()) event.viewTransition?.skipTransition();
+  });
+  addEventListener('pagereveal', event => {
+    if (!document.documentElement.classList.contains('mp-cross-hold') || reduced()) event.viewTransition?.skipTransition();
+  });
+  const revealDocument = () => document.documentElement.classList.remove('mp-cross-hold');
 
   function untilAborted(signal, promise) {
     return new Promise((resolve, reject) => {
@@ -107,6 +147,7 @@
     if (state.guard) document.removeEventListener('focusin', state.guard);
     if (state.root.open && state.root.close) state.root.close();
     state.root.remove();
+    revealDocument();
     state.resolve(result);
   }
 
@@ -118,7 +159,7 @@
     state.timer = setTimeout(() => controller.abort(new Error('La carga está tardando más de lo esperado. Puedes reintentar o volver.')), CONFIG.timeoutMs);
     state.root.classList.remove('has-error');
     state.root.querySelector('.mp-loader-actions').replaceChildren();
-    state.root.querySelector('.mp-loader-status').textContent = 'Preparando tu entorno';
+    state.root.querySelector('.mp-loader-status').textContent = state.splash ? 'Preparando tu entorno' : 'Preparando la pantalla';
     return controller.signal;
   }
 
@@ -126,6 +167,7 @@
     clearTimeout(state.timer);
     state.root.style.opacity = '1';
     state.root.classList.add('has-error');
+    revealDocument();
     state.root.querySelector('.mp-loader-copy').style.opacity = '1';
     state.root.querySelector('.mp-loader-status').textContent = error?.message || 'No se pudo preparar la pantalla.';
     const actions = state.root.querySelector('.mp-loader-actions');
@@ -226,7 +268,9 @@
       });
       const [view] = await untilAborted(signal, Promise.all([ready, state.intro]));
       if (state.leaving) return;
-      await fade(state.root, 0, state.splash ? CONFIG.exitMs : 150, signal);
+      if (!document.documentElement.classList.contains('mp-cross-hold')) {
+        await fade(state.root, 0, state.splash ? CONFIG.exitMs : 150, signal);
+      }
       release(state, {ok:true, value:view});
     } catch (error) {
       if (active === state && state.controller.signal === signal && !state.leaving && !state.suspended) {
@@ -237,17 +281,38 @@
     }
   }
 
-  function run(task) {
-    if (active) return active.promise;
-    const state = mount({entering:true});
-    void present(state, task);
-    return state.promise;
-  }
-
-  async function navigate(target, {replace=false, beforeLeave}={}) {
+  async function navigate(target, {replace=false, beforeLeave, button}={}) {
     const url = new URL(target, location.href);
     if (url.origin !== location.origin) throw new Error('La transición solo admite pantallas internas.');
     if (active?.leaving || document.querySelector('#m2RaceV2.m2race-is-racing,[data-militopo-runner-active="true"]')) return false;
+    if (pendingButton) return false;
+    if (button && !active && !beforeLeave) {
+      const stop = buttonProgress(button);
+      const handoff = {stop, leaving:true};
+      pendingButton = handoff;
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        if (pendingButton !== handoff) return;
+        stop();
+        pendingButton = null;
+        globalThis.__MILITOPO_AUTH_NAVIGATING = false;
+        forgetHandoff();
+      }, CONFIG.timeoutMs);
+      handoff.clear = () => clearTimeout(timer);
+      try {
+        await painted(controller.signal);
+        if (pendingButton !== handoff) return false;
+        commitNavigation(url, replace, true);
+        return true;
+      } catch (error) {
+        handoff.clear();
+        stop();
+        pendingButton = null;
+        globalThis.__MILITOPO_AUTH_NAVIGATING = false;
+        forgetHandoff();
+        throw error;
+      }
+    }
     const state = active || mount({entering:true});
     state.leaving = true;
     if (state.splash && state.intro) {
@@ -261,12 +326,7 @@
       await fade(state.root, 1, 120, signal);
       await painted(signal);
       if (beforeLeave) await untilAborted(signal, beforeLeave());
-      try {
-        sessionStorage.setItem('militopo_screen_handoff', JSON.stringify({url:url.href, time:Date.now()}));
-      } catch (_) {}
-      globalThis.__MILITOPO_AUTH_NAVIGATING = true;
-      try { sessionStorage.setItem('militopo_v2_allow_navigation_once', '1'); } catch (_) {}
-      if (replace) location.replace(url.href); else location.assign(url.href);
+      commitNavigation(url, replace, false);
       const stalled = () => fail(signal.reason);
       signal.addEventListener('abort', stalled, {once:true});
       return true;
@@ -279,6 +339,22 @@
       try { sessionStorage.removeItem('militopo_v2_allow_navigation_once'); } catch (_) {}
       showError(state, error, () => { void navigate(url.href, {replace, beforeLeave}); });
     }
+  }
+
+  function forgetHandoff() {
+    try {
+      sessionStorage.removeItem('militopo_screen_handoff');
+      sessionStorage.removeItem('militopo_v2_allow_navigation_once');
+    } catch (_) {}
+  }
+
+  function commitNavigation(url, replace, inline) {
+    try {
+      sessionStorage.setItem('militopo_screen_handoff', JSON.stringify({url:url.href, time:Date.now(), inline}));
+      sessionStorage.setItem('militopo_v2_allow_navigation_once', '1');
+    } catch (_) {}
+    globalThis.__MILITOPO_AUTH_NAVIGATING = true;
+    if (replace) location.replace(url.href); else location.assign(url.href);
   }
 
   function visible(node) { return node && !node.hidden && node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden'; }
@@ -325,16 +401,19 @@
   function bootEntry(kind) {
     if (active) return active.promise;
     let internal = false;
+    let retainedSource = false;
     try {
       const handoff = JSON.parse(sessionStorage.getItem('militopo_screen_handoff'));
       sessionStorage.removeItem('militopo_screen_handoff');
       internal = handoff?.url === location.href && Date.now() - handoff.time < 60000;
+      retainedSource = internal && handoff.inline && !reduced();
     } catch (_) {}
     const navType = performance.getEntriesByType('navigation')[0]?.type;
     if (navType !== 'reload' && document.referrer) {
       const source = new URL(document.referrer);
       internal ||= source.origin === base.origin && source.pathname.startsWith(base.pathname);
     }
+    if (retainedSource) document.documentElement.classList.add('mp-cross-hold');
     const state = mount({kind, splash:!internal});
     void present(state, signal => entryTask(kind, signal));
     return state.promise;
@@ -347,9 +426,10 @@
       {duration:240, easing:'cubic-bezier(.2,.65,.3,1)'}));
   }
 
-  globalThis.MILITOPO_TRANSITION = Object.freeze({config:CONFIG, run, navigate, waitFor, bootEntry, soft,
-    active:() => Boolean(active), isEntering:kind => active?.kind === kind && active.entryPending});
+  globalThis.MILITOPO_TRANSITION = Object.freeze({config:CONFIG, navigate, waitFor, bootEntry, soft, settleView,
+    runInline, active:() => Boolean(active || pendingButton), isEntering:kind => active?.kind === kind && active.entryPending});
   addEventListener('pagehide', () => {
+    pendingButton?.clear?.();
     if (!active) return;
     active.suspended = true;
     clearTimeout(active.timer);
@@ -358,6 +438,8 @@
   addEventListener('pageshow', event => {
     if (!event.persisted) return;
     globalThis.__MILITOPO_AUTH_NAVIGATING = false;
+    pendingButton?.stop();
+    pendingButton = null;
     if (active) release(active, {ok:false, cancelled:true});
   });
 })();
