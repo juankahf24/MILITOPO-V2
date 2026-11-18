@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-militopo-theme="tactical-gold" lang="es" style="background:#0a0e0a;">
+<html data-militopo-theme="tactical-gold" lang="es" style="background:#07110b">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
@@ -8,15 +8,15 @@
 
 <link rel="preload" as="image" href="../assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
 <link rel="preload" as="image" href="../assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
-<!-- One transition controller starts before the application is parsed. -->
-<link rel="stylesheet" href="../css/premium-transition.css?v=2.0.59">
-<script src="../js/v2/ui/premium-transition.js?v=2.0.59"></script>
-<script>window.MILITOPO_TRANSITION?.bootEntry("orientation");</script>
+<!-- Load the controller before the first body element. -->
+<link rel="stylesheet" href="../css/premium-transition.css?v=2.0.60">
+<script src="../js/v2/ui/premium-transition.js?v=2.0.60"></script>
 
 
 
 
-<link rel="preload" as="style" href="../css/tactical-gold.css?v=2.0.59" media="screen" fetchpriority="high">
+
+<link rel="preload" as="style" href="../css/tactical-gold.css?v=2.0.60" media="screen" fetchpriority="high">
 <script>
 /* R2H · detectar PWA instalada antes de pintar la primera imagen.
    iOS no siempre aplica correctamente @media(display-mode: standalone), por eso
@@ -32,8 +32,6 @@ try {
 
 <title>MILITOPO V2 · Orientación</title>
 <meta name="theme-color" content="#08140D">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#0a0e0a">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0e0a">
 <style>
 html,body{background:#0a0e0a!important;margin:0;min-height:100%;min-height:100dvh}
 html{background-color:#0a0e0a!important;color-scheme:dark}
@@ -112,12 +110,13 @@ body{overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
 <link rel="stylesheet" href="css/r9o-final-polish.css?v=r9o-final-20261011" />
 <link rel="stylesheet" href="css/premium-base.css?v=premium-p0a-20261011" />
 <link rel="stylesheet" href="css/premium-home.css?v=2.0.57" />
-<link rel="stylesheet" href="css/orientation-modes.css?v=2.0.58" />
+<link rel="stylesheet" href="css/orientation-modes.css?v=2.0.60" />
 <link rel="stylesheet" href="css/premium-builder.css?v=2.0.25" />
-<link rel="stylesheet" href="../css/tactical-gold.css?v=2.0.59" media="screen">
+<link rel="stylesheet" href="../css/tactical-gold.css?v=2.0.60" media="screen">
 <script defer src="../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body style="background:#0a0e0a;">
+<script>window.MILITOPO_TRANSITION?.bootEntry("orientation");</script>
 <!-- MILITOPO V2: acceso antiguo Organizador/Participante eliminado. Auth V2 gestionará la sesión. -->
 
 <div class="app">
@@ -734,7 +733,7 @@ body{overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
 <script src="js/premium/premium-bridge.js?v=militopo-r5a-analisis-comparativo-20261019"></script>
 <script type="module" src="js/premium/premium-builder.js?v=2.0.42"></script>
 <script type="module" src="js/premium/premium-home.js?v=2.0.57"></script>
-<script src="js/premium/orientation-modes.js?v=2.0.41"></script>
+<script src="js/premium/orientation-modes.js?v=2.0.60"></script>
 
 
 <script>
@@ -804,7 +803,7 @@ body{overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
     });
 })();
 </script>
-<script defer src="../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.59" data-sw="./sw.js"></script>
+<script defer src="../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.60" data-sw="./sw.js"></script>
 <script type="module" src="js/premium/package-flow.js?v=2.0.51"></script>
 </body>
 </html>

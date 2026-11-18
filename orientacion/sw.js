@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.59";
+const BUILD_ID="2.0.60";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -7,13 +7,13 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
 
 /* Rutas EXACTAS cargadas por orientacion/index.html y js/app.js. */
 const CORE_ASSETS=[
-  "../css/tactical-gold.css?v=2.0.59",
+  "../css/tactical-gold.css?v=2.0.60",
   "../js/v2/ui/tactical-gold.js?v=2.0.50",
   "../assets/tactical-gold/terrain-orienteer.webp",
   "../assets/tactical-gold/race-ridgeline.webp",
   "../assets/tactical-gold/field-contours.webp",
-  "../css/premium-transition.css?v=2.0.59",
-  "../js/v2/ui/premium-transition.js?v=2.0.59",
+  "../css/premium-transition.css?v=2.0.60",
+  "../js/v2/ui/premium-transition.js?v=2.0.60",
   "../js/v2/ui/power-menu.js?v=2.0.42",
   "../assets/transition/militopo-portrait.webp",
   "../assets/transition/militopo-landscape.webp",
@@ -34,7 +34,7 @@ const CORE_ASSETS=[
   "./css/r9o-final-polish.css?v=r9o-final-20261011",
   "./css/premium-base.css?v=premium-p0a-20261011",
   "./css/premium-home.css?v=2.0.57",
-  "./css/orientation-modes.css?v=2.0.58",
+  "./css/orientation-modes.css?v=2.0.60",
   "./css/premium-builder.css?v=2.0.25",
   "./js/app.js?v=2.0.43",
   "./js/premium/package-flow.js?v=2.0.51",
@@ -46,7 +46,7 @@ const CORE_ASSETS=[
   "./js/premium/premium-builder.js?v=2.0.42",
   "./js/premium/premium-home.js?v=2.0.57",
   "./js/premium/organizer-profile-data.js?v=militopo-r4-profile-20261019",
-  "./js/premium/orientation-modes.js?v=2.0.41",
+  "./js/premium/orientation-modes.js?v=2.0.60",
   "./assets/r1/militopo-compass-r2k.png?v=r2k-direct-logo-20261003",
   "./js/config/iof-symbols-baked.js?v=militopo-r5b-utm-atak-20261019",
   "./js/core/app-main.js?v=2.0.43",
