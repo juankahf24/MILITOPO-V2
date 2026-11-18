@@ -413,3 +413,83 @@
     transition: none;
   }
 }
+
+/* Keep the outgoing screen visible until the next document can paint. */
+@view-transition {
+  navigation: auto;
+}
+
+html.mp-cross-hold::view-transition-old(root) {
+  animation-play-state: paused;
+}
+
+::view-transition-group(root) {
+  animation-duration: 220ms;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+  animation: mp-document-reveal 220ms ease-out both;
+}
+
+::view-transition-new(root) {
+  animation: none;
+}
+
+@keyframes mp-document-reveal {
+  to { opacity: 0; }
+}
+
+[aria-busy="true"]:has(> .mp-button-wait) {
+  position: relative;
+  cursor: progress;
+}
+
+.mp-button-wait {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  grid-auto-flow: column;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  gap: .35em;
+  border-radius: inherit;
+  background: #182319;
+  color: #fff0c0;
+  font-size: clamp(.65rem, 2.8vw, 1rem);
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.mp-button-wait::after {
+  content: '…';
+  animation: mp-wait-pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes mp-wait-pulse {
+  from { opacity: .35; }
+  to { opacity: 1; }
+}
+
+#mpPremiumTransition[aria-label="Cambio de pantalla"] .mp-loader-copy {
+  visibility: visible;
+  opacity: 1;
+}
+
+#mpPremiumTransition[aria-label="Cambio de pantalla"]:not(.has-error) .mp-loader-status {
+  display: inline-block;
+  padding: .75rem 1rem;
+  border: 1px solid #aa975f;
+  border-radius: .8rem;
+  color: #fff0c0;
+}
+
+[data-mor-error]:empty {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mp-button-wait::after { animation: none; }
+}
