@@ -133,7 +133,7 @@ body.r1-shell-active{min-height:100dvh;background-color:#0a0e0a!important}
 /* R2B · El mapa es ahora el fondo permanente de la interfaz principal. */
 body.r1-shell-active>.app>.card{display:none!important}
 body.r1-shell-active>.app{width:100%!important;max-width:none!important;min-height:100dvh!important;padding:0!important;margin:0!important}
-body.r1-shell-active.r1-map-home:not(.militopo-premium-home-open){overflow:hidden}
+body.r1-shell-active.r1-map-home:not(.militopo-premium-home-open,.mor-choice-open){overflow:hidden}
 body.r1-shell-active.r1-workspace-open{overflow:hidden}
 body.r1-shell-active.r1-workspace-open .r1-map-dock{display:none!important}
 
@@ -250,7 +250,7 @@ html.militopo-ios-pwa body{
   overscroll-behavior:none!important;
   -webkit-overflow-scrolling:auto!important;
 }
-html.militopo-ios-pwa body.r1-shell-active.r1-map-home:not(.militopo-premium-home-open){
+html.militopo-ios-pwa body.r1-shell-active.r1-map-home:not(.militopo-premium-home-open,.mor-choice-open){
   position:fixed!important;
   inset:0!important;
   height:auto!important;
@@ -1679,7 +1679,7 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
 }
 
 /* R9F · WORKSPACE PRINCIPAL ORGANIZADOR / SÚPER ADMIN · PWA móvil. */
-body.r1-shell-active.r1-map-home:not(.militopo-premium-home-open){width:100%;max-width:100vw;overflow:hidden!important;overscroll-behavior:none}
+body.r1-shell-active.r1-map-home:not(.militopo-premium-home-open,.mor-choice-open){width:100%;max-width:100vw;overflow:hidden!important;overscroll-behavior:none}
 .r1-topbar,.r1-nav,.r1-workspace,.r1-workspace-shell,.r1-workspace-body,.r1-more-panel,.r1-layer-pop{box-sizing:border-box;max-width:100%}
 .r1-nav{min-width:0}.r1-nav-btn{min-width:0}
 .r1-workspace-body{overflow-x:hidden!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
