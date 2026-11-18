@@ -1,5 +1,5 @@
 /* MILITOPO Orientación · FASE I1 · caché/versionado seguro. */
-const BUILD_ID="2.0.55";
+const BUILD_ID="2.0.56";
 const CACHE_PREFIX="militopo-v2-orientacion--r2b";
 const RUNTIME_PREFIX="militopo-v2-orientacion-runtime-";
 const MILITOPO_CACHE=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -7,12 +7,12 @@ const RUNTIME_CACHE=`${RUNTIME_PREFIX}${BUILD_ID}`;
 
 /* Rutas EXACTAS cargadas por orientacion/index.html y js/app.js. */
 const CORE_ASSETS=[
-  "../css/tactical-gold.css?v=2.0.55",
+  "../css/tactical-gold.css?v=2.0.56",
   "../js/v2/ui/tactical-gold.js?v=2.0.50",
   "../assets/tactical-gold/terrain-orienteer.webp",
   "../assets/tactical-gold/race-ridgeline.webp",
   "../assets/tactical-gold/field-contours.webp",
-  "../css/premium-transition.css?v=2.0.54",
+  "../css/premium-transition.css?v=2.0.56",
   "../js/v2/ui/premium-transition.js?v=2.0.54",
   "../js/v2/ui/power-menu.js?v=2.0.42",
   "../assets/transition/militopo-portrait.webp",
@@ -29,12 +29,12 @@ const CORE_ASSETS=[
   "../js/v2/ui/pwa-update.js?v=2.0.3",
   "../js/v2/ui/confirm-dialog.js?v=v2-r5a1-confirmaciones-20261005",
   "./css/styles.css?v=v2-r8e-help-center-20261009",
-  "./css/r1-shell.css?v=2.0.29",
+  "./css/r1-shell.css?v=2.0.56",
   "./css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003",
   "./css/r9o-final-polish.css?v=r9o-final-20261011",
   "./css/premium-base.css?v=premium-p0a-20261011",
   "./css/premium-home.css?v=2.0.44",
-  "./css/orientation-modes.css?v=2.0.41",
+  "./css/orientation-modes.css?v=2.0.56",
   "./css/premium-builder.css?v=2.0.25",
   "./js/app.js?v=2.0.43",
   "./js/premium/package-flow.js?v=2.0.51",
