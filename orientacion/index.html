@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <link rel="preload" as="image" href="../assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
 <link rel="preload" as="image" href="../assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
 <!-- One transition controller starts before the application is parsed. -->
 <link rel="stylesheet" href="../css/premium-transition.css?v=2.0.56">
-<script src="../js/v2/ui/premium-transition.js?v=2.0.54"></script>
+<script src="../js/v2/ui/premium-transition.js?v=2.0.58"></script>
 <script>window.MILITOPO_TRANSITION?.bootEntry("orientation");</script>
 
 
@@ -41,13 +41,6 @@ try {
 html,body{background:#0a0e0a!important;margin:0;min-height:100%;min-height:100dvh}
 html{background-color:#0a0e0a!important;color-scheme:dark}
 body{overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
-body.ori-page-booting{opacity:0;background:#0a0e0a!important;-webkit-transition:opacity .48s ease;transition:opacity .48s ease}
-body.ori-page-booting .app{opacity:0;-webkit-transform:translate3d(0,12px,0);transform:translate3d(0,12px,0);will-change:opacity,transform;-webkit-transition:opacity .52s ease,-webkit-transform .52s cubic-bezier(.22,.8,.24,1);transition:opacity .52s ease,transform .52s cubic-bezier(.22,.8,.24,1)}
-body.ori-page-ready{opacity:1}
-body.ori-page-ready .app{opacity:1;-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
-@media (prefers-reduced-motion: reduce){
-body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-transform:none!important;transform:none!important;-webkit-transition:none!important;transition:none!important}
-}
 </style>
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="../icons/militopo-192.png">
@@ -56,7 +49,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
 <link rel="stylesheet" href="css/styles.css?v=v2-r8e-help-center-20261009" />
-<link rel="stylesheet" href="css/r1-shell.css?v=2.0.57" />
+<link rel="stylesheet" href="css/r1-shell.css?v=2.0.58" />
 <link rel="stylesheet" href="css/r2-map-workspace.css?v=r2g-pwa-sharp-real-elevation-20261003" />
 <link rel="stylesheet" href="../js/v2/auth/auth-ui.css?v=2.0.55" />
 
@@ -122,12 +115,12 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
 <link rel="stylesheet" href="css/r9o-final-polish.css?v=r9o-final-20261011" />
 <link rel="stylesheet" href="css/premium-base.css?v=premium-p0a-20261011" />
 <link rel="stylesheet" href="css/premium-home.css?v=2.0.57" />
-<link rel="stylesheet" href="css/orientation-modes.css?v=2.0.57" />
+<link rel="stylesheet" href="css/orientation-modes.css?v=2.0.58" />
 <link rel="stylesheet" href="css/premium-builder.css?v=2.0.25" />
 <link rel="stylesheet" href="../css/tactical-gold.css?v=2.0.56" media="screen">
 <script defer src="../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
-<body class="ori-page-booting" style="background:#0a0e0a;">
+<body style="background:#0a0e0a;">
 <!-- MILITOPO V2: acceso antiguo Organizador/Participante eliminado. Auth V2 gestionará la sesión. -->
 
 <div class="app">
@@ -814,7 +807,7 @@ body.ori-page-booting,body.ori-page-booting .app{opacity:1!important;-webkit-tra
     });
 })();
 </script>
-<script defer src="../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.57" data-sw="./sw.js"></script>
+<script defer src="../js/v2/ui/pwa-update.js?v=2.0.3" data-release="2.0.58" data-sw="./sw.js"></script>
 <script type="module" src="js/premium/package-flow.js?v=2.0.51"></script>
 </body>
 </html>
