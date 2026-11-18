@@ -23,6 +23,7 @@ import {
   serverTimestamp,
   setDoc
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import { endSession } from "./end-session.js";
 import { normalizeRole } from "./roles.js";
 import { openProfilePhotoMenu } from "../profile/profile-photo-ui.js?v=v2-r8l-profile-photo-square-20261009";
 
@@ -330,6 +331,9 @@ function buildUi() {
       </section>
     </div>
 
+  `);
+  if (document.body.dataset.screen === "access") return;
+  document.body.insertAdjacentHTML("beforeend", `
     <div id="militopoV2AccountBadge" hidden>
       <button id="m2AuthAccountBtn" class="m2-auth-account-open" type="button" aria-haspopup="dialog" aria-controls="militopoV2AccountPanel">
         <span class="m2-auth-avatar" id="m2AuthAvatar">M</span>
@@ -534,30 +538,14 @@ function setMode(mode) {
   setMessage("");
 }
 
-// Explicit sign-out bypasses the iOS hydration grace period and prepares login under the loader.
-async function logoutToLogin(){
-  if(logoutInFlight)return logoutInFlight;
-  const task=async()=>{
-    explicitLogoutInProgress=true;
-    try{
-      if(!state.services?.auth)throw new Error("El acceso todavía está cargando. Vuelve a intentarlo.");
-      await signOut(state.services.auth);
-      clearRunnerRestoreHint({clearSnapshot:true});clearPostLoginSelector();
-      state.currentUser=null;state.profile=null;
-      globalThis.MILITOPO_V2_AUTH=null;
-      closeAccountPanel();
-      if(el("militopoV2AccountBadge"))el("militopoV2AccountBadge").hidden=true;
-      setMode("login");showMainView();
-      globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-signed-out"));
-      globalThis.dispatchEvent(new CustomEvent("militopo:v2-auth-ready",{detail:null}));
-      return true;
-    }finally{explicitLogoutInProgress=false;}
-  };
-  logoutInFlight=(async()=>{
-    const transition=globalThis.MILITOPO_TRANSITION;
-    if(transition?.run){const outcome=await transition.run(task);return outcome?.ok!==false;}
-    return task();
-  })().finally(()=>{logoutInFlight=null;});
+async function logoutToLogin() {
+  if (logoutInFlight) return logoutInFlight;
+  if (!state.services?.auth) throw new Error("El acceso todavía está cargando.");
+  explicitLogoutInProgress = true;
+  logoutInFlight = endSession(() => signOut(state.services.auth)).finally(() => {
+    explicitLogoutInProgress = false;
+    logoutInFlight = null;
+  });
   return logoutInFlight;
 }
 globalThis.MILITOPO_V2_LOGOUT=logoutToLogin;
@@ -744,7 +732,7 @@ async function enterAppCore(user) {
 
   // Si ya conocemos que esta cuenta es runner, restauramos inmediatamente una
   // vista de mínimo privilegio. Firestore/Functions siguen aplicando los permisos reales.
-  if (cached?.role === "runner") {
+  if (cached?.role === "runner" && document.body.dataset.screen !== "access") {
     state.role = "runner";
     state.profile = {
       displayName: cached.displayName || user.displayName || null,
@@ -785,10 +773,14 @@ async function enterAppCore(user) {
   if (state.role !== "runner") clearRunnerRestoreHint();
   if (state.role === "runner") {
     paintAccount(user, displayName);
-    if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
     if (routeRunnerToParticipant()) return;
+    if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
     publishAuthState(user, displayName);
     try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-runner-dashboard", { detail: globalThis.MILITOPO_V2_AUTH })); } catch (_) {}
+    return;
+  }
+  if (document.body.dataset.screen === "access") {
+    await globalThis.MILITOPO_TRANSITION.navigate(new URL("../../../", import.meta.url), {replace:true});
     return;
   }
   paintAccount(user, displayName);
@@ -1318,10 +1310,11 @@ async function init() {
   onAuthStateChanged(state.services.auth, async user => {
     try {
       if (!user) {
+        if (explicitLogoutInProgress) return;
         // I2.1/I5.4: Firebase Auth puede tardar en rehidratarse en iOS standalone.
         // Mantener visualmente el badge/snapshot durante una ventana corta NO concede
         // permisos: organizer-guard/Firestore/Functions siguen dependiendo de Auth real.
-        if (!explicitLogoutInProgress && (hasOfflineRunnerSnapshot() || (isStandaloneMode() && hasCachedAuthSnapshot()))) {
+        if (document.body.dataset.screen !== "access" && (hasOfflineRunnerSnapshot() || (isStandaloneMode() && hasCachedAuthSnapshot()))) {
           restoreAccountBadgeVisual();
           closeAccountPanel();
           if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
