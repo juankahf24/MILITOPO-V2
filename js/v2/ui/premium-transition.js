@@ -6,6 +6,7 @@
   const base = new URL('../../../', document.currentScript.src);
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const animations = new WeakMap();
+  let entryKind = 'local';
   let active = null;
   let pendingButton = null;
 
@@ -102,7 +103,7 @@
  const letters=word=>[...word].map((letter,index)=>`<span style="--letter:${index}" aria-hidden="true">${letter}</span>`).join('');
  const logo='<svg class="mp-mountain-mark" viewBox="0 0 440 150" aria-hidden="true"><defs><linearGradient id="mpMountainLight" x1="0" y1="0" x2="0.6" y2="1"><stop stop-color="#F3D787"/><stop offset="1" stop-color="#D8B45F"/></linearGradient></defs><path d="M3 145 111 52l37 30L223 3l94 94 25-18 95 66-98-35-22 10-94-91-72 79-41-32-72 61Z" fill="url(#mpMountainLight)"/><path d="m223 29-19 58 16-9-30 50 39-24-8 26 72 13-47-55 7 27-30-61 7 12ZM111 76l-14 41 20-12-8 24 37-21-23-13ZM342 101l-7 14 26 20-9-18 38 22Z" fill="#283525"/></svg>';
 
-  function mount({kind, splash=false, entering=false}) {
+  function mount({kind, splash=false, entering=false, welcome=null}) {
     const root = document.createElement('dialog');
     root.id = 'mpPremiumTransition';
     root.setAttribute('aria-label', splash ? 'Cargando MILITOPO' : 'Cambio de pantalla');
@@ -117,11 +118,26 @@
     content.className = 'mp-transition-content';
     content.innerHTML = splash ? `${logo}<div class="mp-loader-copy"><div class="mp-loader-brackets"><div class="mp-loader-word" aria-label="MILITOPO">${letters('MILITOPO')}</div><div class="mp-loader-line"></div><div class="mp-loader-word is-loading" aria-label="CARGANDO">${letters('CARGANDO')}</div></div><div class="mp-loader-progress" role="progressbar" aria-label="Preparando pantalla"></div><p class="mp-loader-status" role="status" aria-live="polite">Preparando tu entorno</p><div class="mp-loader-actions"></div></div>` : '<div class="mp-loader-copy"><p class="mp-loader-status" role="status"></p><div class="mp-loader-actions"></div></div>';
     if (splash) { scene.style.opacity = '1'; root.append(scene); }
+    if (welcome) {
+      root.classList.add('mp-welcome');
+      root.setAttribute('aria-label', 'Bienvenida');
+      content.classList.add('mp-welcome-content');
+      const title = document.createElement('div');
+      title.className = 'mp-welcome-title';
+      title.setAttribute('role', 'status');
+      const hello = document.createElement('span');
+      hello.textContent = welcome.name ? 'Hola,' : 'Hola';
+      const name = document.createElement('strong');
+      name.textContent = welcome.name;
+      title.append(hello, name);
+      content.prepend(title);
+      root.style.setProperty('--welcome-elapsed', Math.max(0, Date.now() - welcome.start) + 'ms');
+    }
     root.append(content);
     document.body.append(root);
     root.addEventListener('cancel', event => event.preventDefault());
     root.addEventListener('wheel', event => event.preventDefault(), {passive:false});
-    const state = {root, scene, content, kind, splash, promise:null, resolve:null, controller:null, timer:0, leaving:false, entryPending:Boolean(kind)};
+    const state = {root, scene, content, kind, splash, welcome, promise:null, resolve:null, controller:null, timer:0, leaving:false, entryPending:Boolean(kind)};
     state.promise = new Promise(resolve => { state.resolve = resolve; });
     active = state;
     if (root.showModal) {
@@ -259,7 +275,7 @@
       }
       state.intro = state.splash ? Promise.all([
         playScene(state, signal), delay(reduced() ? 0 : CONFIG.minimumMs, signal)
-      ]) : Promise.resolve();
+      ]) : state.welcome ? delay(Math.max(0, state.welcome.start + (reduced() ? 450 : 1600) - Date.now()), signal) : Promise.resolve();
       const ready = Promise.resolve().then(() => task(signal)).then(async view => {
         if (signal.aborted) throw signal.reason;
         state.entryPending = false;
@@ -269,7 +285,7 @@
       const [view] = await untilAborted(signal, Promise.all([ready, state.intro]));
       if (state.leaving) return;
       if (!document.documentElement.classList.contains('mp-cross-hold')) {
-        await fade(state.root, 0, state.splash ? CONFIG.exitMs : 150, signal);
+        await fade(state.root, 0, state.splash || state.welcome ? CONFIG.exitMs : 150, signal);
       }
       release(state, {ok:true, value:view});
     } catch (error) {
@@ -281,7 +297,7 @@
     }
   }
 
-  async function navigate(target, {replace=false, beforeLeave, button}={}) {
+  async function navigate(target, {replace=false, beforeLeave, button, welcome=null}={}) {
     const url = new URL(target, location.href);
     if (url.origin !== location.origin) throw new Error('La transición solo admite pantallas internas.');
     if (active?.leaving || document.querySelector('#m2RaceV2.m2race-is-racing,[data-militopo-runner-active="true"]')) return false;
@@ -313,7 +329,7 @@
         throw error;
       }
     }
-    const state = active || mount({entering:true});
+    const state = active || mount({entering:true, welcome});
     state.leaving = true;
     if (state.splash && state.intro) {
       try {
@@ -326,7 +342,7 @@
       await fade(state.root, 1, 120, signal);
       await painted(signal);
       if (beforeLeave) await untilAborted(signal, beforeLeave());
-      commitNavigation(url, replace, false);
+      commitNavigation(url, replace, false, welcome);
       const stalled = () => fail(signal.reason);
       signal.addEventListener('abort', stalled, {once:true});
       return true;
@@ -337,7 +353,7 @@
       state.leaving = false;
       globalThis.__MILITOPO_AUTH_NAVIGATING = false;
       try { sessionStorage.removeItem('militopo_v2_allow_navigation_once'); } catch (_) {}
-      showError(state, error, () => { void navigate(url.href, {replace, beforeLeave}); });
+      showError(state, error, () => { void navigate(url.href, {replace, beforeLeave, welcome}); });
     }
   }
 
@@ -348,9 +364,9 @@
     } catch (_) {}
   }
 
-  function commitNavigation(url, replace, inline) {
+  function commitNavigation(url, replace, inline, welcome=null) {
     try {
-      sessionStorage.setItem('militopo_screen_handoff', JSON.stringify({url:url.href, time:Date.now(), inline}));
+      sessionStorage.setItem('militopo_screen_handoff', JSON.stringify({url:url.href, time:Date.now(), inline, welcome}));
       sessionStorage.setItem('militopo_v2_allow_navigation_once', '1');
     } catch (_) {}
     globalThis.__MILITOPO_AUTH_NAVIGATING = true;
@@ -398,14 +414,34 @@
     return modes.prepareEntry(signal);
   }
 
+  function welcomeLogin(name, target=null, openAccountView=null) {
+    const welcome = {name:String(name || '').trim(), start:Date.now()};
+    if (target) return navigate(target, {replace:true, welcome});
+    const state = mount({kind:entryKind, welcome, entering:true});
+    void present(state, signal => {
+      // Exchange the login form for the account only after the welcome is opaque.
+      if (openAccountView) {
+        openAccountView();
+        openAccountView = null;
+      }
+      return entryKind === 'local' ? document.body : entryTask(entryKind, signal);
+    });
+    return state.promise;
+  }
+
   function bootEntry(kind) {
+    entryKind = kind;
     if (active) return active.promise;
     let internal = false;
+    let welcome = null;
     let retainedSource = false;
     try {
       const handoff = JSON.parse(sessionStorage.getItem('militopo_screen_handoff'));
       sessionStorage.removeItem('militopo_screen_handoff');
       internal = handoff?.url === location.href && Date.now() - handoff.time < 60000;
+      if (internal && typeof handoff.welcome?.name === 'string' && Number.isFinite(handoff.welcome.start)) {
+        welcome = handoff.welcome;
+      }
       retainedSource = internal && handoff.inline && !reduced();
     } catch (_) {}
     const navType = performance.getEntriesByType('navigation')[0]?.type;
@@ -414,7 +450,7 @@
       internal ||= source.origin === base.origin && source.pathname.startsWith(base.pathname);
     }
     if (retainedSource) document.documentElement.classList.add('mp-cross-hold');
-    const state = mount({kind, splash:!internal});
+    const state = mount({kind, splash:!internal, welcome});
     void present(state, signal => entryTask(kind, signal));
     return state.promise;
   }
@@ -426,7 +462,7 @@
       {duration:240, easing:'cubic-bezier(.2,.65,.3,1)'}));
   }
 
-  globalThis.MILITOPO_TRANSITION = Object.freeze({config:CONFIG, navigate, waitFor, bootEntry, soft, settleView,
+  globalThis.MILITOPO_TRANSITION = Object.freeze({config:CONFIG, navigate, welcomeLogin, waitFor, bootEntry, soft, settleView,
     runInline, active:() => Boolean(active || pendingButton), isEntering:kind => active?.kind === kind && active.entryPending});
   addEventListener('pagehide', () => {
     pendingButton?.clear?.();
