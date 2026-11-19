@@ -118,10 +118,34 @@
     } catch (_) { return true; } // No arriesgar la sesión si no podemos comprobarlo.
     return false;
   }
+  let dismissedWorker=null, noticeFrame=0;
+  function visible(node) {
+    if(!node||!node.isConnected)return false;
+    for(let el=node;el;el=el.parentElement){const css=getComputedStyle(el);if(el.hidden||css.display==="none"||css.visibility==="hidden"||Number(css.opacity)===0)return false;}
+    return node.getClientRects().length>0;
+  }
+  function accountScreenReady() {
+    if(!globalThis.MILITOPO_V2_AUTH?.uid)return false;
+    if(visible(document.getElementById("militopoV2AuthOverlay"))||visible(document.getElementById("militopoOrientationModes")))return false;
+    if(document.documentElement.classList.contains("mp-cross-hold")||globalThis.MILITOPO_TRANSITION?.active?.())return false;
+    const runner=document.getElementById("rhHeaderUser");
+    if(runner)return globalThis.MILITOPO_RUNNER_ENTRY_READY===true&&visible(runner)&&Boolean(runner.textContent.trim())&&runner.textContent.trim()!=="Cargando…";
+    const organizer=document.getElementById("militopoPremiumHome");
+    return Boolean(organizer?.classList.contains("is-open")&&visible(organizer.querySelector("header")));
+  }
   function clearNotice() { notice?.remove(); notice = null; }
+  function refreshNotice(){
+    if(noticeFrame)return;
+    noticeFrame=requestAnimationFrame(()=>{noticeFrame=0;if(!accountScreenReady())clearNotice();else void showIfWaiting();});
+  }
+  const accountObserver=new MutationObserver(refreshNotice);
+  accountObserver.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class","hidden","style"]});
+  window.addEventListener("militopo:v2-auth-ready",refreshNotice);
+  window.addEventListener("militopo:account-screen-ready",refreshNotice);
+  window.addEventListener("militopo:v2-auth-signed-out",clearNotice);
   async function showIfWaiting() {
-    if (!registration?.waiting || requested || notice || !navigator.onLine) return;
-    if (await hasActiveRace() || !registration?.waiting || requested || notice || !navigator.onLine) return;
+    if (!accountScreenReady() || !registration?.waiting || registration.waiting===dismissedWorker || requested || notice || !navigator.onLine) return;
+    if (await hasActiveRace() || !accountScreenReady() || !registration?.waiting || registration.waiting===dismissedWorker || requested || notice || !navigator.onLine) return;
     notice = document.createElement("aside");
     notice.id = "militopo-version-notice";
     notice.setAttribute("role", "status");
@@ -132,7 +156,7 @@
     Object.assign(button.style, {background:"#eaf1d9",color:"#102015",border:0,borderRadius:"9px",padding:"10px",font:"700 13px system-ui"});
     const later = document.createElement("button"); later.type = "button"; later.textContent = "Ahora no";
     Object.assign(later.style, {background:"transparent",color:"#cbd7c7",border:0,font:"12px system-ui"});
-    later.addEventListener("click",clearNotice);
+    later.addEventListener("click",()=>{dismissedWorker=registration?.waiting;clearNotice();});
     button.addEventListener("click", async () => {
       button.disabled = true;
       if (await hasActiveRace()) { label.textContent = "Actualización aplazada hasta terminar la carrera"; button.disabled = false; return; }
