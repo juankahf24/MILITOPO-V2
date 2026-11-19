@@ -54,11 +54,12 @@ const POST_LOGIN_SELECTOR_KEY = "militopo_v2_post_login_selector";
 const AUTH_SNAPSHOT_KEY = "militopo_v2_auth_snapshot";
 const LAST_ROLE_KEY = "militopo_v2_last_role";
 let enterAppInFlight = null;
+let interactiveLoginEmail = "";
 let explicitLogoutInProgress = false;
 let logoutInFlight = null;
 let enterAppInFlightUid = "";
 const RUNNER_HOME_URL = new URL("../../../orientacion/participante/", import.meta.url).href;
-function routeRunnerToParticipant() {
+function routeRunnerToParticipant(welcomeName = null) {
   clearPostLoginSelector();
   try {
     if (/\/orientacion\/participante\//.test(window.location.pathname)) return false;
@@ -67,7 +68,10 @@ function routeRunnerToParticipant() {
     // a su área después del login.
     window.__MILITOPO_AUTH_NAVIGATING = true;
     try { sessionStorage.setItem("militopo_v2_allow_navigation_once", "1"); } catch (_) {}
-    if(globalThis.MILITOPO_TRANSITION){void globalThis.MILITOPO_TRANSITION.navigate(RUNNER_HOME_URL,{replace:true});}else window.location.replace(RUNNER_HOME_URL);
+    const transition = globalThis.MILITOPO_TRANSITION;
+    if (welcomeName !== null && transition?.welcomeLogin) void transition.welcomeLogin(welcomeName, RUNNER_HOME_URL);
+    else if (transition) void transition.navigate(RUNNER_HOME_URL, {replace:true});
+    else window.location.replace(RUNNER_HOME_URL);
     return true;
   } catch (_) {
     window.__MILITOPO_AUTH_NAVIGATING = true;
@@ -732,7 +736,7 @@ async function enterAppCore(user) {
 
   // Si ya conocemos que esta cuenta es runner, restauramos inmediatamente una
   // vista de mínimo privilegio. Firestore/Functions siguen aplicando los permisos reales.
-  if (cached?.role === "runner" && document.body.dataset.screen !== "access") {
+  if (!interactiveLoginEmail && cached?.role === "runner" && document.body.dataset.screen !== "access") {
     state.role = "runner";
     state.profile = {
       displayName: cached.displayName || user.displayName || null,
@@ -770,27 +774,40 @@ async function enterAppCore(user) {
   };
   const displayName = state.profile?.displayName || cached?.displayName || user.displayName || null;
 
-  if (state.role !== "runner") clearRunnerRestoreHint();
+  const interactive = Boolean(interactiveLoginEmail && interactiveLoginEmail === user.email?.toLowerCase());
+  const welcomeName = interactive ? (displayName || "") : null;
+  if (interactive) {
+    interactiveLoginEmail = "";
+    document.activeElement?.blur?.();
+  }
+  const transition = globalThis.MILITOPO_TRANSITION;
   if (state.role === "runner") {
+    if (routeRunnerToParticipant(welcomeName)) return;
+  } else {
+    clearRunnerRestoreHint();
+    if (document.body.dataset.screen === "access") {
+      const target = new URL("../../../", import.meta.url);
+      if (interactive) await transition.welcomeLogin(welcomeName, target);
+      else await transition.navigate(target, {replace:true});
+      return;
+    }
+  }
+
+  function openAccountView() {
     paintAccount(user, displayName);
-    if (routeRunnerToParticipant()) return;
+    const badge = el("militopoV2AccountBadge");
+    if (state.role !== "runner" && badge) badge.hidden = false;
     if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
     publishAuthState(user, displayName);
-    try { globalThis.dispatchEvent(new CustomEvent("militopo:v2-runner-dashboard", { detail: globalThis.MILITOPO_V2_AUTH })); } catch (_) {}
-    return;
+    if (state.role === "runner") {
+      globalThis.dispatchEvent(new CustomEvent("militopo:v2-runner-dashboard", {detail:globalThis.MILITOPO_V2_AUTH}));
+    } else if (consumePostLoginSelector()) {
+      queueMicrotask(requestBranchSelectorAfterLogin);
+    }
   }
-  if (document.body.dataset.screen === "access") {
-    await globalThis.MILITOPO_TRANSITION.navigate(new URL("../../../", import.meta.url), {replace:true});
-    return;
-  }
-  paintAccount(user, displayName);
-  if (el("militopoV2AccountBadge")) el("militopoV2AccountBadge").hidden = false;
-  if (el("militopoV2AuthOverlay")) el("militopoV2AuthOverlay").hidden = true;
-  publishAuthState(user, displayName);
 
-  if (consumePostLoginSelector()) {
-    queueMicrotask(requestBranchSelectorAfterLogin);
-  }
+  if (interactive && transition) await transition.welcomeLogin(welcomeName, null, openAccountView);
+  else openAccountView();
 }
 
 async function enterApp(user) {
@@ -1103,13 +1120,16 @@ async function handleSubmit(event) {
         setVerifyMessage(`${friendlyError(verificationError)} Puedes pulsar REENVIAR CORREO para intentarlo otra vez.`, "error");
       }
     } else {
+      interactiveLoginEmail = email;
       const credential = await signInCompatible(state.services.auth, email, password);
       if (!credential.user.emailVerified) {
+        interactiveLoginEmail = "";
         showVerifyView(credential.user);
         setVerifyMessage("Esta cuenta existe, pero el correo todavía no está verificado. Abre el enlace recibido o pulsa REENVIAR CORREO.", "error");
       } else await enterApp(credential.user);
     }
   } catch (error) {
+    interactiveLoginEmail = "";
     clearPostLoginSelector();
     console.error("[MILITOPO V2 Auth]", error);
     setMessage(friendlyError(error), "error");
@@ -1226,6 +1246,7 @@ async function init() {
         setVerifyMessage("Todavía no consta como verificado. Primero abre el enlace que Firebase ha enviado a tu correo y, después, vuelve aquí y pulsa este botón.", "error");
       } else {
         await current.getIdToken(true);
+        interactiveLoginEmail = current.email?.toLowerCase() || "";
         await enterApp(current);
         setVerifyMessage("");
       }
