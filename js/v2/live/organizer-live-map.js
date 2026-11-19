@@ -2,7 +2,7 @@
    Base seleccionable: MAPANT / IGN / AÉREO / PLANO CARRERA.
    Las capas Live (balizas, corredores y trazas) permanecen por encima al cambiar de fondo. */
 import "../bootstrap.js";
-import "../maps/runner-marker.js?v=2.0.65";
+import "../maps/runner-marker.js?v=2.0.66";
 import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
@@ -179,10 +179,10 @@ function ensurePanel() {
 }
 
 function createMapantLayer(L) {
-  return L.tileLayer.wms("https://raster.trailmap.fi/mapproxy/service", {
+  return globalThis.MILITOPO_MAPANT.create(L,{maxZoom:25,maxNativeZoom:18,detectRetina:false,
     layers:"spain_mapant", styles:"", format:"image/png", transparent:false, version:"1.1.1",
     attribution:"© MapAnt / Trailmap", minZoom:0, maxZoom:22, tileSize:256, crossOrigin:true,
-    updateWhenIdle:false, updateWhenZooming:true, keepBuffer:4
+    updateWhenIdle:true, updateWhenZooming:false, keepBuffer:6
   });
 }
 function createIgnStableLayer(L, kind, options={}) {

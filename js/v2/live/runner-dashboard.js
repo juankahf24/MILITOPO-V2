@@ -663,7 +663,7 @@
     state.detailEventId="";state.detailError="";state.detailLoading=false;
   }
   function historyMapantLayer(L){
-    return L.tileLayer.wms("https://raster.trailmap.fi/mapproxy/service",{layers:"spain_mapant",styles:"",format:"image/png",transparent:false,version:"1.1.1",attribution:"© MapAnt / Trailmap",maxZoom:22,tileSize:256,crossOrigin:true,keepBuffer:4});
+    return globalThis.MILITOPO_MAPANT.create(L,{maxZoom:25,maxNativeZoom:18,detectRetina:false,layers:"spain_mapant",styles:"",format:"image/png",transparent:false,version:"1.1.1",attribution:"© MapAnt / Trailmap",maxZoom:22,tileSize:256,crossOrigin:true,keepBuffer:6});
   }
   function ensureHistoryDetailMap(){
     const L=globalThis.L,node=el("m2rdDetailMap"); if(!L||!node)return null;
