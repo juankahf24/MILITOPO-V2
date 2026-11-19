@@ -22,7 +22,7 @@
   }
   function close(){if(root)root.hidden=true;document.body.classList.remove("mor-choice-open");opened=false}
   function show(){if(!eligible())return false;document.body.classList.add("mor-organizer-shell");ensure();root.querySelector("[data-mor-user]").textContent=auth.displayName||"";
-    globalThis.MILITOPO_PREMIUM?.get?.("organizer-home")?.close?.();root.hidden=false;document.body.classList.add("mor-choice-open");opened=true;return true}
+    globalThis.MILITOPO_PREMIUM?.get?.("organizer-home")?.close?.();root.hidden=false;document.body.classList.add("mor-choice-open");opened=true;window.scrollTo({top:0,behavior:"instant"});return true}
   const getHome=()=>globalThis.MILITOPO_PREMIUM?.get?.("organizer-home");
   const directed=()=>new URLSearchParams(location.search).get("militopo_mode")==="organizer";
 
@@ -79,7 +79,6 @@
   function prepareEntry(signal) {
     if(directed())return openOrganizer(signal);
     if(!show())throw new Error("No se pudo abrir el selector de experiencia.");
-    root.scrollTop=0;
     return root;
   }
 
