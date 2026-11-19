@@ -2,6 +2,7 @@
    Base seleccionable: MAPANT / IGN / AÉREO / PLANO CARRERA.
    Las capas Live (balizas, corredores y trazas) permanecen por encima al cambiar de fondo. */
 import "../bootstrap.js";
+import "../maps/runner-marker.js?v=2.0.65";
 import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
@@ -337,11 +338,7 @@ function participantStatusLabel(row = {}) {
   return row.manualFinishIncomplete ? "ABANDONO" : (PARTICIPANT_STATUS_ES[key] || "SIN SALIR");
 }
 function runnerColor(uid = "") {
-  const key=String(uid||"");if(state.runnerColors.has(key))return state.runnerColors.get(key);
-  const palette=["#4ea3ff","#ff7a59","#7fd35b","#d46cff","#f2c14e","#2fd0c8","#ff5e9b","#8b9cff","#ff9d3d","#5edb8a","#e66b6b","#4dc7f2"];
-  const used=new Set(state.runnerColors.values());let color=palette.find(item=>!used.has(item));
-  if(!color){let hash=2166136261;for(const ch of key){hash^=ch.charCodeAt(0);hash=Math.imul(hash,16777619)}const hue=Math.abs(hash>>>0)%360;color=`hsl(${hue} 74% 56%)`;}
-  state.runnerColors.set(key,color);return color;
+  return globalThis.MILITOPO_RUNNER_MARKER.color(uid);
 }
 function bearingDeg(a,b){
   if(!a||!b)return 0;const rad=v=>Number(v)*Math.PI/180,deg=v=>v*180/Math.PI;
@@ -392,7 +389,7 @@ function redrawRunners() {
     if (!validCoord(lat, lng)) return;
     const age = Math.max(0, now - Number(gps.updatedAt || 0)),stale = age > 30000 || gps.active !== true,finished = participantStatus(row) === "finished";
     const color=runnerColor(uid),name=participantName(row),meta=runnerMeta(row),bearing=runnerBearing(uid,gps,lat,lng);
-    const icon=L.divIcon({className:"m2-g5-runner-wrap",html:`<div class="m2-g5-runner ${finished?"finished":stale?"stale":""}" style="--runner-color:${color}"><svg viewBox="0 0 36 36" aria-hidden="true"><g transform="rotate(${bearing.toFixed(1)} 18 18)"><path class="nav-shadow" d="M18 2.5 31 30.5 18 25.5 5 30.5Z" transform="translate(1 1.5)"/><path class="nav-body" d="M18 2.5 31 30.5 18 25.5 5 30.5Z"/><path class="nav-core" d="M18 9.5 23.6 23.5 18 21.4 12.4 23.5Z"/></g></svg><div class="m2-g5-runner-label">${esc(name)}${meta?`<small>${esc(meta)}</small>`:""}</div></div>`,iconSize:[34,34],iconAnchor:[17,17]});
+    const icon=L.divIcon({className:"m2-g5-runner-wrap",html:`<div class="m2-g5-runner ${finished?"finished":stale?"stale":""}" style="--runner-color:${color}"><div style="transform:rotate(${bearing.toFixed(1)}deg)">${globalThis.MILITOPO_RUNNER_MARKER.arrow(color)}</div><div class="m2-g5-runner-label">${esc(name)}${meta?`<small>${esc(meta)}</small>`:""}</div></div>`,iconSize:[34,34],iconAnchor:[17,17]});
     const marker = L.marker([lat,lng], { icon, keyboard:false,zIndexOffset:1200 });
     marker.bindPopup(`<strong style="color:${color}">${esc(name)}</strong>${meta?`<br>${esc(meta)}`:""}<br>${esc(participantStatusLabel(row))}<br>GPS ±${Math.round(Number(gps.accuracy || 0))} m · ${esc(fmtAgo(gps.updatedAt))}`);
     marker.addTo(state.runnerLayer);state.runnerMarkers.set(uid, marker);
