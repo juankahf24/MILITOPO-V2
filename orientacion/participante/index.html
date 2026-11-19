@@ -1,20 +1,20 @@
 <!doctype html>
 <html data-militopo-theme="tactical-gold" lang="es" style="background:#07110b">
 <head>
-<script src="../../js/v2/maps/mapant-layer.js?v=2.0.69"></script>
+<script src="../../js/v2/maps/mapant-layer.js?v=2.0.70"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
 <link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
 <!-- Load the controller before the first body element. -->
-<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.69">
-<script src="../../js/v2/ui/premium-transition.js?v=2.0.69"></script>
+<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.70">
+<script src="../../js/v2/ui/premium-transition.js?v=2.0.70"></script>
 
 
 
 
 
-<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.69" media="screen" fetchpriority="high">
+<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.70" media="screen" fetchpriority="high">
   
   
   <meta name="theme-color" content="#08140D">
@@ -191,7 +191,7 @@
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=2.0.55">
   <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.42">
-<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.69" media="screen">
+<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.70" media="screen">
 <script defer src="../../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body>
@@ -336,14 +336,14 @@
 
   <div class="result-modal" id="rhResultModal" aria-hidden="true">
     <section class="result-sheet" role="dialog" aria-modal="true" aria-labelledby="rhResultTitle">
-      <header class="result-sheet-head"><div><small>RESULTADO DE CARRERA</small><strong id="rhResultTitle">Resultado</strong></div><button class="modal-close" id="rhResultClose" type="button" aria-label="Cerrar">×</button></header>
+      <header class="result-sheet-head"><div><small>RESULTADO DE CARRERA</small><strong id="rhResultTitle">Resultado</strong><p id="rhResultDescription" class="race-description" hidden></p></div><button class="modal-close" id="rhResultClose" type="button" aria-label="Cerrar">×</button></header>
       <div class="result-sheet-body" id="rhResultBody"><div class="status">Cargando resultado…</div></div>
     </section>
   </div>
 
   <div class="result-modal" id="rhRaceModal" aria-hidden="true">
     <section class="result-sheet" role="dialog" aria-modal="true" aria-labelledby="rhRaceTitle">
-      <header class="result-sheet-head"><div><small>DETALLES DE CARRERA</small><strong id="rhRaceTitle">Carrera</strong></div><button class="modal-close" id="rhRaceClose" type="button" aria-label="Cerrar">×</button></header>
+      <header class="result-sheet-head"><div><small>DETALLES DE CARRERA</small><strong id="rhRaceTitle">Carrera</strong><p id="rhRaceDescription" class="race-description" hidden></p></div><button class="modal-close" id="rhRaceClose" type="button" aria-label="Cerrar">×</button></header>
       <div class="result-sheet-body" id="rhRaceBody"><div class="status">Cargando carrera…</div></div>
     </section>
   </div>
@@ -361,8 +361,8 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=2.0.69"></script>
+  <script type="module" src="./runner-home-v4.js?v=2.0.70"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.69" data-release="2.0.69" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.70" data-release="2.0.70" data-sw="./sw.js"></script>
 </body>
 </html>

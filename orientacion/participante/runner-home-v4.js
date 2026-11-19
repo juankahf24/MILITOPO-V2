@@ -4,8 +4,8 @@ import {bindPowerMenu} from "../../js/v2/ui/power-menu.js?v=2.0.42";
 import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.61";
 import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
-import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.21";
-import "./runner-history-v2.js?v=2.0.69";
+import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.70";
+import "./runner-history-v2.js?v=2.0.70";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -19,6 +19,15 @@ const VERSION="v2-r9n-provisional-classification-20261011";
 const REGION="europe-west1";
 const APP_NAME="militopo-v2";
 const HISTORY_PAGE=6;
+function raceDescriptionHtml(event){
+  const description=String(event?.description||"").trim().slice(0,500);
+  return description?`<p class="race-description">${esc(description)}</p>`:"";
+}
+function paintRaceDescription(node,event){
+  if(!node)return;
+  node.textContent=String(event?.description||"").trim().slice(0,500);
+  node.hidden=!node.textContent;
+}
 
 window.__MILITOPO_RUNNER_HOME_V4_BOOTED=true;
 try{clearTimeout(window.__MILITOPO_RUNNER_HOME_V4_WATCHDOG);}catch(_){ }
@@ -30,10 +39,10 @@ const els={
   activeCount:document.getElementById("rhActiveCount"),historyCount:document.getElementById("rhHistoryCount"),retry:document.getElementById("rhRetry"),
   headerUser:document.getElementById("rhHeaderUser"),headerHandle:document.getElementById("rhHeaderHandle"),hero:document.getElementById("rhDashboardHero"),
   dashActive:document.getElementById("rhDashActive"),dashFinished:document.getElementById("rhDashFinished"),dashTotal:document.getElementById("rhDashTotal"),dashKm:document.getElementById("rhDashKm"),
-  historyMore:document.getElementById("rhHistoryMore"),histAll:document.getElementById("rhHistAll"),histFinished:document.getElementById("rhHistFinished"),histIncomplete:document.getElementById("rhHistIncomplete"),histNotStarted:document.getElementById("rhHistNotStarted"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose"),
+  historyMore:document.getElementById("rhHistoryMore"),histAll:document.getElementById("rhHistAll"),histFinished:document.getElementById("rhHistFinished"),histIncomplete:document.getElementById("rhHistIncomplete"),histNotStarted:document.getElementById("rhHistNotStarted"),resultModal:document.getElementById("rhResultModal"),resultTitle:document.getElementById("rhResultTitle"),resultDescription:document.getElementById("rhResultDescription"),resultBody:document.getElementById("rhResultBody"),resultClose:document.getElementById("rhResultClose"),
   inviteEvents:document.getElementById("rhInviteEvents"),inviteCount:document.getElementById("rhInviteCount"),raceNotice:document.getElementById("rhRaceNotice"),
   upcomingCard:document.getElementById("rhUpcomingCard"),recentCard:document.getElementById("rhRecentCard"),
-  raceModal:document.getElementById("rhRaceModal"),raceTitle:document.getElementById("rhRaceTitle"),raceBody:document.getElementById("rhRaceBody"),raceClose:document.getElementById("rhRaceClose"),
+  raceModal:document.getElementById("rhRaceModal"),raceTitle:document.getElementById("rhRaceTitle"),raceDescription:document.getElementById("rhRaceDescription"),raceBody:document.getElementById("rhRaceBody"),raceClose:document.getElementById("rhRaceClose"),
   profileParticipations:document.getElementById("rhProfileParticipations"),profileFinished:document.getElementById("rhProfileFinished"),profileIncomplete:document.getElementById("rhProfileIncomplete"),profileKm:document.getElementById("rhProfileKm"),profileControls:document.getElementById("rhProfileControls"),profileElevation:document.getElementById("rhProfileElevation"),profilePenalty:document.getElementById("rhProfilePenalty"),profileDiscarded:document.getElementById("rhProfileDiscarded"),profileCompletion:document.getElementById("rhProfileCompletion"),profileBestRank:document.getElementById("rhProfileBestRank"),
   performanceHeadline:document.getElementById("rhPerformanceHeadline"),performanceSub:document.getElementById("rhPerformanceSub"),performanceRing:document.getElementById("rhPerformanceRing"),perfKmAvg:document.getElementById("rhPerfKmAvg"),perfPenaltyAvg:document.getElementById("rhPerfPenaltyAvg"),perfStreak:document.getElementById("rhPerfStreak"),perfDiscardAvg:document.getElementById("rhPerfDiscardAvg"),performanceList:document.getElementById("rhPerformanceList"),performanceCount:document.getElementById("rhPerformanceCount"),profileHistoryBtn:document.getElementById("rhProfileHistoryBtn"),
   recordDistance:document.getElementById("rhRecordDistance"),recordDistanceEvent:document.getElementById("rhRecordDistanceEvent"),recordElevation:document.getElementById("rhRecordElevation"),recordElevationEvent:document.getElementById("rhRecordElevationEvent"),recordControls:document.getElementById("rhRecordControls"),recordControlsEvent:document.getElementById("rhRecordControlsEvent"),recordBestRank:document.getElementById("rhRecordBestRank"),recordBestRankEvent:document.getElementById("rhRecordBestRankEvent"),
@@ -228,7 +237,7 @@ function activeRaceDetails(ev){
   ].join("");
 }
 function openRaceDetail(ev){
-  if(!ev||!els.raceModal)return;text(els.raceTitle,ev.eventName||"Carrera");
+  if(!ev||!els.raceModal)return;text(els.raceTitle,ev.eventName||"Carrera");paintRaceDescription(els.raceDescription,ev);
   const state=String(ev.status||"").toLowerCase(),live=state==="live";
   const points=Array.isArray(ev.routePoints)?ev.routePoints.filter(Boolean):[];
   els.raceBody.innerHTML=`<div class="race-detail-status"><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span><strong>${live?"LISTA PARA COMPETIR":"PLAZA CONFIRMADA"}</strong></div><div class="race-detail-grid">${activeRaceDetails(ev)||'<div class="empty-card"><strong>Asignación confirmada</strong><span>La organización completará los datos del recorrido.</span></div>'}</div>${points.length?`<div class="route-sequence"><small>SECUENCIA DE CONTROLES</small><div>${points.map(p=>`<span>${esc(p)}</span>`).join("")}</div></div>`:""}<div class="race-detail-action">${live?`<button class="btn primary" type="button" data-modal-enter="${esc(ev.eventId)}">ENTRAR EN LA CARRERA</button>`:`<div class="waiting">El acceso a competición se habilitará cuando la organización ponga la carrera EN DIRECTO.</div>`}</div>`;
@@ -245,7 +254,7 @@ function renderActiveEvents(events){
     const assignment=[ev.participantId,ev.routeId].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("");
     const summary=[Number(ev.routeDistanceKm)>0?`${Number(ev.routeDistanceKm).toFixed(2)} km`:"",Number(ev.routePositiveM)>=0&&ev.routePositiveM!==null?`+${Math.round(Number(ev.routePositiveM))} m`:"",ev.routeControlCount?`${ev.routeControlCount} controles`:""].filter(Boolean).join(" · ");
     const actions=`<div class="event-actions"><button class="btn secondary" type="button" data-active-detail="${esc(ev.eventId)}">VER DETALLES</button>${live?`<button class="btn primary" type="button" data-enter-event="${esc(ev.eventId)}">ENTRAR</button>`:""}</div>`;
-    return `<article class="event" data-state="${esc(stateClass(state))}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(ev.eventName||"Carrera")}</strong><span class="event-date">${state==="live"?"Carrera en curso":"Esperando inicio"}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div>${assignment?`<div class="assignment">${assignment}</div>`:""}${summary?`<div class="race-summary">${esc(summary)}</div>`:""}${!live?'<div class="waiting">Tu plaza está confirmada. Consulta tu recorrido mientras esperas el inicio.</div>':""}${raceInfoHtml(ev)}${actions}</article>`;
+    return `<article class="event" data-state="${esc(stateClass(state))}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(ev.eventName||"Carrera")}</strong>${raceDescriptionHtml(ev)}<span class="event-date">${state==="live"?"Carrera en curso":"Esperando inicio"}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div>${assignment?`<div class="assignment">${assignment}</div>`:""}${summary?`<div class="race-summary">${esc(summary)}</div>`:""}${!live?'<div class="waiting">Tu plaza está confirmada. Consulta tu recorrido mientras esperas el inicio.</div>':""}${raceInfoHtml(ev)}${actions}</article>`;
   }).join("");
   list.querySelectorAll("[data-enter-event]").forEach(btn=>btn.addEventListener("click",()=>enterRace(btn.dataset.enterEvent)));
   list.querySelectorAll("[data-active-detail]").forEach(btn=>btn.addEventListener("click",()=>{const ev=events.find(row=>String(row.eventId)===String(btn.dataset.activeDetail));if(ev)openRaceDetail(ev);}));
@@ -273,7 +282,7 @@ function bindActiveEventRealtime(app){
       const idx=activeRows.findIndex(row=>String(row.eventId)===eventId);if(idx<0)return;
       const prevStatus=String(activeRows[idx].status||"").toLowerCase(),changed=prevStatus!==nextStatus;
       if(["published","live"].includes(nextStatus)){
-        activeRows[idx]={...activeRows[idx],status:nextStatus,eventName:String(data.eventName||activeRows[idx].eventName||"Carrera")};
+        activeRows[idx]={...activeRows[idx],status:nextStatus,eventName:String(data.eventName||activeRows[idx].eventName||"Carrera"),description:String(data.description??activeRows[idx].description??"").trim().slice(0,500)};
         renderActiveEvents(activeRows);renderDashboard();
         if(changed){setStatus(nextStatus==="live"?`${activeRows[idx].eventName} está EN DIRECTO.`:`${activeRows[idx].eventName} está PUBLICADA.`,"ok");}
         if(nextStatus==="live")scheduleActiveRefresh(app,180);
@@ -390,7 +399,7 @@ function historyCard(row){
     metrics=metric("CARRERA",statusES(row.eventStatus)||"FINALIZADA");
   }
   const hasTrack=Math.max(0,Number(row.trackPointCount||0))>1;
-  return `<article class="event history-event" data-state="${esc(stateClass(state))}" data-history-event="${esc(row.eventId)}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(row.eventName||"Carrera")}</strong><span class="event-date">${esc(date||statusES(row.eventStatus))}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div><div class="result-hero">${primary}${secondary}</div>${rank}<div class="history-metrics">${metrics}</div><div class="history-actions${hasTrack?" has-replay":""}"><button class="btn secondary" type="button" data-result-detail="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">VER RESULTADO</button>${hasTrack?`<button class="btn replay" type="button" data-result-replay="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">▶ REPRODUCIR GPS</button>`:""}</div></article>`;
+  return `<article class="event history-event" data-state="${esc(stateClass(state))}" data-history-event="${esc(row.eventId)}"><div class="event-top"><div class="event-title-wrap"><strong class="event-title">${esc(row.eventName||"Carrera")}</strong>${raceDescriptionHtml(row)}<span class="event-date">${esc(date||statusES(row.eventStatus))}</span></div><span class="pill ${esc(stateClass(state))}">${esc(statusES(state))}</span></div><div class="result-hero">${primary}${secondary}</div>${rank}<div class="history-metrics">${metrics}</div><div class="history-actions${hasTrack?" has-replay":""}"><button class="btn secondary" type="button" data-result-detail="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">VER RESULTADO</button>${hasTrack?`<button class="btn replay" type="button" data-result-replay="${esc(row.eventId)}" data-result-name="${esc(row.eventName||"Carrera")}">▶ REPRODUCIR GPS</button>`:""}</div></article>`;
 }
 
 function filteredHistoryRows(){
@@ -464,7 +473,7 @@ async function hydrateVisibleRanks(){
 function renderDashboardHighlights(){
   const latest=historyRows[0]||null;
   if(els.recentCard){
-    if(latest){const official=latest.officialDurationMs==null?"":formatDuration(latest.officialDurationMs);els.recentCard.className="dashboard-highlight is-recent";els.recentCard.innerHTML=`<small>ÚLTIMA CARRERA</small><strong>${esc(latest.eventName||"Carrera")}</strong><span>${esc(statusES(latest.status))}${official?` · ${esc(official)}`:""}</span>`;els.recentCard.onclick=()=>openResultDetail(latest.eventId,latest.eventName||"Carrera");}
+    if(latest){const official=latest.officialDurationMs==null?"":formatDuration(latest.officialDurationMs);els.recentCard.className="dashboard-highlight is-recent";els.recentCard.innerHTML=`<small>ÚLTIMA CARRERA</small><strong>${esc(latest.eventName||"Carrera")}</strong>${raceDescriptionHtml(latest)}<span>${esc(statusES(latest.status))}${official?` · ${esc(official)}`:""}</span>`;els.recentCard.onclick=()=>openResultDetail(latest.eventId,latest.eventName||"Carrera");}
     else{els.recentCard.className="dashboard-highlight";els.recentCard.innerHTML='<small>ÚLTIMA CARRERA</small><strong>Sin resultados todavía</strong><span>Al finalizar una carrera aparecerá aquí automáticamente.</span>';els.recentCard.onclick=()=>{setMainTab("races");setRaceTab("history");};}
   }
 }
@@ -474,10 +483,10 @@ function renderDashboard(){
   const total=historyRows.length,finished=historyRows.filter(r=>String(r.status||"").toLowerCase()==="finished").length,totalKm=historyRows.reduce((sum,r)=>sum+Math.max(0,Number(r.trackDistanceM||0)),0)/1000;
   text(els.dashActive,activeRows.length);text(els.dashFinished,finished);text(els.dashTotal,total);text(els.dashKm,totalKm>0?totalKm.toFixed(totalKm>=100?0:1):"0");
   const live=activeRows.find(r=>String(r.status||"").toLowerCase()==="live"&&String(r.liveRunId||"").trim()),published=activeRows.find(r=>String(r.status||"").toLowerCase()==="published"),invite=inviteRows[0],latest=historyRows[0];
-  if(live){els.hero.innerHTML=`<div><div class="hero-kicker">CARRERA EN DIRECTO</div><h2 class="hero-title">${esc(live.eventName||"Carrera")}</h2><div class="hero-sub">${esc([live.participantId,live.routeId].filter(Boolean).join(" · ")||"Tu carrera está lista")}</div>${raceInfoHtml(live)}</div><div class="hero-footer"><span class="hero-badge live">● EN DIRECTO</span><button class="hero-btn" type="button" data-hero-enter="${esc(live.eventId)}">ENTRAR</button></div>`;els.hero.querySelector("[data-hero-enter]")?.addEventListener("click",()=>enterRace(live.eventId));return;}
-  if(published){els.hero.innerHTML=`<div><div class="hero-kicker">PRÓXIMA CARRERA</div><h2 class="hero-title">${esc(published.eventName||"Carrera")}</h2><div class="hero-sub">${esc([published.participantId,published.routeId].filter(Boolean).join(" · ")||"Tu plaza está confirmada")}. Esperando el inicio de la organización.</div>${raceInfoHtml(published)}</div><div class="hero-footer"><span class="hero-badge published">PUBLICADA</span><button class="hero-btn" type="button" data-hero-races>VER CARRERAS</button></div>`;els.hero.querySelector("[data-hero-races]")?.addEventListener("click",()=>{setMainTab("races");setRaceTab("active");});return;}
+  if(live){els.hero.innerHTML=`<div><div class="hero-kicker">CARRERA EN DIRECTO</div><h2 class="hero-title">${esc(live.eventName||"Carrera")}</h2>${raceDescriptionHtml(live)}<div class="hero-sub">${esc([live.participantId,live.routeId].filter(Boolean).join(" · ")||"Tu carrera está lista")}</div>${raceInfoHtml(live)}</div><div class="hero-footer"><span class="hero-badge live">● EN DIRECTO</span><button class="hero-btn" type="button" data-hero-enter="${esc(live.eventId)}">ENTRAR</button></div>`;els.hero.querySelector("[data-hero-enter]")?.addEventListener("click",()=>enterRace(live.eventId));return;}
+  if(published){els.hero.innerHTML=`<div><div class="hero-kicker">PRÓXIMA CARRERA</div><h2 class="hero-title">${esc(published.eventName||"Carrera")}</h2>${raceDescriptionHtml(published)}<div class="hero-sub">${esc([published.participantId,published.routeId].filter(Boolean).join(" · ")||"Tu plaza está confirmada")}. Esperando el inicio de la organización.</div>${raceInfoHtml(published)}</div><div class="hero-footer"><span class="hero-badge published">PUBLICADA</span><button class="hero-btn" type="button" data-hero-races>VER CARRERAS</button></div>`;els.hero.querySelector("[data-hero-races]")?.addEventListener("click",()=>{setMainTab("races");setRaceTab("active");});return;}
   if(invite){els.hero.innerHTML=`<div><div class="hero-kicker">NUEVA INVITACIÓN</div><h2 class="hero-title">${esc(invite.eventName||"Carrera")}</h2><div class="hero-sub">Tienes una invitación pendiente. Al aceptarla MILITOPO te asignará una plaza y un recorrido.</div></div><div class="hero-footer"><span class="hero-badge published">INVITACIÓN</span><button class="hero-btn" type="button" data-hero-invite>REVISAR</button></div>`;els.hero.querySelector("[data-hero-invite]")?.addEventListener("click",()=>{setMainTab("races");setRaceTab("invites");});return;}
-  if(latest){const state=String(latest.status||"").toLowerCase(),official=latest.officialDurationMs==null?"":formatDuration(latest.officialDurationMs);els.hero.innerHTML=`<div><div class="hero-kicker">ÚLTIMO RESULTADO</div><h2 class="hero-title">${esc(latest.eventName||"Carrera")}</h2><div class="hero-sub">${esc(statusES(state))}${official?` · Tiempo oficial ${esc(official)}`:""}${Number(latest.trackDistanceM||0)>0?` · ${esc(formatKm(latest.trackDistanceM))}`:""}</div></div><div class="hero-footer"><span class="hero-badge">${esc(formatDate(latest.finishedAtMs||latest.startedAtMs||latest.consolidatedAtMs)||"HISTÓRICO")}</span><button class="hero-btn" type="button" data-hero-result>VER RESULTADO</button></div>`;els.hero.querySelector("[data-hero-result]")?.addEventListener("click",()=>openResultDetail(latest.eventId,latest.eventName||"Carrera"));return;}
+  if(latest){const state=String(latest.status||"").toLowerCase(),official=latest.officialDurationMs==null?"":formatDuration(latest.officialDurationMs);els.hero.innerHTML=`<div><div class="hero-kicker">ÚLTIMO RESULTADO</div><h2 class="hero-title">${esc(latest.eventName||"Carrera")}</h2>${raceDescriptionHtml(latest)}<div class="hero-sub">${esc(statusES(state))}${official?` · Tiempo oficial ${esc(official)}`:""}${Number(latest.trackDistanceM||0)>0?` · ${esc(formatKm(latest.trackDistanceM))}`:""}</div></div><div class="hero-footer"><span class="hero-badge">${esc(formatDate(latest.finishedAtMs||latest.startedAtMs||latest.consolidatedAtMs)||"HISTÓRICO")}</span><button class="hero-btn" type="button" data-hero-result>VER RESULTADO</button></div>`;els.hero.querySelector("[data-hero-result]")?.addEventListener("click",()=>openResultDetail(latest.eventId,latest.eventName||"Carrera"));return;}
   els.hero.innerHTML='<div><div class="hero-kicker">MILITOPO</div><h2 class="hero-title">Tu próxima carrera aparecerá aquí</h2><div class="hero-sub">Cuando aceptes una invitación publicada, tendrás acceso desde esta pantalla.</div></div><div class="hero-footer"><span class="hero-badge">SIN CARRERAS</span></div>';
 }
 
@@ -495,11 +504,12 @@ async function openHistoryAnalysis(eventId,eventName){
   }catch(error){console.error("[MILITOPO runner history replay]",error);setStatus(`No se pudo abrir el reproductor. ${String(error?.message||"")}`,"err");}
 }
 async function openResultDetail(eventId,eventName){
-  if(!eventId||!functions)return;text(els.resultTitle,eventName||"Resultado");if(els.resultBody)els.resultBody.innerHTML='<div class="status">Cargando resultado oficial…</div>';els.resultModal?.classList.add("is-open");els.resultModal?.setAttribute("aria-hidden","false");
+  if(!eventId||!functions)return;text(els.resultTitle,eventName||"Resultado");paintRaceDescription(els.resultDescription,historyRows.find(row=>row.eventId===eventId));if(els.resultBody)els.resultBody.innerHTML='<div class="status">Cargando resultado oficial…</div>';els.resultModal?.classList.add("is-open");els.resultModal?.setAttribute("aria-hidden","false");
   try{
     const detailCall=httpsCallable(functions,"getRunnerResultDetail");
     const [detailRes,classRes]=await Promise.all([detailCall({eventId,clientVersion:VERSION}),getClassification(eventId,{force:true}).catch(()=>null)]);
     const d=detailRes?.data||{},r=d.result||{},my=classRes?.my||null,state=String(r.status||"not_started").toLowerCase();
+    paintRaceDescription(els.resultDescription,d.event);
     const routeId=String(my?.routeId||r.courseId||"").trim()||"—";
     const generalRank=my?.generalRank?`${my.generalRank}º de ${my.generalRankedCount||my.generalCount||"—"}`:"SIN PUESTO";
     const routeRank=my?.routeRank?`${my.routeRank}º de ${my.routeRankedCount||my.routeCount||"—"}`:"SIN PUESTO";
