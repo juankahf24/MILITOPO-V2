@@ -493,3 +493,62 @@ html.mp-cross-hold::view-transition-old(root) {
 @media (prefers-reduced-motion: reduce) {
   .mp-button-wait::after { animation: none; }
 }
+
+/* Interactive sign-in shares the entry controller and its destination-ready signal. */
+#mpPremiumTransition.mp-welcome {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  background: radial-gradient(ellipse at 50% 62%, #273523 0, #14251a 36%, #07110b 78%);
+}
+#mpPremiumTransition.mp-welcome .mp-welcome-content {
+  position: static;
+  transform: none;
+  width: min(88%, 44rem);
+  max-width: 100%;
+}
+#mpPremiumTransition.mp-welcome:not(.has-error) .mp-loader-copy,
+#mpPremiumTransition.mp-welcome.has-error .mp-welcome-title {
+  display: none;
+}
+#mpPremiumTransition .mp-welcome-title {
+  display: grid;
+  gap: .65rem;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+}
+#mpPremiumTransition .mp-welcome-title::before {
+  content: "";
+  justify-self: center;
+  width: 3rem;
+  height: 2px;
+  margin-bottom: 1rem;
+  background: linear-gradient(90deg, transparent, #d8b45f 35%, #f3d787 65%, transparent);
+}
+#mpPremiumTransition .mp-welcome-title span {
+  color: #f3d787;
+  font-size: clamp(1.4rem, 5vw, 2.1rem);
+  font-weight: 500;
+}
+#mpPremiumTransition .mp-welcome-title strong {
+  color: #f5f1e6;
+  font-size: clamp(1.9rem, min(8vw, 12vh), 4rem);
+  line-height: 1.09;
+  letter-spacing: -.035em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: no-preference) {
+  #mpPremiumTransition .mp-welcome-title span,
+  #mpPremiumTransition .mp-welcome-title strong {
+    animation: mp-welcome-arrive 640ms cubic-bezier(.2,.7,.2,1) both;
+    animation-delay: calc(0ms - var(--welcome-elapsed));
+  }
+  #mpPremiumTransition .mp-welcome-title strong {
+    animation-delay: calc(130ms - var(--welcome-elapsed));
+  }
+}
+@keyframes mp-welcome-arrive {
+  from { opacity: 0; transform: translateY(.35em); }
+  to { opacity: 1; transform: translateY(0); }
+}
