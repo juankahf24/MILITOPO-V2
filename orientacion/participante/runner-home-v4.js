@@ -5,7 +5,7 @@ import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/ra
 import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
 import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.21";
-import "./runner-history-v2.js?v=2.0.67";
+import "./runner-history-v2.js?v=2.0.68";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
