@@ -2000,11 +2000,11 @@ let MODULOS = 8;
                 maxZoom: 20,
                 minZoom: 4
             }),
-            mapant: L.tileLayer.wms('https://mapant.es/wms', {
-                layers: 'mapant',
+            mapant: globalThis.MILITOPO_MAPANT.create(L,{maxZoom:25,maxNativeZoom:18,detectRetina:false,
+                layers:"spain_mapant",
                 format: 'image/png',
                 transparent: false,
-                version: '1.3.0',
+                version:"1.1.1",
                 attribution: '&copy; <a href="https://mapant.es/">Mapant.es</a>'
             })
         };
@@ -3206,11 +3206,11 @@ let MODULOS = 8;
             maxZoom: 20,
             minZoom: 4
         });
-        mapantLayer = L.tileLayer.wms('https://mapant.es/wms', {
-            layers: 'mapant',
+        mapantLayer = globalThis.MILITOPO_MAPANT.create(L,{maxZoom:25,maxNativeZoom:18,detectRetina:false,
+            layers:"spain_mapant",
             format: 'image/png',
             transparent: false,
-            version: '1.3.0',
+            version:"1.1.1",
             attribution: '&copy; <a href="https://mapant.es/">Mapant.es</a>'
         });
 
