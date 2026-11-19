@@ -1151,13 +1151,11 @@ function renderPointsTable(){
 
 
 
-/* MILITOPO FIX MAPANT 20260605 V3
-   MAPANT con WMS de Trailmap/MapProxy, no WMTS manual.
-   Motivo: el WMTS mostraba gris al acercar porque algunas teselas de zoom alto no
-   respondían bien. WMS recalcula por BBOX en cada zoom y mantiene el zoom cercano. */
+/* Mapant comparte el cargador de teselas con Live y el reproductor.
+   El cargador limita el zoom de origen, reutiliza imágenes y recupera fallos. */
 function createMapantWmtsLayer(options={}){
     const maxZoom=Number(options.maxZoom||22);
-    const layer=L.tileLayer.wms('https://raster.trailmap.fi/mapproxy/service',{
+    const layer=globalThis.MILITOPO_MAPANT.create(L,{maxZoom:25,maxNativeZoom:18,detectRetina:false,
         layers:'spain_mapant',
         styles:'',
         format:'image/png',
@@ -1168,9 +1166,9 @@ function createMapantWmtsLayer(options={}){
         maxZoom:maxZoom,
         tileSize:256,
         crossOrigin:true,
-        updateWhenIdle:false,
-        updateWhenZooming:true,
-        keepBuffer:4
+        updateWhenIdle:true,
+        updateWhenZooming:false,
+        keepBuffer:6
     });
     return layer;
 }
@@ -9584,7 +9582,7 @@ function createPdfSelectedLayer(key){
     if(key==='ign')return L.tileLayer('https://tms-mapa-raster.ign.es/1.0.0/mapa-raster/{z}/{x}/{-y}.jpeg',{maxNativeZoom:20,maxZoom:25});
     if(key==='pnoa')return L.tileLayer('https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{-y}.jpeg',{maxNativeZoom:19,maxZoom:25});
     if(key==='custom')return L.layerGroup();
-    return L.tileLayer.wms('https://raster.trailmap.fi/mapproxy/service',{layers:'spain_mapant',styles:'',format:'image/png',transparent:false,version:'1.1.1',attribution:'© MapAnt / Trailmap',minZoom:0,maxZoom:22,tileSize:256,updateWhenIdle:false,updateWhenZooming:true,keepBuffer:4});
+    return globalThis.MILITOPO_MAPANT.create(L,{maxZoom:25,maxNativeZoom:18,detectRetina:false,layers:'spain_mapant',styles:'',format:'image/png',transparent:false,version:'1.1.1',attribution:'© MapAnt / Trailmap',minZoom:0,maxZoom:22,tileSize:256,updateWhenIdle:true,updateWhenZooming:false,keepBuffer:6});
 }
 try{if(map)createPdfSelectedLayer(pdfLayerKey).addTo(map)}catch(error){console.warn("Fondo previo no disponible",error)}
 const bounds=[[commonBounds.south,commonBounds.west],[commonBounds.north,commonBounds.east]];
