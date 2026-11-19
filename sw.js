@@ -2,7 +2,7 @@
    Objetivo: una versión activa permanece inmutable mientras está controlando la app.
    Las nuevas versiones se instalan en segundo plano y solo sustituyen a la anterior
    cuando el navegador puede activar el nuevo Service Worker con seguridad. */
-const BUILD_ID="2.0.66";
+const BUILD_ID="2.0.67";
 const CACHE_PREFIX="militopo-v2-pwa-";
 const RUNTIME_PREFIX="militopo-v2-pwa-runtime-";
 const CACHE_NAME=`${CACHE_PREFIX}${BUILD_ID}`;
@@ -39,16 +39,16 @@ async function activeRaceUpdateLock(){
 
 /* Rutas EXACTAS que carga index.html o sus imports directos. No mezclar queries de otras fases. */
 const APP_SHELL=[
-  "./js/v2/maps/mapant-layer.js?v=2.0.66",
-  "./js/v2/maps/runner-marker.js?v=2.0.66",
-  "./css/tactical-gold.css?v=2.0.66",
+  "./js/v2/maps/mapant-layer.js?v=2.0.67",
+  "./js/v2/maps/runner-marker.js?v=2.0.67",
+  "./css/tactical-gold.css?v=2.0.67",
   "./js/v2/ui/tactical-gold.js?v=2.0.50",
   "./assets/tactical-gold/terrain-orienteer.webp",
   "./assets/tactical-gold/race-ridgeline.webp",
   "./assets/tactical-gold/field-contours.webp",
 
-  "./css/premium-transition.css?v=2.0.66",
-  "./js/v2/ui/premium-transition.js?v=2.0.66",
+  "./css/premium-transition.css?v=2.0.67",
+  "./js/v2/ui/premium-transition.js?v=2.0.67",
   "./assets/transition/militopo-portrait.webp",
   "./assets/transition/militopo-landscape.webp",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
@@ -58,9 +58,9 @@ const APP_SHELL=[
 
   "./",
   "./index.html",
-  "./js/v2/ui/pwa-update.js?v=2.0.66",
+  "./js/v2/ui/pwa-update.js?v=2.0.67",
   "./styles.css?v=v2-a1-backend-20260919",
-  "./app.js?v=2.0.66",
+  "./app.js?v=2.0.67",
   "./manifest.webmanifest",
   "./icons/militopo-192.png",
   "./icons/militopo-512.png",
@@ -84,8 +84,8 @@ const APP_SHELL=[
   "./js/v2/live/runner-track-v2.js?v=v2-p03-gps-reconciliation-20261023",
   "./js/v2/live/runner-gps-v2.js?v=v2-lote2-gps-20261109",
   "./js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
-  "./js/v2/live/runner-controls-v2.js?v=2.0.66",
-  "./js/v2/live/runner-race-v2.js?v=2.0.66"
+  "./js/v2/live/runner-controls-v2.js?v=2.0.67",
+  "./js/v2/live/runner-race-v2.js?v=2.0.67"
 ];
 
 /* Librerías externas útiles offline. Son opcionales durante install: si un CDN falla,
