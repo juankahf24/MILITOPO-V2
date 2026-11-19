@@ -2814,6 +2814,7 @@ exports.getRunnerLiveEvents = onCall({ enforceAppCheck: false }, async request =
       return {
         eventId,
         eventName: String(data.eventName || "Carrera de orientación").slice(0, 140),
+        description: String((data.description) || "").trim().slice(0, 500),
         ownerUid,
         status,
         liveRunId: String(activeRun.runId || data.liveRunId || ""),
@@ -2880,6 +2881,7 @@ exports.getRunnerHistory = onCall({ enforceAppCheck: false }, async request => {
         results.push({
           eventId: String(row.eventId || eventSnap?.id || "").slice(0, 120),
           eventName: String(row.eventName || eventData.eventName || "Carrera de orientación").slice(0, 140),
+          description: String((eventData.description ?? row.description) || "").trim().slice(0, 500),
           eventStatus: String(eventData.status || "").toLowerCase(),
           ownerUid: String(row.ownerUid || eventData.ownerUid || "").slice(0, 160),
           runId: String(row.runId || "").slice(0, 180),
@@ -3153,6 +3155,7 @@ exports.getRunnerResultDetail = onCall({ enforceAppCheck: false, timeoutSeconds:
       event: {
         eventId,
         eventName: String(result.eventName || eventData.eventName || "Carrera de orientación").slice(0, 140),
+        description: String((eventData.description ?? result.description) || "").trim().slice(0, 500),
         status: String(eventData.status || "").toLowerCase(),
         planScale: Number(eventData.planScale) || null,
         planEquidistanceM: Number(eventData.planEquidistanceM) || null,
