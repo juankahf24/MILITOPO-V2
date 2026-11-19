@@ -1,37 +1,37 @@
 /* MILITOPO Participante · R9O cierre responsive/PWA + clasificación 20261011.
    No usamos skipWaiting automático: una carrera activa nunca debe cambiar de versión a mitad de ejecución. */
-const BUILD_ID="2.0.66";
+const BUILD_ID="2.0.67";
 const CACHE_NAME=`militopo-v2-participante-${BUILD_ID}`;
 const APP_SHELL=[
-  "../../js/v2/maps/mapant-layer.js?v=2.0.66",
-  "../../js/v2/maps/runner-marker.js?v=2.0.66",
-  "../../css/tactical-gold.css?v=2.0.66",
+  "../../js/v2/maps/mapant-layer.js?v=2.0.67",
+  "../../js/v2/maps/runner-marker.js?v=2.0.67",
+  "../../css/tactical-gold.css?v=2.0.67",
   "../../js/v2/ui/tactical-gold.js?v=2.0.50",
   "../../assets/tactical-gold/terrain-orienteer.webp",
   "../../assets/tactical-gold/race-ridgeline.webp",
   "../../assets/tactical-gold/field-contours.webp",
 
-  "../../css/premium-transition.css?v=2.0.66",
-  "../../js/v2/ui/premium-transition.js?v=2.0.66",
+  "../../css/premium-transition.css?v=2.0.67",
+  "../../js/v2/ui/premium-transition.js?v=2.0.67",
   "../../js/v2/ui/power-menu.js?v=2.0.42",
   "../../js/v2/race/itinerary-analysis-ui.js?v=2.0.42",
   "../../assets/transition/militopo-portrait.webp",
   "../../assets/transition/militopo-landscape.webp",
   // URL dinámica exacta utilizada por runner-history-v2.js.
   "../../js/v2/maps/race-plan-history.js?v=v2-r9m-overzoom-persistente-20261011",
-  "./runner-home-v4.js?v=2.0.66",
+  "./runner-home-v4.js?v=2.0.67",
   // P1.4: imports transitivos exactos; conservar variantes usadas por clientes actuales.
   "../../js/v2/bootstrap.js?v=v2-f3b-recovery-signals-20260924",
   "../../js/v2/bootstrap.js?v=v2-f3b-session-realtimefix-20260923",
   "../../js/v2/bootstrap.js?v=v2-f3a-runner-sessionfix-20260923",
   "../../js/v2/auth/roles.js",
 
-  "../../js/v2/ui/pwa-update.js?v=2.0.66",
+  "../../js/v2/ui/pwa-update.js?v=2.0.67",
   "./","./index.html","./runner.html","./styles.css","./app.js","./manifest.webmanifest",
   "./runner-r9o-final.css?v=2.0.55",
   "./runner-mode-switch.css?v=2.0.42",
   "../../icons/militopo-192.png?v=r6a1-runner-brand-20261006","../../icons/militopo-512.png?v=r6a1-runner-brand-20261006",
-  "./runner-history-v2.js?v=2.0.66","./runner-live-loader.js?v=2.0.21","./runner-r9m-responsive.js?v=2.0.7",
+  "./runner-history-v2.js?v=2.0.67","./runner-live-loader.js?v=2.0.21","./runner-r9m-responsive.js?v=2.0.7",
   "../../js/v2/firebase-config.js","../../js/v2/firebase-config.js?v=v2-f3a-runner-homefix2-20260923",
   "../../js/v2/bootstrap.js?v=v2-r6b-competicion-one-screen-20261006",
   "../../js/v2/firebase/client.js?v=v2-f3a-runner-homefix2-20260923",
@@ -51,8 +51,8 @@ const APP_SHELL=[
   "../../js/v2/live/runner-track-v2.js?v=v2-p03-gps-reconciliation-20261023",
   "../../js/v2/live/runner-gps-v2.js?v=v2-lote2-gps-20261109",
   "../../js/v2/live/runner-resilience-v2.js?v=v2-i4-safe-update-guard-20260928",
-  "./runner-controls-v2.js?v=2.0.66",
-  "./runner-race-v2.js?v=2.0.66"
+  "./runner-controls-v2.js?v=2.0.67",
+  "./runner-race-v2.js?v=2.0.67"
 ];
 /* P1.5: dependencias ESM exactas del corredor. La instalación solo termina
    si también está disponible este grafo del SDK; nunca cachear APIs ni datos.
