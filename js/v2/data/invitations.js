@@ -27,6 +27,7 @@ const state = {
   services: null,
   event: null,
   rows: [],
+  filter: "all",
   busy: false,
   panel: null,
   list: null,
@@ -131,6 +132,15 @@ function injectStyle() {
     .m2-user-option{display:flex!important;align-items:center;justify-content:space-between;gap:10px;text-align:left;width:100%;background:rgba(255,255,255,.04)!important}.m2-user-option-main{min-width:0}.m2-user-option-name{font-weight:900;overflow-wrap:anywhere}.m2-user-option-handle{font-size:.76rem;opacity:.68;overflow-wrap:anywhere}.m2-user-option-state{font-size:.72rem;opacity:.72;white-space:nowrap}
     .m2-selected-users{display:flex;gap:6px;flex-wrap:wrap;min-height:8px}.m2-selected-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(126,220,150,.3);border-radius:999px;padding:6px 8px;background:rgba(126,220,150,.08);font-size:.78rem}.m2-selected-chip button{min-height:28px!important;padding:1px 7px!important;border-radius:999px!important}.m2-user-picker small{opacity:.68;line-height:1.4}
     .m2-invites-bulk{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);display:grid;gap:8px}.m2-invites-bulk small{opacity:.68;line-height:1.4}
+    .m2-invites-tracking{margin-top:20px;padding-top:16px;border-top:1px solid rgba(245,204,121,.3)}
+    .m2-invites-tracking>strong{font-size:12px;letter-spacing:.07em}
+    .m2-invites-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:12px}
+    .m2-invites-filters button{min-width:0;padding:10px 5px;font-size:12px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px}
+    .m2-invites-filters button span{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;font-size:11px}
+    .m2-invites-summary{font-size:12px;line-height:1.5;margin:10px 0}
+    .m2-invites-empty{padding:16px;border:1px dashed rgba(245,204,121,.35);border-radius:12px;font-size:13px}
+    .m2-invite-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+    .m2-invite-state{display:inline-block;padding:4px 8px;border:1px solid currentColor;border-radius:999px;font-size:10px;font-weight:850;letter-spacing:.04em}
     .m2-invites-list{display:grid;gap:8px;margin-top:10px;min-height:22px}.m2-invite-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,.12);border-radius:11px;background:rgba(0,0,0,.12)}
     .m2-invite-email{font-weight:900;overflow-wrap:anywhere}.m2-invite-link{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.73rem;opacity:.76;overflow-wrap:anywhere;margin-top:3px}.m2-invite-meta{font-size:.75rem;opacity:.65;margin-top:3px}
     .m2-invite-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:360px}.m2-invite-actions button{font-size:.78rem}.m2-invite-revoked{opacity:.55}.m2-invite-accepted{border-color:rgba(126,220,150,.35)}.m2-invite-declined{border-color:rgba(226,102,94,.48);background:rgba(122,41,37,.16)}.m2-invite-declined .m2-invite-meta{color:#ffb5ae;opacity:1;font-weight:950}
@@ -171,7 +181,15 @@ function ensurePanel() {
       <button id="m2InviteBulkCreate" type="button" disabled>INVITAR A TODOS</button>
     </div>
     <div id="m2InviteStatus" class="m2-invites-status">Publica el evento para habilitar las invitaciones.</div>
-    <div id="m2InviteList" class="m2-invites-list"></div>`;
+    <div class="m2-invites-tracking"><strong>SEGUIMIENTO DE INVITACIONES</strong>
+      <div class="m2-invites-filters" role="group" aria-label="Filtrar invitaciones">
+        <button type="button" data-invite-filter="all" aria-controls="m2InviteList" aria-pressed="true">Todas <span data-invite-count="all">0</span></button>
+        <button type="button" data-invite-filter="pending" aria-controls="m2InviteList" aria-pressed="false">Pendientes <span data-invite-count="pending">0</span></button>
+        <button type="button" data-invite-filter="accepted" aria-controls="m2InviteList" aria-pressed="false">Aceptadas <span data-invite-count="accepted">0</span></button>
+      </div>
+      <p class="m2-invites-summary" data-invite-summary role="status" aria-live="polite"></p>
+      <div id="m2InviteList" class="m2-invites-list"></div>
+    </div>`;
   const lifecycle = document.getElementById("m2EventLifecycle");
   if (lifecycle) lifecycle.insertAdjacentElement("afterend", panel);
   else {
@@ -197,6 +215,13 @@ function ensurePanel() {
   state.userResults.addEventListener("click", onDirectoryClick);
   state.selectedBox.addEventListener("click", onSelectedClick);
   state.list.addEventListener("click", onListClick);
+  panel.querySelector(".m2-invites-filters").addEventListener("click", event => {
+    const button = event.target.closest("[data-invite-filter]");
+    if (!button) return;
+    state.filter = button.dataset.inviteFilter;
+    renderList(state.rows);
+  });
+  renderList(state.rows);
   renderSelectedUsers();
   return panel;
 }
@@ -227,7 +252,7 @@ async function loadEvent({ force = false } = {}) {
   if (!force && state.event?.eventId === eventId && state.loadedEventId === eventId) return true;
   if (state.loading) return false;
   const changedEvent = state.loadedEventId && state.loadedEventId !== eventId; state.loading = true;
-  if (changedEvent) { stopRealtimeInvitations(); state.event = null; state.rows = []; state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Cargando invitaciones…</div>`; paint("Cargando el evento seleccionado…"); }
+  if (changedEvent) { stopRealtimeInvitations(); state.event = null; state.rows = []; state.filter = "all"; renderList([]); state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Cargando invitaciones…</div>`; paint("Cargando el evento seleccionado…"); }
   try {
     const { firestore } = await services(); const snap = await getDoc(doc(firestore, "events", eventId));
     if (!snap.exists()) { if (changedEvent) state.list.innerHTML = ""; paint("El evento todavía no existe en Firestore."); return false; }
@@ -291,13 +316,30 @@ async function loadInvitations() {
   } catch (error) { console.error("[MILITOPO E2] list", error); state.list.innerHTML = `<div class="status warn">No se pudieron cargar las invitaciones.</div>`; }
 }
 function renderList(rows) {
+  if (!state.panel || !state.list) return;
+  const counts = {all:rows.length, pending:0, accepted:0};
+  for (const row of rows) {
+    const status = String(row.status || "pending");
+    if (status === "pending" || status === "accepted") counts[status]++;
+  }
+  state.panel.querySelectorAll("[data-invite-filter]").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.inviteFilter === state.filter));
+    button.querySelector("[data-invite-count]").textContent = counts[button.dataset.inviteFilter];
+  });
+  const visible = state.filter === "all" ? rows : rows.filter(row => String(row.status || "pending") === state.filter);
+  state.panel.querySelector("[data-invite-summary]").textContent = rows.length
+    ? `${visible.length} de ${rows.length} invitaciones · más recientes primero` : "";
   if (!rows.length) { state.list.innerHTML = `<div style="font-size:.82rem;opacity:.68">Aún no hay invitaciones para este evento.</div>`; return; }
-  state.list.innerHTML = rows.map(row => {
+  if (!visible.length) {
+    state.list.innerHTML = `<div class="m2-invites-empty">${state.filter === "accepted" ? "Todavía no hay invitaciones aceptadas." : "No hay invitaciones pendientes."}</div>`;
+    return;
+  }
+  state.list.innerHTML = visible.map(row => {
     const status = String(row.status || "pending"), revoked = status === "revoked", accepted = status === "accepted", declined = status === "declined", url = invitationUrl(row.id);
     const statusAt = declined ? row.declinedAt : accepted ? row.acceptedAt : revoked ? row.revokedAt : row.createdAt;
     const pendingActions = status === "pending" ? `<div class="m2-invite-actions"><button type="button" data-whatsapp="${esc(row.id)}">WHATSAPP</button><button type="button" data-share="${esc(row.id)}">COMPARTIR</button><button type="button" data-copy-link="${esc(row.id)}">COPIAR ENLACE</button>${row.targetEmail ? `<button type="button" data-email="${esc(row.id)}">EMAIL</button>` : ""}<button type="button" data-revoke="${esc(row.id)}">REVOCAR</button></div>` : "";
     return `<article class="m2-invite-item ${revoked ? "m2-invite-revoked" : ""} ${accepted ? "m2-invite-accepted" : ""} ${declined ? "m2-invite-declined" : ""}">
-      <div><div class="m2-invite-email">${esc(targetLabel(row))}</div><div class="m2-invite-meta">${esc(statusLabel(row))} · ${esc(formatDate(statusAt))}</div>${status === "pending" ? `<div class="m2-invite-link">${esc(url)}</div>` : ""}</div>
+      <div><div class="m2-invite-email">${esc(targetLabel(row))}</div><div class="m2-invite-meta"><span class="m2-invite-state" data-invitation-state="${esc(status)}">${esc(statusLabel(row))}</span><span>${esc(formatDate(statusAt))}</span></div>${status === "pending" ? `<div class="m2-invite-link">${esc(url)}</div>` : ""}</div>
       ${pendingActions}
     </article>`;
   }).join("");
@@ -539,7 +581,7 @@ function scheduleLoad(delay = 250, force = false) {
 }
 function init() {
   ensurePanel();
-  globalThis.addEventListener("militopo:v2-auth-ready", event => { stopRealtimeInvitations(); state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null; state.loadedEventId = ""; state.directoryCache.clear(); state.selectedUsers.clear(); renderSelectedUsers(); scheduleLoad(150, true); });
+  globalThis.addEventListener("militopo:v2-auth-ready", event => { stopRealtimeInvitations(); const previousUid = state.auth?.uid; state.auth = event?.detail || globalThis.MILITOPO_V2_AUTH || null; state.loadedEventId = ""; if (previousUid !== state.auth?.uid || !canManage()) { state.event = null; state.rows = []; state.filter = "all"; renderList([]); } state.directoryCache.clear(); state.selectedUsers.clear(); renderSelectedUsers(); scheduleLoad(150, true); });
   globalThis.addEventListener("militopo:v2-orientation-header", () => scheduleLoad(250, false));
   globalThis.addEventListener("militopo:v2-cloud-event-applied", event => { if (event?.detail?.ok) scheduleLoad(180, true); });
   globalThis.addEventListener("militopo:v2-event-status-changed", () => scheduleLoad(180, true));
