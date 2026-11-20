@@ -1,5 +1,5 @@
 import {bindPowerMenu,powerIcon} from "../../../js/v2/ui/power-menu.js?v=2.0.42";
-import {raceInfoHtml} from "../../../js/v2/race/race-info-ui.js?v=2.0.61";
+import {raceInfoHtml} from "../../../js/v2/race/race-info-ui.js?v=2.0.72";
 import {personalProfileHtml,openPersonalProfileEditor,openPersonalPhoto} from "../../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO R5 · Centro de carreras, nuevo organizador a pantalla completa.
  * El mapa histórico queda como motor interno; solo se muestran pantallas del nuevo centro.
