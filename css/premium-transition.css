@@ -1,3 +1,14 @@
+/* Shared viewport contract. Safe-area insets pad content, never subtract from the canvas. */
+:root { --mp-viewport-height:100vh; }
+@supports (height:100dvh) { :root { --mp-viewport-height:100dvh; } }
+/* A standalone window has no retractable browser controls. Keep its full canvas on navigation. */
+@supports (height:100lvh) {
+  @media (display-mode:standalone) { :root { --mp-viewport-height:100lvh; } }
+  html.militopo-pwa-standalone { --mp-viewport-height:100lvh; }
+}
+html { height:var(--mp-viewport-height); min-height:100%; }
+body { min-height:var(--mp-viewport-height); }
+
 /* MILITOPO · Single loading surface. Responsive composition and gold animation. */
 #militopoV2AccountBadge {
   display: none!important;
@@ -7,7 +18,7 @@
   position: fixed;
   inset: 0;
   width: 100vw;
-  height: 100%;
+  height: var(--mp-viewport-height);
   max-width: none;
   max-height: none;
   z-index: 2147483647;
@@ -440,39 +451,6 @@ html.mp-cross-hold::view-transition-old(root) {
   to { opacity: 0; }
 }
 
-[aria-busy="true"]:has(> .mp-button-wait) {
-  position: relative;
-  cursor: progress;
-}
-
-.mp-button-wait {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: grid;
-  grid-auto-flow: column;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
-  gap: .35em;
-  border-radius: inherit;
-  background: #182319;
-  color: #fff0c0;
-  font-size: clamp(.65rem, 2.8vw, 1rem);
-  font-weight: 700;
-  letter-spacing: .03em;
-}
-
-.mp-button-wait::after {
-  content: '…';
-  animation: mp-wait-pulse 1s ease-in-out infinite alternate;
-}
-
-@keyframes mp-wait-pulse {
-  from { opacity: .35; }
-  to { opacity: 1; }
-}
-
 #mpPremiumTransition[aria-label="Cambio de pantalla"] .mp-loader-copy {
   visibility: visible;
   opacity: 1;
@@ -490,15 +468,11 @@ html.mp-cross-hold::view-transition-old(root) {
   display: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .mp-button-wait::after { animation: none; }
-}
-
 /* Interactive sign-in shares the entry controller and its destination-ready signal. */
 #mpPremiumTransition.mp-welcome {
   width: 100%;
   height: 100vh;
-  height: 100dvh;
+  height: var(--mp-viewport-height);
   background: radial-gradient(ellipse at 50% 62%, #273523 0, #14251a 36%, #07110b 78%);
 }
 #mpPremiumTransition.mp-welcome .mp-welcome-content {
