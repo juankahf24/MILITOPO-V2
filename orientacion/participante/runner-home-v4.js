@@ -1,11 +1,11 @@
 import { endSession } from "../../js/v2/auth/end-session.js";
 import {itineraryAnalysisHtml} from "../../js/v2/race/itinerary-analysis-ui.js?v=2.0.42";
 import {bindPowerMenu} from "../../js/v2/ui/power-menu.js?v=2.0.42";
-import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.61";
+import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.72";
 import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
-import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.71";
-import "./runner-history-v2.js?v=2.0.71";
+import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.72";
+import "./runner-history-v2.js?v=2.0.72";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
@@ -184,16 +184,24 @@ function formatPenalty(ms){const n=Math.max(0,Number(ms||0));return n>0?`+${form
 function stateClass(s){const v=String(s||"").toLowerCase();return ["live","published","finished","incomplete","not_started"].includes(v)?v:"";}
 function metric(label,value){return `<div class="metric"><small>${esc(label)}</small><b>${esc(value)}</b></div>`;}
 function historyEventIdSet(){return new Set(historyRows.map(row=>String(row?.eventId||"")).filter(Boolean));}
-function inviteSeenStorageKey(){return `militopo_v2_runner_invites_seen_${String(currentUser?.uid||"guest")}`;}
-function readSeenInviteIds(){try{const raw=JSON.parse(localStorage.getItem(inviteSeenStorageKey())||"[]");return new Set(Array.isArray(raw)?raw.map(String):[]);}catch(_){return new Set();}}
-function markInvitesSeen(){if(!currentUser?.uid)return;const seen=readSeenInviteIds();inviteRows.forEach(row=>seen.add(String(row.id)));try{localStorage.setItem(inviteSeenStorageKey(),JSON.stringify([...seen].slice(-120)));}catch(_){}updateInviteNotifications();}
-function updateInviteNotifications(){const seen=readSeenInviteIds(),unseen=inviteRows.filter(row=>!seen.has(String(row.id))).length,inviteTab=document.querySelector('[data-race-tab="invites"]');if(els.raceNotice)els.raceNotice.hidden=unseen===0;inviteTab?.classList.toggle("has-notification",inviteRows.length>0);if(inviteTab)inviteTab.setAttribute("aria-label",inviteRows.length?`Invitaciones, ${inviteRows.length} pendiente${inviteRows.length===1?"":"s"}${unseen?`, ${unseen} nueva${unseen===1?"":"s"}`:""}`:"Invitaciones");}
+function inviteSeenStorageKey(scope="invites"){return `militopo_v2_runner_${scope}_seen_${String(currentUser?.uid||"guest")}`;}
+function readSeenInviteIds(scope="invites"){try{const raw=JSON.parse(localStorage.getItem(inviteSeenStorageKey(scope))||localStorage.getItem(inviteSeenStorageKey())||"[]");return new Set(Array.isArray(raw)?raw.map(String):[]);}catch(_){return new Set();}}
+function markInvitesSeen(scope="invites"){if(!currentUser?.uid)return;const seen=readSeenInviteIds(scope);inviteRows.forEach(row=>seen.add(String(row.id)));try{localStorage.setItem(inviteSeenStorageKey(scope),JSON.stringify([...seen].slice(-120)));}catch(_){}updateInviteNotifications();}
+function updateInviteNotifications(){
+ const seen=readSeenInviteIds(),racesSeen=readSeenInviteIds("races"),unseen=inviteRows.filter(row=>!seen.has(String(row.id))).length;
+ const inviteTab=document.querySelector('[data-race-tab="invites"]');
+ if(els.raceNotice)els.raceNotice.hidden=!inviteRows.some(row=>!racesSeen.has(String(row.id)));
+ inviteTab?.classList.toggle("has-notification",unseen>0);
+ if(els.inviteCount)els.inviteCount.hidden=unseen===0;
+ if(inviteTab)inviteTab.setAttribute("aria-label",inviteRows.length?`Invitaciones, ${inviteRows.length} pendiente${inviteRows.length===1?"":"s"}${unseen?`, ${unseen} nueva${unseen===1?"":"s"}`:""}`:"Invitaciones");
+}
 
 function setMainTab(tab){
   currentMainTab=["home","races","profile"].includes(tab)?tab:"home";
   document.querySelectorAll("[data-runner-tab]").forEach(btn=>btn.classList.toggle("is-active",btn.dataset.runnerTab===currentMainTab));
   document.querySelectorAll("[data-runner-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.runnerPanel===currentMainTab));
   globalThis.MILITOPO_TRANSITION?.soft(document.querySelector(`[data-runner-panel="${currentMainTab}"]`));
+  if(currentMainTab==="races"){markInvitesSeen("races");if(currentRaceTab==="invites")markInvitesSeen();}
   window.scrollTo({top:0,behavior:"auto"});
 }
 function setRaceTab(tab){
@@ -201,7 +209,7 @@ function setRaceTab(tab){
   document.querySelectorAll("[data-race-tab]").forEach(btn=>btn.classList.toggle("is-active",btn.dataset.raceTab===currentRaceTab));
   document.querySelectorAll("[data-race-panel]").forEach(panel=>panel.classList.toggle("is-active",panel.dataset.racePanel===currentRaceTab));
   if(currentRaceTab==="history")hydrateVisibleRanks();
-  if(currentRaceTab==="invites")markInvitesSeen();
+  if(currentMainTab==="races"&&currentRaceTab==="invites"){markInvitesSeen("races");markInvitesSeen();}
   globalThis.MILITOPO_TRANSITION?.soft(document.querySelector(`[data-race-panel="${currentRaceTab}"]`));
 }
 
@@ -337,7 +345,7 @@ function refreshActiveEvents(app){
 function stopInvitationRealtime(){for(const unsub of inviteUnsubs.splice(0)){try{unsub?.();}catch(_){}}inviteEmailRows.clear();inviteUidRows.clear();}
 function mergeInvitationRows(){
   const merged=new Map([...inviteEmailRows,...inviteUidRows]);inviteRows=[...merged.values()].filter(row=>String(row.status||"pending").toLowerCase()==="pending");
-  inviteRows.sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));renderInvitations();updateInviteNotifications();renderDashboard();
+  inviteRows.sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));if(currentMainTab==="races"){markInvitesSeen("races");if(currentRaceTab==="invites")markInvitesSeen();}renderInvitations();updateInviteNotifications();renderDashboard();
 }
 function invitationMap(snap){const map=new Map();snap.forEach(d=>{const row=d.data()||{};if(String(row.status||"pending").toLowerCase()==="pending")map.set(d.id,{id:d.id,...row});});return map;}
 function renderInvitations(){

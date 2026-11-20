@@ -1,20 +1,20 @@
 <!doctype html>
 <html data-militopo-theme="tactical-gold" lang="es" style="background:#07110b">
 <head>
-<script src="../../js/v2/maps/mapant-layer.js?v=2.0.71"></script>
+<script src="../../js/v2/maps/mapant-layer.js?v=2.0.72"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="preload" as="image" href="../../assets/transition/militopo-landscape.webp" media="(orientation: landscape)" fetchpriority="high">
 <link rel="preload" as="image" href="../../assets/transition/militopo-portrait.webp" media="(orientation: portrait)" fetchpriority="high">
 <!-- Load the controller before the first body element. -->
-<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.71">
-<script src="../../js/v2/ui/premium-transition.js?v=2.0.71"></script>
+<link rel="stylesheet" href="../../css/premium-transition.css?v=2.0.72">
+<script src="../../js/v2/ui/premium-transition.js?v=2.0.72"></script>
 
 
 
 
 
-<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.71" media="screen" fetchpriority="high">
+<link rel="preload" as="style" href="../../css/tactical-gold.css?v=2.0.72" media="screen" fetchpriority="high">
   
   
   <meta name="theme-color" content="#08140D">
@@ -36,7 +36,7 @@
       --danger:#f18c78;--shadow:0 20px 52px rgba(0,0,0,.34);
     }
     *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#071009;color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    body{min-height:100vh;min-height:100dvh;padding:max(16px,calc(env(safe-area-inset-top) + 8px)) 9px calc(22px + env(safe-area-inset-bottom));overflow-x:hidden}
+    body{min-height:100vh;min-height:var(--mp-viewport-height,100dvh);padding:max(16px,calc(env(safe-area-inset-top) + 8px)) 9px calc(22px + env(safe-area-inset-bottom));overflow-x:hidden}
     body::before{content:"";position:fixed;inset:0;pointer-events:none;background:
       radial-gradient(circle at 12% 6%,rgba(74,132,77,.22),transparent 34%),
       radial-gradient(circle at 90% 18%,rgba(183,150,78,.08),transparent 28%),
@@ -191,7 +191,7 @@
   </style>
   <link rel="stylesheet" href="./runner-r9o-final.css?v=2.0.55">
   <link rel="stylesheet" href="./runner-mode-switch.css?v=2.0.42">
-<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.71" media="screen">
+<link rel="stylesheet" href="../../css/tactical-gold.css?v=2.0.72" media="screen">
 <script defer src="../../js/v2/ui/tactical-gold.js?v=2.0.50"></script>
 </head>
 <body>
@@ -361,8 +361,8 @@
       if(retry)retry.style.display="block";
     },12000);
   </script>
-  <script type="module" src="./runner-home-v4.js?v=2.0.71"></script>
+  <script type="module" src="./runner-home-v4.js?v=2.0.72"></script>
   <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script>
-<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.71" data-release="2.0.71" data-sw="./sw.js"></script>
+<script defer src="../../js/v2/ui/pwa-update.js?v=2.0.72" data-release="2.0.72" data-sw="./sw.js"></script>
 </body>
 </html>
