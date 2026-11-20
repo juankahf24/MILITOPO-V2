@@ -2,6 +2,12 @@
 (() => {
   'use strict';
   if (globalThis.MILITOPO_TRANSITION) return;
+  // One display-mode flag for every entry document, including the runner.
+  const standalone = matchMedia('(display-mode: standalone)');
+  const syncDisplayMode = () => document.documentElement.classList.toggle('militopo-pwa-standalone', standalone.matches || navigator.standalone === true);
+  syncDisplayMode();
+  standalone.addEventListener?.('change', syncDisplayMode);
+  addEventListener('pageshow', syncDisplayMode);
   const CONFIG = Object.freeze({minimumMs:3800, exitMs:400, backgroundMs:550, lettersMs:2750, timeoutMs:30000});
   const base = new URL('../../../', document.currentScript.src);
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -10,27 +16,25 @@
   let active = null;
   let pendingButton = null;
 
-  function buttonProgress(button) {
-    const label = document.createElement('span');
-    label.className = 'mp-button-wait';
-    label.textContent = 'Espera';
-    label.setAttribute('role', 'status');
+  function lockButton(button) {
+    const disabled = button.disabled;
+    const busy = button.getAttribute('aria-busy');
+    button.disabled = true;
     button.setAttribute('aria-busy', 'true');
-    button.append(label);
     return () => {
-      label.remove();
-      button.removeAttribute('aria-busy');
+      button.disabled = disabled;
+      if (busy === null) button.removeAttribute('aria-busy');
+      else button.setAttribute('aria-busy', busy);
     };
   }
 
   async function runInline(button, task) {
     if (active || pendingButton) return false;
-    const stop = buttonProgress(button);
+    const stop = lockButton(button);
     pendingButton = {stop};
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(new Error('La carga está tardando demasiado. Vuelve a intentarlo.')), CONFIG.timeoutMs);
     try {
-      await painted(controller.signal);
       await untilAborted(controller.signal, task(controller.signal));
       return true;
     } finally {
@@ -303,7 +307,7 @@
     if (active?.leaving || document.querySelector('#m2RaceV2.m2race-is-racing,[data-militopo-runner-active="true"]')) return false;
     if (pendingButton) return false;
     if (button && !active && !beforeLeave) {
-      const stop = buttonProgress(button);
+      const stop = lockButton(button);
       const handoff = {stop, leaving:true};
       pendingButton = handoff;
       const controller = new AbortController();
@@ -316,7 +320,6 @@
       }, CONFIG.timeoutMs);
       handoff.clear = () => clearTimeout(timer);
       try {
-        await painted(controller.signal);
         if (pendingButton !== handoff) return false;
         commitNavigation(url, replace, true);
         return true;
