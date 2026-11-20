@@ -125,14 +125,14 @@ body.r1-shell-active #step2 .card-header{margin-bottom:12px}
 
 /* R1D · iOS/PWA: extender el fondo visual por las zonas seguras. */
 html,body{background-color:#0a0e0a!important}
-body.r1-shell-active{min-height:100dvh;background-color:#0a0e0a!important}
+body.r1-shell-active{min-height:var(--mp-viewport-height,100dvh);background-color:#0a0e0a!important}
 @supports(padding:max(0px)){
   body.r1-shell-active{padding-top:0!important}
 }
 
 /* R2B · El mapa es ahora el fondo permanente de la interfaz principal. */
 body.r1-shell-active>.app>.card{display:none!important}
-body.r1-shell-active>.app{width:100%!important;max-width:none!important;min-height:100dvh!important;padding:0!important;margin:0!important}
+body.r1-shell-active>.app{width:100%!important;max-width:none!important;min-height:var(--mp-viewport-height,100dvh)!important;padding:0!important;margin:0!important}
 body.r1-shell-active.r1-map-home:not(.militopo-premium-home-open,.mor-choice-open){overflow:hidden}
 body.r1-shell-active.r1-workspace-open{overflow:hidden}
 body.r1-shell-active.r1-workspace-open .r1-map-dock{display:none!important}
@@ -1175,7 +1175,7 @@ body.r1-shell-active.r1-map-home #r2MapStage .leaflet-control-zoom{
   display:grid;
   grid-template-rows:auto minmax(0,1fr);
   width:100%;
-  height:100dvh;
+  height:var(--mp-viewport-height,100dvh);
   max-width:none;
   margin:0;
   padding:0;
@@ -1695,14 +1695,14 @@ body.r1-shell-active.r1-map-home:not(.militopo-premium-home-open,.mor-choice-ope
   .r1-layer-pop{right:59px!important;width:min(218px,calc(100vw - 74px))!important;max-height:min(62dvh,470px)!important;padding:8px!important;gap:6px!important;border-radius:16px!important}
   .r1-layer-pop button{min-height:40px!important;padding:6px!important}
   .r2-map-hud{left:max(8px,env(safe-area-inset-left))!important;right:auto!important;max-width:calc(100vw - 72px)!important}
-  .r2-trace-panel,.r2-route-details{left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;width:auto!important;max-width:none!important;max-height:calc(100dvh - 104px)!important;overflow:auto!important;overscroll-behavior:contain!important}
+  .r2-trace-panel,.r2-route-details{left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;width:auto!important;max-width:none!important;max-height:calc(var(--mp-viewport-height,100dvh) - 104px)!important;overflow:auto!important;overscroll-behavior:contain!important}
   .r1-workspace{padding-top:calc(var(--r1-safe-top) + var(--r1-top) + 6px)!important}
   .r1-workspace-shell{width:100%!important;max-width:100%!important;border-radius:18px 18px 0 0!important}
   .r1-workspace-head{min-height:46px!important;margin:0!important;padding:8px 9px!important;box-sizing:border-box}
   .r1-workspace-head .r1-close{width:36px!important;height:36px!important;border-radius:10px!important}
   .r1-workspace-title strong{font-size:.82rem!important}.r1-workspace-title small{font-size:.48rem!important}
   .r1-workspace-body{padding:6px!important;padding-bottom:max(7px,env(safe-area-inset-bottom))!important}
-  .r1-more-panel{right:max(8px,env(safe-area-inset-right))!important;width:calc(100vw - max(16px,env(safe-area-inset-left) + env(safe-area-inset-right)))!important;max-height:calc(100dvh - var(--r1-top) - var(--r1-safe-top) - 14px)!important;padding:10px!important;border-radius:18px!important}
+  .r1-more-panel{right:max(8px,env(safe-area-inset-right))!important;width:calc(100vw - max(16px,env(safe-area-inset-left) + env(safe-area-inset-right)))!important;max-height:calc(var(--mp-viewport-height,100dvh) - var(--r1-top) - var(--r1-safe-top) - 14px)!important;padding:10px!important;border-radius:18px!important}
 }
 @media(max-width:390px){
   .r1-nav{gap:3px!important}
