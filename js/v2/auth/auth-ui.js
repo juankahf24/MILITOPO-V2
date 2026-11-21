@@ -778,7 +778,6 @@ async function enterAppCore(user) {
   const welcomeName = interactive ? (displayName || "") : null;
   if (interactive) {
     interactiveLoginEmail = "";
-    document.activeElement?.blur?.();
   }
   const transition = globalThis.MILITOPO_TRANSITION;
   if (state.role === "runner") {
