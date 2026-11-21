@@ -4029,10 +4029,7 @@ html[data-militopo-theme="tactical-gold"] body .m2-invite-state[data-invitation-
 html[data-militopo-theme="tactical-gold"] body .m2-invite-state[data-invitation-state="accepted"]{background:#173D2B;color:#C9E6B7;border-color:#83AA70}
 html[data-militopo-theme="tactical-gold"] body .m2-invite-state[data-invitation-state="declined"]{background:#371F20;color:#F5B7AA;border-color:#BD8276}
 
-/* Race timing and directions retain the shared gold action hierarchy. */
-html[data-militopo-theme="tactical-gold"] body .mp-race-signal{padding:12px 14px;border:1px solid #F3D787;border-radius:14px;background:linear-gradient(135deg,#EBD193,#EDB047)!important;color:#11190D!important;box-shadow:inset 0 1px 0 #FFF4C855}
-html[data-militopo-theme="tactical-gold"] body .mp-race-signal strong,html[data-militopo-theme="tactical-gold"] body .mp-race-signal.is-live strong{color:#11190D!important;font-weight:850}
-html[data-militopo-theme="tactical-gold"] body .mp-race-signal>span{background:#354426!important;box-shadow:none!important}
-html[data-militopo-theme="tactical-gold"] body .mp-race-meeting>a.mp-race-directions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px 14px;padding:14px 12px;min-height:54px;text-align:center;font-size:17px;font-weight:850;line-height:1.35}
-html[data-militopo-theme="tactical-gold"] body .mp-google-maps{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:650;white-space:nowrap}
-html[data-militopo-theme="tactical-gold"] body .mp-google-maps svg{display:block;width:19px;height:25px;flex:none;filter:none!important}
+/* Race signal: only the indicator changes, preserving the original timer surface. */
+html[data-militopo-theme="tactical-gold"] body .mp-race-signal>span,html[data-militopo-theme="tactical-gold"] body .mp-race-signal.is-live>span{background:#F3C65D!important;box-shadow:0 0 0 3px #D8B45F20!important}
+html[data-militopo-theme="tactical-gold"] body .mp-race-meeting>a.mp-race-directions{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 12px;min-height:54px;text-align:center;font-size:17px;font-weight:850;line-height:1.35}
+html[data-militopo-theme="tactical-gold"] body .mp-race-directions .mp-google-maps-icon{display:block;width:28px;height:28px;object-fit:contain;flex:none;filter:none!important}
