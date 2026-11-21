@@ -144,19 +144,58 @@
     const state = {root, scene, content, kind, splash, welcome, promise:null, resolve:null, controller:null, timer:0, leaving:false, entryPending:Boolean(kind)};
     state.promise = new Promise(resolve => { state.resolve = resolve; });
     active = state;
+    // Keep the focused form stable during the entrance fade. showModal() would
+    // dismiss the software keyboard before this surface becomes opaque.
+    state.deferredModal = Boolean(welcome && entering);
+    if (state.deferredModal) root.setAttribute('open', '');
+    else activateModal(state);
+    return state;
+  }
+
+  function activateModal(state) {
+    const {root} = state;
     if (root.showModal) {
+      root.removeAttribute('open');
       root.showModal();
     } else {
       root.setAttribute('open', '');
       root.setAttribute('role', 'dialog');
-      // Keep keyboard input inside the surface on browsers without modal dialogs.
       state.guard = event => {
         if (!root.contains(event.target)) (root.querySelector('button') || root).focus({preventScroll:true});
       };
       document.addEventListener('focusin', state.guard);
-      root.focus({preventScroll:true});
     }
-    return state;
+    root.focus({preventScroll:true});
+  }
+
+  async function coverReady(state, signal) {
+    if (!state.deferredModal) return;
+    state.deferredModal = false;
+    const editing = document.activeElement?.matches('input,textarea,[contenteditable="true"]');
+    activateModal(state);
+    if (!editing || !window.visualViewport) return;
+    // Wait beneath the opaque cover for the keyboard viewport to catch up.
+    // Abort and a bounded deadline keep navigation recoverable on all devices.
+    await new Promise((resolve, reject) => {
+      const start = performance.now();
+      let frame = 0, stable = 0;
+      function finish(error) {
+        cancelAnimationFrame(frame);
+        signal.removeEventListener('abort', abort);
+        if (error) reject(error); else resolve();
+      }
+      function abort() { finish(signal.reason); }
+      function check() {
+        if (signal.aborted) { abort(); return; }
+        const viewport = window.visualViewport;
+        const covered = state.root.getBoundingClientRect().height;
+        stable = viewport.height >= covered - 2 && Math.abs(viewport.offsetTop) < 2 ? stable + 1 : 0;
+        if (stable >= 3 || performance.now() - start >= 1200) finish();
+        else frame = requestAnimationFrame(check);
+      }
+      signal.addEventListener('abort', abort, {once:true});
+      frame = requestAnimationFrame(check);
+    });
   }
 
   function release(state, result) {
@@ -186,6 +225,7 @@
   function showError(state, error, retry) {
     clearTimeout(state.timer);
     state.root.style.opacity = '1';
+    if (state.deferredModal) { state.deferredModal = false; activateModal(state); }
     state.root.classList.add('has-error');
     revealDocument();
     state.root.querySelector('.mp-loader-copy').style.opacity = '1';
@@ -274,7 +314,8 @@
     state.root.querySelector('.mp-loader-copy').style.removeProperty('opacity');
     try {
       if (!state.splash) {
-        await fade(state.root, 1, 120, signal);
+        await fade(state.root, 1, state.welcome ? 240 : 120, signal);
+        await coverReady(state, signal);
         await painted(signal);
       }
       state.intro = state.splash ? Promise.all([
@@ -342,7 +383,8 @@
     }
     const signal = newAttempt(state);
     try {
-      await fade(state.root, 1, 120, signal);
+      await fade(state.root, 1, state.welcome ? 240 : 120, signal);
+      await coverReady(state, signal);
       await painted(signal);
       if (beforeLeave) await untilAborted(signal, beforeLeave());
       commitNavigation(url, replace, false, welcome);
