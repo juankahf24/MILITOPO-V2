@@ -468,12 +468,19 @@ html.mp-cross-hold::view-transition-old(root) {
   display: none;
 }
 
-/* Interactive sign-in shares the entry controller and its destination-ready signal. */
+/* The canvas backs the fixed welcome surface during visual viewport changes. */
+html:root.mp-welcome-canvas {
+  --mp-welcome-edge: #191509;
+  background: var(--mp-welcome-edge) !important;
+}
+
 #mpPremiumTransition.mp-welcome {
   width: 100%;
   height: 100vh;
   height: var(--mp-viewport-height);
-  background: radial-gradient(ellipse at 50% 62%, #273523 0, #14251a 36%, #07110b 78%);
+  background:
+    radial-gradient(ellipse at 50% 55%, #92783f54, transparent 64%),
+    linear-gradient(170deg, #141b12, #2b2515 58%, var(--mp-welcome-edge));
 }
 #mpPremiumTransition.mp-welcome .mp-welcome-content {
   position: static;
@@ -485,6 +492,7 @@ html.mp-cross-hold::view-transition-old(root) {
 #mpPremiumTransition.mp-welcome.has-error .mp-welcome-title {
   display: none;
 }
+#mpPremiumTransition.mp-welcome:not(.is-welcome-ready) .mp-welcome-title { visibility: hidden; }
 #mpPremiumTransition .mp-welcome-title {
   display: grid;
   gap: .65rem;
@@ -513,12 +521,12 @@ html.mp-cross-hold::view-transition-old(root) {
   overflow-wrap: anywhere;
 }
 @media (prefers-reduced-motion: no-preference) {
-  #mpPremiumTransition .mp-welcome-title span,
-  #mpPremiumTransition .mp-welcome-title strong {
+  #mpPremiumTransition.is-welcome-ready .mp-welcome-title span,
+  #mpPremiumTransition.is-welcome-ready .mp-welcome-title strong {
     animation: mp-welcome-arrive 640ms cubic-bezier(.2,.7,.2,1) both;
     animation-delay: calc(0ms - var(--welcome-elapsed));
   }
-  #mpPremiumTransition .mp-welcome-title strong {
+  #mpPremiumTransition.is-welcome-ready .mp-welcome-title strong {
     animation-delay: calc(130ms - var(--welcome-elapsed));
   }
 }
