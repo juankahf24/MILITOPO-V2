@@ -135,7 +135,7 @@
       name.textContent = welcome.name;
       title.append(hello, name);
       content.prepend(title);
-      root.style.setProperty('--welcome-elapsed', Math.max(0, Date.now() - welcome.start) + 'ms');
+      document.documentElement.classList.add('mp-welcome-canvas');
     }
     root.append(content);
     document.body.append(root);
@@ -144,11 +144,15 @@
     const state = {root, scene, content, kind, splash, welcome, promise:null, resolve:null, controller:null, timer:0, leaving:false, entryPending:Boolean(kind)};
     state.promise = new Promise(resolve => { state.resolve = resolve; });
     active = state;
-    // Keep the focused form stable during the entrance fade. showModal() would
-    // dismiss the software keyboard before this surface becomes opaque.
-    state.deferredModal = Boolean(welcome && entering);
-    if (state.deferredModal) root.setAttribute('open', '');
-    else activateModal(state);
+    if (welcome) {
+      // A single fixed surface avoids switching compositing layers while iOS
+      // is resizing the viewport around its keyboard.
+      root.setAttribute('open', '');
+      if (!entering) {
+        guardFocus(state);
+        startWelcome(state);
+      }
+    } else activateModal(state);
     return state;
   }
 
@@ -160,42 +164,46 @@
     } else {
       root.setAttribute('open', '');
       root.setAttribute('role', 'dialog');
-      state.guard = event => {
-        if (!root.contains(event.target)) (root.querySelector('button') || root).focus({preventScroll:true});
-      };
-      document.addEventListener('focusin', state.guard);
+      guardFocus(state);
     }
     root.focus({preventScroll:true});
   }
 
+  function guardFocus(state) {
+    if (state.guard) return;
+    const {root} = state;
+    state.guard = event => {
+      if (!root.contains(event.target)) (root.querySelector('button') || root).focus({preventScroll:true});
+    };
+    document.addEventListener('focusin', state.guard);
+    root.focus({preventScroll:true});
+  }
+
+  function startWelcome(state) {
+    state.welcome.start ??= Date.now();
+    state.root.style.setProperty('--welcome-elapsed', Math.max(0, Date.now() - state.welcome.start) + 'ms');
+    state.root.classList.add('is-welcome-ready');
+  }
+
   async function coverReady(state, signal) {
-    if (!state.deferredModal) return;
-    state.deferredModal = false;
-    const editing = document.activeElement?.matches('input,textarea,[contenteditable="true"]');
-    activateModal(state);
-    if (!editing || !window.visualViewport) return;
-    // Wait beneath the opaque cover for the keyboard viewport to catch up.
-    // Abort and a bounded deadline keep navigation recoverable on all devices.
-    await new Promise((resolve, reject) => {
-      const start = performance.now();
-      let frame = 0, stable = 0;
-      function finish(error) {
-        cancelAnimationFrame(frame);
-        signal.removeEventListener('abort', abort);
-        if (error) reject(error); else resolve();
+    if (!state.welcome || state.root.classList.contains('is-welcome-ready')) return;
+    guardFocus(state);
+    await painted(signal);
+    const viewport = window.visualViewport;
+    if (viewport) {
+      // A short viewport can persist after the submit button has already
+      // taken focus. Measure the viewport itself instead of the focused field.
+      const started = performance.now();
+      let stableFrames = 0;
+      while (stableFrames < 3 && performance.now() - started < 1200) {
+        const fullHeight = state.root.clientHeight;
+        const unzoomed = Math.abs(viewport.scale - 1) < 0.02;
+        const settled = !unzoomed || (viewport.height >= fullHeight - 2 && Math.abs(viewport.offsetTop) < 2);
+        stableFrames = settled ? stableFrames + 1 : 0;
+        if (stableFrames < 3) await painted(signal);
       }
-      function abort() { finish(signal.reason); }
-      function check() {
-        if (signal.aborted) { abort(); return; }
-        const viewport = window.visualViewport;
-        const covered = state.root.getBoundingClientRect().height;
-        stable = viewport.height >= covered - 2 && Math.abs(viewport.offsetTop) < 2 ? stable + 1 : 0;
-        if (stable >= 3 || performance.now() - start >= 1200) finish();
-        else frame = requestAnimationFrame(check);
-      }
-      signal.addEventListener('abort', abort, {once:true});
-      frame = requestAnimationFrame(check);
-    });
+    }
+    startWelcome(state);
   }
 
   function release(state, result) {
@@ -206,6 +214,7 @@
     if (state.guard) document.removeEventListener('focusin', state.guard);
     if (state.root.open && state.root.close) state.root.close();
     state.root.remove();
+    if (state.welcome) document.documentElement.classList.remove('mp-welcome-canvas');
     revealDocument();
     state.resolve(result);
   }
@@ -225,7 +234,7 @@
   function showError(state, error, retry) {
     clearTimeout(state.timer);
     state.root.style.opacity = '1';
-    if (state.deferredModal) { state.deferredModal = false; activateModal(state); }
+    if (state.welcome) guardFocus(state);
     state.root.classList.add('has-error');
     revealDocument();
     state.root.querySelector('.mp-loader-copy').style.opacity = '1';
@@ -460,7 +469,7 @@
   }
 
   function welcomeLogin(name, target=null, openAccountView=null) {
-    const welcome = {name:String(name || '').trim(), start:Date.now()};
+    const welcome = {name:String(name || '').trim(), start:null};
     if (target) return navigate(target, {replace:true, welcome});
     const state = mount({kind:entryKind, welcome, entering:true});
     void present(state, signal => {
