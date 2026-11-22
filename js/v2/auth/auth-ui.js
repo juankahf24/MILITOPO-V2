@@ -292,12 +292,12 @@ function buildUi() {
             </div>
             <div id="m2AuthUsernameField" class="m2-auth-field" hidden>
               <label for="m2AuthUsername">Usuario único</label>
-              <input id="m2AuthUsername" name="username" autocomplete="username" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="@juankahf23">
+              <input id="m2AuthUsername" name="handle" disabled autocomplete="username" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="@juankahf23">
               <small>3–24 caracteres: letras, números, punto, guion o guion bajo.</small>
             </div>
             <div class="m2-auth-field">
               <label for="m2AuthEmail">Correo electrónico</label>
-              <input id="m2AuthEmail" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="tu@correo.com">
+              <input id="m2AuthEmail" name="username" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required placeholder="tu@correo.com">
             </div>
             <div class="m2-auth-field">
               <label for="m2AuthPassword">Contraseña</label>
@@ -305,7 +305,7 @@ function buildUi() {
             </div>
             <div id="m2AuthConfirmField" class="m2-auth-field" hidden>
               <label for="m2AuthPasswordConfirm">Repite la contraseña</label>
-              <input id="m2AuthPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" placeholder="Repite la contraseña">
+              <input id="m2AuthPasswordConfirm" name="passwordConfirm" type="password" disabled autocomplete="new-password" minlength="8" placeholder="Repite la contraseña">
             </div>
             ${legalHtml()}
             <label class="m2-auth-check">
@@ -533,6 +533,11 @@ function setMode(mode) {
   if (el("m2AuthUsernameField")) el("m2AuthUsernameField").hidden = !register;
   if (el("m2AuthConfirmField")) el("m2AuthConfirmField").hidden = !register;
   if (el("m2AuthLegalField")) el("m2AuthLegalField").hidden = !register;
+  const email = el("m2AuthEmail");
+  email.name = register ? "email" : "username";
+  email.autocomplete = register ? "email" : "username";
+  el("m2AuthUsername").disabled = !register;
+  el("m2AuthPasswordConfirm").disabled = !register;
   const password = el("m2AuthPassword");
   if (password) password.autocomplete = register ? "new-password" : "current-password";
   const submit = el("m2AuthSubmit");
