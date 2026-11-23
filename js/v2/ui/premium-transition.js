@@ -6,6 +6,12 @@
   const standalone = matchMedia('(display-mode: standalone)');
   const syncDisplayMode = () => document.documentElement.classList.toggle('militopo-pwa-standalone', standalone.matches || navigator.standalone === true);
   syncDisplayMode();
+  // This script runs in the head, before the destination has a body to paint.
+  try {
+    const handoff = JSON.parse(sessionStorage.getItem('militopo_screen_handoff'));
+    if (handoff?.url === location.href && typeof handoff.welcome?.name === 'string' &&
+        Date.now() - handoff.time < 60000) document.documentElement.classList.add('mp-welcome-canvas');
+  } catch (_) {}
   standalone.addEventListener?.('change', syncDisplayMode);
   addEventListener('pageshow', syncDisplayMode);
   const CONFIG = Object.freeze({minimumMs:3800, exitMs:400, backgroundMs:550, lettersMs:2750, timeoutMs:30000});
@@ -185,25 +191,37 @@
     state.root.classList.add('is-welcome-ready');
   }
 
-  async function coverReady(state, signal) {
-    if (!state.welcome || state.root.classList.contains('is-welcome-ready')) return;
-    guardFocus(state);
-    await painted(signal);
+  // Let the keyboard and its accessory bar retire on the original login screen.
+  // Authentication can run concurrently with the viewport settling.
+  let loginViewportReady;
+  function prepareLogin() {
+    const field = document.activeElement;
+    if (field?.matches("input,textarea")) field.blur();
     const viewport = window.visualViewport;
-    if (viewport) {
-      // A short viewport can persist after the submit button has already
-      // taken focus. Measure the viewport itself instead of the focused field.
-      const started = performance.now();
-      let stableFrames = 0;
-      while (stableFrames < 3 && performance.now() - started < 1200) {
-        const fullHeight = state.root.clientHeight;
-        const unzoomed = Math.abs(viewport.scale - 1) < 0.02;
-        const settled = !unzoomed || (viewport.height >= fullHeight - 2 && Math.abs(viewport.offsetTop) < 2);
-        stableFrames = settled ? stableFrames + 1 : 0;
-        if (stableFrames < 3) await painted(signal);
-      }
+    if (!viewport || !matchMedia("(pointer: coarse)").matches) {
+      loginViewportReady = Promise.resolve();
+      return;
     }
-    startWelcome(state);
+    loginViewportReady = new Promise(resolve => {
+      const began = performance.now();
+      let previous = "", changed = began;
+      function sample(now) {
+        const geometry = [viewport.width, viewport.height, viewport.offsetTop, viewport.offsetLeft,
+          viewport.scale, document.documentElement.clientHeight, window.scrollY].join("/");
+        if (geometry !== previous) { previous = geometry; changed = now; }
+        const full = viewport.height * viewport.scale >= document.documentElement.clientHeight - 3 &&
+          (viewport.scale > 1.02 || Math.abs(viewport.offsetTop) <= 2);
+        if ((full && now - began >= 450 && now - changed >= 180) || now - began >= 2200) resolve();
+        else requestAnimationFrame(sample);
+      }
+      requestAnimationFrame(sample);
+    });
+  }
+
+  function coverReady(state) {
+    if (!state.welcome) return;
+    guardFocus(state);
+    if (!state.leaving && !state.root.classList.contains('is-welcome-ready')) startWelcome(state);
   }
 
   function release(state, result) {
@@ -468,7 +486,10 @@
     return modes.prepareEntry(signal);
   }
 
-  function welcomeLogin(name, target=null, openAccountView=null) {
+  async function welcomeLogin(name, target=null, openAccountView=null) {
+    if (!loginViewportReady || document.activeElement?.matches("input,textarea")) prepareLogin();
+    await loginViewportReady;
+    loginViewportReady = null;
     const welcome = {name:String(name || '').trim(), start:null};
     if (target) return navigate(target, {replace:true, welcome});
     const state = mount({kind:entryKind, welcome, entering:true});
@@ -493,7 +514,7 @@
       const handoff = JSON.parse(sessionStorage.getItem('militopo_screen_handoff'));
       sessionStorage.removeItem('militopo_screen_handoff');
       internal = handoff?.url === location.href && Date.now() - handoff.time < 60000;
-      if (internal && typeof handoff.welcome?.name === 'string' && Number.isFinite(handoff.welcome.start)) {
+      if (internal && typeof handoff.welcome?.name === 'string' && (handoff.welcome.start === null || Number.isFinite(handoff.welcome.start))) {
         welcome = handoff.welcome;
       }
       retainedSource = internal && handoff.inline && !reduced();
@@ -516,7 +537,7 @@
       {duration:240, easing:'cubic-bezier(.2,.65,.3,1)'}));
   }
 
-  globalThis.MILITOPO_TRANSITION = Object.freeze({config:CONFIG, navigate, welcomeLogin, waitFor, bootEntry, soft, settleView,
+  globalThis.MILITOPO_TRANSITION = Object.freeze({config:CONFIG, navigate, prepareLogin, welcomeLogin, waitFor, bootEntry, soft, settleView,
     runInline, active:() => Boolean(active || pendingButton), isEntering:kind => active?.kind === kind && active.entryPending});
   addEventListener('pagehide', () => {
     pendingButton?.clear?.();
