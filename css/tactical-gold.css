@@ -14,7 +14,6 @@
  --line:var(--tg-line);--line-strong:var(--tg-line);--green-bright:var(--tg-success);
 }
 /* index.html */
-html[data-militopo-theme="tactical-gold"],html[data-militopo-theme="tactical-gold"] body{background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] body{background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #startupModeOverlay{background:var(--tg-material-surface-deep)!important}
 /* styles.css */
@@ -38,7 +37,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .info-icon{color:var(--tg
 html[data-militopo-theme="tactical-gold"] :where(body) .modern-info-btn{border:1px solid var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;box-shadow:0 6px 14px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .modern-info-btn span{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .modern-info-btn:hover{box-shadow:0 10px 20px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .topo-info-modal{background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .topo-info-dialog{box-shadow:0 24px 60px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .punto-card{box-shadow:0 1px 3px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .btn-primary{color:var(--tg-text)!important}
@@ -373,7 +371,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .close-modal:hover,html[d
 html[data-militopo-theme="tactical-gold"] :where(body) .map-container,html[data-militopo-theme="tactical-gold"] :where(body) .route-preview-map{border:1px solid var(--tg-line)!important;box-shadow:0 22px 52px var(--tg-shadow-color), inset 0 0 0 1px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .layer-selector{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] body.dark .layer-selector{background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .layer-btn.active{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .toast{border:1px solid var(--tg-line)!important;background:linear-gradient(180deg, var(--tg-surface), var(--tg-surface-deep))!important;box-shadow:0 18px 48px var(--tg-shadow-color), 0 0 0 4px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .alert,html[data-militopo-theme="tactical-gold"] :where(body) .config-info,html[data-militopo-theme="tactical-gold"] :where(body) .alert-info,html[data-militopo-theme="tactical-gold"] :where(body) .info-popup{box-shadow:0 14px 30px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .startup-overlay{background:radial-gradient(circle at 18% 8%, var(--tg-surface-raised), transparent 28%), radial-gradient(circle at 82% 18%, var(--tg-surface-raised), transparent 30%), radial-gradient(circle at 50% 100%, var(--tg-surface-raised), transparent 34%), linear-gradient(135deg, var(--tg-surface-deep) 0%, var(--tg-surface) 50%, var(--tg-surface-deep) 100%)!important}
@@ -427,24 +424,12 @@ html[data-militopo-theme="tactical-gold"] :where(body) #step3 #numRecorridos.rec
 html[data-militopo-theme="tactical-gold"] :where(body) #step3 .recorridos-selector::after{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important;border:2px solid var(--tg-line)!important;box-shadow:0 12px 24px var(--tg-shadow-color), 0 0 0 4px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .recorridos-select-hint{color:var(--tg-gold-light)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important;box-shadow:0 10px 22px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn{border:1px solid var(--tg-line)!important;background:radial-gradient(circle at 20% 15%, var(--tg-surface-raised), transparent 34%), linear-gradient(135deg, var(--tg-surface-raised), var(--tg-surface-deep))!important;color:var(--tg-text)!important;box-shadow:0 14px 30px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn:hover,html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn:focus-visible{border-color:var(--tg-line)!important;box-shadow:0 18px 38px var(--tg-shadow-color), 0 0 0 4px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn.active{background:radial-gradient(circle at 20% 15%, var(--tg-surface-raised), transparent 34%), linear-gradient(135deg, var(--tg-surface-raised), var(--tg-surface))!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important;box-shadow:0 18px 38px var(--tg-shadow-color), 0 0 0 4px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn .branch-tab-badge{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .topografia-subtitle-clean{color:var(--tg-text)!important;text-shadow:0 3px 14px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .topografia-subtitle-clean{color:var(--tg-text)!important;text-shadow:0 3px 14px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn{border:1px solid var(--tg-line)!important;background:radial-gradient(circle at 18% 10%, var(--tg-surface-raised), transparent 34%), linear-gradient(135deg, var(--tg-surface-raised), var(--tg-surface-deep))!important;color:var(--tg-text)!important;box-shadow:0 14px 30px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn:hover,html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn:focus-visible{border-color:var(--tg-line)!important;box-shadow:0 18px 38px var(--tg-shadow-color), 0 0 0 4px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn.active{background:radial-gradient(circle at 20% 15%, var(--tg-surface-raised), transparent 34%), linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important;border-color:var(--tg-line)!important;box-shadow:0 18px 38px var(--tg-shadow-color), 0 0 0 4px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .instructions-modal,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-modal{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .instructions-content,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-content{border:1px solid var(--tg-line)!important;background:radial-gradient(circle at 20% 0%, var(--tg-surface-raised), transparent 30%), linear-gradient(180deg, var(--tg-surface), var(--tg-surface-deep))!important;color:var(--tg-text)!important;box-shadow:0 28px 70px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .instructions-header,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-header{border-bottom:2px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .instructions-header h3,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-header h3{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .close-instr,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-close{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-deep)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .instructions-content h4,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-content h4{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .instructions-content p,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-content p{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .instructions-content strong,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-content strong{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .footer-instr,html[data-militopo-theme="tactical-gold"] :where(body) .orientation-guide-footer{background:var(--tg-material-surface-deep)!important;color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .dont-show-guide-btn{border:1px solid var(--tg-line)!important;background:radial-gradient(circle at 20% 10%, var(--tg-surface-raised), transparent 32%), linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important;box-shadow:0 12px 26px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] body.dark{--text-primary:var(--tg-text)!important;--text-secondary:var(--tg-gold-light)!important;--text-muted:var(--tg-gold-light)!important;--accent:var(--tg-surface-raised)!important;--accent-dark:var(--tg-surface-raised)!important}
 html[data-militopo-theme="tactical-gold"] body.dark .card,html[data-militopo-theme="tactical-gold"] body.dark .dashboard,html[data-militopo-theme="tactical-gold"] body.dark .recorridos-selector,html[data-militopo-theme="tactical-gold"] body.dark .modulo-item,html[data-militopo-theme="tactical-gold"] body.dark .map-search-panel,html[data-militopo-theme="tactical-gold"] body.dark .map-manual-editor,html[data-militopo-theme="tactical-gold"] body.dark .file-card,html[data-militopo-theme="tactical-gold"] body.dark .zip-include-panel,html[data-militopo-theme="tactical-gold"] body.dark .route-details-panel,html[data-militopo-theme="tactical-gold"] body.dark .tech-summary,html[data-militopo-theme="tactical-gold"] body.dark .modal-content,html[data-militopo-theme="tactical-gold"] body.dark .instructions-content,html[data-militopo-theme="tactical-gold"] body.dark .topo-info-dialog,html[data-militopo-theme="tactical-gold"] body.dark .location-overlay-card{color:var(--tg-text)!important;background:radial-gradient(circle at 14% 0%, var(--tg-surface-raised), transparent 30%), linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] body.dark .stat-card{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important}
@@ -506,20 +491,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ig
 html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-drag-hint{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-popup-close{background:var(--tg-material-surface)!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-popup-shell::after{background:var(--tg-material-surface-raised)!important;box-shadow:7px 7px 12px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-popup-card{background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important;border:1px solid var(--tg-line)!important;box-shadow:0 18px 40px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-head{background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-pin{background:var(--tg-material-surface-raised)!important;border:6px solid var(--tg-line)!important;box-shadow:0 4px 12px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-title{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-coordbox{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-label{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-coord{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-desc-head{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-desc-head small{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-desc{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important;box-shadow:inset 0 1px 0 var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-delete{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-text)!important;box-shadow:0 8px 18px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-ign-drag-hint{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-popup-close{background:var(--tg-material-surface)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #geoTiffModal .geotiff-popup-shell::after{background:var(--tg-material-surface-raised)!important;box-shadow:7px 7px 12px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .install-app-header-btn{border-color:var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important;box-shadow:0 8px 20px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .install-app-header-btn.is-ready::after{background:var(--tg-material-surface-raised)!important;box-shadow:0 0 0 3px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mt-splash{background:radial-gradient(circle at 50% 18%, var(--tg-surface-raised), transparent 34%), linear-gradient(180deg, var(--tg-surface) 0%, var(--tg-surface) 100%)!important}
@@ -543,16 +514,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .topografia-subtitle-clea
 html[data-militopo-theme="tactical-gold"] :where(body) .header-branch-btn{box-shadow:0 18px 36px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .workflow-steps.steps-container{background:linear-gradient(180deg, var(--tg-surface-deep), var(--tg-surface))!important;border:1px solid var(--tg-line)!important;box-shadow:0 26px 60px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .workflow-steps .step:hover,html[data-militopo-theme="tactical-gold"] :where(body) .workflow-steps .step:active{box-shadow:0 18px 34px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-modal{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-card{color:var(--tg-text)!important;background:radial-gradient(circle at 20% 0%, var(--tg-surface-raised), transparent 34%), linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important;box-shadow:0 30px 90px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-head p{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-close{border:1px solid var(--tg-line)!important;color:var(--tg-text)!important;background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-choice{border:1px solid var(--tg-line)!important;color:var(--tg-text)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;box-shadow:inset 0 1px 0 var(--tg-shadow-color), 0 14px 28px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-choice:hover,html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-choice:focus-visible{border-color:var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-choice small{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-iphone-instructions li{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-iphone-instructions li span{color:var(--tg-gold-light)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .militopo-platform-back{border:1px solid var(--tg-line)!important;color:var(--tg-text)!important;background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #step2 .topo-atak-import-card{color:var(--tg-text)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep)), repeating-linear-gradient(135deg, var(--tg-surface-raised) 0 12px, transparent 12px 24px), var(--tg-surface)!important;border:1px solid var(--tg-line)!important;box-shadow:0 22px 52px var(--tg-shadow-color), inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #step2 .topo-atak-import-card::before{border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #step2 .topo-atak-logo-shell{background:linear-gradient(180deg, var(--tg-surface-raised), var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important;box-shadow:inset 0 1px 0 var(--tg-shadow-color)!important}
@@ -569,7 +530,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) #step2 .topo-atak-info-bt
 html[data-militopo-theme="tactical-gold"] :where(body) .startup-minimal-logo,html[data-militopo-theme="tactical-gold"] :where(body) .logo-imagen-clean,html[data-militopo-theme="tactical-gold"] :where(body) .logo-imagen{background:var(--tg-material-surface-deep)!important}
 
 
-html[data-militopo-theme="tactical-gold"] :where(body) .startup-overlay-minimal{background:var(--tg-material-surface-deep)!important}
 
 
 html[data-militopo-theme="tactical-gold"] :where(body) .startup-minimal-title{color:var(--tg-text)!important;text-shadow:0 4px 18px var(--tg-shadow-color), 0 0 2px var(--tg-shadow-color)!important}
@@ -587,11 +547,9 @@ html[data-militopo-theme="tactical-gold"] :where(body) .startup-minimal-btn-prim
 html[data-militopo-theme="tactical-gold"] :where(body) .startup-minimal-btn-secondary{background:linear-gradient(180deg, var(--tg-surface), var(--tg-surface-deep))!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .startup-minimal-title{color:var(--tg-text)!important;text-shadow:0 4px 20px var(--tg-shadow-color), 0 0 2px var(--tg-shadow-color), 0 0 28px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .startup-overlay{background-color:var(--tg-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"],html[data-militopo-theme="tactical-gold"] body{background-color:var(--tg-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .startup-title-letter{text-shadow:0 0 0 transparent!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .startup-overlay.is-open.startup-sequence-run .startup-minimal-logo{box-shadow:0 16px 34px var(--tg-shadow-color)!important}
 /* orientacion/index.html */
-html[data-militopo-theme="tactical-gold"],html[data-militopo-theme="tactical-gold"] body{background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"]{background-color:var(--tg-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] body.ori-page-booting{background:var(--tg-material-surface-deep)!important}
 /* orientacion/index.html */
@@ -637,184 +595,10 @@ html[data-militopo-theme="tactical-gold"] :where(body) .m2-livev2-title{color:va
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-livev2-chip{border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-livev2 button{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
 /* js/v2/live/runner-race-v2.js */
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2{background:linear-gradient(180deg,var(--tg-surface-deep),var(--tg-surface-deep) 44%,var(--tg-surface-deep))!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-top{border:1px solid var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface),var(--tg-surface-deep))!important;box-shadow:0 12px 34px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-back{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-logo{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-deep)!important;box-shadow:0 7px 18px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-kicker{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-live{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-dot{background:var(--tg-material-surface-raised)!important;box-shadow:0 0 0 5px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-card{border:1px solid var(--tg-line)!important;background:linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;box-shadow:0 18px 50px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-hero{background:radial-gradient(circle at 50% 0,var(--tg-surface-raised),transparent 42%),linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-title{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-id{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-stat{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-stat span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-stat strong{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-seq{background:var(--tg-material-surface-deep)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-state{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-state.racing{color:var(--tg-text)!important;border-color:var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-state.finished{color:var(--tg-gold-light)!important;border-color:var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-time-label{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-event{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-event strong{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-stat{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-stat span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start{background:#236338!important;color:#fff!important;border:1px solid #85c88c!important;font-weight:900!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-finish{background:linear-gradient(135deg,#F3D787,#D8B45F)!important;color:#07110B!important;border:1px solid #F3D787!important;font-weight:900!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-note{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-confirm{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-confirm p{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-mini{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-mini.primary{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important;color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-gps-icon{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-gps-text{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-gps-pill{border:1px solid var(--tg-line)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-gps-pill.ok{color:var(--tg-success)!important;border-color:var(--tg-line)!important;background:var(--tg-success-wash)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-gps-pill.warn{color:var(--tg-gold)!important;border-color:var(--tg-line)!important;background:var(--tg-gold-wash)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-gps-btn{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-track-icon{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-track-text{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-track-pill{border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-track-pill.ok{color:var(--tg-success)!important;border-color:var(--tg-line)!important;background:var(--tg-success-wash)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-track-pill.warn{color:var(--tg-gold)!important;border-color:var(--tg-line)!important;background:var(--tg-gold-wash)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-resilience-icon{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-resilience-text{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-resilience-pill{border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-resilience-pill.ok{color:var(--tg-success)!important;border-color:var(--tg-line)!important;background:var(--tg-success-wash)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-resilience-pill.warn{color:var(--tg-gold)!important;border-color:var(--tg-line)!important;background:var(--tg-gold-wash)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-card{border-color:var(--tg-line)!important;background:radial-gradient(circle at 82% 5%,var(--tg-surface-raised),transparent 34%),linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-kicker{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-progress{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-next{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-next.complete{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-meta div{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-meta span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-status{background:var(--tg-material-surface-deep)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-status.ok{color:var(--tg-success)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-status.warn{color:var(--tg-gold)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-discard-btn{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-discard-btn::before{background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-discard-confirm{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-discard-cancel{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-discard-ok{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-penalty-preview>div{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-penalty-preview span{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-penalty-preview strong{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-qr-btn{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-qr-fallback{border:1px dashed var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-qr-panel{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-qr-video{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-qr-status{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-qr-close{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start-confirm{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start-sheet{background:linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important;box-shadow:0 28px 80px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start-icon{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start-sheet p{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start-choice button{border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start-no{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start-yes{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-sync{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-sync strong{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-sync-dot{background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-result p{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-busy{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-busy-card{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important;box-shadow:0 20px 60px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-spinner{border:3px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-busy-card span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-sheet{background:linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important;box-shadow:0 30px 90px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-check{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-sub{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-stat{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-stat span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-stat strong{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-rank{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-rank span{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-rank strong{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-close{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-summary-done{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-text)!important}
 /* js/v2/live/runner-race-v2.js */
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2{background:radial-gradient(circle at 50% -12%,var(--tg-surface) 0,var(--tg-surface-deep) 34%,var(--tg-surface-deep) 76%)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-dashboard{border:1px solid var(--tg-line)!important;background:radial-gradient(circle at 80% 0,var(--tg-surface-raised),transparent 30%),linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;box-shadow:0 16px 42px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-identity b{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-identity span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-time{color:var(--tg-text)!important;text-shadow:0 0 26px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-time-label{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-clock-sub{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-clock-sub b{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-head{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-head strong{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-track{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important;box-shadow:inset 0 1px 3px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-fill{background:linear-gradient(90deg,var(--tg-surface-raised),var(--tg-surface-raised) 58%,var(--tg-surface-raised))!important;box-shadow:0 0 14px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-control-card{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-next{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-qr-btn{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important;box-shadow:0 9px 22px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-discard-confirm{box-shadow:0 14px 35px var(--tg-shadow-color)!important;background:var(--tg-material-surface)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-gpsbar{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-gps-btn{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-toggle{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-action.m2race-start:disabled{background:var(--tg-material-surface)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-finish{background:linear-gradient(135deg,#F3D787,#D8B45F)!important;color:#07110B!important;border:1px solid #F3D787!important;font-weight:900!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-confirm{background:var(--tg-material-surface)!important;box-shadow:0 18px 60px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-system-chip{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-system-chip strong{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-route-sheet{background:linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important;box-shadow:0 24px 70px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-close{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-times>div{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-route-times span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-qr-panel{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-result{background:var(--tg-material-surface-deep)!important}
 /* js/v2/live/runner-race-v2.js */
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2{background:radial-gradient(circle at 50% -10%,var(--tg-surface) 0,var(--tg-surface-deep) 31%,var(--tg-surface-deep) 76%)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-dot{box-shadow:0 0 0 3px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-control-card{background:radial-gradient(circle at 85% 0,var(--tg-surface-raised),transparent 34%),var(--tg-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-kicker{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-progress{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-next{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-validation-chip{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-validation-chip.is-gps{color:var(--tg-text)!important;border-color:var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-validation-chip i{background:var(--tg-material-surface-raised)!important;box-shadow:0 0 0 3px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-control-status{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-qr-btn{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important}
 /* js/v2/live/runner-race-v2.js */
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-performance{border:1px solid var(--tg-line)!important;background:radial-gradient(circle at 50% -20%,var(--tg-surface-raised),transparent 53%),var(--tg-surface-deep)!important;box-shadow:inset 0 1px 0 var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2.m2race-is-racing .m2race-performance{border-color:var(--tg-line)!important;background:radial-gradient(circle at 50% -24%,var(--tg-surface-raised),transparent 55%),var(--tg-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-is-racing .m2race-time-label{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-is-racing .m2race-clock-sub span{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-is-racing .m2race-clock-sub b{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-progress{border-top:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-node{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-node.done{background:#215c36!important;border-color:#70c58b!important;color:#f1fff4!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-node.current{background:#F3D787!important;border-color:#D8B45F!important;color:#07110B!important;box-shadow:0 0 0 2px #92783F!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-node.finish.done{background:#215c36!important;border-color:#70c58b!important;color:#f1fff4!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-node.start.done{background:#215c36!important;border-color:#70c58b!important;color:#f1fff4!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-actions .m2race-discard-btn{color:var(--tg-text)!important}
 /* js/v2/live/runner-race-v2.js */
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2.m2race-is-racing .m2race-performance{border-color:var(--tg-line)!important;background:radial-gradient(circle at 50% -28%,var(--tg-surface-raised),transparent 54%),linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;box-shadow:inset 0 1px 0 var(--tg-shadow-color),0 10px 30px var(--tg-shadow-color),0 0 0 1px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2.m2race-is-racing .m2race-time{color:var(--tg-text)!important;text-shadow:0 5px 24px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2.m2race-is-racing .m2race-time-label{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2.m2race-is-racing .m2race-clock-sub span{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-progress-head span{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-progress-head strong{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-progress-node.discarded{background:#75401c!important;border-color:#f4a24b!important;color:#fff1df!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-progress-node.discarded::before{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-control-kicker{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important;color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-control-actions .m2race-discard-btn{background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-stat:first-child{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-stat:first-child strong{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-classification{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-class-phase{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-class-phase::before{background:var(--tg-material-surface-raised)!important;box-shadow:0 0 0 3px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-classification.is-official{border-color:var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-classification.is-official .m2race-summary-class-phase{border-color:var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-classification.is-official .m2race-summary-class-phase::before{background:var(--tg-material-surface-raised)!important;box-shadow:0 0 0 3px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-class-progress{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-live-row{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-live-row.is-me{background:var(--tg-material-surface-raised)!important;color:var(--tg-gold-light)!important;box-shadow:inset 0 0 0 1px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-live-row b{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-live-row em{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-summary-class-note{color:var(--tg-muted)!important}
 /* js/v2/live/organizer-monitor.js */
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-f2c{border:1px solid var(--tg-line)!important;background:linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-f2c-title{color:var(--tg-text)!important}
@@ -1069,58 +853,7 @@ html[data-militopo-theme="tactical-gold"] :where(body) .m2-h5-tab.active{backgro
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-h5-rank{color:var(--tg-gold-light)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-h5-own{background:var(--tg-material-surface-raised)!important}
 /* js/v2/data/event-lifecycle.js */
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-hero{border:1px solid var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;box-shadow:0 12px 30px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-kicker{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-title{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-sub{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-chip{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-chip[data-status="draft"]{background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-chip[data-status="prepared"]{background:var(--tg-material-surface-raised)!important;color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-chip[data-status="published"]{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-chip[data-status="live"]{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-chip[data-status="finished"]{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-track-wrap{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-track-label span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-step{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-step.done{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-step.active{background:var(--tg-material-surface)!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important;box-shadow:0 5px 14px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-card{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-card-head span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-check{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-check-dot{background:var(--tg-material-surface-raised)!important;box-shadow:0 0 0 4px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-check.is-ok .m2-life-check-dot{background:var(--tg-material-surface)!important;box-shadow:0 0 0 4px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-check.is-warn .m2-life-check-dot{background:var(--tg-gold-wash)!important;box-shadow:0 0 0 4px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-check-copy span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-detail{color:var(--tg-muted)!important;background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-next small{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-next strong{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-next p{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-live-link{background:linear-gradient(180deg,var(--tg-surface-raised),var(--tg-surface))!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important;box-shadow:0 8px 20px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-live-link::before{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life button{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life .m2-life-primary{background:var(--tg-material-surface)!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life .m2-life-primary[data-next="live"]{background:var(--tg-material-surface)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life .m2-life-primary[data-next="finished"]{background:var(--tg-material-surface)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life #m2LifecycleAction:disabled,html[data-militopo-theme="tactical-gold"] :where(body) .m2-life #m2LifecycleRefresh:disabled{background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important;border:2px dashed var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-availability{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-availability[data-blocked="true"]{background:var(--tg-material-surface-raised)!important;color:var(--tg-gold-light)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-overlay{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-progress-card{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-deep)!important;box-shadow:0 18px 60px var(--tg-shadow-color)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-progress-title{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-progress-track{background:var(--tg-material-surface-raised)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-progress-bar{background:linear-gradient(90deg,var(--tg-surface-raised),var(--tg-surface-raised))!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-progress-step{border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-progress-step.is-active{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-life-progress-step.is-done{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important}
 /* js/v2/data/event-lifecycle.js */
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-start-dialog{border:1px solid var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-text)!important;box-shadow:0 24px 90px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-start-dialog::backdrop{background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-start-dialog .m2-start-icon{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-start-dialog[data-busy="true"] .m2-start-icon{border:4px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-start-dialog .m2-start-message{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-start-dialog button{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2-start-dialog button[data-confirm]{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important}
 /* js/v2/data/cloud-recovery.js */
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-cloud-recovery-btn{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface)!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2-cloud-recovery-overlay{background:var(--tg-material-surface-deep)!important}
@@ -1304,7 +1037,6 @@ html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-acco
 html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-email-value strong{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-email-tick{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface)!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-email-tick.is-verified{background:var(--tg-material-surface)!important;border-color:var(--tg-line)!important;box-shadow:0 0 0 3px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-email-tick.is-pending{background:var(--tg-gold-wash)!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open #m2AccountEditCard.m2-account-card{border:1px solid var(--tg-line)!important;box-shadow:0 30px 80px var(--tg-shadow-color)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important}
 html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-kicker,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-form>.m2-account-main-field label,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-option small,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-message{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-header h2,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-identity>div:last-child>strong,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-form>.m2-account-main-field input,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-email-value strong,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-option strong,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-close,html[data-militopo-theme="tactical-gold"] body.m2-account-settings-open .m2-account-back-profile{color:var(--tg-text)!important}
@@ -1570,9 +1302,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .r1-topbar{border:1px sol
 html[data-militopo-theme="tactical-gold"] :where(body) .r1-nav-btn{background:var(--tg-material-surface-raised)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r1-nav-btn:hover{background:var(--tg-material-surface-raised)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r1-nav-btn.is-primary{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .r1-nav-btn.is-live{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .r1-nav-btn.is-manager{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .r1-nav-btn.is-active{background:var(--tg-material-surface)!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r1-role-pill{background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r1-role-dot{background:var(--tg-material-surface-raised)!important;box-shadow:0 0 0 3px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r1-role-pill[data-role="super_admin"] .r1-role-dot{background:var(--tg-material-surface-raised)!important}
@@ -1705,7 +1434,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .r4-participants-metrics>
 html[data-militopo-theme="tactical-gold"] :where(body) .r4-participants-metrics strong{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r4-participants-metrics span{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r4-participants-tabs button{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .r4-participants-tabs button.is-active{background:linear-gradient(135deg,#EBD193,#EDB047)!important;color:#0A1009!important;border-color:#F3D787!important;box-shadow:inset 0 1px 0 #fff6,0 4px 12px #0003!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r4-participants-notice{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r4-participants-notice span{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r4-participants-notice.is-locked{border-color:var(--tg-line)!important;background:var(--tg-material-surface)!important}
@@ -1769,7 +1497,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-group-head st
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-group-head small{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-group-head span{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabs button{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabs button small{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabs button.is-active{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important;color:var(--tg-muted)!important;box-shadow:0 5px 16px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabs button.is-active small{color:var(--tg-muted)!important}
 @media(max-width:720px){html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabs{background:var(--tg-material-surface-deep)!important}}
@@ -1782,7 +1509,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabs button.i
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabs button.is-active .r3-manager-tab-index{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabs button.is-active small{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabpanel{border:1px solid var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-option-label span{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-option-label small{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabpanel .r3-readiness{background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r3-manager-tabpanel .r3-manager-card{background:var(--tg-material-surface)!important;border-color:var(--tg-line)!important;box-shadow:inset 0 1px 0 var(--tg-shadow-color)!important}
@@ -1921,7 +1647,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .r8-user-detail-identity 
 html[data-militopo-theme="tactical-gold"] :where(body) .r8-user-detail-grid>div{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r8-user-detail-grid strong{color:var(--tg-gold-light)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r8-user-detail-grid span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .r8-user-detail-section{border-top:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r8-user-detail-label strong{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r8-user-detail-label small{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .r8-user-last-race{background:var(--tg-material-surface-raised)!important}
@@ -2049,8 +1774,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .mpb-rail-intro p{color:v
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-progress button{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-progress button:hover{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-progress-index{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important;color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .mpb-progress-copy small{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .mpb-progress-copy b{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-progress button.is-done{color:var(--tg-text)!important;background:var(--tg-material-surface)!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-progress button.is-done .mpb-progress-index{background:var(--tg-material-surface)!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-progress button.is-active{background:linear-gradient(90deg,var(--tg-surface-raised),var(--tg-surface-raised))!important;border-color:var(--tg-line)!important;color:var(--tg-text)!important}
@@ -2289,7 +2012,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .mpb-precision-dialog hea
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-precision-map{background:var(--tg-material-surface-raised)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-precision-credit{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-precision-pin{border:3px solid var(--tg-line)!important;background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important;box-shadow:0 3px 12px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .mpb-center-notice{background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-center-notice-card{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important;border:1px solid var(--tg-line)!important;box-shadow:0 22px 58px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-center-notice-icon{background:var(--tg-material-surface-raised)!important;color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mpb-center-notice.is-error .mpb-center-notice-icon{background:var(--tg-danger-wash)!important;color:var(--tg-danger)!important}
@@ -2407,7 +2129,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .r2-route-details-sequenc
 @media(max-width:390px){html[data-militopo-theme="tactical-gold"] :where(body) .r2-route-details-metrics span:nth-child(-n+2){border-bottom:1px solid var(--tg-line)!important}}
 /* orientacion/css/styles.css */
 html[data-militopo-theme="tactical-gold"]{--bg:var(--tg-surface-deep)!important;--panel:var(--tg-surface)!important;--panel2:var(--tg-surface)!important;--brown:var(--tg-surface)!important;--gold:var(--tg-surface-raised)!important;--gold2:var(--tg-surface-raised)!important;--cream:var(--tg-text)!important;--muted:var(--tg-gold-light)!important;--green:var(--tg-surface-raised)!important;--red:var(--tg-surface-raised)!important;--blue:var(--tg-surface-raised)!important;--pink:var(--tg-text)!important;--line:var(--tg-line)!important;--shadow:0 18px 44px var(--tg-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"],html[data-militopo-theme="tactical-gold"] body{background:radial-gradient(circle at top,var(--tg-surface),transparent 35%),linear-gradient(180deg,var(--tg-surface-deep),var(--tg-surface) 45%,var(--tg-surface-deep))!important}
 html[data-militopo-theme="tactical-gold"] body:before{background:repeating-linear-gradient(135deg,var(--tg-surface-raised) 0 8px,transparent 8px 16px)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .hero{background:radial-gradient(circle at 20% 0%,var(--tg-surface-raised),transparent 30%),linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .hero-inner{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important}
@@ -2423,15 +2144,12 @@ html[data-militopo-theme="tactical-gold"] :where(body) .card-header{border-botto
 html[data-militopo-theme="tactical-gold"] :where(body) h2{text-shadow:0 2px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .block{background:radial-gradient(circle at top left,var(--tg-surface-raised),transparent 30%),linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important;box-shadow:0 12px 24px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) input,html[data-militopo-theme="tactical-gold"] :where(body) select,html[data-militopo-theme="tactical-gold"] :where(body) textarea{border:1px solid var(--tg-line)!important;background:radial-gradient(circle at 10% 0%,var(--tg-surface-raised),transparent 30%),linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;box-shadow:inset 0 0 0 1px var(--tg-shadow-color),0 10px 20px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) input:focus,html[data-militopo-theme="tactical-gold"] :where(body) select:focus,html[data-militopo-theme="tactical-gold"] :where(body) textarea:focus{border-color:var(--tg-line)!important;box-shadow:inset 0 0 0 1px var(--tg-shadow-color),0 0 0 5px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .btn{color:var(--tg-gold-light)!important;box-shadow:0 12px 24px var(--tg-shadow-color),inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .btn.secondary{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .btn.green{color:var(--tg-text)!important;background:linear-gradient(180deg,var(--tg-surface-raised),var(--tg-surface))!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .btn.red{color:var(--tg-danger)!important;background:linear-gradient(180deg,var(--tg-danger-wash),var(--tg-danger-wash))!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .status{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-deep)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .status.ok{border-color:var(--tg-line)!important;background:var(--tg-success-wash)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .status.warn{border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .status.err{border-color:var(--tg-line)!important;background:var(--tg-danger-wash)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #map{border:2px solid var(--tg-line)!important;box-shadow:0 16px 34px var(--tg-shadow-color)!important;background:var(--tg-material-surface-raised)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .layer-btn{border:1px solid var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .layer-btn.active{color:var(--tg-gold-light)!important}
@@ -2532,7 +2250,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .hero p,html[data-militop
 html[data-militopo-theme="tactical-gold"] :where(body) h1,html[data-militopo-theme="tactical-gold"] :where(body) h2,html[data-militopo-theme="tactical-gold"] :where(body) h3,html[data-militopo-theme="tactical-gold"] :where(body) .route-title,html[data-militopo-theme="tactical-gold"] :where(body) .metric b{text-shadow:0 2px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .step-tab:not(.active):not(.done){color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) input,html[data-militopo-theme="tactical-gold"] :where(body) select,html[data-militopo-theme="tactical-gold"] :where(body) textarea{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) input::placeholder,html[data-militopo-theme="tactical-gold"] :where(body) textarea::placeholder{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"]{--bg:var(--tg-surface-deep)!important;--panel:var(--tg-surface)!important;--panel2:var(--tg-surface)!important;--brown:var(--tg-surface)!important;--gold:var(--tg-surface-raised)!important;--gold2:var(--tg-surface-raised)!important;--cream:var(--tg-text)!important;--muted:var(--tg-gold-light)!important;--green:var(--tg-surface-raised)!important;--red:var(--tg-surface-raised)!important;--blue:var(--tg-surface-raised)!important;--line:var(--tg-line)!important;--shadow:0 20px 52px var(--tg-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"]{background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] body{background:radial-gradient(circle at 18% -12%,var(--tg-surface-raised),transparent 32%), radial-gradient(circle at 88% 0%,var(--tg-surface-raised),transparent 30%), linear-gradient(180deg,var(--tg-surface-deep) 0%,var(--tg-surface-deep) 46%,var(--tg-surface-deep) 100%)!important}
@@ -2543,7 +2260,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) h1{color:var(--tg-text)!i
 html[data-militopo-theme="tactical-gold"] :where(body) .hero p{color:var(--tg-gold-light)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .mode-pill{color:var(--tg-text)!important;background:var(--tg-material-surface-raised)!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .steps{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;border-color:var(--tg-line)!important;box-shadow:0 16px 38px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .step-tab{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .step-tab.active{color:var(--tg-gold-light)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;box-shadow:0 14px 26px var(--tg-shadow-color),inset 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .step-tab.done{color:var(--tg-text)!important;background:linear-gradient(180deg,var(--tg-surface-raised),var(--tg-surface))!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .card{background:radial-gradient(circle at 88% 8%,var(--tg-surface-raised),transparent 27%), linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep)), var(--tg-surface)!important;border-color:var(--tg-line)!important;box-shadow:0 22px 54px var(--tg-shadow-color)!important}
@@ -2617,7 +2333,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .participant-empty-card h
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoParticipantOnlyShell{background:radial-gradient(circle at 15% 10%, var(--tg-surface-raised), transparent 22%), radial-gradient(circle at 85% 18%, var(--tg-surface-raised), transparent 18%), linear-gradient(180deg, var(--tg-surface-deep) 0%, var(--tg-surface-deep) 100%)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoParticipantOnlyShell .participant-only-topbar{border:1px solid var(--tg-line)!important;background:radial-gradient(circle at 12% 12%, var(--tg-surface-raised), transparent 22%), radial-gradient(circle at 86% 22%, var(--tg-surface-raised), transparent 18%), linear-gradient(135deg, var(--tg-surface), var(--tg-surface-deep))!important;box-shadow:inset 0 0 0 1px var(--tg-shadow-color), 0 10px 30px var(--tg-shadow-color)!important;border-bottom:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoParticipantOnlyShell .participant-only-topbar::before{background-color:var(--tg-surface-deep)!important;border:8px solid var(--tg-line)!important;box-shadow:0 8px 18px var(--tg-shadow-color), inset 0 0 0 1px var(--tg-shadow-color)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #militopoParticipantOnlyShell .participant-only-topbar strong{color:var(--tg-text)!important;text-shadow:0 6px 0 var(--tg-shadow-color), 0 1px 0 var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoParticipantOnlyShell .participant-only-topbar small{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoParticipantOnlyShell .participant-only-topbar{background:radial-gradient(circle at 12% 12%, var(--tg-surface-raised), transparent 22%), radial-gradient(circle at 86% 22%, var(--tg-surface-raised), transparent 18%), linear-gradient(135deg, var(--tg-surface), var(--tg-surface-deep))!important;border:1px solid var(--tg-line)!important;box-shadow:inset 0 0 0 1px var(--tg-shadow-color), 0 10px 30px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoParticipantOnlyShell .participant-only-topbar strong{color:var(--tg-text)!important;text-shadow:0 6px 0 var(--tg-shadow-color), 0 1px 0 var(--tg-shadow-color)!important}
@@ -3096,7 +2811,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .m2race-event strong{colo
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-stat{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-stat span{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start{background:#236338!important;color:#fff!important;border:1px solid #85c88c!important;font-weight:900!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-finish{background:linear-gradient(135deg,#F3D787,#D8B45F)!important;color:#07110B!important;border:1px solid #F3D787!important;font-weight:900!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-note{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-confirm{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-confirm p{color:var(--tg-gold-light)!important}
@@ -3119,8 +2833,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .m2race-resilience-pill{b
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-resilience-pill.ok{color:var(--tg-success)!important;border-color:var(--tg-line)!important;background:var(--tg-success-wash)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-resilience-pill.warn{color:var(--tg-gold)!important;border-color:var(--tg-line)!important;background:var(--tg-gold-wash)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-card{border-color:var(--tg-line)!important;background:radial-gradient(circle at 82% 5%,var(--tg-surface-raised),transparent 34%),linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-kicker{color:var(--tg-gold-light)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-progress{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-next{color:var(--tg-gold-light)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-next.complete{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-control-meta div{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
@@ -3183,7 +2895,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-head str
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-track{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important;box-shadow:inset 0 1px 3px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-progress-fill{background:linear-gradient(90deg,var(--tg-surface-raised),var(--tg-surface-raised) 58%,var(--tg-surface-raised))!important;box-shadow:0 0 14px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-control-card{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-next{color:var(--tg-gold-light)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-qr-btn{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important;box-shadow:0 9px 22px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-discard-confirm{box-shadow:0 14px 35px var(--tg-shadow-color)!important;background:var(--tg-material-surface)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #m2RaceV2 .m2race-gpsbar{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-deep)!important}
@@ -3264,8 +2975,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .secondary{background:lin
 html[data-militopo-theme="tactical-gold"] :where(body) input,html[data-militopo-theme="tactical-gold"] :where(body) textarea{border:1px solid var(--tg-line)!important;background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .next{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .scan{background:var(--tg-material-surface-deep)!important;border:1px solid var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .scan.ok{border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .scan.bad{border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) video{background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .qr img{background:var(--tg-material-surface-raised)!important;border:4px solid var(--tg-line)!important;box-shadow:0 12px 30px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .result-qr-instruction{background:linear-gradient(135deg,var(--tg-surface-raised),var(--tg-surface-deep))!important;color:var(--tg-gold-light)!important;border:2px solid var(--tg-line)!important;box-shadow:0 10px 28px var(--tg-shadow-color)!important}
@@ -3293,7 +3002,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .simple-step{background:l
 html[data-militopo-theme="tactical-gold"] :where(body) .result-open{box-shadow:0 0 0 3px var(--tg-shadow-color),0 24px 54px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .result-open .simple-step{box-shadow:0 0 0 6px var(--tg-shadow-color),0 10px 22px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .gps-card{border-color:var(--tg-line)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .gps-metric{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .live-sync-status{border:1px solid var(--tg-line)!important;background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .live-sync-status.is-synced{color:var(--tg-text)!important;border-color:var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .live-sync-status.is-offline{color:var(--tg-gold-light)!important;border-color:var(--tg-line)!important;background:var(--tg-material-surface-raised)!important}
@@ -3308,7 +3016,6 @@ html[data-militopo-theme="tactical-gold"] :where(body) .delivery-note{color:var(
 html[data-militopo-theme="tactical-gold"] :where(body) .gps-finish-card{border:2px solid var(--tg-line)!important;background:radial-gradient(circle at 50% 0,var(--tg-surface-raised),transparent 38%),linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;box-shadow:0 18px 46px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .gps-finish-title{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .gps-finish-text{color:var(--tg-text)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .gps-choice-overlay{background:var(--tg-material-surface-deep)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .gps-choice-card{border:2px solid var(--tg-line)!important;background:radial-gradient(circle at 50% 0,var(--tg-surface-raised),transparent 38%),linear-gradient(180deg,var(--tg-surface),var(--tg-surface-deep))!important;box-shadow:0 22px 60px var(--tg-shadow-color)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .gps-choice-title{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .gps-choice-text{color:var(--tg-text)!important}
