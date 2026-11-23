@@ -59,7 +59,7 @@ let explicitLogoutInProgress = false;
 let logoutInFlight = null;
 let enterAppInFlightUid = "";
 const RUNNER_HOME_URL = new URL("../../../orientacion/participante/", import.meta.url).href;
-function routeRunnerToParticipant(welcomeName = null) {
+async function routeRunnerToParticipant(welcomeName = null) {
   clearPostLoginSelector();
   try {
     if (/\/orientacion\/participante\//.test(window.location.pathname)) return false;
@@ -69,7 +69,7 @@ function routeRunnerToParticipant(welcomeName = null) {
     window.__MILITOPO_AUTH_NAVIGATING = true;
     try { sessionStorage.setItem("militopo_v2_allow_navigation_once", "1"); } catch (_) {}
     const transition = globalThis.MILITOPO_TRANSITION;
-    if (welcomeName !== null && transition?.welcomeLogin) void transition.welcomeLogin(welcomeName, RUNNER_HOME_URL);
+    if (welcomeName !== null && transition?.welcomeLogin) await transition.welcomeLogin(welcomeName, RUNNER_HOME_URL);
     else if (transition) void transition.navigate(RUNNER_HOME_URL, {replace:true});
     else window.location.replace(RUNNER_HOME_URL);
     return true;
@@ -786,7 +786,7 @@ async function enterAppCore(user) {
   }
   const transition = globalThis.MILITOPO_TRANSITION;
   if (state.role === "runner") {
-    if (routeRunnerToParticipant(welcomeName)) return;
+    if (await routeRunnerToParticipant(welcomeName)) return;
   } else {
     clearRunnerRestoreHint();
     if (document.body.dataset.screen === "access") {
@@ -1101,8 +1101,12 @@ async function handleSubmit(event) {
   // El rol se resolverá de nuevo desde el token de la cuenta que está entrando.
   clearRunnerRestoreHint({ clearSnapshot: true });
   markPostLoginSelector();
+  if (state.mode === "login") {
+    globalThis.MILITOPO_TRANSITION?.prepareLogin?.();
+    el("m2AuthSubmit").textContent = "INICIANDO SESIÓN…";
+    setMessage("");
+  } else setMessage("Creando cuenta…");
   setBusy(true);
-  setMessage(state.mode === "register" ? "Creando cuenta…" : "Iniciando sesión…");
   try {
     writeBoolStorage(KEEP_SESSION_KEY, remember);
     const persistenceMode = await applyCompatiblePersistence(state.services.auth, remember);
@@ -1139,6 +1143,7 @@ async function handleSubmit(event) {
     setMessage(friendlyError(error), "error");
   } finally {
     setBusy(false);
+    if (state.mode === "login") el("m2AuthSubmit").textContent = "ENTRAR";
   }
 }
 
