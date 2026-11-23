@@ -135,16 +135,26 @@
   }
   function clearNotice() { notice?.remove(); notice = null; }
   function refreshNotice(){
-    if(noticeFrame)return;
+    if(noticeFrame || (!notice && !hasWaitingUpdate()))return;
     noticeFrame=requestAnimationFrame(()=>{noticeFrame=0;if(!accountScreenReady())clearNotice();else void showIfWaiting();});
   }
   const accountObserver=new MutationObserver(refreshNotice);
-  accountObserver.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class","hidden","style"]});
+  function hasWaitingUpdate() {
+    const worker = registration?.waiting;
+    return Boolean(worker && worker !== dismissedWorker);
+  }
+  function watchAccountIfUpdating() {
+    if (hasWaitingUpdate() || registration?.installing || notice) {
+      accountObserver.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class","hidden","style"]});
+    } else {
+      accountObserver.disconnect();
+    }
+  }
   window.addEventListener("militopo:v2-auth-ready",refreshNotice);
   window.addEventListener("militopo:account-screen-ready",refreshNotice);
   window.addEventListener("militopo:v2-auth-signed-out",clearNotice);
   async function showIfWaiting() {
-    if (!accountScreenReady() || !registration?.waiting || registration.waiting===dismissedWorker || requested || notice || !navigator.onLine) return;
+    if (!hasWaitingUpdate() || requested || notice || !navigator.onLine || !accountScreenReady()) return;
     if (await hasActiveRace() || !accountScreenReady() || !registration?.waiting || registration.waiting===dismissedWorker || requested || notice || !navigator.onLine) return;
     notice = document.createElement("aside");
     notice.id = "militopo-version-notice";
@@ -156,7 +166,7 @@
     Object.assign(button.style, {background:"#eaf1d9",color:"#102015",border:0,borderRadius:"9px",padding:"10px",font:"700 13px system-ui"});
     const later = document.createElement("button"); later.type = "button"; later.textContent = "Ahora no";
     Object.assign(later.style, {background:"transparent",color:"#cbd7c7",border:0,font:"12px system-ui"});
-    later.addEventListener("click",()=>{dismissedWorker=registration?.waiting;clearNotice();});
+    later.addEventListener("click",()=>{dismissedWorker=registration?.waiting;clearNotice();watchAccountIfUpdating();});
     button.addEventListener("click", async () => {
       button.disabled = true;
       if (await hasActiveRace()) { label.textContent = "Actualización aplazada hasta terminar la carrera"; button.disabled = false; return; }
@@ -183,7 +193,11 @@
     showIfWaiting();
     function watchInstalling() {
       const installing = reg.installing;
-      installing?.addEventListener("statechange", () => { if (installing.state === "installed") showIfWaiting(); });
+      watchAccountIfUpdating();
+      installing?.addEventListener("statechange", () => {
+        watchAccountIfUpdating();
+        if (installing.state === "installed") showIfWaiting();
+      });
     }
     reg.addEventListener("updatefound", watchInstalling);
     watchInstalling();
@@ -195,6 +209,7 @@
       return;
     }
     if (!registration?.waiting) clearNotice();
+    watchAccountIfUpdating();
     showVersion(unconfirmed);
     requestActiveVersion();
   });
