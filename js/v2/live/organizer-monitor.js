@@ -82,6 +82,9 @@ function fmtDuration(ms) {
   const h = Math.floor(total / 3600), m = Math.floor((total % 3600) / 60), sec = total % 60;
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
 }
+function updateClockCell(cell, value) {
+  if (cell && cell.textContent !== value) cell.textContent = value;
+}
 function refreshOfficialClocks() {
   document.querySelectorAll("#m2F2CBody tr[data-started-at]").forEach(tr => {
     const start = Number(tr.dataset.startedAt || 0);
@@ -92,9 +95,9 @@ function refreshOfficialClocks() {
     const rawEl = tr.querySelector("[data-role='real-time']");
     const officialEl = tr.querySelector("[data-role='official-time']");
     const syncEl = tr.querySelector("[data-role='last-sync']");
-    if (rawEl) rawEl.textContent = fmtDuration(raw);
-    if (officialEl) officialEl.textContent = fmtDuration(raw + penalty);
-    if (syncEl) syncEl.textContent = fmtAgo(Number(tr.dataset.lastSeen || 0));
+    if (rawEl) updateClockCell(rawEl, fmtDuration(raw));
+    if (officialEl) updateClockCell(officialEl, fmtDuration(raw + penalty));
+    if (syncEl) updateClockCell(syncEl, fmtAgo(Number(tr.dataset.lastSeen || 0)));
   });
 }
 function ensureClockTimer() {
