@@ -555,6 +555,11 @@
     const chip=$("#r4LiveStatus",hub);if(chip){chip.textContent=label;chip.dataset.status=status}
     const total=participantHubNumber("#m2F2CTotal"),pending=participantHubNumber("#m2F2CPending"),racing=participantHubNumber("#m2F2CRacing"),finished=participantHubNumber("#m2F2CFinished");
     const values=[["#r4LiveTotal",total],["#r4LivePending",pending],["#r4LiveRacing",racing],["#r4LiveFinished",finished]];values.forEach(([id,v])=>{const el=$(id,hub);if(el)el.textContent=String(v)});
+    const jump = hub.querySelector("[data-r4-live-jump=salidas]");
+    const permissions = document.getElementById("m2StartPermissions");
+    jump.hidden = !permissions || permissions.hidden;
+    const requests = Number(permissions?.dataset.requests || 0);
+    jump.textContent = requests ? `Autorizar salidas · ${requests} pendiente${requests === 1 ? "" : "s"}` : "Autorizar salidas";
     const note=$("#r4LiveNotice",hub);if(note){
       if(status==="live"){note.className="r4-live-notice is-live";note.innerHTML="<strong>EN DIRECTO</strong><span>Posiciones, progreso y tiempos se actualizan automáticamente.</span><button type=\"button\" class=\"is-danger\" data-r4-live-finish>FINALIZAR CARRERA</button>"}
       else if(status==="finished"||status==="archived"){note.className="r4-live-notice";note.innerHTML=`<strong>${label}</strong><span>Se muestra la última información registrada de la carrera.</span>`}
@@ -570,7 +575,7 @@
     body.classList.add("r4-live-view");
     let hub=$("#r4LiveHub",body);
     if(!hub){
-      hub=document.createElement("section");hub.id="r4LiveHub";hub.className="r4-live-hub";hub.innerHTML=`<div class="r4-live-hero"><div><span>ORGANIZACIÓN · SEGUIMIENTO</span><h2>LIVE</h2><small>${currentEventName()}</small></div><b id="r4LiveStatus">—</b></div><div class="r4-live-metrics"><div><strong id="r4LiveTotal">0</strong><span>PARTICIPANTES</span></div><div><strong id="r4LivePending">0</strong><span>SIN SALIR</span></div><div><strong id="r4LiveRacing">0</strong><span>EN CARRERA</span></div><div><strong id="r4LiveFinished">0</strong><span>FINALIZADOS</span></div></div><div id="r4LiveNotice" class="r4-live-notice"></div><div class="r4-live-jumps"><button type="button" data-r4-live-jump="map">MAPA</button><button type="button" data-r4-live-jump="table">TABLA DE SEGUIMIENTO</button></div>`;
+      hub=document.createElement("section");hub.id="r4LiveHub";hub.className="r4-live-hub";hub.innerHTML=`<div class="r4-live-hero"><div><span>ORGANIZACIÓN · SEGUIMIENTO</span><h2>LIVE</h2><small>${currentEventName()}</small></div><b id="r4LiveStatus">—</b></div><div class="r4-live-metrics"><div><strong id="r4LiveTotal">0</strong><span>PARTICIPANTES</span></div><div><strong id="r4LivePending">0</strong><span>SIN SALIR</span></div><div><strong id="r4LiveRacing">0</strong><span>EN CARRERA</span></div><div><strong id="r4LiveFinished">0</strong><span>FINALIZADOS</span></div></div><div id="r4LiveNotice" class="r4-live-notice"></div><div class="r4-live-jumps"><button type="button" data-r4-live-jump="salidas" hidden>Autorizar salidas</button><button type="button" data-r4-live-jump="map">MAPA</button><button type="button" data-r4-live-jump="table">TABLA DE SEGUIMIENTO</button></div>`;
       stack.parentNode.insertBefore(hub,stack);
       hub.addEventListener("click",event=>{
         if(event.target.closest("[data-r4-live-start]")){
@@ -585,7 +590,7 @@
         }
         if(event.target.closest("[data-r4-live-lifecycle]")){state.managerModuleTitle="ESTADO Y PUBLICACIÓN";openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);return}
         if(event.target.closest("[data-r4-live-finish]")){const fn=globalThis.MILITOPO_V2_EVENT_LIFECYCLE_ADVANCE;if(typeof fn==="function"){Promise.resolve(fn()).then(()=>setTimeout(refreshLiveHub,180)).catch(error=>{try{globalThis.toast?.(`No se pudo finalizar: ${String(error?.message||error)}`)}catch(_){}});}else{state.managerModuleTitle="ESTADO Y PUBLICACIÓN";openManagerInjected(["m2EventLifecycle"],"ESTADO Y PUBLICACIÓN",1);}return}
-        const jump=event.target.closest("[data-r4-live-jump]")?.dataset.r4LiveJump;if(!jump)return;const target=jump==="map"?$("#m2OrganizerLiveMap",body):$("#m2OrganizerLiveMonitor",body);target?.scrollIntoView?.({behavior:"smooth",block:"start"});
+        const jump=event.target.closest("[data-r4-live-jump]")?.dataset.r4LiveJump;if(!jump)return;const target=jump==="salidas"?$("#m2StartPermissions",body):jump==="map"?$("#m2OrganizerLiveMap",body):$("#m2OrganizerLiveMonitor",body);target?.scrollIntoView?.({behavior:"smooth",block:"start"});
       });
     }
     /* El mapa es la vista principal y la tabla queda justo debajo. */
