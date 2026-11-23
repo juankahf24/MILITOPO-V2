@@ -1,11 +1,11 @@
 import { endSession } from "../../js/v2/auth/end-session.js";
 import {itineraryAnalysisHtml} from "../../js/v2/race/itinerary-analysis-ui.js?v=2.0.42";
 import {bindPowerMenu} from "../../js/v2/ui/power-menu.js?v=2.0.42";
-import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.75";
+import {raceInfoHtml,setRaceInfoContext,clearRaceInfo} from "../../js/v2/race/race-info-ui.js?v=2.0.76";
 import {personalProfileHtml,openPersonalProfileEditor} from "../../js/v2/profile/personal-profile-ui.js?v=2.0.38";
 /* MILITOPO V2 · R8J/R8K · Runner: perfil fotográfico profesional y clasificación histórica visual. */
-import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.75";
-import "./runner-history-v2.js?v=2.0.75";
+import { loadRunnerRecovery } from "./runner-live-loader.js?v=2.0.76";
+import "./runner-history-v2.js?v=2.0.76";
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   initializeAuth,getAuth,indexedDBLocalPersistence,browserLocalPersistence,browserSessionPersistence,
