@@ -3,7 +3,7 @@
   if(window.__MILITOPO_R1_SHELL__) return;
   window.__MILITOPO_R1_SHELL__=true;
 
-  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,participantsTab:"invites",managerTab:"design",customMapImportPending:null,customMapImportTimer:null};
+  const state={role:"organizer",workspace:null,hosted:[],currentStep:2,mapHome:true,managerEvent:null,managerOpen:false,eventStatus:null,managerModuleTitle:null,participantsObserver:null,liveObserver:null,participantsTab:"invites",managerTab:"design",customMapImportPending:null,customMapImportTimer:null};
   const $=(s,r=document)=>r.querySelector(s);
   const $$=(s,r=document)=>[...r.querySelectorAll(s)];
   const icon=(name)=>{
@@ -342,6 +342,8 @@
     resetWorkspaceScroll();requestAnimationFrame(resetWorkspaceScroll);setTimeout(()=>{resetWorkspaceScroll();window.dispatchEvent(new Event("resize"))},80);
   }
   function closeWorkspace(returnToMap=true){
+    state.liveObserver?.disconnect();
+    state.liveObserver = null;
     state.hosted.forEach(({node,marker})=>{try{node.classList.remove("r1-hosted");marker.parentNode?.insertBefore(node,marker);marker.remove()}catch(_){}});
     state.hosted=[];state.managerOpen=false;try{state.participantsObserver?.disconnect?.()}catch(_){} state.participantsObserver=null;state.workspace?.classList.remove("is-open");if(state.workspace){const body=$("#r1WorkspaceBody",state.workspace);body?.classList.remove("r4-participants-view","r4-live-view","r4-analysis-view");if(body){body.innerHTML="";delete body.dataset.r5AnalysisReady;body.classList.remove("r5-comparative-analysis-view")}}document.body.style.overflow="";
     document.body.classList.remove("r1-workspace-open","r5-premium-tool-open");state.premiumModuleKind=null;if(state.workspace)delete state.workspace.dataset.premiumTool;state.mapHome=!!returnToMap;
@@ -596,9 +598,23 @@
     /* El mapa es la vista principal y la tabla queda justo debajo. */
     map.style.order="1";monitor.style.order="2";
     refreshLiveHub();
-    let queued=false;const observer=new MutationObserver(()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;refreshLiveHub()})});
+    if (state.liveObserver) return true;
+    let queued = false;
+    const observer = new MutationObserver(() => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        if (state.liveObserver === observer) refreshLiveHub();
+      });
+    });
+    state.liveObserver = observer;
     observer.observe(monitor,{subtree:true,childList:true,characterData:true});
-    setTimeout(()=>{refreshLiveHub();try{window.dispatchEvent(new Event("resize"))}catch(_){}},120);
+    setTimeout(() => {
+      if (state.liveObserver !== observer) return;
+      refreshLiveHub();
+      window.dispatchEvent(new Event("resize"));
+    },120);
     return true;
   }
   function openLiveModule(fromManager=false){
