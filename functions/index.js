@@ -1902,8 +1902,8 @@ exports.finishLiveRun = onCall({ enforceAppCheck: false, timeoutSeconds: 300 }, 
 
 
 // F3B · Transiciones de carrera del corredor desde backend.
-async function resolveRunnerLiveContext(identity, eventId, expectedRunId = undefined) {
-  const uid = String(identity.uid || "").trim();
+async function resolveRunnerLiveContext(identity, eventId, expectedRunId = undefined, managedUid = null) {
+  const uid = managedUid ?? String(identity.uid || "").trim();
   const eventRef = db.collection("events").doc(eventId);
   const eventSnap = await eventRef.get();
   if (!eventSnap.exists) throw new HttpsError("not-found", "La carrera no existe.");
@@ -1911,6 +1911,7 @@ async function resolveRunnerLiveContext(identity, eventId, expectedRunId = undef
   const ownerUid = String(eventData.ownerUid || "").trim();
   if (!ownerUid) throw new HttpsError("failed-precondition", "La carrera no tiene organizador.");
 
+  if (managedUid !== null) assertManagerForEvent(identity, eventData);
   const memberSnap = await eventRef.collection("members").doc(uid).get();
   if (!memberSnap.exists || String(memberSnap.data()?.status || "active").toLowerCase() !== "active") {
     throw new HttpsError("permission-denied", "Tu cuenta no está activa en esta carrera.");
@@ -2022,6 +2023,33 @@ async function assertRunAcceptsNewTransitions(ctx) {
   }
 }
 
+exports.liveStartAuthorization = onCall({ enforceAppCheck: false }, async request => {
+  const identity = requireVerified(request);
+  const { action, expectedRunId, participantUid } = request.data || {};
+  const eventId = cleanEventId(request.data?.eventId);
+  if (!["request", "approve"].includes(action) || typeof expectedRunId !== "string" || !expectedRunId.trim()) {
+    throw new HttpsError("invalid-argument", "Indica la acción y la sesión en directo.");
+  }
+  if (action === "approve" && (typeof participantUid !== "string" || !participantUid ||
+      participantUid.length > 128 || /[.#$\[\]\/\x00-\x1f\x7f]/.test(participantUid))) {
+    throw new HttpsError("invalid-argument", "Corredor no válido.");
+  }
+  const ctx = await resolveRunnerLiveContext(identity, eventId, expectedRunId, action === "approve" ? participantUid : null);
+  await assertRunAcceptsNewTransitions(ctx);
+  const now = Date.now();
+  const tx = await transactExistingParticipant(ctx.participantRef, current => {
+    if (current.active === false || !["not_started", "ready"].includes(current.status || "not_started")) return;
+    const existing = current.startAuthorization || {};
+    if (existing.status === "approved" || (action === "request" && existing.status === "pending")) return current;
+    const authorization = action === "request"
+      ? { status: "pending", requestedAt: now }
+      : { ...existing, status: "approved", approvedAt: now, approvedBy: identity.uid };
+    return { ...current, startAuthorization: authorization };
+  });
+  if (!tx.committed) throw new HttpsError("failed-precondition", "La participación ya no está pendiente de salida.");
+  return { eventId, runId: ctx.runId, status: tx.snapshot.val().startAuthorization.status };
+});
+
 exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
   const identity = requireVerified(request);
   const eventId = cleanEventId(request.data?.eventId);
@@ -2041,6 +2069,10 @@ exports.runnerStartRace = onCall({ enforceAppCheck: false }, async request => {
     if (state === "finished") { refused = "Este recorrido ya está finalizado."; return; }
     if (["racing", "started"].includes(state)) { recovered = true; return current; }
     if (!["not_started", "ready"].includes(state)) { refused = "Estado de salida no válido."; return; }
+    if (current.active === false || current.startAuthorization?.status !== "approved") {
+      refused = "El organizador todavía no ha autorizado tu salida.";
+      return;
+    }
     return { ...current, status: "racing", online: true, startedAt: now, lastSeen: now, updatedAt: now };
   });
   if (!started.committed || !started.snapshot.exists()) throw new HttpsError("failed-precondition", refused || "La salida cambió durante el inicio. Vuelve a intentarlo.");
