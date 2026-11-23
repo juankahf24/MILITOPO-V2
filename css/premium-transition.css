@@ -9,6 +9,11 @@
 html { height:var(--mp-viewport-height); min-height:100%; }
 body { min-height:var(--mp-viewport-height); }
 
+/* The dedicated login page has only a fixed form; a default body margin
+   would extend its scrollable document past the viewport behind the keyboard. */
+html:has(> body[data-screen="access"]), body[data-screen="access"] { margin:0; overflow:hidden; overscroll-behavior:none; }
+body[data-screen="access"] { background:#0b1009; }
+
 /* MILITOPO · Single loading surface. Responsive composition and gold animation. */
 #militopoV2AccountBadge {
   display: none!important;
@@ -471,16 +476,17 @@ html.mp-cross-hold::view-transition-old(root) {
 /* The canvas backs the fixed welcome surface during visual viewport changes. */
 html:root.mp-welcome-canvas {
   --mp-welcome-edge: #191509;
-  background: var(--mp-welcome-edge) !important;
+  --mp-welcome-art: radial-gradient(ellipse at 50% 55%, #92783f54, transparent 64%),
+    linear-gradient(170deg, #141b12, #2b2515 58%, var(--mp-welcome-edge));
+  background: var(--mp-welcome-art) !important;
+  background-color: var(--mp-welcome-edge) !important;
 }
 
 #mpPremiumTransition.mp-welcome {
   width: 100%;
   height: 100vh;
   height: var(--mp-viewport-height);
-  background:
-    radial-gradient(ellipse at 50% 55%, #92783f54, transparent 64%),
-    linear-gradient(170deg, #141b12, #2b2515 58%, var(--mp-welcome-edge));
+  background: var(--mp-welcome-art);
 }
 #mpPremiumTransition.mp-welcome .mp-welcome-content {
   position: static;

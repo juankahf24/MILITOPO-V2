@@ -660,7 +660,7 @@ html[data-militopo-theme="tactical-gold"] :where(body) .m2race-event{color:var(-
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-event strong{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-stat{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-stat span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start{background:linear-gradient(135deg,#F3D787,#D8B45F)!important;color:#07110B!important;border:1px solid #F3D787!important;font-weight:900!important}
+html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start{background:#236338!important;color:#fff!important;border:1px solid #85c88c!important;font-weight:900!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-finish{background:linear-gradient(135deg,#F3D787,#D8B45F)!important;color:#07110B!important;border:1px solid #F3D787!important;font-weight:900!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-note{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-confirm{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
@@ -3095,7 +3095,7 @@ html[data-militopo-theme="tactical-gold"] :where(body) .m2race-event{color:var(-
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-event strong{color:var(--tg-text)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-stat{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-stat span{color:var(--tg-muted)!important}
-html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start{background:linear-gradient(135deg,#F3D787,#D8B45F)!important;color:#07110B!important;border:1px solid #F3D787!important;font-weight:900!important}
+html[data-militopo-theme="tactical-gold"] :where(body) .m2race-start{background:#236338!important;color:#fff!important;border:1px solid #85c88c!important;font-weight:900!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-finish{background:linear-gradient(135deg,#F3D787,#D8B45F)!important;color:#07110B!important;border:1px solid #F3D787!important;font-weight:900!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-note{color:var(--tg-muted)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) .m2race-confirm{background:var(--tg-material-surface-raised)!important;border:1px solid var(--tg-line)!important}
@@ -3664,7 +3664,7 @@ html[data-militopo-theme="tactical-gold"] :where(body) #militopoR1Topbar .r1-eve
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoR1Topbar .r1-nav {grid-area:tools}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoR1Topbar .r1-role-pill {position:absolute;right:16px;bottom:16px;display:none!important} /* Role remains visible in the shared identity row. */
 /* Dark auth fields: deliberately outrank the previous autofill/placeholder correction. */
-html[data-militopo-theme="tactical-gold"] :where(body) #militopoV2AuthOverlay {background:#0b1009e8!important;backdrop-filter:blur(12px)}
+html[data-militopo-theme="tactical-gold"] :where(body) #militopoV2AuthOverlay {background:#0b1009!important;backdrop-filter:none;-webkit-backdrop-filter:none}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoV2AuthOverlay :is(.m2-auth-card,#m2AuthMainView,#m2AuthVerifyView,.m2-auth-form) {background:var(--tg-material-surface-deep)!important;color:var(--tg-text)!important;border-color:var(--tg-line)!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoV2AuthOverlay #m2AuthForm .m2-auth-field input {background:#0A1009!important;color:var(--tg-text)!important;-webkit-text-fill-color:var(--tg-text)!important;border-color:var(--tg-line)!important;caret-color:var(--tg-gold-light)!important;font-size:16px!important}
 html[data-militopo-theme="tactical-gold"] :where(body) #militopoV2AuthOverlay #m2AuthForm .m2-auth-field input::placeholder {color:var(--tg-muted)!important;-webkit-text-fill-color:var(--tg-muted)!important;opacity:1!important}
@@ -4033,3 +4033,20 @@ html[data-militopo-theme="tactical-gold"] body .m2-invite-state[data-invitation-
 html[data-militopo-theme="tactical-gold"] body .mp-race-signal>span,html[data-militopo-theme="tactical-gold"] body .mp-race-signal.is-live>span{background:#F3C65D!important;box-shadow:0 0 0 3px #D8B45F20!important}
 html[data-militopo-theme="tactical-gold"] body .mp-race-meeting>a.mp-race-directions{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px 12px;min-height:54px;text-align:center;font-size:17px;font-weight:850;line-height:1.35}
 html[data-militopo-theme="tactical-gold"] body .mp-race-directions .mp-google-maps-icon{display:block;width:28px;height:28px;object-fit:contain;flex:none;filter:none!important}
+
+#m2RaceV2 .m2race-authorization:has(button[hidden]) {display:none}
+#m2RaceV2 #m2raceRequestStart, #m2StartPermissions button, #r4LiveHub [data-r4-live-jump="salidas"] {
+  width:100%;min-height:42px;padding:7px 12px;border-radius:12px;border:1px solid #85c88c!important;
+  background:#236338!important;color:#fff!important;font:750 .82rem/1.2 system-ui;cursor:pointer;
+}
+#m2RaceV2 #m2raceRequestStart:disabled, #m2StartPermissions button:disabled {background:#203523!important;color:#bce8c2!important;opacity:1;cursor:default}
+#m2RaceV2 #m2raceStart:enabled {background:#236338!important;color:white!important;border-color:#85c88c!important}
+#m2raceAuthError:not(:empty) {display:block;padding:.35rem;color:#ffd5bc;font-size:.8rem}
+#m2StartPermissions {scroll-margin-top:1rem}
+#m2StartPermissions h3 {margin:.5em 0;font-size:1.05rem}
+#m2StartPermissions p {font-size:.8rem}
+#m2StartPermissions .m2-start-row {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.75rem;padding:.55rem 0;border-bottom:1px solid var(--tg-line)}
+.m2-start-row strong,.m2-start-row small {display:block;overflow-wrap:anywhere}
+.m2-start-row small {margin-top:.25rem;color:var(--tg-muted)}
+#r4LiveHub [data-r4-live-jump="salidas"] {grid-column:1/-1}
+#r4LiveHub [data-r4-live-jump="salidas"][hidden],#m2StartPermissions[hidden] {display:none!important}
