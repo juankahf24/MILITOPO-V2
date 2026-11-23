@@ -233,6 +233,7 @@
       </main>
       <footer class="m2race-bottom">
         <section class="m2race-gpsbar"><div class="m2race-gps-icon">◎</div><div><div class="m2race-gps-title">GPS OBLIGATORIO</div><div id="m2raceGpsText" class="m2race-gps-text">Actívalo antes de iniciar el recorrido.</div></div><span id="m2raceGpsPill" class="m2race-gps-pill">SIN ACTIVAR</span><button id="m2raceGpsActivate" class="m2race-gps-btn" type="button">ACTIVAR GPS</button></section>
+        <div class="m2race-authorization"><button id="m2raceRequestStart" type="button" disabled>Pedir autorización de salida</button><span id="m2raceAuthError" role="status"></span></div>
         <div class="m2race-actions-row"><button id="m2raceRouteToggle" class="m2race-route-toggle" type="button">VER RECORRIDO</button><section id="m2raceActionCard"><button id="m2raceStart" class="m2race-action m2race-start" type="button" disabled>ACTIVA GPS PARA INICIAR</button><button id="m2raceFinish" class="m2race-action m2race-finish" type="button" hidden>TERMINAR CARRERA</button><div id="m2raceConfirm" class="m2race-confirm"><p>¿Quieres terminar la carrera ahora? Sin validar LLEGADA se registrará un ABANDONO. Para terminar con penalización, escanea el QR de LLEGADA.</p><div class="m2race-confirm-actions"><button id="m2raceCancelFinish" class="m2race-mini" type="button">SEGUIR</button><button id="m2raceConfirmFinish" class="m2race-mini primary" type="button">SÍ · TERMINAR</button></div></div><div id="m2raceActionNote" class="m2race-note m2race-action-note"></div></section></div>
         <div class="m2race-system-strip"><div class="m2race-system-chip"><span id="m2raceTrackPill" class="m2race-track-pill">LISTO</span><strong>TRACK</strong><span id="m2raceTrackText" class="m2race-track-text">Listo</span></div><div class="m2race-system-chip"><span id="m2raceResiliencePill" class="m2race-resilience-pill">PROTEGIDO</span><strong>OFFLINE</strong><span id="m2raceResilienceText" class="m2race-resilience-text">Protegido</span></div><div class="m2race-system-chip"><div class="m2race-sync"><span class="m2race-sync-dot"></span><div><strong id="m2raceSyncTitle">SINCRONIZANDO</strong><br><span id="m2raceSyncText">Live V2</span></div></div></div></div>
       </footer>
@@ -247,6 +248,7 @@
     const setRouteOpen=open=>{const card=root.querySelector("#m2raceRouteCard"),btn=root.querySelector("#m2raceRouteToggle");if(!card)return;card.hidden=!open;if(btn)btn.textContent=open?"OCULTAR RECORRIDO":"VER RECORRIDO";};
     root.querySelector("#m2raceRouteToggle").addEventListener("click",()=>setRouteOpen(root.querySelector("#m2raceRouteCard").hidden));
     root.querySelector("#m2raceRouteClose").addEventListener("click",()=>setRouteOpen(false));
+    root.querySelector("#m2raceRequestStart").addEventListener("click", startAuthorization.request);
     root.querySelector("#m2raceStart").addEventListener("click",()=>{if(root.querySelector("#m2raceStart").disabled)return;root.querySelector("#m2raceStartConfirm").classList.add("open");});
     root.querySelector("#m2raceFinish").addEventListener("click",()=>{
       if(String(state.participant?.status||"").toLowerCase()==="finished"&&!state.finishConfirmed){
@@ -382,11 +384,10 @@
   }
   function clearListeners(){state.bindingEpoch+=1;try{state.unsubParticipant?.();}catch(_){}try{state.unsubActive?.();}catch(_){}state.unsubParticipant=null;state.unsubActive=null;state.liveBound=false;if(state.timer){clearInterval(state.timer);state.timer=null;}stopClassificationUpdates();}
   function close(){if(state.busy)return;controlsApi()?.closeScanner?.();ensureRoot().hidden=true;document.body.style.overflow="";window.dispatchEvent(new CustomEvent("militopo:v2-runner-race-closed",{detail:{event:state.event?{...state.event}:null,runId:state.runId,status:String(state.participant?.status||"")}}));}
+  const startAuthorization = globalThis.createRunnerStartAuthorization({el, raceToken, isCurrent, services});
   function syncStartGate(){
-    const btn=el("m2raceStart"),row=state.participant||{},st=String(row.status||"ready").toLowerCase();if(!btn||!["ready","not_started"].includes(st))return;
-    const routeReady=Boolean(row.routeId&&row.participantId),gpsReady=Boolean(state.gpsPrepared||gpsApi()?.snapshot?.().active);
-    btn.disabled=!routeReady||!gpsReady;
-    btn.textContent=!routeReady?"RECORRIDO NO DISPONIBLE":!gpsReady?"ACTIVA GPS PARA INICIAR":"INICIAR RECORRIDO";
+    const gpsReady = Boolean(state.gpsPrepared || gpsApi()?.snapshot?.().active);
+    startAuthorization.render(state.participant, gpsReady, state.runClosed);
   }
   function updateGpsUi(status,detail={}){
     const pill=el("m2raceGpsPill"),text=el("m2raceGpsText"),btn=el("m2raceGpsActivate");
@@ -396,7 +397,7 @@
     const fix=detail.fix||state.preStartFix||gpsApi()?.snapshot?.().lastSent||null;
     if(status==="ready"&&!racing){
       if(fix){state.gpsPrepared=true;state.preStartFix={...fix};}
-      pill.textContent="GPS LISTO";pill.classList.add("ok");text.textContent=fix?`Preparado · precisión ±${Math.round(Number(fix.accuracy||0))} m. Ya puedes iniciar.`:"GPS preparado. Ya puedes iniciar.";
+      pill.textContent="GPS LISTO";pill.classList.add("ok");text.textContent=fix?`Preparado · precisión ±${Math.round(Number(fix.accuracy||0))} m.`:"GPS preparado.";
     }else if(["active","watching","offline_active"].includes(status)||gpsApi()?.snapshot?.().active){
       pill.textContent=status==="offline_active"?"GPS · OFFLINE":"GPS ACTIVO";pill.classList.add(status==="offline_active"?"warn":"ok");
       text.textContent=status==="offline_active"?(detail.message||"Activo sin cobertura · track protegido localmente."):(fix?`Activo · precisión ±${Math.round(Number(fix.accuracy||0))} m.`:"GPS activo · buscando precisión…");
@@ -408,7 +409,7 @@
       pill.textContent="DETENIDO";text.textContent="GPS detenido.";if(!racing){state.gpsPrepared=false;state.preStartFix=null;btn.hidden=false;}
     }else{
       pill.textContent=state.gpsPrepared?"GPS LISTO":"SIN ACTIVAR";if(state.gpsPrepared)pill.classList.add("ok");
-      text.textContent=state.gpsPrepared?"GPS preparado. Ya puedes iniciar.":"Actívalo antes de iniciar el recorrido.";btn.hidden=Boolean(state.gpsPrepared||racing);btn.textContent="ACTIVAR GPS";
+      text.textContent=state.gpsPrepared?"GPS preparado.":"Actívalo antes de iniciar el recorrido.";btn.hidden=Boolean(state.gpsPrepared||racing);btn.textContent="ACTIVAR GPS";
     }
     syncStartGate();
   }
@@ -472,7 +473,7 @@
     if(discardConfirm&&!discardConfirm.hidden){const confirmed=String(discardConfirm.dataset.checkpointId||"").trim().toUpperCase(),current=String(next?.checkpointId||"").trim().toUpperCase();if(!confirmed||confirmed!==current){discardConfirm.hidden=true;discardConfirm.dataset.checkpointId="";}}
     if(!active&&!finished){
       if(kicker)kicker.textContent="SALIDA";nextEl.classList.remove("complete");nextEl.textContent="SALIDA";qrBtn.hidden=true;if(discardBtn)discardBtn.hidden=true;if(discardConfirm)discardConfirm.hidden=true;
-      statusEl.className="m2race-control-status "+(state.gpsPrepared?"ok":"warn");statusEl.textContent=state.gpsPrepared?"GPS preparado · pulsa INICIAR RECORRIDO para registrar la salida.":"GPS obligatorio · actívalo para habilitar INICIAR RECORRIDO.";return;
+      statusEl.className="m2race-control-status "+(state.gpsPrepared?"ok":"warn");statusEl.textContent=state.gpsPrepared?"GPS preparado.":"GPS obligatorio · actívalo para habilitar INICIAR RECORRIDO.";return;
     }
     if(finished){if(kicker)kicker.textContent="RECORRIDO";nextEl.textContent="FINALIZADO";nextEl.classList.add("complete");qrBtn.hidden=true;if(discardBtn)discardBtn.hidden=true;statusEl.className="m2race-control-status "+(state.finishConfirmed?"ok":"warn");statusEl.textContent=state.finishConfirmed?"Resultado registrado y sincronizado.":"Participación finalizada · confirma el resultado pendiente.";return;}
     const syncError=String(detail.message&&status==="sync_error"?detail.message:(snap.lastSyncError||""));
@@ -540,8 +541,8 @@
     state.unsubParticipant=null;state.unsubActive=null;
     const pRef=api.ref(`v2/live/${state.event.ownerUid}/${state.event.eventId}/runs/${state.runId}/participants/${state.auth.uid}`);
     const activeRef=api.ref(`v2/live/${state.event.ownerUid}/${state.event.eventId}/activeRun`);
-    state.unsubParticipant=api.onValue(pRef,snap=>{if(!isCurrent(token)||binding!==state.bindingEpoch)return;const remote=snap.val()||{};state.participant={...(state.participant||{}),...remote};render();});
-    state.unsubActive=api.onValue(activeRef,snap=>{if(!isCurrent(token)||binding!==state.bindingEpoch)return;const a=snap.val()||{};if(String(a.runId||"")!==token.context.runId)return;if(String(a.status||"")==="finished"){gpsApi()?.stop?.("event_finished").catch?.(()=>{});el("m2raceSyncTitle").textContent="Evento finalizado";el("m2raceSyncText").textContent="El organizador ha cerrado la sesión Live V2.";try{window.dispatchEvent(new CustomEvent("militopo:v2-race-event-finished",{detail:{event:state.event?{...state.event}:null,runId:state.runId}}));}catch(_){}if(String(state.participant?.status||"")!=="finished"){el("m2raceStart").disabled=true;el("m2raceFinish").disabled=true;}}});
+    state.unsubParticipant=api.onValue(pRef,snap=>{if(!isCurrent(token)||binding!==state.bindingEpoch)return;const remote=snap.val()||{};state.participant=snap.exists()?{...(state.participant||{}),...remote,startAuthorization:remote.startAuthorization||null}:null;render();});
+    state.unsubActive=api.onValue(activeRef,snap=>{if(!isCurrent(token)||binding!==state.bindingEpoch)return;const a=snap.val()||{};state.runClosed=String(a.runId||"")!==token.context.runId||a.status!=="active";syncStartGate();if(String(a.runId||"")!==token.context.runId)return;if(String(a.status||"")==="finished"){gpsApi()?.stop?.("event_finished").catch?.(()=>{});el("m2raceSyncTitle").textContent="Evento finalizado";el("m2raceSyncText").textContent="El organizador ha cerrado la sesión Live V2.";try{window.dispatchEvent(new CustomEvent("militopo:v2-race-event-finished",{detail:{event:state.event?{...state.event}:null,runId:state.runId}}));}catch(_){}if(String(state.participant?.status||"")!=="finished"){el("m2raceStart").disabled=true;el("m2raceFinish").disabled=true;}}});
     state.liveBound=true;return true;
   }
   async function restoreLocalRace(snapshot){
@@ -603,7 +604,7 @@
   }
 
   async function open(detail){
-    state.epoch+=1;clearListeners();state.event=detail?.event||null;state.auth=detail?.auth||null;state.runId=String(detail?.runId||"");state.recovered=Boolean(detail?.recovered);state.gpsTried=false;state.gpsPrepared=false;state.preStartFix=null;state.controlPlan=null;state.participant=null;state.localArrivalAt=0;state.autoFinishing=false;state.summaryOpen=false;state.finishConfirmed=false;state.finishRetryCount=0;state.offlineRecovered=false;state.reconnectPromise=null;
+    state.epoch+=1;state.runClosed=false;clearListeners();state.event=detail?.event||null;state.auth=detail?.auth||null;state.runId=String(detail?.runId||"");state.recovered=Boolean(detail?.recovered);state.gpsTried=false;state.gpsPrepared=false;state.preStartFix=null;state.controlPlan=null;state.participant=null;state.localArrivalAt=0;state.autoFinishing=false;state.summaryOpen=false;state.finishConfirmed=false;state.finishRetryCount=0;state.offlineRecovered=false;state.reconnectPromise=null;
     if(!state.event||!state.auth||!state.runId)return;
     const token=raceToken(),recovery=detail?.recoverySnapshot||null;
     const root=ensureRoot();unbusy();root.hidden=false;document.body.style.overflow="hidden";el("m2raceStartConfirm").classList.remove("open");el("m2raceRouteCard").hidden=true;el("m2raceRouteToggle").textContent="VER RECORRIDO";el("m2raceTitle").textContent=state.event.eventName||"Carrera";el("m2raceDescription").textContent=String(state.event.description||"").trim().slice(0,500);el("m2raceDescription").hidden=!el("m2raceDescription").textContent;el("m2raceEvent").innerHTML=`<strong>${esc(state.auth.displayName||state.auth.username||"Corredor")}</strong> · ${esc(state.event.eventId||"")}`;el("m2raceSyncTitle").textContent=state.recovered?"Recuperando carrera":"Sincronización activa";el("m2raceSyncText").textContent=state.recovered?(navigator.onLine===false?"Restaurando la carrera desde este dispositivo…":"Reconectando con tu sesión Live V2…"):"Conectando a la sesión Live V2…";updateGpsUi("idle");updateTrackUi("ready");
@@ -646,6 +647,7 @@
   }
   async function startRace(){
     const token=raceToken();
+    if (state.runClosed || (state.participant?.startAuthorization?.status !== "approved" && !["started","racing"].includes(state.participant?.status))) return;
     if(state.busy)return;
     const api=gpsApi(),snap=api?.snapshot?.()||{};
     if(!state.gpsPrepared&&!snap.active){

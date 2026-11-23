@@ -156,6 +156,11 @@ function ensurePanel() {
       <div class="m2-f2c-metric"><strong id="m2F2CFinished">0</strong><span>FINALIZADOS</span></div>
     </div>
     <div id="m2F2CRun" class="m2-f2c-run">Sin sesión de seguimiento cargada.</div>
+    <section id="m2StartPermissions" tabindex="-1" hidden>
+      <h3>Autorizar salidas</h3>
+      <p>Autoriza a cada corredor cuando pueda salir. El tiempo empieza cuando confirme en su móvil.</p>
+      <div id="m2StartRows"></div><p id="m2StartFeedback" role="status"></p>
+    </section>
     <div class="m2-f2c-table-wrap">
       <table class="m2-f2c-table">
         <thead><tr><th>PARTICIPANTE</th><th>ESTADO</th><th>PROGRESO</th><th>PUNTOS PENDIENTES</th><th>PUNTOS DESCARTADOS</th><th>TIEMPO OFICIAL</th><th>PENALIZACIÓN CONTROLES</th><th>TIEMPO REAL</th><th>ÚLTIMA SINCRONIZACIÓN</th><th>HORA SALIDA</th><th>HORA LLEGADA</th></tr></thead>
@@ -167,6 +172,7 @@ function ensurePanel() {
     const nav = step.querySelector(".nav-row");
     if (nav) nav.insertAdjacentElement("beforebegin", panel); else step.appendChild(panel);
   }
+  panel.querySelector("#m2StartPermissions").addEventListener("click", approveStart);
   state.panel = panel;
   render();
   return panel;
@@ -235,6 +241,55 @@ function liveSignal(row, participantStatus, runStatus, eventStatus, runId, now =
   const online = row.online === true && fresh;
   return { visible: true, online, label: online ? "● EN LÍNEA" : "○ SIN CONEXIÓN" };
 }
+const approvalsInFlight = new Set();
+let approvalListKey = "";
+let approvalContext = "";
+
+async function approveStart(event) {
+  const button = event.target.closest("button[data-approve]");
+  if (!button || button.disabled || !canManage()) return;
+  const {eventId, runId} = state;
+  const uid = button.dataset.approve;
+  const key = JSON.stringify([eventId, runId, uid]);
+  if (approvalsInFlight.has(key)) return;
+  approvalsInFlight.add(key);
+  render();
+  const feedback = state.panel.querySelector("#m2StartFeedback");
+  feedback.textContent = "";
+  try {
+    const svc = await services();
+    await svc.callable("liveStartAuthorization", {action:"approve", eventId, expectedRunId:runId, participantUid:uid});
+    if (eventId === state.eventId && runId === state.runId) feedback.textContent = "Salida autorizada.";
+  } catch (error) {
+    if (eventId === state.eventId && runId === state.runId) feedback.textContent = error.message || "No se pudo autorizar la salida.";
+  } finally { approvalsInFlight.delete(key); render(); }
+}
+
+function renderApprovals(panel, rows) {
+  const section = panel.querySelector("#m2StartPermissions");
+  section.hidden = !canManage() || !state.runId || state.runStatus !== "active";
+  const context = JSON.stringify([state.eventId, state.runId, state.auth?.uid]);
+  if (context !== approvalContext) {
+    approvalContext = context;
+    panel.querySelector("#m2StartFeedback").textContent = "";
+  }
+  const list = section.hidden ? [] : rows.filter(row => ["ready", "not_started"].includes(normalizedStatus(row)));
+  const priority = row => ({pending:0, approved:2}[row.startAuthorization?.status] ?? 1);
+  list.sort((a,b) => priority(a) - priority(b));
+  section.dataset.requests = String(list.filter(row => priority(row) === 0).length);
+  const markup = list.map(row => {
+    const approved = priority(row) === 2;
+    const pending = priority(row) === 0;
+    const busy = approvalsInFlight.has(JSON.stringify([state.eventId, state.runId, row.uid]));
+    const name = row.displayName || row.username || row.participantId || row.uid;
+    return `<div class="m2-start-row"><div><strong>${esc(name)}</strong><small>${esc([row.participantId, row.routeId].filter(Boolean).join(" · "))} · ${approved ? "Autorizado" : pending ? "Solicita salir" : "Sin solicitud"}</small></div><button type="button" data-approve="${esc(row.uid)}" aria-label="Autorizar salida de ${esc(name)}" ${approved || busy ? "disabled" : ""}>${approved ? "✓ Autorizado" : busy ? "Autorizando…" : "Autorizar"}</button></div>`;
+  }).join("") || "<p>No hay corredores pendientes de salida.</p>";
+  if (markup !== approvalListKey || !panel.querySelector("#m2StartRows").hasChildNodes()) {
+    approvalListKey = markup;
+    panel.querySelector("#m2StartRows").innerHTML = markup;
+  }
+}
+
 function render() {
   const panel = ensurePanel();
   if (!panel) return;
@@ -242,12 +297,13 @@ function render() {
   const message = panel.querySelector("#m2F2CMessage");
   const run = panel.querySelector("#m2F2CRun");
   const body = panel.querySelector("#m2F2CBody");
+  const rows = participantRows();
+  renderApprovals(panel, rows);
   if (!canManage()) {
     chip.textContent = "SIN PERMISOS";
     message.textContent = "Se necesita una cuenta verificada de ORGANIZADOR o SÚPER ADMINISTRADOR.";
     return;
   }
-  const rows = participantRows();
   const pending = rows.filter(r => ["not_started","ready"].includes(normalizedStatus(r))).length;
   const racing = rows.filter(r => normalizedStatus(r) === "racing").length;
   const finished = rows.filter(r => normalizedStatus(r) === "finished").length;

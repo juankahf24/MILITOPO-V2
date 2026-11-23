@@ -2,7 +2,7 @@
    Base seleccionable: MAPANT / IGN / AÉREO / PLANO CARRERA.
    Las capas Live (balizas, corredores y trazas) permanecen por encima al cambiar de fondo. */
 import "../bootstrap.js";
-import "../maps/runner-marker.js?v=2.0.74";
+import "../maps/runner-marker.js?v=2.0.75";
 import { collection, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
 
