@@ -9912,8 +9912,9 @@ async function applyMilitopoCloudRecoveredEvent(detail){
     if(saveState()===false)throw new Error("No se pudo guardar una copia local del evento actual. Libera espacio antes de abrir otro evento.");
     try{
         const savedAt=new Date().toISOString();
-        const durablePayload={savedAt,currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:cloneStateForCompactSave(),compact:true};
-        await withOrganizerTimeout(persistDurableOrganizerState(durablePayload),2200,"Copia duradera previa a recuperación nube");
+        const source=cloneStateForSave();
+        const durablePayload={savedAt,currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:compactOrganizerState(source),compact:true};
+        await withOrganizerTimeout(persistDurableOrganizerState(durablePayload,source.importedResults),2200,"Copia duradera previa a recuperación nube");
     }catch(error){
         console.warn("MILITOPO C3 · no se pudo reforzar la copia IndexedDB previa",error);
     }
@@ -10260,33 +10261,41 @@ function durableTrackSignature(track){
     const last=list[list.length-1]||{};
     return `${list.length}:${String(last.t||last.time||last.timestamp||"")}:${Number(last.lat)||0}:${Number(last.lon||last.lng)||0}`;
 }
-async function persistDurableOrganizerState(payload){
-    if(!payload?.state?.eventId)return false;
-    const eventId=String(payload.state.eventId);
+async function persistDurableOrganizerState(compact,results){
+    if(!compact?.state?.eventId)return false;
+    const eventId=String(compact.state.eventId);
     const db=await openDurableOrganizerDb();
+    const writes=new Map();
     try{
-        const compact=JSON.parse(JSON.stringify(payload));
         const tx=db.transaction([DURABLE_ORGANIZER_EVENT_STORE,DURABLE_ORGANIZER_TRACK_STORE],"readwrite");
         tx.objectStore(DURABLE_ORGANIZER_EVENT_STORE).put({eventId,savedAt:compact.savedAt,currentStep:compact.currentStep,selectedIofPointId:compact.selectedIofPointId||"START",state:compact.state});
         const trackStore=tx.objectStore(DURABLE_ORGANIZER_TRACK_STORE);
-        (state.importedResults||[]).forEach(result=>{
+        results.forEach(result=>{
             const pid=String(result?.participantId||"");
             const track=Array.isArray(result?.track)&&result.track.length?result.track:(Array.isArray(result?.gpsTrack)?result.gpsTrack:[]);
             if(!pid||!track.length)return;
             const id=`${eventId}:${pid}`;
             const sig=durableTrackSignature(track);
             if(__durableTrackSignatures.get(id)===sig)return;
-            __durableTrackSignatures.set(id,sig);
+            writes.set(id,sig);
+            __durableTrackSignatures.set(id,writes);
             trackStore.put({id,eventId,participantId:pid,track,trackPointCount:track.length,savedAt:compact.savedAt});
         });
         await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error("No se pudo guardar el archivo duradero"));tx.onabort=()=>reject(tx.error||new Error("Se canceló el guardado duradero"));});
+        for(const [id,sig] of writes){
+            if(__durableTrackSignatures.get(id)===writes)__durableTrackSignatures.set(id,sig);
+        }
         return true;
+    }catch(error){
+        for(const id of writes.keys()){
+            if(__durableTrackSignatures.get(id)===writes)__durableTrackSignatures.delete(id);
+        }
+        throw error;
     }finally{try{db.close()}catch(_){}}
 }
-function scheduleDurableOrganizerState(payload){
+function scheduleDurableOrganizerState(snapshot,results){
     clearTimeout(__durableSaveTimer);
-    const snapshot=JSON.parse(JSON.stringify(payload));
-    __durableSaveTimer=setTimeout(()=>persistDurableOrganizerState(snapshot).catch(error=>console.warn("Copia duradera del organizador",error)),350);
+    __durableSaveTimer=setTimeout(()=>persistDurableOrganizerState(snapshot,results).catch(error=>console.warn("Copia duradera del organizador",error)),350);
 }
 async function readDurableOrganizerState(eventId=""){
     const db=await openDurableOrganizerDb();
@@ -10476,8 +10485,8 @@ function cloneStateForSave(){
     return copy;
 }
 
-function cloneStateForCompactSave(){
-    const copy=cloneStateForSave();
+function compactOrganizerState(snapshot){
+    const copy={...snapshot};
     copy.importedResults=(copy.importedResults||[]).map(result=>{
         const next={...result};
         const track=Array.isArray(next.track)&&next.track.length?next.track:(Array.isArray(next.gpsTrack)?next.gpsTrack:[]);
@@ -10502,18 +10511,19 @@ function saveState(){
         saveCurrentStepNow();
         const savedAt=new Date().toISOString();
         const payload={savedAt,currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:cloneStateForSave()};
-        const compactPayload={savedAt,currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:cloneStateForCompactSave(),compact:true};
+        const compactPayload={savedAt,currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:compactOrganizerState(payload.state),compact:true};
         const raw=JSON.stringify(payload),compactRaw=JSON.stringify(compactPayload);
         const mainOk=safeStorageWrite(localStorage,STORAGE_KEY_MAIN,raw);
         const backupOk=safeStorageWrite(localStorage,STORAGE_KEY_BACKUP,compactRaw);
         const sessionOk=safeStorageWrite(sessionStorage,STORAGE_KEY_SESSION,raw)||safeStorageWrite(sessionStorage,STORAGE_KEY_SESSION,compactRaw);
         // El legado y window.name son copias ligeras: así un track grande no puede
         // dejar sin espacio los datos de resultados, estados y salidas.
-        safeStorageWrite(localStorage,STORAGE_KEY_LEGACY,JSON.stringify(compactPayload.state));
-        safeStorageWrite(sessionStorage,STORAGE_KEY_LEGACY,JSON.stringify(compactPayload.state));
+        const legacyRaw=JSON.stringify(compactPayload.state);
+        safeStorageWrite(localStorage,STORAGE_KEY_LEGACY,legacyRaw);
+        safeStorageWrite(sessionStorage,STORAGE_KEY_LEGACY,legacyRaw);
         try{window.name=WINDOW_NAME_PREFIX+compactRaw}catch(e){}
         safeStorageWrite(localStorage,"militopo_v2_orientacion_restore_probe_v2",JSON.stringify({savedAt,eventId:state.eventId,currentStep:currentAppStep}));
-        scheduleDurableOrganizerState(compactPayload);
+        scheduleDurableOrganizerState(compactPayload,payload.state.importedResults);
         if(!(mainOk||backupOk||sessionOk)){
             setRestoreStatus("⚠️ El navegador no ha podido guardar el estado local. Libera espacio antes de continuar.","err");
             return false;
@@ -10649,9 +10659,10 @@ async function prepareFreshOrganizerEvent(previousEventId, options={}){
     const preserveSourceDurable=options.preserveSourceDurable===true;
     if(preserveSourceDurable){
         if(!saveState())throw new Error("No se pudo guardar la carrera de origen antes de reutilizarla.");
-        const snapshot={savedAt:new Date().toISOString(),currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:cloneStateForCompactSave(),compact:true};
+        const source=cloneStateForSave();
+        const snapshot={savedAt:new Date().toISOString(),currentStep:currentAppStep,selectedIofPointId:selectedIofPointId||"START",state:compactOrganizerState(source),compact:true};
         try{
-            const persisted=await withOrganizerTimeout(persistDurableOrganizerState(snapshot),2200,"Copia duradera de origen");
+            const persisted=await withOrganizerTimeout(persistDurableOrganizerState(snapshot,source.importedResults),2200,"Copia duradera de origen");
             if(persisted!==true)throw new Error("No se confirmó la copia duradera de origen.");
         }catch(error){throw new Error("No se pudo proteger la carrera original: "+String(error?.message||error));}
     }
